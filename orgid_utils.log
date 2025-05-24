@@ -1,0 +1,14 @@
+2025-05-18 22:10:36,617 - orgid_utils - INFO - 从本地映射表中获取到 002415 的组织ID: 9900012688
+2025-05-18 22:10:39,780 - undetected_chromedriver.patcher - INFO - patching driver executable C:\Users\zheng\appdata\roaming\undetected_chromedriver\undetected_chromedriver.exe
+2025-05-18 22:14:22,957 - orgid_utils - INFO - 从已知映射表中找到 002415 的组织ID: 9900002415
+2025-05-18 22:14:24,026 - orgid_utils - ERROR - 从自动完成接口获取公司名称时发生错误: 404 Client Error: 404 for url: http://www.cninfo.com.cn/new/information/autocomplete?key=002415&marketType= (尝试 1/3)
+2025-05-18 22:14:25,121 - orgid_utils - ERROR - 从自动完成接口获取公司名称时发生错误: 404 Client Error: 404 for url: http://www.cninfo.com.cn/new/information/autocomplete?key=002415&marketType= (尝试 2/3)
+2025-05-18 22:14:26,665 - orgid_utils - ERROR - 从自动完成接口获取公司名称时发生错误: 404 Client Error: 404 for url: http://www.cninfo.com.cn/new/information/autocomplete?key=002415&marketType= (尝试 3/3)
+2025-05-18 22:14:40,599 - orgid_utils - WARNING - 从搜索页面未找到 002415 的公司名称 (尝试 1/3)
+2025-05-18 22:14:49,193 - orgid_utils - WARNING - 从搜索页面未找到 002415 的公司名称 (尝试 2/3)
+2025-05-18 22:14:57,058 - orgid_utils - WARNING - 从搜索页面未找到 002415 的公司名称 (尝试 3/3)
+2025-05-18 22:14:58,648 - orgid_utils - WARNING - 未能获取 002415 的公司名称，使用默认名称: 未知公司(002415)
+2025-05-18 22:14:59,223 - orgid_utils - WARNING - 组织ID 9900002415 验证失败，未找到公告
+2025-05-18 22:14:59,228 - orgid_utils - WARNING - 组织ID 9900002415 验证失败，可能不准确
+2025-05-18 22:15:06,029 - undetected_chromedriver.patcher - INFO - patching driver executable C:\Users\zheng\appdata\roaming\undetected_chromedriver\undetected_chromedriver.exe
+2025-05-18 22:17:14,069 - uc - INFO - ensuring close
