@@ -29,6 +29,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
+# 尝试导入psutil，如果不可用则忽略
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -56,6 +63,8 @@ class CninfoDownloader:
         self.driver = None
         self.download_count = 0  # 下载计数器
         self.max_downloads_per_session = 5  # 每个会话最大下载数
+        self.webdriver_process_id = None  # WebDriver进程ID
+        self.chromedriver_process_id = None  # ChromeDriver进程ID
         
         # 创建保存目录
         if not os.path.exists(save_dir):
@@ -128,12 +137,15 @@ class CninfoDownloader:
                 try:
                     logger.info(f"正在初始化WebDriver (尝试 {attempt + 1}/{max_attempts})...")
                     
-                    # 清理可能存在的僵尸进程
-                    self._cleanup_chrome_processes()
+                    # 清理可能存在的僵尸进程（只清理之前的WebDriver进程）
+                    self._cleanup_webdriver_processes()
                     
                     self.driver = webdriver.Chrome(options=chrome_options)
                     self.driver.set_page_load_timeout(30)
                     self.driver.implicitly_wait(10)
+                    
+                    # 记录WebDriver相关进程ID
+                    self._record_webdriver_processes()
                     
                     # 执行反检测脚本
                     self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -168,35 +180,154 @@ class CninfoDownloader:
             logger.error(f"WebDriver初始化失败: {e}")
             return False
     
-    def _cleanup_chrome_processes(self):
-        """清理可能存在的Chrome僵尸进程"""
+    def _cleanup_webdriver_processes(self):
+        """清理WebDriver相关进程，不影响用户正在使用的Chrome浏览器"""
         try:
             import subprocess
             import platform
             
-            if platform.system() == "Windows":
-                # Windows系统清理Chrome进程
+            logger.debug("开始清理WebDriver相关进程...")
+            
+            # 清理之前记录的WebDriver进程
+            if self.webdriver_process_id:
                 try:
-                    subprocess.run(['taskkill', '/f', '/im', 'chrome.exe'], 
-                                 capture_output=True, timeout=10)
-                    subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
-                                 capture_output=True, timeout=10)
+                    if platform.system() == "Windows":
+                        subprocess.run(['taskkill', '/f', '/pid', str(self.webdriver_process_id)], 
+                                     capture_output=True, timeout=5)
+                    else:
+                        subprocess.run(['kill', '-9', str(self.webdriver_process_id)], 
+                                     capture_output=True, timeout=5)
+                    logger.debug(f"已清理WebDriver进程: {self.webdriver_process_id}")
                 except Exception:
                     pass
+                finally:
+                    self.webdriver_process_id = None
+            
+            if self.chromedriver_process_id:
+                try:
+                    if platform.system() == "Windows":
+                        subprocess.run(['taskkill', '/f', '/pid', str(self.chromedriver_process_id)], 
+                                     capture_output=True, timeout=5)
+                    else:
+                        subprocess.run(['kill', '-9', str(self.chromedriver_process_id)], 
+                                     capture_output=True, timeout=5)
+                    logger.debug(f"已清理ChromeDriver进程: {self.chromedriver_process_id}")
+                except Exception:
+                    pass
+                finally:
+                    self.chromedriver_process_id = None
+            
+            # 使用psutil精确查找WebDriver相关进程（如果可用）
+            if PSUTIL_AVAILABLE:
+                try:
+                    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                        try:
+                            proc_info = proc.info
+                            if not proc_info['cmdline']:
+                                continue
+                            
+                            cmdline = ' '.join(proc_info['cmdline'])
+                            
+                            # 识别WebDriver启动的Chrome进程特征
+                            webdriver_indicators = [
+                                '--test-type',
+                                '--disable-extensions',
+                                '--disable-dev-shm-usage',
+                                '--no-sandbox',
+                                '--remote-debugging-port',
+                                '--disable-gpu',
+                                'chromedriver'
+                            ]
+                            
+                            # 如果进程名是chrome或chromedriver，且命令行包含WebDriver特征
+                            if (proc_info['name'] and 
+                                ('chrome' in proc_info['name'].lower() or 'chromedriver' in proc_info['name'].lower())):
+                                
+                                # 检查是否是WebDriver启动的进程
+                                is_webdriver_process = any(indicator in cmdline for indicator in webdriver_indicators)
+                                
+                                if is_webdriver_process:
+                                    try:
+                                        proc.terminate()
+                                        proc.wait(timeout=3)
+                                        logger.debug(f"已清理WebDriver相关进程: {proc_info['pid']} - {proc_info['name']}")
+                                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
+                                        try:
+                                            proc.kill()
+                                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                            pass
+                        
+                        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                            continue
+                            
+                except Exception as e:
+                    logger.debug(f"使用psutil清理进程时发生错误: {e}")
             else:
-                # Linux/Mac系统清理Chrome进程
+                # 如果没有psutil，只清理chromedriver进程
+                logger.debug("psutil不可用，只清理chromedriver进程")
                 try:
-                    subprocess.run(['pkill', '-f', 'chrome'], 
-                                 capture_output=True, timeout=10)
-                    subprocess.run(['pkill', '-f', 'chromedriver'], 
-                                 capture_output=True, timeout=10)
+                    if platform.system() == "Windows":
+                        subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
+                                     capture_output=True, timeout=5)
+                    else:
+                        subprocess.run(['pkill', '-f', 'chromedriver'], 
+                                     capture_output=True, timeout=5)
                 except Exception:
                     pass
-                    
+            
             time.sleep(1)  # 等待进程完全结束
+            logger.debug("WebDriver进程清理完成")
             
         except Exception as e:
-            logger.debug(f"清理Chrome进程时发生错误: {e}")
+            logger.debug(f"清理WebDriver进程时发生错误: {e}")
+    
+    def _record_webdriver_processes(self):
+        """记录WebDriver相关进程ID"""
+        try:
+            if not PSUTIL_AVAILABLE:
+                logger.debug("psutil不可用，跳过进程ID记录")
+                return
+            
+            # 尝试通过WebDriver对象获取进程信息
+            if hasattr(self.driver, 'service') and hasattr(self.driver.service, 'process'):
+                try:
+                    # 记录ChromeDriver进程ID
+                    self.chromedriver_process_id = self.driver.service.process.pid
+                    logger.debug(f"记录ChromeDriver进程ID: {self.chromedriver_process_id}")
+                except Exception:
+                    pass
+            
+            # 查找与当前WebDriver相关的Chrome进程
+            try:
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'ppid']):
+                    try:
+                        proc_info = proc.info
+                        if not proc_info['cmdline']:
+                            continue
+                        
+                        cmdline = ' '.join(proc_info['cmdline'])
+                        
+                        # 查找包含WebDriver特征的Chrome进程
+                        if (proc_info['name'] and 'chrome' in proc_info['name'].lower() and
+                            any(indicator in cmdline for indicator in [
+                                '--test-type', '--disable-extensions', '--remote-debugging-port'
+                            ])):
+                            
+                            # 如果是ChromeDriver的子进程，记录为WebDriver进程
+                            if (self.chromedriver_process_id and 
+                                proc_info['ppid'] == self.chromedriver_process_id):
+                                self.webdriver_process_id = proc_info['pid']
+                                logger.debug(f"记录WebDriver Chrome进程ID: {self.webdriver_process_id}")
+                                break
+                    
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        continue
+                        
+            except Exception as e:
+                logger.debug(f"查找WebDriver Chrome进程时发生错误: {e}")
+                    
+        except Exception as e:
+            logger.debug(f"记录WebDriver进程ID时发生错误: {e}")
     
     def close_driver(self):
         """关闭WebDriver"""

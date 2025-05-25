@@ -36,6 +36,7 @@ StockInfoDownloader/
 - **会话管理**：定期重启浏览器避免长时间会话被检测
 - **智能重试**：失败时自动重试，每次重试都重新初始化环境
 - **反检测设置**：禁用自动化标识，增强隐蔽性
+- **🆕 精确进程清理**：只清理WebDriver相关进程，不影响用户正在使用的Chrome浏览器
 
 #### 技术细节
 ```python
@@ -48,7 +49,19 @@ self.simulate_human_behavior()  # 随机滚动和鼠标移动
 # 会话管理
 if self.download_count >= self.max_downloads_per_session:
     self.restart_driver()  # 重启浏览器
+
+# 精确进程清理（新增）
+self._cleanup_webdriver_processes()  # 只清理WebDriver进程，保护用户浏览器
 ```
+
+#### 🔧 WebDriver进程清理优化
+- **问题**：之前的版本在重启WebDriver时会关闭所有Chrome进程，影响用户正在使用的浏览器
+- **解决方案**：
+  - 使用`psutil`库精确识别WebDriver启动的Chrome进程
+  - 通过命令行参数特征区分WebDriver进程和普通浏览器进程
+  - 只清理包含`--test-type`、`--disable-extensions`等WebDriver特征的进程
+  - 记录并跟踪WebDriver进程ID，实现精确清理
+- **效果**：WebDriver重启不再影响用户正在浏览的网页
 
 ### 核心模块
 

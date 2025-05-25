@@ -1,0 +1,10 @@
+# 股票信息下载器运行时依赖
+
+# WebDriver依赖
+selenium>=4.0.0
+
+# 进程管理（推荐，用于精确的WebDriver进程清理）
+psutil>=5.8.0
+
+# 其他可能需要的依赖
+requests>=2.25.0 
