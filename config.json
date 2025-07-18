@@ -1,5 +1,17 @@
 {
-  "stock_code": "002415",
+  "stock_code": "300416",
   "save_dir": "downloads",
-  "headless": true
+  "headless": true,
+  "download_type": "financial_reports",
+  "report_types": ["annual", "semi_annual", "q1", "q3"],
+  "years": [2020, 2021, 2022, 2023, 2024],
+  "max_reports": 50,
+  "overwrite_existing": false,
+  "financial_reports": {
+    "enabled": true,
+    "report_types": ["annual", "semi_annual", "q1", "q3"],
+    "years_range": [2020, 2024],
+    "auto_rename": true,
+    "create_subdirs": true
+  }
 } 
