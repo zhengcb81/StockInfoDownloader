@@ -1,7 +1,24 @@
 {
-  "stock_code": "002050",
+  "stock_code": "301611",
   "save_dir": "downloads",
   "headless": true,
   "max_retries": 3,
-  "use_dynamic_delay": true
+  "use_dynamic_delay": true,
+  "pages": [
+    {
+      "name": "调研",
+      "suffix": "research",
+      "allowed_keywords": null
+    },
+    {
+      "name": "定期公告",
+      "suffix": "periodicReports",
+      "allowed_keywords": null
+    },
+    {
+      "name": "最新公告",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": ["招股说明书"]
+    }
+  ]
 } 

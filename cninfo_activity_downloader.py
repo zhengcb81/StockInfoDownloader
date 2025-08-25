@@ -408,7 +408,7 @@ class CninfoDownloader:
         except Exception as e:
             logger.debug(f"模拟人类行为时发生错误: {e}")
     
-    def download_activity_records(self, stock_code, org_id=None, headless=True, max_retries=3):
+    def download_activity_records(self, stock_code, org_id=None, headless=True, max_retries=3, suffix='', allowed_keywords=None):
         """
         下载投资者关系活动记录表
         
@@ -417,6 +417,8 @@ class CninfoDownloader:
             org_id: 组织ID，如果为None则自动获取
             headless: 是否使用无头模式
             max_retries: 最大重试次数
+            suffix: 页面后缀，如research、periodicReports等
+            allowed_keywords: 允许的关键词列表，None表示不过滤
             
         返回:
             bool: 下载是否成功
@@ -434,12 +436,13 @@ class CninfoDownloader:
         
         try:
             # 构造访问URL
-            url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
+            target_suffix = suffix if suffix else 'research'  # 默认使用research后缀
+            url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#{target_suffix}"
             
             # 访问页面
             self.driver.get(url)
             self.dynamic_delay(5, 10)  # 动态等待页面加载
-            logger.info('页面加载完成')
+            logger.info(f'页面加载完成，后缀: {target_suffix}')
             
             # 获取股票名称并创建子目录
             stock_name = get_stock_name(stock_code, self.mapping_file)
@@ -451,7 +454,14 @@ class CninfoDownloader:
             os.makedirs(stock_dir, exist_ok=True)
             
             # 分页下载
-            return self._download_all_pages(driver=self.driver, stock_code=stock_code, stock_dir=stock_dir, headless=headless, max_retries=max_retries)
+            return self._download_all_pages(
+                driver=self.driver, 
+                stock_code=stock_code, 
+                stock_dir=stock_dir, 
+                headless=headless, 
+                max_retries=max_retries,
+                allowed_keywords=allowed_keywords
+            )
             
         except Exception as e:
             logger.error(f"页面加载异常: {e}")
@@ -459,7 +469,7 @@ class CninfoDownloader:
         finally:
             self.close_driver()
     
-    def _download_all_pages(self, driver, stock_code, stock_dir, headless=True, max_retries=3):
+    def _download_all_pages(self, driver, stock_code, stock_dir, headless=True, max_retries=3, allowed_keywords=None):
         """下载所有页面的投资者关系活动记录表"""
         page_num = 1
         total_downloaded = 0
@@ -494,7 +504,7 @@ class CninfoDownloader:
             self.simulate_human_behavior()
             
             # 查找当前页面的下载链接
-            detail_infos = self._find_download_links(driver, stock_code, stock_dir)
+            detail_infos = self._find_download_links(driver, stock_code, stock_dir, allowed_keywords)
             
             if not detail_infos:
                 logger.info(f"第{page_num}页未找到目标链接")
@@ -554,7 +564,7 @@ class CninfoDownloader:
         except Exception as e:
             logger.error(f"导航到第{target_page}页失败: {e}")
     
-    def _find_download_links(self, driver, stock_code, stock_dir):
+    def _find_download_links(self, driver, stock_code, stock_dir, allowed_keywords=None):
         """查找当前页面的下载链接"""
         detail_infos = []
         
@@ -574,6 +584,14 @@ class CninfoDownloader:
                     # 检查是否是详情页链接（下载所有文档）
                     if (href and '/new/disclosure/detail' in href
                         and f'stockCode={stock_code}' in href):
+                        
+                        # 关键词过滤逻辑
+                        if allowed_keywords:
+                            # 检查文件名是否包含允许的关键词
+                            keyword_match = any(keyword in text for keyword in allowed_keywords)
+                            if not keyword_match:
+                                logger.debug(f"[跳过] 文件名不包含关键词: {text}")
+                                continue
                         
                         file_name = f"{self.clean_filename(text)}.pdf"
                         save_path = os.path.join(stock_dir, file_name)
@@ -787,19 +805,48 @@ def main():
     logger.info(f"开始处理股票代码: {stock_code}")
     logger.info(f"配置参数: 最大重试次数={max_retries}, 动态延迟={use_dynamic_delay}")
     
-    # 创建下载器并开始下载
+    # 创建下载器
     downloader = CninfoDownloader(save_dir=save_dir)
     
     # 设置动态延迟标志
     if use_dynamic_delay:
         logger.info("启用动态延迟机制")
     
-    success = downloader.download_activity_records(stock_code, headless=headless, max_retries=max_retries)
+    # 处理多个页面配置
+    pages = config.get('pages', [])
+    total_success = False
     
-    if success:
-        logger.info("下载任务完成")
+    if pages:
+        logger.info(f"发现 {len(pages)} 个页面配置，开始逐个处理")
+        for page_config in pages:
+            page_name = page_config.get('name', '未知页面')
+            suffix = page_config.get('suffix', '')
+            allowed_keywords = page_config.get('allowed_keywords')
+            
+            logger.info(f"开始处理页面: {page_name} (suffix: {suffix})")
+            if allowed_keywords:
+                logger.info(f"关键词过滤: {allowed_keywords}")
+            
+            success = downloader.download_activity_records(
+                stock_code, 
+                headless=headless, 
+                max_retries=max_retries,
+                suffix=suffix,
+                allowed_keywords=allowed_keywords
+            )
+            total_success = total_success or success
+            
+            # 页面间延迟
+            downloader.random_delay(3, 8)
     else:
-        logger.error("下载任务失败")
+        # 向后兼容：如果没有页面配置，使用默认行为
+        logger.info("使用默认下载行为")
+        total_success = downloader.download_activity_records(stock_code, headless=headless, max_retries=max_retries)
+    
+    if total_success:
+        logger.info("所有下载任务完成")
+    else:
+        logger.error("部分或全部下载任务失败")
         sys.exit(1)
 
 if __name__ == "__main__":
