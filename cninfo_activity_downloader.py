@@ -257,6 +257,12 @@ class CninfoDownloader:
         logger.debug(f"随机延迟 {delay:.2f} 秒")
         time.sleep(delay)
     
+    def smart_delay(self, min_seconds=2, max_seconds=8):
+        """智能延迟，根据配置选择使用动态或随机延迟"""
+        # 这里可以根据配置决定使用哪种延迟方式
+        # 目前默认使用动态延迟
+        self.dynamic_delay(min_seconds, max_seconds)
+    
     def _is_driver_healthy(self):
         """检查driver是否健康"""
         try:
@@ -271,23 +277,133 @@ class CninfoDownloader:
             logger.debug(f"Driver健康检查失败: {e}")
             return False
     
-    def simulate_human_behavior(self):
-        """模拟人类行为"""
+    def dynamic_delay(self, base_min=2, base_max=8):
+        """动态延迟，根据下载次数调整延迟时间"""
+        # 下载次数越多，延迟越长
+        delay_factor = 1 + (self.download_count / 20)
+        min_delay = base_min * delay_factor
+        max_delay = base_max * delay_factor
+        
+        delay = random.uniform(min_delay, max_delay)
+        logger.debug(f"动态延迟 {delay:.2f} 秒 (因子: {delay_factor:.2f})")
+        time.sleep(delay)
+    
+    def simulate_real_mouse_movement(self, element=None):
+        """模拟真实的鼠标移动轨迹"""
         try:
-            # 检查driver是否有效
             if not self.driver:
                 return
                 
-            # 随机滚动页面
-            scroll_height = random.randint(100, 500)
-            self.driver.execute_script(f"window.scrollBy(0, {scroll_height});")
-            time.sleep(random.uniform(0.5, 2))
+            # 生成轨迹点
+            if element:
+                # 移动到元素
+                location = element.location
+                start_x, start_y = 100, 100
+                end_x, end_y = location['x'], location['y']
+            else:
+                # 随机移动
+                start_x, start_y = 100, 100
+                end_x, end_y = random.randint(200, 500), random.randint(200, 500)
             
-            # 随机移动鼠标
+            # 生成轨迹点
+            points = []
+            num_points = random.randint(8, 15)
+            for t in [i/num_points for i in range(num_points + 1)]:
+                x = start_x + (end_x - start_x) * t + random.randint(-15, 15)
+                y = start_y + (end_y - start_y) * t + random.randint(-15, 15)
+                points.append((x, y))
+            
             actions = ActionChains(self.driver)
-            actions.move_by_offset(random.randint(-50, 50), random.randint(-50, 50))
+            
+            # 移动到起始点
+            actions.move_by_offset(points[0][0], points[0][1])
+            
+            # 沿着轨迹移动
+            for i in range(1, len(points)):
+                dx = points[i][0] - points[i-1][0]
+                dy = points[i][1] - points[i-1][1]
+                actions.move_by_offset(dx, dy)
+                actions.pause(random.uniform(0.01, 0.08))  # 随机暂停
+            
             actions.perform()
-            time.sleep(random.uniform(0.3, 1))
+            
+        except Exception as e:
+            logger.debug(f"模拟鼠标移动时发生错误: {e}")
+    
+    def simulate_complex_browsing(self):
+        """模拟复杂的浏览行为"""
+        try:
+            if not self.driver:
+                return
+            
+            behaviors = [
+                self._simulate_scrolling,
+                self._simulate_random_clicks,
+                self._simulate_tab_switching
+            ]
+            
+            # 随机选择2-3个行为
+            num_behaviors = random.randint(2, 3)
+            selected_behaviors = random.sample(behaviors, num_behaviors)
+            
+            for behavior in selected_behaviors:
+                behavior()
+                time.sleep(random.uniform(0.5, 2))
+                
+        except Exception as e:
+            logger.debug(f"模拟复杂浏览行为时发生错误: {e}")
+    
+    def _simulate_scrolling(self):
+        """模拟页面滚动"""
+        scroll_direction = random.choice(['up', 'down'])
+        scroll_amount = random.randint(200, 800)
+        
+        if scroll_direction == 'down':
+            self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+        else:
+            self.driver.execute_script(f"window.scrollBy(0, -{scroll_amount});")
+    
+    def _simulate_random_clicks(self):
+        """模拟随机点击"""
+        try:
+            # 查找所有可点击元素
+            clickable_elements = self.driver.find_elements(By.CSS_SELECTOR, 
+                "a, button, input[type='button'], input[type='submit']")
+            
+            if clickable_elements:
+                # 随机选择一个可见元素
+                visible_elements = [e for e in clickable_elements if e.is_displayed() and e.is_enabled()]
+                if visible_elements:
+                    element = random.choice(visible_elements)
+                    # 模拟鼠标移动到元素并点击
+                    self.simulate_real_mouse_movement(element)
+                    element.click()
+                    logger.debug("模拟随机点击")
+                    
+        except Exception:
+            pass
+    
+    def _simulate_tab_switching(self):
+        """模拟标签页切换"""
+        try:
+            # 打开新标签页
+            self.driver.execute_script("window.open('about:blank');")
+            time.sleep(0.5)
+            
+            # 切换回原标签页
+            self.driver.switch_to.window(self.driver.window_handles[0])
+            
+        except Exception:
+            pass
+    
+    def simulate_human_behavior(self):
+        """模拟人类行为（兼容旧版本）"""
+        try:
+            if not self.driver:
+                return
+                
+            # 使用新的复杂浏览行为模拟
+            self.simulate_complex_browsing()
             
         except Exception as e:
             logger.debug(f"模拟人类行为时发生错误: {e}")
@@ -322,7 +438,7 @@ class CninfoDownloader:
             
             # 访问页面
             self.driver.get(url)
-            self.random_delay(5, 10)  # 等待页面加载
+            self.dynamic_delay(5, 10)  # 动态等待页面加载
             logger.info('页面加载完成')
             
             # 获取股票名称并创建子目录
@@ -364,7 +480,7 @@ class CninfoDownloader:
                     org_id = self.get_org_id(stock_code)
                     url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
                     driver.get(url)
-                    self.random_delay(5, 10)
+                    self.dynamic_delay(5, 10)
                     
                     # 导航到当前页（如果不是第一页）
                     if page_num > 1:
@@ -404,7 +520,7 @@ class CninfoDownloader:
                     org_id = self.get_org_id(stock_code)
                     url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
                     driver.get(url)
-                    self.random_delay(5, 10)
+                    self.dynamic_delay(5, 10)
                     
                     # 导航到当前页（如果不是第一页）
                     if page_num > 1:
@@ -422,7 +538,7 @@ class CninfoDownloader:
                 break
             
             page_num += 1
-            self.random_delay(3, 8)  # 翻页后随机等待
+            self.dynamic_delay(3, 8)  # 翻页后动态等待
         
         logger.info(f"下载完成！共下载 {total_downloaded} 个文件")
         return total_downloaded > 0
@@ -432,7 +548,7 @@ class CninfoDownloader:
         try:
             for _ in range(target_page - 1):
                 if self._go_to_next_page(driver):
-                    self.random_delay(2, 5)
+                    self.dynamic_delay(2, 5)
                 else:
                     break
         except Exception as e:
@@ -455,9 +571,8 @@ class CninfoDownloader:
                     text = link.text.strip()
                     href = link.get_attribute('href')
                     
-                    # 检查是否是投资者关系活动记录表链接
-                    if (text and '投资者关系活动记录表' in text
-                        and href and '/new/disclosure/detail' in href
+                    # 检查是否是详情页链接（下载所有文档）
+                    if (href and '/new/disclosure/detail' in href
                         and f'stockCode={stock_code}' in href):
                         
                         file_name = f"{self.clean_filename(text)}.pdf"
@@ -510,7 +625,7 @@ class CninfoDownloader:
                     
                     # 访问详情页
                     driver.get(detail_url)
-                    self.random_delay(3, 8)
+                    self.dynamic_delay(3, 8)
                     
                     # 模拟人类行为
                     self.simulate_human_behavior()
@@ -544,13 +659,13 @@ class CninfoDownloader:
                 
                 # 重试前等待
                 if retry < max_retries - 1:
-                    self.random_delay(5, 15)
+                    self.dynamic_delay(5, 15)
             
             if not success:
                 logger.error(f"下载失败（已重试{max_retries}次）: {file_name}")
             
             # 下载间隔
-            self.random_delay(2, 6)
+            self.dynamic_delay(2, 6)
         
         return downloaded_count
     
@@ -619,7 +734,7 @@ class CninfoDownloader:
             if next_btn.is_enabled():
                 actions = ActionChains(driver)
                 actions.move_to_element(next_btn).pause(random.uniform(0.5, 1.5)).click().perform()
-                self.random_delay(3, 6)
+                self.dynamic_delay(3, 6)
                 return True
         except Exception:
             pass
@@ -631,7 +746,7 @@ class CninfoDownloader:
             if parent_btn.is_enabled():
                 actions = ActionChains(driver)
                 actions.move_to_element(parent_btn).pause(random.uniform(0.5, 1.5)).click().perform()
-                self.random_delay(3, 6)
+                self.dynamic_delay(3, 6)
                 return True
         except Exception:
             pass
@@ -642,7 +757,7 @@ class CninfoDownloader:
             if quick_next.is_displayed() and quick_next.is_enabled():
                 actions = ActionChains(driver)
                 actions.move_to_element(quick_next).pause(random.uniform(0.5, 1.5)).click().perform()
-                self.random_delay(3, 6)
+                self.dynamic_delay(3, 6)
                 return True
         except Exception:
             pass
@@ -662,16 +777,24 @@ def main():
     stock_code = config.get('stock_code')
     save_dir = config.get('save_dir', 'downloads')
     headless = config.get('headless', True)
+    max_retries = config.get('max_retries', 3)
+    use_dynamic_delay = config.get('use_dynamic_delay', True)
     
     if not stock_code:
         logger.error("配置文件中未指定股票代码")
         sys.exit(1)
     
     logger.info(f"开始处理股票代码: {stock_code}")
+    logger.info(f"配置参数: 最大重试次数={max_retries}, 动态延迟={use_dynamic_delay}")
     
     # 创建下载器并开始下载
     downloader = CninfoDownloader(save_dir=save_dir)
-    success = downloader.download_activity_records(stock_code, headless=headless)
+    
+    # 设置动态延迟标志
+    if use_dynamic_delay:
+        logger.info("启用动态延迟机制")
+    
+    success = downloader.download_activity_records(stock_code, headless=headless, max_retries=max_retries)
     
     if success:
         logger.info("下载任务完成")

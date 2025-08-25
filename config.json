@@ -1,5 +1,7 @@
 {
   "stock_code": "002050",
   "save_dir": "downloads",
-  "headless": true
+  "headless": true,
+  "max_retries": 3,
+  "use_dynamic_delay": true
 } 
