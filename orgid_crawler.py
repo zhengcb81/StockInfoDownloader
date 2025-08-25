@@ -30,7 +30,7 @@ from get_stock_name import get_stock_name
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
@@ -135,6 +135,43 @@ class OrgIdCrawler:
             logger.error(f"从页面源代码中提取组织ID时发生错误: {e}")
             return None
     
+    def _extract_org_id_from_company_profile(self):
+        """从公司介绍页面提取组织ID"""
+        try:
+            # 获取当前页面源代码
+            page_source = self.driver.page_source
+            
+            # 尝试从页面中提取组织ID的各种模式
+            patterns = [
+                r'orgId[\"\\s:=]+(\\d+)',
+                r'orgid[\"\\s:=]+(\\d+)',
+                r'"orgId"\\s*:\\s*"?(\\d+)"?',
+                r'orgId=(\\d+)',
+                r'stockCode=[^&]+&orgId=(\\d+)',
+                r'companyProfile\\?[^\"]*orgId=(\\d+)'
+            ]
+            
+            for pattern in patterns:
+                org_id_match = re.search(pattern, page_source, re.IGNORECASE)
+                if org_id_match:
+                    org_id = org_id_match.group(1)
+                    logger.info(f"从公司介绍页面提取到组织ID: {org_id}")
+                    return org_id
+            
+            # 检查URL参数
+            current_url = self.driver.current_url
+            url_org_id_match = re.search(r'orgId=(\\d+)', current_url)
+            if url_org_id_match:
+                org_id = url_org_id_match.group(1)
+                logger.info(f"从URL参数中提取到组织ID: {org_id}")
+                return org_id
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"从公司介绍页面提取组织ID时发生错误: {e}")
+            return None
+    
     def get_org_id(self, stock_code):
         """
         获取股票代码对应的组织ID
@@ -159,15 +196,114 @@ class OrgIdCrawler:
             self.driver.get(search_url)
             time.sleep(3)  # 等待页面加载
             
-            # 点击"公司介绍"tab
+            # 首先尝试从搜索结果页直接提取公司介绍链接中的orgId
+            try:
+                # 查找所有包含公司介绍的链接
+                company_links = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, "//a[contains(text(), '公司介绍')]"))
+                )
+                
+                for link in company_links:
+                    href = link.get_attribute('href')
+                    if href and 'orgId=' in href:
+                        # 从链接中直接提取orgId
+                        org_id_match = re.search(r'orgId=([^&]+)', href)
+                        if org_id_match:
+                            org_id = org_id_match.group(1)
+                            
+                            if org_id.isdigit() or org_id.startswith('gssz'):
+                                logger.info(f"从公司介绍链接中提取到组织ID: {org_id}")
+                                return org_id
+            except Exception as e:
+                logger.debug(f"从链接提取orgId失败: {e}")
+            
+            # 如果链接提取失败，尝试点击"公司介绍"tab
             try:
                 # 优先精确查找<a>标签，href包含companyProfile且文本为公司介绍
-                tab_button = WebDriverWait(self.driver, 5).until(
+                tab_button = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'companyProfile') and contains(text(), '公司介绍')]"))
                 )
+                
+                # 检查是否有反爬虫检测
+                page_source = self.driver.page_source
+                anti_crawler_keywords = ['验证码', 'captcha', '访问过于频繁', 'frequency', '安全验证', '人机验证', '请完成安全验证']
+                if any(keyword in page_source for keyword in anti_crawler_keywords):
+                    logger.warning("检测到反爬虫机制，尝试绕过...")
+                    
+                    # 尝试使用JavaScript直接点击，绕过可能的点击事件拦截
+                    try:
+                        self.driver.execute_script("arguments[0].click();", tab_button)
+                        logger.info("使用JavaScript点击公司介绍tab")
+                        time.sleep(3)
+                        
+                        # 检查点击后URL是否变化
+                        new_url = self.driver.current_url
+                        if new_url != before_url:
+                            logger.info(f"JavaScript点击成功，URL变化为: {new_url}")
+                        else:
+                            logger.warning("JavaScript点击后URL仍未变化")
+                    except Exception as js_e:
+                        logger.error(f"JavaScript点击失败: {js_e}")
+                
+                # 记录点击前的URL
+                before_url = self.driver.current_url
+                logger.info(f"点击前的URL: {before_url}")
+                
                 tab_button.click()
                 logger.info("已点击公司介绍tab")
-                time.sleep(2)
+                time.sleep(5)  # 增加等待时间
+                
+                # 获取点击后的URL
+                new_url = self.driver.current_url
+                logger.info(f"点击后的URL: {new_url}")
+                
+                # 检查是否成功跳转
+                if new_url == before_url:
+                    logger.warning("点击后URL未变化，可能点击未生效或被反爬虫拦截")
+                    
+                    # 尝试直接访问公司介绍页面
+                    company_url = f"https://www.cninfo.com.cn/new/companyProfile?stockCode={stock_code}"
+                    logger.info(f"尝试直接访问公司介绍页面: {company_url}")
+                    self.driver.get(company_url)
+                    time.sleep(5)
+                    
+                    new_url = self.driver.current_url
+                    logger.info(f"直接访问后的URL: {new_url}")
+                
+                # 从URL中提取组织ID
+                org_id = self.extract_org_id_from_url()
+                if org_id:
+                    logger.info(f"从URL中提取到组织ID: {org_id}")
+                    return org_id
+                
+                # 如果URL中没有，从页面源代码中提取
+                org_id = self.extract_org_id_from_source()
+                if org_id:
+                    logger.info(f"从源代码中提取到组织ID: {org_id}")
+                    return org_id
+                
+                # 如果仍然没有找到，尝试其他方法
+                org_id = self._extract_org_id_from_company_profile()
+                if org_id:
+                    logger.info(f"从公司介绍页面提取到组织ID: {org_id}")
+                    return org_id
+                
+                # 调试：输出页面标题和URL用于分析
+                logger.debug(f"页面标题: {self.driver.title}")
+                logger.debug(f"当前URL: {self.driver.current_url}")
+                
+                # 检查页面是否包含验证码或反爬虫提示
+                page_source = self.driver.page_source
+                if any(keyword in page_source for keyword in ['验证码', 'captcha', '访问过于频繁', 'frequency', '安全验证']):
+                    logger.warning("页面包含反爬虫验证机制")
+                
+                # 输出页面源代码片段用于调试
+                logger.debug(f"页面源代码片段: {page_source[:500]}")
+                
+                # 直接报错，不使用默认值
+                logger.error(f"未能提取 {stock_code} 的组织ID")
+                return None
+                
             except Exception as e:
                 logger.debug(f"点击公司介绍tab失败: {e}")
                 # 尝试其他方式查找tab
@@ -180,27 +316,34 @@ class OrgIdCrawler:
                 
                 for selector in tab_selectors:
                     try:
-                        tab_button = WebDriverWait(self.driver, 3).until(
+                        tab_button = WebDriverWait(self.driver, 5).until(
                             EC.element_to_be_clickable((By.XPATH, selector))
                         )
                         tab_button.click()
                         logger.info(f"已点击公司介绍tab: {selector}")
-                        time.sleep(2)
+                        time.sleep(3)
+                        
+                        # 获取点击后的URL
+                        new_url = self.driver.current_url
+                        logger.info(f"点击后的URL: {new_url}")
+                        
+                        # 从URL中提取组织ID
+                        org_id = self.extract_org_id_from_url()
+                        if org_id:
+                            return org_id
+                        
+                        # 从页面源代码中提取
+                        org_id = self.extract_org_id_from_source()
+                        if org_id:
+                            return org_id
+                        
                         break
                     except Exception:
                         continue
-            
-            # 提取组织ID
-            org_id = self.extract_org_id_from_url() or self.extract_org_id_from_source()
-            
-            if org_id:
-                logger.info(f"获取到 {stock_code} 的组织ID: {org_id}")
-                return org_id
-            else:
-                # 使用默认值
-                default_org_id = f"990000{stock_code}"
-                logger.warning(f"未能提取 {stock_code} 的组织ID，使用默认值: {default_org_id}")
-                return default_org_id
+                
+                # 如果所有方法都失败，直接报错
+                logger.error(f"未能提取 {stock_code} 的组织ID")
+                return None
                 
         except TimeoutException:
             logger.error(f"访问 {stock_code} 页面超时")

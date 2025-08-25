@@ -174,20 +174,17 @@ class CninfoDownloader:
             import subprocess
             import platform
             
+            # 只清理chromedriver进程，不清理chrome浏览器进程
             if platform.system() == "Windows":
-                # Windows系统清理Chrome进程
+                # Windows系统只清理chromedriver进程
                 try:
-                    subprocess.run(['taskkill', '/f', '/im', 'chrome.exe'], 
-                                 capture_output=True, timeout=10)
                     subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
                                  capture_output=True, timeout=10)
                 except Exception:
                     pass
             else:
-                # Linux/Mac系统清理Chrome进程
+                # Linux/Mac系统只清理chromedriver进程
                 try:
-                    subprocess.run(['pkill', '-f', 'chrome'], 
-                                 capture_output=True, timeout=10)
                     subprocess.run(['pkill', '-f', 'chromedriver'], 
                                  capture_output=True, timeout=10)
                 except Exception:
