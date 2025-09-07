@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(taskkill:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(pip install:*)",
+      "Bash(chcp)",
+      "Bash(timeout:*)",
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "Bash(rm:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\Users\\zheng\\Projects"
+    ]
+  }
+}

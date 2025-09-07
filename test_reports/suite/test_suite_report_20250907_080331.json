@@ -1,0 +1,37 @@
+{
+  "test_info": {
+    "timestamp": "2025-09-07T08:03:31.039439",
+    "test_type": "suite",
+    "description": "统一测试套件 - 系统、性能、验证测试"
+  },
+  "results": {
+    "system_test": [
+      {
+        "name": "配置系统测试",
+        "success": true,
+        "error": null
+      },
+      {
+        "name": "旧下载器初始化",
+        "success": true,
+        "error": "2025-09-07 08:03:28,763 - cninfo_downloader - INFO - Logger initialized\n"
+      },
+      {
+        "name": "WebDriver初始化",
+        "success": true,
+        "error": null
+      },
+      {
+        "name": "服务层初始化",
+        "success": true,
+        "error": "2025-09-07 08:03:30 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-07 08:03:30 - src.web.anti_crawler - INFO - set_session_parameters:458 - 会话参数已设置: 延迟2-8秒, 最大下载5次\n"
+      }
+    ]
+  },
+  "summary": {
+    "system_test": 4,
+    "performance_test": "failed",
+    "validation_test": "failed",
+    "quick_e2e": false
+  }
+}

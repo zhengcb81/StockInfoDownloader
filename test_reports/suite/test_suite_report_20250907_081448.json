@@ -1,0 +1,19 @@
+{
+  "test_info": {
+    "timestamp": "2025-09-07T08:14:48.301070",
+    "test_type": "suite",
+    "description": "统一测试套件 - 系统、性能、验证测试"
+  },
+  "results": {
+    "quick_e2e": {
+      "success": true,
+      "elapsed": 37.28999042510986
+    }
+  },
+  "summary": {
+    "system_test": 0,
+    "performance_test": "failed",
+    "validation_test": "failed",
+    "quick_e2e": true
+  }
+}

@@ -1,0 +1,378 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # 每日构建 - 北京时间上午9点 (UTC+8)
+    - cron: '0 1 * * *'
+    # 每周构建 - 周日上午9点
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Test type to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - e2e
+          - regression
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  # 快速测试 - 每次提交运行
+  quick-tests:
+    name: Quick Tests
+    runs-on: windows-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt 2>/dev/null || true
+        
+    - name: Run unit tests
+      run: python tests/run_unit_tests.py
+      timeout-minutes: 5
+      
+    - name: Run integration tests
+      run: python tests/run_integration_tests.py
+      timeout-minutes: 10
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: quick-test-results
+        path: |
+          reports/unit_test_*.json
+          reports/integration_test_*.json
+        retention-days: 30
+
+  # 每日构建测试
+  daily-build:
+    name: Daily Build Tests
+    runs-on: windows-latest
+    if: github.event.schedule == '0 1 * * *' || github.event.inputs.test_type == 'e2e'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Chrome WebDriver
+      run: |
+        choco install googlechrome
+        choco install chromedriver
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt 2>/dev/null || true
+        
+    - name: Run all quick tests
+      run: |
+        python tests/run_unit_tests.py
+        python tests/run_integration_tests.py
+      timeout-minutes: 15
+      
+    - name: Run end-to-end tests
+      run: python test_end_to_end_final.py
+      timeout-minutes: 30
+      env:
+        DISPLAY: :99
+      
+    - name: Run performance tests
+      run: |
+        python -c "
+        import time
+        import sys
+        sys.path.insert(0, '.')
+        from tests.performance_test_runner import PerformanceTestRunner
+        runner = PerformanceTestRunner()
+        runner.run_performance_tests()
+        "
+      timeout-minutes: 20
+      
+    - name: Upload all test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: daily-build-results
+        path: |
+          reports/*.json
+          test_reports/*.html
+          performance_reports/*.json
+        retention-days: 30
+
+  # 每周完整回归测试
+  weekly-regression:
+    name: Weekly Regression Tests
+    runs-on: windows-latest
+    if: github.event.schedule == '0 1 * * 0' || github.event.inputs.test_type == 'regression'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Chrome WebDriver
+      run: |
+        choco install googlechrome
+        choco install chromedriver
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt 2>/dev/null || true
+        
+    - name: Run complete test suite
+      run: |
+        echo "=== 运行完整测试套件 ==="
+        python tests/run_unit_tests.py
+        python tests/run_integration_tests.py
+        python tests/run_regression_tests.py
+        python test_end_to_end_final.py
+      timeout-minutes: 60
+      
+    - name: Generate comprehensive report
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        from tests.test_report_generator import TestReportGenerator
+        generator = TestReportGenerator()
+        
+        # 收集所有测试结果
+        import glob
+        import json
+        from pathlib import Path
+        
+        reports = []
+        for pattern in ['reports/*.json', 'test_reports/*.json']:
+            reports.extend(glob.glob(pattern))
+        
+        print(f'找到 {len(reports)} 个测试报告')
+        
+        # 生成综合报告
+        report_file = generator.create_comprehensive_report(
+            reports=reports,
+            description='每周完整回归测试报告'
+        )
+        
+        print(f'综合报告已生成: {report_file}')
+        "
+      timeout-minutes: 10
+      
+    - name: Upload regression test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: weekly-regression-results
+        path: |
+          reports/*.json
+          test_reports/*.html
+          comprehensive_reports/*.json
+        retention-days: 90
+
+  # 发布前完整测试
+  release-tests:
+    name: Release Tests
+    runs-on: windows-latest
+    if: github.event.inputs.test_type == 'full'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Chrome WebDriver
+      run: |
+        choco install googlechrome
+        choco install chromedriver
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-xdist
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt 2>/dev/null || true
+        
+    - name: Run full test suite with coverage
+      run: |
+        echo "=== 发布前完整测试套件 ==="
+        python tests/run_unit_tests.py
+        python tests/run_integration_tests.py
+        python tests/run_regression_tests.py
+        python test_end_to_end_final.py
+        
+        # 生成覆盖率报告
+        python -m pytest tests/ --cov=src --cov-report=html --cov-report=xml
+      timeout-minutes: 90
+      
+    - name: Security scan
+      run: |
+        pip install bandit safety
+        bandit -r src/ -f json -o security-scan.json
+        safety check --json --output safety-report.json
+      timeout-minutes: 15
+      
+    - name: Code quality checks
+      run: |
+        pip install flake8 mypy
+        flake8 src/ tests/ --format=json --output=flake8-report.json
+        mypy src/ --show-error-codes --json-report=mypy-report.json
+      timeout-minutes: 15
+      
+    - name: Generate release report
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        from tests.test_report_generator import TestReportGenerator
+        generator = TestReportGenerator()
+        
+        # 生成发布报告
+        report_file = generator.create_release_report(
+            test_results='reports/*.json',
+            coverage_data='coverage.xml',
+            security_data='security-scan.json',
+            quality_data='flake8-report.json',
+            description='发布前完整测试报告'
+        )
+        
+        print(f'发布报告已生成: {report_file}')
+        "
+      timeout-minutes: 10
+      
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: release-test-results
+        path: |
+          reports/*.json
+          test_reports/*.html
+          htmlcov/
+          security-scan.json
+          safety-report.json
+          flake8-report.json
+          mypy-report.json
+          coverage.xml
+          release_reports/*.json
+        retention-days: 180
+
+  # 测试结果汇总
+  test-summary:
+    name: Test Results Summary
+    runs-on: windows-latest
+    if: always()
+    needs: [quick-tests, daily-build, weekly-regression, release-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install jinja2
+        
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Generate summary report
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        from tests.test_report_generator import TestReportGenerator
+        generator = TestReportGenerator()
+        
+        # 生成测试汇总报告
+        summary_file = generator.generate_test_summary(
+            workflow_name='${{ github.workflow }}',
+            run_id='${{ github.run_id }}',
+            run_number='${{ github.run_number }}'
+        )
+        
+        print(f'测试汇总报告已生成: {summary_file}')
+        "
+      
+    - name: Upload summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-summary
+        path: test_summary_*.html
+        retention-days: 30

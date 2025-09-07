@@ -1,0 +1,32 @@
+{
+  "stock_code": "300470",
+  "save_dir": "downloads",
+  "headless": true,
+  "max_retries": 3,
+  "use_dynamic_delay": true,
+  "max_pages": 5,
+  "pagination_wait": 2,
+  "pages": [
+    {
+      "name": "调研",
+      "suffix": "research",
+      "allowed_keywords": null,
+      "allowed_keywords_mode": "any",
+      "max_pages": 3
+    },
+    {
+      "name": "定期公告",
+      "suffix": "periodicReports",
+      "allowed_keywords": null,
+      "exclude_keywords": ["更正"],
+      "max_pages": 5
+    },
+    {
+      "name": "最新公告",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": ["招股说明书"],
+      "allowed_keywords_mode": "any",
+      "max_pages": 2
+    }
+  ]
+} 

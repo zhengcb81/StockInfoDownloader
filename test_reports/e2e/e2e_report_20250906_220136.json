@@ -1,0 +1,86 @@
+{
+  "test_info": {
+    "timestamp": "2025-09-06T22:01:36.972435",
+    "test_type": "e2e",
+    "description": "端到端测试 - 验证新旧下载器功能一致性",
+    "config_file": "config_end2end_test.json"
+  },
+  "test_environment": {
+    "python_version": "3.13.7",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "architecture": "64bit",
+    "processor": "Intel64 Family 6 Model 78 Stepping 3, GenuineIntel",
+    "chrome_version": "139.0.7258.155",
+    "network_status": "Connected"
+  },
+  "test_data": {
+    "test_cases_count": 3,
+    "stock_codes": [
+      "300470",
+      "301611"
+    ],
+    "config_used": true
+  },
+  "results": [
+    {
+      "downloader": "old",
+      "stock_code": "301611",
+      "stock_name": "股票301611",
+      "success": false,
+      "error": "测试异常: ConfigManager.__init__() takes 1 positional argument but 2 were given",
+      "duration": 0,
+      "downloaded_files": 0
+    },
+    {
+      "downloader": "new",
+      "stock_code": "301611",
+      "stock_name": "股票301611",
+      "success": false,
+      "error": "main.py执行失败: 2025-09-06 22:01:17 - __main__ - INFO - main:36 - 启动股票信息下载器...\n2025-09-06 22:01:17 - __main__ - INFO - main:52 - 开始处理股票代码: 301611\n2025-09-06 22:01:17 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:17 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:17 - __main__ - ERROR - main:135 - 程序运行失败: ConfigManager.__init__() takes 1 positional argument but 2 were given\n",
+      "duration": 1.4946072101593018,
+      "downloaded_files": 5
+    },
+    {
+      "downloader": "old",
+      "stock_code": "300470",
+      "stock_name": "股票300470",
+      "success": false,
+      "error": "测试异常: ConfigManager.__init__() takes 1 positional argument but 2 were given",
+      "duration": 0,
+      "downloaded_files": 0
+    },
+    {
+      "downloader": "new",
+      "stock_code": "300470",
+      "stock_name": "股票300470",
+      "success": false,
+      "error": "main.py执行失败: 2025-09-06 22:01:28 - __main__ - INFO - main:36 - 启动股票信息下载器...\n2025-09-06 22:01:28 - __main__ - INFO - main:52 - 开始处理股票代码: 300470\n2025-09-06 22:01:28 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:28 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:28 - __main__ - ERROR - main:135 - 程序运行失败: ConfigManager.__init__() takes 1 positional argument but 2 were given\n",
+      "duration": 1.404709815979004,
+      "downloaded_files": 5
+    },
+    {
+      "downloader": "old",
+      "stock_code": "300470",
+      "stock_name": "股票300470",
+      "success": false,
+      "error": "测试异常: ConfigManager.__init__() takes 1 positional argument but 2 were given",
+      "duration": 0,
+      "downloaded_files": 0
+    },
+    {
+      "downloader": "new",
+      "stock_code": "300470",
+      "stock_name": "股票300470",
+      "success": false,
+      "error": "main.py执行失败: 2025-09-06 22:01:34 - __main__ - INFO - main:36 - 启动股票信息下载器...\n2025-09-06 22:01:34 - __main__ - INFO - main:52 - 开始处理股票代码: 300470\n2025-09-06 22:01:34 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:34 - src.data.mapping - INFO - _load_mappings:59 - 已加载 5 个映射\n2025-09-06 22:01:34 - __main__ - ERROR - main:135 - 程序运行失败: ConfigManager.__init__() takes 1 positional argument but 2 were given\n",
+      "duration": 1.5075609683990479,
+      "downloaded_files": 5
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "passed": 0,
+    "failed": 6,
+    "success_rate": "0.0%"
+  }
+}
