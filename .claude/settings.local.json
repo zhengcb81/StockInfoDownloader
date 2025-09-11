@@ -13,7 +13,17 @@
       "Bash(timeout:*)",
       "Bash(find:*)",
       "Bash(chmod:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(del:*)",
+      "WebSearch",
+      "WebFetch(domain:chromedriver.chromium.org)",
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:chromium.googlesource.com)",
+      "WebFetch(domain:www.selenium.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:peter.sh)"
     ],
     "deny": [],
     "ask": [],

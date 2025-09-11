@@ -7,7 +7,10 @@ import os
 import json
 from typing import Dict, Any, Optional
 from pathlib import Path
-from .exceptions import ConfigError
+from .exceptions import (
+    ConfigError, ErrorCode, ErrorSeverity, RecoveryStrategy,
+    with_error_handling, handle_error
+)
 
 
 class ConfigManager:
@@ -28,6 +31,11 @@ class ConfigManager:
             if config_file:
                 self.load_config(config_file)
     
+    @with_error_handling(
+        error_code=ErrorCode.CONFIG_FILE_ERROR,
+        severity=ErrorSeverity.ERROR,
+        recovery_strategy=RecoveryStrategy.TERMINATE
+    )
     def load_config(self, config_path: str = "config.json") -> Dict[str, Any]:
         """
         加载配置文件
@@ -44,7 +52,13 @@ class ConfigManager:
         try:
             config_path = Path(config_path)
             if not config_path.exists():
-                raise ConfigError(f"配置文件不存在: {config_path}")
+                raise ConfigError(
+                    f"配置文件不存在: {config_path}",
+                    error_code=ErrorCode.CONFIG_FILE_NOT_FOUND,
+                    severity=ErrorSeverity.ERROR,
+                    recovery_strategy=RecoveryStrategy.TERMINATE,
+                    context={"config_path": str(config_path)}
+                )
             
             with open(config_path, 'r', encoding='utf-8') as f:
                 self._config = json.load(f)
@@ -53,9 +67,23 @@ class ConfigManager:
             return self._config
             
         except json.JSONDecodeError as e:
-            raise ConfigError(f"配置文件格式错误: {e}")
+            raise ConfigError(
+                f"配置文件格式错误: {e}",
+                error_code=ErrorCode.CONFIG_FORMAT_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.TERMINATE,
+                context={"config_path": str(config_path), "parse_error": str(e)},
+                original_exception=e
+            )
         except Exception as e:
-            raise ConfigError(f"加载配置文件失败: {e}")
+            raise ConfigError(
+                f"加载配置文件失败: {e}",
+                error_code=ErrorCode.CONFIG_LOAD_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.TERMINATE,
+                context={"config_path": str(config_path)},
+                original_exception=e
+            )
     
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -107,6 +135,11 @@ class ConfigManager:
         
         target[keys[-1]] = value
     
+    @with_error_handling(
+        error_code=ErrorCode.CONFIG_SAVE_ERROR,
+        severity=ErrorSeverity.ERROR,
+        recovery_strategy=RecoveryStrategy.FALLBACK
+    )
     def save_config(self, config_path: Optional[str] = None) -> None:
         """
         保存配置到文件
@@ -118,7 +151,13 @@ class ConfigManager:
             config_path = self._config_path
         
         if config_path is None:
-            raise ConfigError("未指定配置文件路径")
+            raise ConfigError(
+                "未指定配置文件路径",
+                error_code=ErrorCode.CONFIG_PATH_NOT_SET,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.TERMINATE,
+                context={"operation": "save_config"}
+            )
         
         try:
             config_path = Path(config_path)
@@ -128,7 +167,14 @@ class ConfigManager:
                 json.dump(self._config, f, ensure_ascii=False, indent=2)
                 
         except Exception as e:
-            raise ConfigError(f"保存配置文件失败: {e}")
+            raise ConfigError(
+                f"保存配置文件失败: {e}",
+                error_code=ErrorCode.CONFIG_SAVE_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.FALLBACK,
+                context={"config_path": str(config_path)},
+                original_exception=e
+            )
     
     def get_default_config(self) -> Dict[str, Any]:
         """获取默认配置框架（无具体股票代码）"""

@@ -1,0 +1,69 @@
+{
+  "save_dir": "test_downloads",
+  "expected_result_dir": "end2end_test/expected_results",
+  "headless": true,
+  "max_retries": 2,
+  "use_dynamic_delay": true,
+  "max_pages": 2,
+  "pagination_wait": 1,
+  "timeout_seconds": 120,
+  "base_url": "https://www.cninfo.com.cn",
+  "page_load_strategy": "eager",
+  "timeout": {
+    "page_load": 15,
+    "element_wait": 10,
+    "download": 60,
+    "script": 15
+  },
+  "selectors": {
+    "detail_links": "//a[contains(@href, '/new/disclosure/detail')]",
+    "download_button": "//button[contains(., '公告下载')]",
+    "next_page_button": "//button[contains(@class, 'el-pagination__next')]",
+    "table_element": "//table[contains(@class, 'el-table__body')]"
+  },
+  "files": {
+    "allowed_extensions": [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx"
+    ],
+    "mapping_file": "stock_orgid_mapping.json",
+    "log_dir": "test_logs"
+  },
+  "download": {
+    "max_downloads_per_session": 2,
+    "pagination_wait": 1,
+    "human_behavior_delay": 1
+  },
+  "test_cases": [
+    {
+      "stock_code": "301611",
+      "suffix": "research",
+      "allowed_keywords": ["投资者关系管理信息20250725"],
+      "max_pages": 1,
+      "delete_later": false,
+      "timeout_seconds": 60
+    }
+  ],
+  "pages": [
+    {
+      "name": "调研",
+      "suffix": "research",
+      "allowed_keywords": null
+    },
+    {
+      "name": "定期公告",
+      "suffix": "periodicReports",
+      "allowed_keywords": null
+    },
+    {
+      "name": "最新公告",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": [
+        "招股说明书"
+      ]
+    }
+  ]
+}

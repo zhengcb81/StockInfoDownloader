@@ -9,7 +9,8 @@ import logging
 import time
 import subprocess
 import platform
-from typing import Dict, Any, Optional
+import sys
+from typing import Dict, Any, Optional, Union
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -18,11 +19,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
-from ..core.exceptions import WebDriverError
+from ..core.exceptions import (
+    WebDriverError, WebDriverInitError, WebDriverTimeoutError, 
+    WebDriverCrashError, ErrorCode, ErrorSeverity, RecoveryStrategy,
+    with_error_handling, handle_error
+)
 from ..core.logger import get_logger
 from ..core.config import ConfigManager
+from ..core.performance_monitor import monitor_performance, monitor_operation, performance_monitor
 
 logger = get_logger(__name__)
+
+
+def is_test_environment():
+    """检测是否为测试环境"""
+    return (
+        os.environ.get('TEST_ENV') == 'true' or
+        'test' in sys.argv[0].lower() or
+        'pytest' in sys.argv[0].lower() or
+        os.environ.get('PYTEST_CURRENT_TEST') is not None
+    )
 
 
 class WebDriverManager:
@@ -31,8 +47,8 @@ class WebDriverManager:
     def __init__(self, 
                  headless: bool = True,
                  window_size: str = "1920,1080",
-                 page_load_timeout: int = 30,
-                 implicit_wait: int = 5,
+                 page_load_timeout: int = 15,
+                 implicit_wait: int = 3,
                  download_dir: Optional[str] = None,
                  max_downloads_per_session: int = 5,
                  config_file: Optional[str] = None):
@@ -54,12 +70,12 @@ class WebDriverManager:
         # 从配置获取参数，如果未提供则使用默认值
         self.headless = headless if headless is not None else self.config_manager.get('webdriver.headless', True)
         self.window_size = window_size if window_size is not None else self.config_manager.get('webdriver.window_size', '1920,1080')
-        self.page_load_timeout = page_load_timeout if page_load_timeout is not None else self.config_manager.get('timeout.page_load', 60)
-        self.implicit_wait = implicit_wait if implicit_wait is not None else self.config_manager.get('timeout.element_wait', 10)
+        self.page_load_timeout = page_load_timeout if page_load_timeout is not None else self.config_manager.get('timeout.page_load', 8)
+        self.implicit_wait = implicit_wait if implicit_wait is not None else self.config_manager.get('timeout.element_wait', 2)
         self.download_dir = download_dir
         self.driver = None
         self.download_count = 0
-        self.max_downloads_per_session = max_downloads_per_session if max_downloads_per_session is not None else self.config_manager.get('download.max_downloads_per_session', 5)
+        self.max_downloads_per_session = max_downloads_per_session if max_downloads_per_session is not None else self.config_manager.get('download.max_downloads_per_session', 10)
         self._user_agents = self.config_manager.get('webdriver.user_agents', [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -68,6 +84,13 @@ class WebDriverManager:
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ])
     
+    @monitor_performance("WebDriverManager.create_driver")
+    @with_error_handling(
+        error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
+        severity=ErrorSeverity.CRITICAL,
+        recovery_strategy=RecoveryStrategy.RETRY,
+        max_retries=3
+    )
     def create_driver(self, custom_options: Optional[Dict[str, Any]] = None, download_dir: Optional[str] = None) -> webdriver.Chrome:
         """
         创建新的WebDriver实例，包含重试机制和进程清理
@@ -80,138 +103,241 @@ class WebDriverManager:
             webdriver.Chrome: Chrome WebDriver实例
             
         Raises:
-            WebDriverError: WebDriver创建失败
+            WebDriverInitError: WebDriver创建失败
         """
         # 确保之前的driver完全关闭
         if self.driver:
             self.close_driver()
         
-        max_attempts = 3
-        for attempt in range(max_attempts):
-            try:
-                logger.info(f"正在初始化WebDriver (尝试 {attempt + 1}/{max_attempts})...")
-                
-                # 清理可能存在的僵尸进程
-                self._cleanup_chrome_processes()
-                
-                chrome_options = Options()
-                
-                # 基础设置
-                if self.headless:
-                    chrome_options.add_argument('--headless=new')  # 使用新的headless模式
-                chrome_options.add_argument(f'--window-size={self.window_size}')
-                chrome_options.add_argument('--no-sandbox')
-                chrome_options.add_argument('--disable-dev-shm-usage')
-                chrome_options.add_argument('--disable-gpu')
-                chrome_options.add_argument('--disable-extensions')
-                chrome_options.add_argument('--disable-web-security')
-                chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-                chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-                chrome_options.add_argument('--remote-debugging-port=0')
-                
-                # 性能优化：从配置读取页面加载策略
-                page_load_strategy = self.config_manager.get_page_load_strategy()
-                chrome_options.page_load_strategy = page_load_strategy
-                
-                # 增加稳定性选项 - 防止标签页崩溃
-                chrome_options.add_argument('--disable-software-rasterizer')
-                chrome_options.add_argument('--disable-background-timer-throttling')
-                chrome_options.add_argument('--disable-backgrounding-occluded-windows')
-                chrome_options.add_argument('--disable-renderer-backgrounding')
-                chrome_options.add_argument('--no-first-run')
-                chrome_options.add_argument('--no-default-browser-check')
-                chrome_options.add_argument('--disable-sync')
-                chrome_options.add_argument('--disable-translate')
-                chrome_options.add_argument('--disable-default-apps')
-                chrome_options.add_argument('--disable-notifications')
-                chrome_options.add_argument('--disable-popup-blocking')
-                chrome_options.add_argument('--disable-logging')
-                chrome_options.add_argument('--log-level=3')  # 只记录错误
-                
-                # 防止标签页崩溃的额外选项
-                chrome_options.add_argument('--disable-features=TranslateUI')
-                chrome_options.add_argument('--disable-ipc-flooding-protection')
-                chrome_options.add_argument('--disable-extensions-except=test')
-                chrome_options.add_argument('--disable-component-extensions-with-background-pages')
-                chrome_options.add_argument('--disable-component-update')
-                chrome_options.add_argument('--disable-domain-reliability')
-                chrome_options.add_argument('--disable-background-mode')
-                chrome_options.add_argument('--disable-background-timer-throttling')
-                chrome_options.add_argument('--disable-renderer-backgrounding')
-                chrome_options.add_argument('--disable-ipc-flooding-protection')
-                
-                # 内存管理优化
-                chrome_options.add_argument('--max_old_space_size=128')
-                chrome_options.add_argument('--disable-dev-shm-usage')
-                chrome_options.add_argument('--no-sandbox')
-                chrome_options.add_argument('--disable-setuid-sandbox')
-                # 移除单进程模式，使用多进程提高稳定性
+        logger.info("正在初始化WebDriver...")
+        
+        # 只有在非测试环境才清理进程
+        if not is_test_environment():
+            self._cleanup_chrome_processes()
+        
+        try:
+            chrome_options = self._build_chrome_options(custom_options, download_dir)
             
-                chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-                chrome_options.add_experimental_option('useAutomationExtension', False)
-                
-                # 设置下载目录（如果提供了）
-                if download_dir:
-                    prefs = {
-                        "download.default_directory": os.path.abspath(download_dir),
-                        "download.prompt_for_download": False,
-                        "download.directory_upgrade": True,
-                        "plugins.always_open_pdf_externally": True
-                    }
-                    chrome_options.add_experimental_option("prefs", prefs)
-                
-                # 增加内存和性能优化
-                chrome_options.add_argument('--memory-pressure-off')
-                chrome_options.add_argument('--disable-device-discovery-notifications')
-                
-                # 随机User-Agent
-                user_agent = random.choice(self._user_agents)
-                chrome_options.add_argument(f'--user-agent={user_agent}')
-                
-                # 自定义选项
-                if custom_options:
-                    for key, value in custom_options.items():
-                        if value is True:
-                            chrome_options.add_argument(key)
-                        elif value is not False:
-                            chrome_options.add_argument(f'{key}={value}')
-                
-                # 创建driver
+            # 创建driver - 添加更好的错误处理
+            try:
                 self.driver = webdriver.Chrome(options=chrome_options)
+            except Exception as create_error:
+                logger.error(f"ChromeDriver创建失败: {create_error}")
+                # 尝试清理并重新创建
+                self._cleanup_chrome_processes()
+                time.sleep(2)
+                self.driver = webdriver.Chrome(options=chrome_options)
+            
+            try:
                 self.driver.set_page_load_timeout(self.page_load_timeout)
                 self.driver.implicitly_wait(self.implicit_wait)
                 
                 # 执行反检测脚本
                 self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                 
-                # 测试driver是否正常工作
+                # 测试driver是否正常工作 - 使用更安全的测试
                 self.driver.get("about:blank")
                 
                 logger.info("WebDriver初始化成功")
                 return self.driver
+            except Exception as setup_error:
+                logger.error(f"WebDriver配置失败: {setup_error}")
+                # 如果配置失败，尝试重新启动
+                self._cleanup_chrome_processes()
+                raise setup_error
+            
+        except WebDriverException as e:
+            error_msg = f"WebDriver创建失败: {e}"
+            logger.error(error_msg)
+            
+            # 清理失败的driver
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                except Exception:
+                    pass
+                self.driver = None
+            
+            # 根据错误类型抛出不同的异常
+            if "tab crashed" in str(e).lower():
+                raise WebDriverCrashError(
+                    error_msg,
+                    context={"phase": "initialization", "crash_type": "tab_crashed"},
+                    original_exception=e
+                )
+            elif "timeout" in str(e).lower():
+                raise WebDriverTimeoutError(
+                    error_msg,
+                    context={"phase": "initialization", "timeout_type": "creation_timeout"},
+                    original_exception=e
+                )
+            else:
+                raise WebDriverInitError(
+                    error_msg,
+                    context={"phase": "initialization", "error_details": str(e)},
+                    original_exception=e
+                )
+        except Exception as e:
+            error_msg = f"WebDriver初始化过程中发生未知错误: {e}"
+            logger.error(error_msg)
+            raise WebDriverInitError(
+                error_msg,
+                context={"phase": "initialization", "error_type": "unknown"},
+                original_exception=e
+            )
+    
+    def _build_chrome_options(self, custom_options: Optional[Dict[str, Any]] = None, 
+                             download_dir: Optional[str] = None) -> Options:
+        """构建Chrome选项"""
+        try:
+            chrome_options = Options()
+            
+            # 基础设置
+            if self.headless:
+                chrome_options.add_argument('--headless=new')
+            chrome_options.add_argument(f'--window-size={self.window_size}')
+            # 性能优化：精简Chrome选项，只保留必要的
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--remote-debugging-port=0')
+            
+            # 添加Chrome稳定性选项以处理tab crash问题
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+            chrome_options.add_argument('--disable-accelerated-2d-canvas')
+            chrome_options.add_argument('--no-first-run')
+            chrome_options.add_argument('--no-default-browser-check')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-features=site-per-process')
+            chrome_options.add_argument('--disable-ipc-flooding-protection')
+            chrome_options.add_argument('--disable-features=TranslateUI')
+            chrome_options.add_argument('--disable-component-extensions-with-background-pages')
+            chrome_options.add_argument('--disable-features=BackForwardCache')
+            chrome_options.add_argument('--disable-features=AutomaticLazyFrameLoading')
+            
+            # 新增更多Chrome稳定性选项（基于2024-2025最新解决方案）
+            chrome_options.add_argument('--disable-site-isolation-trials')
+            chrome_options.add_argument('--disable-gpu-sandbox')
+            chrome_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-features=UseChromeOSDirectVideoDecoder')
+            chrome_options.add_argument('--disable-features=SpareRendererForSitePerProcess')
+            chrome_options.add_argument('--disable-features=StrictOriginIsolation')
+            chrome_options.add_argument('--process-per-site')
+            chrome_options.add_argument('--single-process')  # 单进程模式，减少崩溃
+            chrome_options.add_argument('--disable-features=CrossSiteDocumentBlockingIfIsolating')
+            chrome_options.add_argument('--disable-features=CrossSiteDocumentBlockingAlways')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--disable-features=site-per-process')
+            chrome_options.add_argument('--disable-domain-reliability')
+            chrome_options.add_argument('--disable-component-update')
+            chrome_options.add_argument('--disable-features=InterestFeedContentSuggestions')
+            
+            # 2024-2025年最新的Chrome崩溃修复选项
+            chrome_options.add_argument('--disable-features=DownloadBubble,DownloadBubbleV2')  # Chrome ≥ 121下载气泡崩溃
+            chrome_options.add_argument('--disable-features=EnableNavigationPredictor')  # 导航预测器崩溃
+            chrome_options.add_argument('--disable-features=PrivacySandboxSettings4,PrivacySandboxAdsAPIs')  # 隐私沙盒崩溃
+            chrome_options.add_argument('--disable-setuid-sandbox')  # 权限问题
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')  # Windows硬件加速问题
+            
+            # 性能优化：从配置读取页面加载策略
+            page_load_strategy = self.config_manager.get_page_load_strategy()
+            chrome_options.page_load_strategy = page_load_strategy
+            
+            # 性能优化：精简稳定性选项，移除不必要的选项
+            stability_options = [
+                '--disable-software-rasterizer',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-sync',
+                '--disable-translate',
+                '--disable-default-apps',
+                '--disable-notifications',
+                '--disable-popup-blocking',
+                '--disable-logging',
+                '--log-level=3',
+                '--disable-features=TranslateUI',
+                '--disable-component-extensions-with-background-pages',
+                '--disable-domain-reliability',
+                '--disable-background-mode',
+                '--disable-renderer-backgrounding',
+                '--max_old_space_size=128',
+                '--disable-setuid-sandbox',
+                '--memory-pressure-off',
+                # 网络性能优化
+                '--disable-web-security',
+                '--allow-running-insecure-content',
+                '--disable-features=VizDisplayCompositor',
+                '--disable-ipc-flooding-protection',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-webgl',
+                '--disable-webrtc',
+                '--disable-features=WebRtcHideLocalIpsWithMdns'
+            ]
+            
+            for option in stability_options:
+                chrome_options.add_argument(option)
+            
+            # 反自动化检测
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            
+            # 设置下载目录（如果提供了）
+            if download_dir:
+                abs_download_dir = os.path.abspath(download_dir)
+                # 确保下载目录存在
+                os.makedirs(abs_download_dir, exist_ok=True)
                 
-            except Exception as e:
-                logger.warning(f"WebDriver初始化尝试 {attempt + 1} 失败: {e}")
+                # Windows系统需要使用反斜杠路径分隔符
+                if platform.system() == "Windows":
+                    abs_download_dir = abs_download_dir.replace("/", "\\")
                 
-                # 清理失败的driver
-                if hasattr(self, 'driver') and self.driver:
-                    try:
-                        self.driver.quit()
-                    except Exception:
-                        pass
-                    self.driver = None
-                
-                if attempt < max_attempts - 1:
-                    wait_time = random.uniform(3, 8)
-                    logger.info(f"等待 {wait_time:.2f} 秒后重试...")
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"WebDriver初始化失败，已尝试所有重试次数")
-                    raise WebDriverError(f"WebDriver初始化失败: {e}")
-        
-        # 如果所有尝试都失败
-        logger.error("WebDriver初始化失败，已尝试所有重试次数")
-        raise WebDriverError("WebDriver初始化失败，已尝试所有重试次数")
+                prefs = {
+                    "download.default_directory": abs_download_dir,
+                    "download.prompt_for_download": False,
+                    "download.directory_upgrade": True,
+                    "plugins.always_open_pdf_externally": True,
+                    "safebrowsing.enabled": True,  # 改为True，某些Chrome版本需要
+                    "profile.default_content_settings.popups": 0,
+                    "profile.default_content_setting_values.automatic_downloads": 1,
+                    "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
+                    # 添加更多必要的下载偏好设置
+                    "download_restrictions": 3,  # 允许所有下载
+                    "credentials_enable_service": False,
+                    "password_manager_enabled": False
+                }
+                chrome_options.add_experimental_option("prefs", prefs)
+                logger.info(f"设置下载目录: {abs_download_dir}")
+            
+            # 随机User-Agent
+            user_agent = random.choice(self._user_agents)
+            chrome_options.add_argument(f'--user-agent={user_agent}')
+            
+            # 自定义选项
+            if custom_options:
+                for key, value in custom_options.items():
+                    if value is True:
+                        chrome_options.add_argument(key)
+                    elif value is not False:
+                        chrome_options.add_argument(f'{key}={value}')
+            
+            return chrome_options
+            
+        except Exception as e:
+            raise WebDriverInitError(
+                f"构建Chrome选项失败: {e}",
+                context={"phase": "option_building", "custom_options": str(custom_options)},
+                original_exception=e
+            )
     
     def get_driver(self) -> Optional[webdriver.Chrome]:
         """
@@ -223,25 +349,45 @@ class WebDriverManager:
         return self.driver
     
     def _cleanup_chrome_processes(self):
-        """清理可能存在的Chrome僵尸进程（从旧下载器复制）"""
+        """清理可能存在的Chrome僵尸进程，增强版本"""
         try:
-            # 只清理chromedriver进程，不清理chrome浏览器进程
+            # 根据环境设置不同的超时时间
+            timeout_value = 3 if is_test_environment() else 10
+            
+            # 清理chromedriver进程
             if platform.system() == "Windows":
-                # Windows系统只清理chromedriver进程
-                try:
-                    subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
-                                 capture_output=True, timeout=10)
-                except Exception:
-                    pass
+                # Windows系统清理chromedriver进程
+                processes_to_kill = ['chromedriver.exe', 'chrome.exe']
+                for process in processes_to_kill:
+                    try:
+                        subprocess.run(['taskkill', '/f', '/im', process], 
+                                     capture_output=True, timeout=timeout_value)
+                    except Exception:
+                        pass
             else:
-                # Linux/Mac系统只清理chromedriver进程
+                # Linux/Mac系统清理chromedriver进程
                 try:
                     subprocess.run(['pkill', '-f', 'chromedriver'], 
-                                 capture_output=True, timeout=10)
+                                 capture_output=True, timeout=timeout_value)
+                    subprocess.run(['pkill', '-f', 'chrome.*--test-type=webdriver'], 
+                                 capture_output=True, timeout=timeout_value)
                 except Exception:
                     pass
-                    
-            time.sleep(1)  # 等待进程完全结束
+            
+            # 根据环境设置不同的等待时间
+            wait_time = 0.5 if is_test_environment() else 2
+            import time
+            time.sleep(wait_time)
+            
+            # 验证进程是否真的被清理
+            if platform.system() == "Windows":
+                try:
+                    result = subprocess.run(['tasklist', '/fi', 'imagename eq chromedriver.exe'], 
+                                          capture_output=True, text=True, timeout=timeout_value)
+                    if 'chromedriver.exe' in result.stdout:
+                        logger.warning("Chrome进程清理可能不完整")
+                except Exception:
+                    pass
             
         except Exception as e:
             logger.debug(f"清理Chrome进程时发生错误: {e}")
@@ -260,59 +406,134 @@ class WebDriverManager:
             logger.debug(f"Driver健康检查失败: {e}")
             return False
     
-    def restart_driver(self, custom_options: Optional[Dict[str, Any]] = None) -> bool:
-        """重启WebDriver（从旧下载器复制增强版）"""
+    @monitor_performance("WebDriverManager.restart_driver")
+    @with_error_handling(
+        error_code=ErrorCode.WEBDRIVER_SESSION_ERROR,
+        severity=ErrorSeverity.ERROR,
+        recovery_strategy=RecoveryStrategy.RETRY,
+        max_retries=3
+    )
+    def restart_driver(self, custom_options: Optional[Dict[str, Any]] = None, 
+                   enhanced_retry: bool = True) -> Union[webdriver.Chrome, bool]:
+        """
+        重启WebDriver，支持增强的重试机制
+        
+        Args:
+            custom_options: 自定义Chrome选项
+            enhanced_retry: 是否使用增强的重试机制（多次尝试、随机延迟）
+            
+        Returns:
+            webdriver.Chrome: 如果enhanced_retry=False，返回新的WebDriver实例
+            bool: 如果enhanced_retry=True，返回是否重启成功
+        """
         logger.info("正在重启WebDriver...")
         
         # 彻底关闭当前driver
         self.close_driver()
         
-        # 等待更长时间确保进程完全结束
-        wait_time = random.uniform(5, 12)
-        logger.info(f"等待 {wait_time:.2f} 秒确保进程完全结束...")
-        time.sleep(wait_time)
-        
-        # 尝试多次重启
-        max_restart_attempts = 3
-        for attempt in range(max_restart_attempts):
-            try:
-                logger.info(f"尝试重启WebDriver (第 {attempt + 1}/{max_restart_attempts} 次)...")
-                self.create_driver(custom_options)
-                logger.info("WebDriver重启成功")
-                return True
-                
-            except Exception as e:
-                logger.error(f"WebDriver重启尝试 {attempt + 1} 异常: {e}")
+        if enhanced_retry:
+            # 增强重试模式：多次尝试、随机延迟
+            wait_time = random.uniform(2, 4)  # 减少到2-4秒
+            logger.info(f"等待 {wait_time:.2f} 秒确保进程完全结束...")
+            time.sleep(wait_time)
             
-            # 如果不是最后一次尝试，等待后重试
-            if attempt < max_restart_attempts - 1:
-                retry_wait = random.uniform(8, 15)
-                logger.info(f"等待 {retry_wait:.2f} 秒后重试...")
-                time.sleep(retry_wait)
-        
-        logger.error("WebDriver重启失败，已尝试所有重试次数")
-        return False
+            max_restart_attempts = 3
+            for attempt in range(max_restart_attempts):
+                try:
+                    logger.info(f"尝试重启WebDriver (第 {attempt + 1}/{max_restart_attempts} 次)...")
+                    self.create_driver(custom_options)
+                    logger.info("WebDriver重启成功")
+                    return True
+                    
+                except WebDriverError as e:
+                    logger.error(f"WebDriver重启尝试 {attempt + 1} 异常: {e}")
+                
+                # 如果不是最后一次尝试，等待后重试
+                if attempt < max_restart_attempts - 1:
+                    retry_wait = random.uniform(2, 4)
+                    logger.info(f"等待 {retry_wait:.2f} 秒后重试...")
+                    time.sleep(retry_wait)
+            
+            logger.error("WebDriver重启失败，已尝试所有重试次数")
+            return False
+        else:
+            # 简单重启模式：直接创建新的driver
+            try:
+                return self.create_driver(custom_options)
+            except WebDriverError as e:
+                logger.error(f"WebDriver简单重启失败: {e}")
+                if not enhanced_retry:
+                    raise
+                return False
     
     def close_driver(self) -> None:
-        """关闭WebDriver"""
+        """关闭WebDriver，包含完整的内存清理"""
         if self.driver:
             try:
+                # 强制停止所有页面加载
+                try:
+                    self.driver.execute_script("window.stop();")
+                except Exception:
+                    pass
+                
+                # 清理所有cookies
+                try:
+                    self.driver.delete_all_cookies()
+                except Exception:
+                    pass
+                
+                # 关闭所有标签页
+                try:
+                    handles = self.driver.window_handles
+                    if len(handles) > 1:
+                        for handle in handles[1:]:
+                            self.driver.switch_to.window(handle)
+                            self.driver.close()
+                        self.driver.switch_to.window(handles[0])
+                except Exception:
+                    pass
+                
+                # 强制垃圾回收
+                import gc
+                gc.collect()
+                
+                # 彻底关闭driver
                 self.driver.quit()
-                logger.info("WebDriver已关闭")
+                
+                # 等待进程完全结束
+                import time
+                time.sleep(1)
+                
+                # 最终垃圾回收
+                gc.collect()
+                
+                logger.info("WebDriver已完全关闭")
+                
             except Exception as e:
                 logger.error(f"关闭WebDriver时发生错误: {e}")
             finally:
                 self.driver = None
+                # 重置下载计数
+                self.download_count = 0
     
-    def restart_driver(self) -> webdriver.Chrome:
-        """
-        重启WebDriver
-        
-        Returns:
-            webdriver.Chrome: 新的WebDriver实例
-        """
-        self.close_driver()
-        return self.create_driver()
+    def force_cleanup(self) -> None:
+        """强制清理所有WebDriver相关资源"""
+        try:
+            # 关闭当前driver
+            self.close_driver()
+            
+            # 强制清理Chrome进程
+            self._cleanup_chrome_processes()
+            
+            # 强制垃圾回收
+            import gc
+            for _ in range(3):
+                gc.collect()
+            
+            logger.info("强制清理完成")
+            
+        except Exception as e:
+            logger.error(f"强制清理失败: {e}")
     
     def wait_for_element(self, 
                         by: str, 
@@ -366,5 +587,14 @@ class WebDriverManager:
         return self.create_driver()
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口"""
-        self.close_driver()
+        """上下文管理器出口，包含强制清理"""
+        try:
+            self.close_driver()
+        except Exception as e:
+            logger.error(f"上下文管理器关闭失败: {e}")
+            # 即使关闭失败，也尝试强制清理
+            self.force_cleanup()
+
+
+# 为向后兼容性提供 DriverManager 别名
+DriverManager = WebDriverManager

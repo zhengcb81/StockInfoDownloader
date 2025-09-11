@@ -20,7 +20,7 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cninfo_activity_downloader import CninfoDownloader
-from orgid_utils import get_org_id_by_code, load_mapping, save_mapping
+from src.services.orgid_service import get_org_id_by_code, load_mapping, save_mapping
 from tests.test_config import TestEnvironment, TEST_ORG_IDS, create_test_mapping
 
 class PerformanceTestCase(unittest.TestCase):

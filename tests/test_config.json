@@ -1,0 +1,24 @@
+{
+  "test_companies": [
+    {
+      "stock_code": "002415",
+      "stock_name": "海康威视",
+      "expected_org_id": "9900012688"
+    },
+    {
+      "stock_code": "300010", 
+      "stock_name": "豆神教育",
+      "expected_org_id": "9900008267"
+    },
+    {
+      "stock_code": "300470",
+      "stock_name": "中密控股", 
+      "expected_org_id": "9900023856"
+    }
+  ],
+  "test_settings": {
+    "headless": true,
+    "max_retries": 2,
+    "timeout": 10
+  }
+}

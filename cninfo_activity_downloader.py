@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from src.core.logger import get_logger
 """
 巨潮资讯网投资者关系活动记录表下载器
 
@@ -35,7 +36,7 @@ import random
 from pathlib import Path
 from orgid_utils import get_org_id_by_code
 from get_stock_name import get_stock_name
-from logger_config import get_logger
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -112,8 +113,13 @@ class CninfoDownloader:
             
             # 从配置获取参数
             window_size = self.config_manager.get('webdriver.window_size', '1920,1080')
-            page_load_timeout = self.config_manager.get('timeout.page_load', 60)
+            page_load_timeout = self.config_manager.get('timeout.page_load', 30)
             max_attempts = self.config_manager.get('retries.max_attempts', 3)
+            
+            # 增加页面加载超时时间以处理JavaScript渲染
+            if page_load_timeout < 15:
+                page_load_timeout = 30
+                logger.info(f"页面加载超时时间增加到 {page_load_timeout} 秒以处理JavaScript渲染")
             
             # 基础设置
             chrome_options.add_argument(f'--window-size={window_size}')
@@ -124,6 +130,38 @@ class CninfoDownloader:
             chrome_options.add_argument('--disable-web-security')
             chrome_options.add_argument('--disable-features=VizDisplayCompositor')
             chrome_options.add_argument('--remote-debugging-port=0')  # 使用随机端口
+            
+            # 增强稳定性选项
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-features=TranslateUI')
+            chrome_options.add_argument('--disable-component-extensions-with-background-pages')
+            chrome_options.add_argument('--disable-domain-reliability')
+            chrome_options.add_argument('--disable-background-mode')
+            chrome_options.add_argument('--disable-setuid-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--no-first-run')
+            chrome_options.add_argument('--no-default-browser-check')
+            chrome_options.add_argument('--disable-sync')
+            chrome_options.add_argument('--disable-translate')
+            chrome_options.add_argument('--disable-default-apps')
+            chrome_options.add_argument('--disable-notifications')
+            chrome_options.add_argument('--disable-popup-blocking')
+            chrome_options.add_argument('--disable-logging')
+            chrome_options.add_argument('--log-level=3')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-ipc-flooding-protection')
+            chrome_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
+            chrome_options.add_argument('--disable-webgl')
+            chrome_options.add_argument('--disable-webrtc')
+            chrome_options.add_argument('--disable-features=WebRtcHideLocalIpsWithMdns')
             
             # 随机User-Agent
             user_agent = random.choice(self.user_agents)
@@ -138,9 +176,17 @@ class CninfoDownloader:
                 "download.default_directory": os.path.abspath(self.save_dir),
                 "download.prompt_for_download": False,
                 "download.directory_upgrade": True,
-                "plugins.always_open_pdf_externally": True
+                "plugins.always_open_pdf_externally": True,
+                "safebrowsing.enabled": False,
+                "profile.default_content_settings.popups": 0,
+                "profile.default_content_setting_values.automatic_downloads": 1,
+                "profile.content_settings.exceptions.automatic_downloads.*.setting": 1
             }
             chrome_options.add_experimental_option("prefs", prefs)
+            
+            # 反自动化检测
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
             
             # 创建WebDriver，增加重试机制
             for attempt in range(max_attempts):
@@ -152,11 +198,22 @@ class CninfoDownloader:
                     
                     self.driver = webdriver.Chrome(options=chrome_options)
                     self.driver.set_page_load_timeout(page_load_timeout)
-                    element_wait_timeout = self.config_manager.get('timeout.element_wait', 10)
+                    element_wait_timeout = self.config_manager.get('timeout.element_wait', 5)
                     self.driver.implicitly_wait(element_wait_timeout)
                     
-                    # 执行反检测脚本
+                    # 执行增强反检测脚本
                     self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                    self.driver.execute_script("Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})")
+                    self.driver.execute_script("Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en-US', 'en']})")
+                    self.driver.execute_script("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8})")
+                    self.driver.execute_script("Object.defineProperty(navigator, 'deviceMemory', {get: () => 8})")
+                    self.driver.execute_script("Object.defineProperty(screen, 'width', {get: () => 1920})")
+                    self.driver.execute_script("Object.defineProperty(screen, 'height', {get: () => 1080})")
+                    self.driver.execute_script("Object.defineProperty(screen, 'availWidth', {get: () => 1920})")
+                    self.driver.execute_script("Object.defineProperty(screen, 'availHeight', {get: () => 1040})")
+                    
+                    # 清除自动化特征
+                    self.driver.delete_all_cookies()
                     
                     # 测试driver是否正常工作
                     self.driver.get("about:blank")
@@ -461,11 +518,108 @@ class CninfoDownloader:
             # 构造访问URL
             base_url = self.config_manager.get('base_url', 'https://www.cninfo.com.cn')
             target_suffix = suffix if suffix else 'research'  # 默认使用research后缀
-            url = f"{base_url}/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#{target_suffix}"
             
-            # 访问页面
-            self.driver.get(url)
-            self.dynamic_delay(5, 10)  # 动态等待页面加载
+            # 优化URL构造，避免使用hash fragment
+            if target_suffix == 'research':
+                url = f"{base_url}/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}"
+            else:
+                url = f"{base_url}/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#{target_suffix}"
+            
+            logger.info(f"访问URL: {url}")
+            
+            # 使用JavaScript处理页面加载 - 增强版本，包含超时重试机制
+            max_page_load_attempts = 3
+            page_load_success = False
+            current_timeout = self.config_manager.get('timeout.page_load', 30)  # 默认值
+            
+            for attempt in range(max_page_load_attempts):
+                # 动态调整超时时间
+                if attempt == 0:
+                    current_timeout = self.config_manager.get('timeout.page_load', 30)
+                elif attempt == 1:
+                    current_timeout = 45  # 第二次尝试增加超时时间
+                else:
+                    current_timeout = 60  # 第三次尝试使用更长超时时间
+                
+                try:
+                    logger.info(f'页面加载尝试 {attempt + 1}/{max_page_load_attempts}')
+                    
+                    self.driver.set_page_load_timeout(current_timeout)
+                    logger.info(f'设置页面加载超时时间: {current_timeout} 秒')
+                    
+                    # 首先访问基础页面
+                    self.driver.get(url)
+                    
+                    # 等待页面基础加载
+                    self.dynamic_delay(3, 6)
+                    
+                    # 如果是research页面，执行JavaScript导航
+                    if target_suffix == 'research':
+                        try:
+                            self.driver.execute_script("""
+                                // 等待页面加载完成后执行导航
+                                setTimeout(function() {
+                                    if (window.location.hash !== '#research') {
+                                        window.location.hash = 'research';
+                                        // 触发页面更新
+                                        window.dispatchEvent(new Event('hashchange'));
+                                    }
+                                }, 2000);
+                            """)
+                            logger.info('已执行research页面导航脚本')
+                        except Exception as e:
+                            logger.warning(f'research导航脚本执行失败: {e}')
+                    
+                    # 增强等待时间，确保JavaScript渲染完成
+                    self.dynamic_delay(8, 15)
+                    
+                    # 验证页面是否真正加载成功
+                    try:
+                        page_title = self.driver.title
+                        if page_title and "巨潮资讯网" in page_title:
+                            logger.info(f'页面加载成功，标题: {page_title}')
+                            page_load_success = True
+                            break
+                        else:
+                            logger.warning(f'页面标题异常: {page_title}')
+                    except Exception as title_e:
+                        logger.warning(f'获取页面标题失败: {title_e}')
+                    
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    logger.error(f'页面加载尝试 {attempt + 1} 失败: {e}')
+                    
+                    if "timeout" in error_msg:
+                        logger.warning(f'检测到页面加载超时，当前超时设置: {current_timeout} 秒')
+                        
+                        # 在超时情况下，尝试停止页面加载并重新获取driver状态
+                        try:
+                            self.driver.execute_script("window.stop();")
+                        except Exception:
+                            pass
+                        
+                        # 如果不是最后一次尝试，等待后重试
+                        if attempt < max_page_load_attempts - 1:
+                            wait_time = min(5 + attempt * 3, 15)
+                            logger.info(f'等待 {wait_time} 秒后重试...')
+                            time.sleep(wait_time)
+                            
+                            # 尝试重启driver
+                            if attempt == 1:  # 第二次失败时重启driver
+                                logger.info('尝试重启WebDriver...')
+                                if self.restart_driver(headless):
+                                    logger.info('WebDriver重启成功')
+                                else:
+                                    logger.error('WebDriver重启失败')
+                                    break
+                    else:
+                        # 非超时错误，直接抛出
+                        raise e
+            
+            if not page_load_success:
+                logger.error(f'页面加载失败，已尝试 {max_page_load_attempts} 次')
+                raise Exception(f'页面加载失败，已尝试 {max_page_load_attempts} 次')
+            
             logger.info(f'页面加载完成，后缀: {target_suffix}')
             
             # 获取股票名称并创建子目录
@@ -708,7 +862,7 @@ class CninfoDownloader:
                     logger.info(f"已点击下载按钮，等待文件下载...")
                     
                     # 等待下载完成
-                    download_timeout = self.config_manager.get('timeout.download', 180)
+                    download_timeout = self.config_manager.get('timeout.download', 30)
                     if self._wait_for_download(before_files, save_path, timeout=download_timeout):
                         downloaded_count += 1
                         self.download_count += 1
@@ -737,12 +891,15 @@ class CninfoDownloader:
     
     def _wait_for_download(self, before_files, target_path, timeout=None):
         if timeout is None:
-            timeout = self.config_manager.get('timeout.download', 180)
-        """等待文件下载完成"""
+            timeout = self.config_manager.get('timeout.download', 30)
+        """等待文件下载完成（优化版本：渐进式退避）"""
         start_time = time.time()
+        check_interval = 0.5  # 开始时使用0.5秒间隔
         
         while time.time() - start_time < timeout:
-            time.sleep(1)
+            time.sleep(check_interval)
+            # 渐进式增加检查间隔，最大2秒
+            check_interval = min(check_interval * 1.2, 2.0)
             
             # 清理pdf.txt文件
             self._cleanup_pdf_txt()

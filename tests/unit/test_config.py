@@ -7,6 +7,7 @@ import json
 import tempfile
 from pathlib import Path
 from src.core.config import ConfigManager, ConfigError
+from tests.unit.test_data_manager import get_test_stock_code
 
 
 class TestConfigManager:
@@ -29,8 +30,9 @@ class TestConfigManager:
     
     def test_load_valid_config(self):
         """测试加载有效配置"""
+        stock_code = get_test_stock_code(0)
         test_config = {
-            "stock_code": "002415",
+            "stock_code": stock_code,
             "save_dir": "downloads",
             "headless": True
         }
@@ -41,7 +43,7 @@ class TestConfigManager:
         config = ConfigManager()
         loaded_config = config.load_config(str(self.config_path))
         
-        assert loaded_config["stock_code"] == "002415"
+        assert loaded_config["stock_code"] == stock_code
         assert loaded_config["save_dir"] == "downloads"
         assert loaded_config["headless"] is True
     
@@ -68,8 +70,9 @@ class TestConfigManager:
     
     def test_get_config_value(self):
         """测试获取配置值"""
+        stock_code = get_test_stock_code(0)
         test_config = {
-            "stock_code": "002415",
+            "stock_code": stock_code,
             "pages": [
                 {"name": "调研", "suffix": "research"}
             ]
@@ -81,7 +84,7 @@ class TestConfigManager:
         config = ConfigManager()
         config.load_config(str(self.config_path))
         
-        assert config.get("stock_code") == "002415"
+        assert config.get("stock_code") == stock_code
         assert config.get("pages.0.name") == "调研"
         assert config.get("nonexistent", "default") == "default"
     
@@ -110,18 +113,21 @@ class TestConfigManager:
         config.set("custom", "value")
         config.reset_config()
         
-        assert config.get("stock_code") == "300470"  # 默认值
+        # 检查重置后自定义值被清除
         assert config.get("custom") is None
+        # 检查默认配置的基本字段存在
+        assert config.get("save_dir") == "downloads"
     
     def test_get_default_config(self):
         """测试获取默认配置"""
         config = ConfigManager()
         default_config = config.get_default_config()
         
-        assert "stock_code" in default_config
+        assert "base_url" in default_config
         assert "save_dir" in default_config
         assert "headless" in default_config
         assert isinstance(default_config["pages"], list)
+        # 默认配置不应包含 stock_code，因为这是运行时参数
 
 
 if __name__ == "__main__":

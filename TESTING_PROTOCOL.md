@@ -29,49 +29,108 @@ tests/
 - 必要依赖包: selenium, pytest, requests
 
 ### 测试数据
-- 主要测试股票：300470（中密控股）
-- 预期组织ID：9900023856
-- 备用测试股票：301611（珂玛科技）、000001（平安银行）
+- 测试数据配置文件：`tests/test_config.json`
+- 测试数据管理器：`tests/test_data_manager.py`
+- 主要测试股票：002415（海康威视）、300010（豆神教育）、300470（中密控股）
+- 预期组织ID：9900012688、9900008267、9900023856
+- 禁止硬编码：所有测试数据必须从配置文件加载
 
 ## 详细测试协议
 
 ### A. 单元测试协议
 
-#### A.1 组织ID映射测试
+#### A.1 数据模型测试
+**文件**: `tests/unit/test_models.py`
+**目标**: 验证所有数据模型的正确性
+**测试内容**:
+- StockInfo模型: 股票代码标准化、验证、字典转换
+- DownloadRecord模型: 下载记录状态管理、更新操作
+- OrgIdMapping模型: 组织ID映射、置信度管理
+- DownloadTask模型: 下载任务管理、目标页面配置
+
+#### A.2 配置管理测试
+**文件**: `tests/unit/test_config.py`
+**目标**: 验证配置管理器的单例模式和配置操作
+**测试内容**:
+- 单例模式验证
+- 配置加载和保存
+- 配置值获取和设置
+- 默认配置生成
+
+#### A.3 组织ID映射测试
 **文件**: `tests/unit/test_mapping.py`
 **目标**: 验证组织ID映射功能
-```python
-def test_org_id_mapping():
-    mapping_manager = MappingManager("stock_orgid_mapping.json")
-    org_id = mapping_manager.get_org_id("300470")
-    assert org_id == "9900023856"
-```
+**测试内容**:
+- 映射文件加载和保存
+- 组织ID查询
+- 股票名称获取
+- 映射数据验证
 
-#### A.2 文件工具测试
+#### A.4 下载服务测试
+**文件**: `tests/unit/test_download_service.py`
+**目标**: 验证下载服务的核心功能
+**测试内容**:
+- 下载任务创建
+- 文件下载逻辑
+- 错误处理机制
+
+#### A.5 文件工具测试
 **文件**: `tests/unit/test_file_utils.py`
 **目标**: 验证文件名清理、目录创建等功能
 
-#### A.3 关键词匹配测试
+#### A.6 关键词匹配测试
 **文件**: `tests/unit/test_keyword_matcher.py`
 **目标**: 验证关键词过滤逻辑
 
-#### A.4 配置解析测试
-**文件**: `tests/unit/test_config.py`
-**目标**: 验证配置文件解析和验证
+#### A.7 日志系统测试
+**文件**: `tests/unit/test_logger.py`
+**目标**: 验证日志记录和配置功能
+
+#### A.8 分页功能测试
+**文件**: `tests/unit/test_pagination.py`
+**目标**: 验证分页逻辑和页面导航
+
+#### A.9 WebDriver测试
+**文件**: `tests/unit/test_driver.py`
+**目标**: 验证浏览器驱动配置和管理
+
+#### A.10 组织ID服务测试
+**文件**: `tests/unit/test_orgid_service.py`
+**目标**: 验证组织ID获取和管理服务
 
 ### B. 集成测试协议
 
-#### B.1 下载服务集成测试
+#### B.1 下载器集成测试
+**文件**: `tests/integration/test_integration.py`
+**目标**: 验证下载器各模块的集成协作
+**测试内容**:
+- 配置管理器集成
+- 日志系统集成
+- 文件系统集成
+
+#### B.2 下载服务集成测试
 **文件**: `tests/integration/test_download_service.py`
 **目标**: 验证下载服务各组件协作
+**测试内容**:
+- 下载任务执行
+- 错误恢复机制
+- 文件保存集成
 
-#### B.2 分页功能集成测试
+#### B.3 分页功能集成测试
 **文件**: `tests/integration/test_pagination_integration.py`
 **目标**: 验证分页逻辑与页面解析集成
+**测试内容**:
+- 多页面导航
+- 分页状态管理
+- 数据收集完整性
 
-#### B.3 Web爬虫集成测试
+#### B.4 Web爬虫集成测试
 **文件**: `tests/integration/test_web_scraper_integration.py`
 **目标**: 验证网页抓取与数据处理集成
+**测试内容**:
+- 页面加载策略
+- 元素查找集成
+- 数据提取流程
 
 ### C. 端到端测试协议
 
@@ -484,4 +543,55 @@ test_reports/
 
 - 2025-09-06: 创建完整测试协议
 - 2025-09-06: 添加测试报告规范和自动化集成
+- 2025-09-10: 更新分页测试协议，添加直接页码导航测试
 - 测试验证: 核心功能测试通过，性能测试待优化
+
+## 新增测试协议：分页功能增强测试
+
+### 直接页码导航测试
+**目标**: 验证新增的直接页码导航功能
+**测试方法**:
+```python
+# 测试直接页码导航功能
+scraper = WebScraper(driver)
+success = scraper.go_to_page(2)  # 直接跳转到第2页
+assert success == True, "直接页码导航失败"
+
+# 验证当前页码
+page_info = scraper.get_current_page_info()
+assert page_info["current_page"] == 2, f"当前页码应为2，实际为{page_info['current_page']}"
+```
+
+**成功标准**:
+- 能够成功跳转到指定页码
+- 当前页码信息正确更新
+- 页面内容正确加载
+
+**失败处理**:
+- 检查页码输入框和跳转按钮的选择器
+- 验证页面加载状态
+- 检查网络连接和超时设置
+
+### 混合分页策略测试
+**目标**: 验证优先使用直接页码导航，失败时回退到下一页按钮的策略
+**测试方法**:
+```python
+# 测试混合分页策略
+if not scraper.go_to_page(page_num + 1) and not self._go_to_next_page_old_style(driver):
+    logger.info("已到达最后一页")
+    break
+```
+
+**成功标准**:
+- 优先尝试直接页码导航
+- 直接导航失败时自动回退到传统下一页方法
+- 两种方法都失败时正确识别为最后一页
+
+### 网站结构变化应对测试
+**观察结果**: 2025-09-10测试发现，中密控股(300470)的2023年1月31日投资者关系活动记录表可能已被网站移除或归档
+
+**应对策略**:
+1. 增加最大爬取页数到10页
+2. 延长超时时间到180秒
+3. 添加网站结构变化监控
+4. 定期更新测试数据和预期结果

@@ -1,0 +1,65 @@
+{
+  "page_configs": [
+    {
+      "name": "调研",
+      "suffix": "research",
+      "max_pages": 3,
+      "allowed_keywords": ["调研"]
+    },
+    {
+      "name": "公告",
+      "suffix": "latestAnnouncement",
+      "max_pages": 5,
+      "allowed_keywords": null
+    }
+  ],
+  "keyword_test_cases": [
+    {
+      "text": "投资者关系调研活动记录表",
+      "title": "投资者关系调研活动记录表",
+      "expected": true
+    },
+    {
+      "text": "调研报告",
+      "title": "调研报告",
+      "expected": true
+    },
+    {
+      "text": "年度财务报告",
+      "title": "年度财务报告",
+      "expected": false
+    },
+    {
+      "text": "投资者关系活动更正公告",
+      "title": "投资者关系活动更正公告",
+      "expected": false
+    }
+  ],
+  "keyword_config": {
+    "allowed_keywords": ["投资者关系", "调研"],
+    "exclude_keywords": ["更正", "补充"],
+    "allowed_keywords_mode": "any"
+  },
+  "keyword_mode_test_cases": [
+    {
+      "config": {"allowed_keywords": ["a", "b"], "allowed_keywords_mode": "any"},
+      "text": "a b c",
+      "expected": true
+    },
+    {
+      "config": {"allowed_keywords": ["a", "b"], "allowed_keywords_mode": "all"},
+      "text": "a b c",
+      "expected": true
+    },
+    {
+      "config": {"allowed_keywords": ["a", "b"], "allowed_keywords_mode": "all"},
+      "text": "a c",
+      "expected": false
+    },
+    {
+      "config": {"allowed_keywords": ["\\d+"], "allowed_keywords_mode": "regex"},
+      "text": "123活动",
+      "expected": true
+    }
+  ]
+}

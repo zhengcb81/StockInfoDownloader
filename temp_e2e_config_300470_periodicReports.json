@@ -1,0 +1,15 @@
+{
+  "stock_code": "300470",
+  "save_dir": "end2end_test/test_results",
+  "max_retries": 2,
+  "max_pages": 5,
+  "pages": [
+    {
+      "name": "periodicReports页面",
+      "suffix": "periodicReports",
+      "allowed_keywords": [
+        "2025年一季度报告"
+      ]
+    }
+  ]
+}

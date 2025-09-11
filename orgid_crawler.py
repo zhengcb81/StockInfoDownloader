@@ -27,7 +27,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 from get_stock_name import get_stock_name
-from logger_config import get_logger
+from src.core.logger import get_logger
 
 # 初始化结构化日志记录器
 logger = get_logger('orgid_crawler', 'logs/orgid_crawler.log', logging.DEBUG)

@@ -15,7 +15,7 @@ from datetime import datetime
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.test_report_generator import TestReportGenerator
+from tests.unit.test_report_generator import TestReportGenerator
 
 
 def run_integration_tests():
@@ -63,15 +63,15 @@ def run_integration_tests():
                 }
                 
                 if success:
-                    print(f"✅ {component_name} 集成测试通过")
+                    print(f"[OK] {component_name} 集成测试通过")
                 else:
-                    print(f"❌ {component_name} 集成测试失败")
+                    print(f"[FAIL] {component_name} 集成测试失败")
                     print(f"   错误信息: {result.stderr[:200]}...")
                 
                 all_results.append(test_result)
                 
             except subprocess.TimeoutExpired:
-                print(f"⏰ {test_file} 测试超时")
+                print(f"[TIMEOUT] {test_file} 测试超时")
                 all_results.append({
                     "component": component_name,
                     "test_file": test_file,
@@ -80,7 +80,7 @@ def run_integration_tests():
                     "execution_time": 120.0
                 })
             except Exception as e:
-                print(f"❌ {test_file} 测试异常: {e}")
+                print(f"[ERROR] {test_file} 测试异常: {e}")
                 all_results.append({
                     "component": component_name,
                     "test_file": test_file,

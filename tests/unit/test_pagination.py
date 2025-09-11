@@ -7,6 +7,17 @@ from unittest.mock import Mock, patch
 from src.web.scraper import WebScraper
 
 
+@pytest.fixture(autouse=True)
+def mock_time_calls():
+    """Mock time.sleep and WebDriverWait calls to prevent hanging in tests"""
+    with patch('src.web.scraper.time.sleep') as mock_sleep, \
+         patch('src.web.scraper.WebDriverWait') as mock_wait:
+        # Mock WebDriverWait to return immediately
+        mock_wait.return_value.wait.return_value = None
+        mock_wait.return_value.until.return_value = None
+        yield
+
+
 class TestWebScraperPagination:
     """测试WebScraper的分页功能"""
     

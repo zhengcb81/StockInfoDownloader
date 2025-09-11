@@ -395,6 +395,162 @@ class WebScraper:
         except Exception as e:
             logger.warning(f"获取页面信息失败: {e}")
             return {"current_page": 1, "total_pages": 1, "has_next": False, "has_previous": False}
+
+    def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
+        """
+        跳转到指定页码
+        
+        Args:
+            page_number: 目标页码
+            timeout: 超时时间
+            
+        Returns:
+            bool: 是否成功跳转
+        """
+        try:
+            # 方法1: 查找页码输入框和跳转按钮
+            page_input_selectors = [
+                "input.el-pagination__editor",
+                "input.page-input",
+                "input[type='number']",
+                "input.pagination-input"
+            ]
+            
+            go_button_selectors = [
+                "button.el-pagination__jump",
+                "button.page-go",
+                "button:contains('跳转')",
+                "button:contains('Go')"
+            ]
+            
+            for input_selector, button_selector in zip(page_input_selectors, go_button_selectors):
+                try:
+                    # 查找页码输入框
+                    page_input = self.driver.find_element(By.CSS_SELECTOR, input_selector)
+                    if not page_input.is_enabled() or not page_input.is_displayed():
+                        continue
+                    
+                    # 查找跳转按钮
+                    go_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
+                    if not go_button.is_enabled() or not go_button.is_displayed():
+                        continue
+                    
+                    # 清空输入框并输入页码
+                    page_input.clear()
+                    page_input.send_keys(str(page_number))
+                    
+                    # 点击跳转按钮
+                    go_button.click()
+                    
+                    # 等待页面加载
+                    WebDriverWait(self.driver, timeout).until(
+                        EC.staleness_of(page_input)
+                    )
+                    
+                    logger.info(f"成功跳转到第{page_number}页")
+                    return True
+                    
+                except (NoSuchElementException, TimeoutException):
+                    continue
+            
+            # 方法2: 直接点击页码按钮
+            page_button_selectors = [
+                f".el-pager li.number:not(.active)",
+                f".pagination li:not(.active)",
+                f"a:not(.active)",
+                f"button:not([disabled])"
+            ]
+            
+            for selector in page_button_selectors:
+                try:
+                    page_buttons = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for page_button in page_buttons:
+                        if page_button.is_enabled() and page_button.is_displayed():
+                            button_text = page_button.text.strip()
+                            if button_text == str(page_number):
+                                # 滚动到元素位置
+                                self.driver.execute_script("arguments[0].scrollIntoView();", page_button)
+                                time.sleep(0.5)
+                                
+                                # 点击页码按钮
+                                page_button.click()
+                                
+                                # 等待页面加载 - 增强版AJAX等待机制
+                                logger.info(f"等待第{page_number}页内容加载...")
+                                
+                                # 步骤1: 基础等待让AJAX开始
+                                time.sleep(3)
+                                
+                                # 步骤2: 等待网络请求完成
+                                try:
+                                    WebDriverWait(self.driver, timeout).until(
+                                        lambda driver: driver.execute_script("return document.readyState") == "complete"
+                                    )
+                                except TimeoutException:
+                                    logger.warning("document.readyState未完成，继续执行")
+                                
+                                # 步骤3: 等待表格内容更新
+                                try:
+                                    # 记录当前表格内容
+                                    initial_table_content = ""
+                                    try:
+                                        table = self.driver.find_element(By.CSS_SELECTOR, ".el-table__body, .table-body, tbody")
+                                        initial_table_content = table.text[:300]
+                                    except:
+                                        initial_table_content = self.driver.find_element(By.TAG_NAME, "body").text[:300]
+                                    
+                                    logger.info(f"初始内容长度: {len(initial_table_content)}")
+                                    
+                                    # 等待内容变化
+                                    WebDriverWait(self.driver, timeout).until(
+                                        lambda driver: self._has_table_content_changed(initial_table_content)
+                                    )
+                                    logger.info("检测到表格内容变化")
+                                    
+                                except TimeoutException:
+                                    logger.warning(f"表格内容在{timeout}秒内未明显变化")
+                                    # 额外等待并重试一次
+                                    time.sleep(2)
+                                    
+                                # 步骤4: 最终稳定等待
+                                time.sleep(2)
+                                logger.info(f"第{page_number}页内容加载完成")
+                                
+                                logger.info(f"通过页码按钮跳转到第{page_number}页")
+                                return True
+                        
+                except (NoSuchElementException, TimeoutException):
+                    continue
+            
+            logger.warning(f"无法跳转到第{page_number}页")
+            return False
+            
+        except Exception as e:
+            logger.error(f"跳转到指定页码失败: {e}")
+            return False
+    
+    def _has_table_content_changed(self, initial_content: str) -> bool:
+        """检查表格内容是否发生变化"""
+        try:
+            # 尝试获取表格内容
+            try:
+                table = self.driver.find_element(By.CSS_SELECTOR, ".el-table__body, .table-body, tbody")
+                current_content = table.text[:300]
+            except:
+                # 如果找不到表格，获取body内容
+                current_content = self.driver.find_element(By.TAG_NAME, "body").text[:300]
+            
+            # 内容长度变化超过10%认为有变化
+            length_change = abs(len(current_content) - len(initial_content))
+            if length_change > len(initial_content) * 0.1:
+                return True
+            
+            # 或者直接内容不同
+            return current_content != initial_content
+            
+        except Exception as e:
+            logger.debug(f"检查内容变化失败: {e}")
+            return False
     
     def wait_for_page_load(self, timeout: int = 10) -> bool:
         """

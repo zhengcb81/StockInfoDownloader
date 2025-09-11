@@ -5,6 +5,7 @@
 import pytest
 import tempfile
 import shutil
+import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 from src.services.downloader import DownloadService
@@ -19,6 +20,11 @@ class TestPaginationIntegration:
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
         self.service = DownloadService(save_dir=self.temp_dir)
+        
+        # 加载测试配置
+        test_config_path = Path(__file__).parent / "test_pagination_config.json"
+        with open(test_config_path, 'r', encoding='utf-8') as f:
+            self.test_config = json.load(f)
     
     def teardown_method(self):
         """测试清理"""
@@ -26,42 +32,27 @@ class TestPaginationIntegration:
     
     def test_pagination_config_loading(self):
         """测试分页配置加载"""
-        config = {
-            "pages": [
-                {
-                    "name": "调研",
-                    "suffix": "research",
-                    "max_pages": 3,
-                    "allowed_keywords": ["调研"]
-                },
-                {
-                    "name": "公告",
-                    "suffix": "latestAnnouncement", 
-                    "max_pages": 5,
-                    "allowed_keywords": None
-                }
-            ]
-        }
+        # 使用配置文件中的数据
+        test_config = {"pages": self.test_config["page_configs"]}
         
-        page_config = self.service._get_page_config("research")
-        assert page_config.get("max_pages") == 3
-        assert "调研" in page_config.get("allowed_keywords", [])
+        # 使用 mock 来设置配置
+        with patch.object(self.service, 'config', test_config):
+            page_config = self.service._get_page_config("research")
+            expected_config = self.test_config["page_configs"][0]
+            assert page_config.get("max_pages") == expected_config["max_pages"]
+            assert expected_config["allowed_keywords"][0] in page_config.get("allowed_keywords", [])
     
     def test_keyword_matcher_integration(self):
         """测试关键词匹配器集成"""
-        page_config = {
-            "allowed_keywords": ["投资者关系", "调研"],
-            "exclude_keywords": ["更正", "补充"],
-            "allowed_keywords_mode": "any"
-        }
+        # 使用配置文件中的关键词配置
+        keyword_config = self.test_config["keyword_config"]
         
-        matcher = self.service._create_keyword_matcher(page_config)
+        matcher = self.service._create_keyword_matcher(keyword_config)
         
-        # 测试匹配
-        assert matcher.matches(title="投资者关系调研活动记录表")
-        assert matcher.matches(title="调研报告")
-        assert not matcher.matches(title="年度财务报告")
-        assert not matcher.matches(title="投资者关系活动更正公告")
+        # 使用配置文件中的测试用例
+        for test_case in self.test_config["keyword_test_cases"]:
+            result = matcher.matches(text=test_case["text"], title=test_case["title"])
+            assert result == test_case["expected"], f"Failed for: {test_case['text']}"
     
     def test_filter_links_integration(self):
         """测试链接过滤集成"""
@@ -101,33 +92,11 @@ class TestPaginationIntegration:
     
     def test_pagination_with_different_modes(self):
         """测试不同关键词模式的集成"""
-        test_cases = [
-            {
-                "config": {"allowed_keywords": ["a", "b"], "mode": "any"},
-                "text": "a b c",
-                "expected": True
-            },
-            {
-                "config": {"allowed_keywords": ["a", "b"], "mode": "all"},
-                "text": "a b c", 
-                "expected": True
-            },
-            {
-                "config": {"allowed_keywords": ["a", "b"], "mode": "all"},
-                "text": "a c",
-                "expected": False
-            },
-            {
-                "config": {"allowed_keywords": [r"\d+"], "mode": "regex"},
-                "text": "123活动",
-                "expected": True
-            }
-        ]
-        
-        for case in test_cases:
+        # 使用配置文件中的测试用例
+        for case in self.test_config["keyword_mode_test_cases"]:
             matcher = self.service._create_keyword_matcher(case["config"])
             result = matcher.matches(text=case["text"])
-            assert result == case["expected"]
+            assert result == case["expected"], f"Failed for config: {case['config']}, text: {case['text']}"
     
     def test_pagination_config_defaults(self):
         """测试分页配置默认值"""
@@ -144,17 +113,24 @@ class TestPaginationIntegration:
     
     def test_error_handling_in_pagination(self):
         """测试分页过程中的错误处理"""
-        # 模拟WebDriver异常
+        # 测试 has_next_page 在找不到元素时的正常行为
         mock_driver = Mock()
-        mock_driver.execute_script.side_effect = Exception("WebDriver error")
+        mock_driver.find_element.side_effect = Exception("No element found")
         
         scraper = WebScraper(mock_driver)
-        
-        # 异常应该被捕获并返回安全值
         result = scraper.has_next_page()
         assert result is False
         
-        result = scraper.go_to_next_page()
+        # 测试 go_to_next_page 在 execute_script 异常时的行为
+        mock_driver2 = Mock()
+        mock_element = Mock()
+        mock_element.is_enabled.return_value = True
+        mock_element.is_displayed.return_value = True
+        mock_driver2.find_element.return_value = mock_element
+        mock_driver2.execute_script.side_effect = Exception("WebDriver error")
+        
+        scraper2 = WebScraper(mock_driver2)
+        result = scraper2.go_to_next_page()
         assert result is False
     
     def test_pagination_with_exclude_keywords(self):

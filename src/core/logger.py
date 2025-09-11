@@ -1,12 +1,13 @@
 """
-日志管理模块
-提供统一的日志配置和管理功能
+统一日志管理模块
+提供结构化的日志配置和管理功能，支持中文编码和JSON上下文
 """
 
 import os
 import logging
 import logging.handlers
 import sys
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -31,8 +32,108 @@ class SafeStreamHandler(logging.StreamHandler):
             self.handleError(record)
 
 
+class StructuredLogger:
+    """结构化日志记录器，支持中文编码和JSON上下文"""
+    
+    def __init__(self, name: str, log_file: Optional[str] = None, level: int = logging.INFO):
+        """
+        初始化结构化日志记录器
+        
+        Args:
+            name: 日志记录器名称
+            log_file: 日志文件路径
+            level: 日志级别
+        """
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self.name = name
+        
+        # 避免重复添加处理器
+        if not self.logger.handlers:
+            self._setup_handlers(log_file)
+    
+    def _setup_handlers(self, log_file: Optional[str]):
+        """设置日志处理器"""
+        # 设置日志格式
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # 控制台处理器 - 处理中文编码问题
+        console_handler = SafeStreamHandler()
+        console_handler.setLevel(self.logger.level)
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
+        
+        # 文件处理器
+        if log_file:
+            log_path = Path(log_file)
+            # 确保日志目录存在
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            file_handler = logging.handlers.RotatingFileHandler(
+                log_path,
+                maxBytes=10*1024*1024,  # 10MB
+                backupCount=5,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(self.logger.level)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            
+            # 强制创建文件并写入一条测试日志来确保文件存在
+            original_level = self.logger.level
+            self.logger.setLevel(logging.INFO)
+            self.info("Logger initialized")
+            self.logger.handlers[-1].flush()  # 强制刷新
+            self.logger.setLevel(original_level)
+    
+    def _format_message(self, message: str, **kwargs) -> str:
+        """格式化消息，包含上下文信息"""
+        if kwargs:
+            context = json.dumps(kwargs, ensure_ascii=False)
+            return f"{message} | Context: {context}"
+        return message
+    
+    def debug(self, message: str, **kwargs):
+        """记录调试日志"""
+        formatted_message = self._format_message(message, **kwargs)
+        self.logger.debug(formatted_message)
+        self._flush_handlers()
+    
+    def info(self, message: str, **kwargs):
+        """记录信息日志"""
+        formatted_message = self._format_message(message, **kwargs)
+        self.logger.info(formatted_message)
+        self._flush_handlers()
+    
+    def warning(self, message: str, **kwargs):
+        """记录警告日志"""
+        formatted_message = self._format_message(message, **kwargs)
+        self.logger.warning(formatted_message)
+        self._flush_handlers()
+    
+    def error(self, message: str, **kwargs):
+        """记录错误日志"""
+        formatted_message = self._format_message(message, **kwargs)
+        self.logger.error(formatted_message)
+        self._flush_handlers()
+    
+    def critical(self, message: str, **kwargs):
+        """记录严重错误日志"""
+        formatted_message = self._format_message(message, **kwargs)
+        self.logger.critical(formatted_message)
+        self._flush_handlers()
+    
+    def _flush_handlers(self):
+        """强制刷新所有处理器"""
+        for handler in self.logger.handlers:
+            handler.flush()
+
+
 class LoggerManager:
-    """日志管理器"""
+    """统一的日志管理器，单例模式"""
     
     _instance = None
     _loggers = {}
@@ -53,63 +154,29 @@ class LoggerManager:
         name: str, 
         log_file: Optional[str] = None,
         level: int = logging.INFO,
-        max_bytes: int = 10 * 1024 * 1024,  # 10MB
-        backup_count: int = 5
-    ) -> logging.Logger:
+        structured: bool = True
+    ) -> StructuredLogger:
         """
-        获取日志器
+        获取结构化日志器
         
         Args:
             name: 日志器名称
             log_file: 日志文件路径，如果为None则使用name.log
             level: 日志级别
-            max_bytes: 单个日志文件最大大小
-            backup_count: 备份文件数量
+            structured: 是否使用结构化日志器
             
         Returns:
-            logging.Logger: 日志器实例
+            StructuredLogger: 结构化日志器实例
         """
         if name in self._loggers:
             return self._loggers[name]
         
-        # 创建日志器
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-        
-        # 避免重复添加处理器
-        if logger.handlers:
-            return logger
-        
-        # 设置日志格式
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        
-        # 控制台处理器 - 处理中文编码问题
-        console_handler = SafeStreamHandler()
-        console_handler.setLevel(level)
-        console_formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        console_handler.setFormatter(console_formatter)
-        logger.addHandler(console_handler)
-        
-        # 文件处理器
+        # 设置日志文件路径
         if log_file is None:
-            log_file = f"{name}.log"
+            log_file = str(self._log_dir / f"{name}.log")
         
-        log_path = self._log_dir / log_file
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_path,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
-        )
-        file_handler.setLevel(level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        # 创建结构化日志器
+        logger = StructuredLogger(name, log_file, level)
         
         self._loggers[name] = logger
         return logger
@@ -198,6 +265,10 @@ class LoggerManager:
         return cleaned_count
 
 
+# 为向后兼容性提供 Logger 别名
+Logger = StructuredLogger
+
+
 # 全局日志管理器实例
 logger_manager = LoggerManager()
 
@@ -206,9 +277,9 @@ def get_logger(
     name: str, 
     log_file: Optional[str] = None,
     level: int = logging.INFO
-) -> logging.Logger:
+) -> StructuredLogger:
     """
-    便捷获取日志器的函数
+    便捷获取结构化日志器的函数
     
     Args:
         name: 日志器名称
@@ -216,6 +287,6 @@ def get_logger(
         level: 日志级别
         
     Returns:
-        logging.Logger: 日志器实例
+        StructuredLogger: 结构化日志器实例
     """
     return logger_manager.get_logger(name, log_file, level)

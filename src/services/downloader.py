@@ -20,9 +20,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 
-from ..core.exceptions import DownloadError
+from ..core.exceptions import (
+    DownloadError, WebDriverError, NetworkError, FileSystemError, 
+    ErrorCode, ErrorSeverity, RecoveryStrategy,
+    with_error_handling, handle_error
+)
 from ..core.logger import get_logger
 from ..core.config import ConfigManager
+from ..core.performance_monitor import monitor_performance, monitor_operation, performance_monitor
 from ..data.models import StockInfo, DownloadRecord, DownloadStatus, DownloadTask
 from ..data.mapping import MappingManager
 from ..web.driver import WebDriverManager
@@ -31,6 +36,115 @@ from ..web.scraper import WebScraper
 from ..utils.keyword_matcher import KeywordMatcher
 
 logger = get_logger(__name__)
+
+
+class StockService:
+    """股票信息服务类，提供股票相关的基础服务"""
+    
+    def __init__(self, mapping_file: str = "stock_orgid_mapping.json"):
+        """
+        初始化股票服务
+        
+        Args:
+            mapping_file: 映射文件路径
+        """
+        self.mapping_manager = MappingManager(mapping_file)
+        self.config = ConfigManager()
+    
+    def get_stock_info(self, stock_code: str) -> Optional[Dict[str, str]]:
+        """
+        获取股票信息
+        
+        Args:
+            stock_code: 股票代码
+            
+        Returns:
+            Optional[Dict[str, str]]: 股票信息字典，包含org_id和stock_name
+        """
+        try:
+            # 获取组织ID
+            org_id = self.mapping_manager.get_org_id(stock_code)
+            if not org_id:
+                logger.warning(f"未找到股票代码 {stock_code} 的组织ID")
+                return None
+            
+            # 获取股票名称
+            stock_name = self.mapping_manager.get_stock_name(stock_code)
+            if not stock_name:
+                stock_name = stock_code
+                logger.warning(f"使用股票代码作为名称: {stock_code}")
+            
+            return {
+                'stock_code': stock_code,
+                'stock_name': stock_name,
+                'org_id': org_id
+            }
+            
+        except Exception as e:
+            logger.error(f"获取股票信息失败: {e}")
+            return None
+    
+    def get_stock_name(self, stock_code: str) -> Optional[str]:
+        """
+        获取股票名称
+        
+        Args:
+            stock_code: 股票代码
+            
+        Returns:
+            Optional[str]: 股票名称
+        """
+        return self.mapping_manager.get_stock_name(stock_code)
+    
+    def get_org_id(self, stock_code: str, force_refresh: bool = False) -> Optional[str]:
+        """
+        获取组织ID
+        
+        Args:
+            stock_code: 股票代码
+            force_refresh: 是否强制刷新
+            
+        Returns:
+            Optional[str]: 组织ID
+        """
+        return self.mapping_manager.get_org_id(stock_code, force_refresh)
+    
+    def validate_stock_code(self, stock_code: str) -> bool:
+        """
+        验证股票代码格式
+        
+        Args:
+            stock_code: 股票代码
+            
+        Returns:
+            bool: 是否有效
+        """
+        if not stock_code:
+            return False
+        
+        # 移除空格并补零到6位
+        stock_code = stock_code.strip().zfill(6)
+        
+        # 检查是否为6位数字
+        return stock_code.isdigit() and len(stock_code) == 6
+    
+    def get_all_stock_codes(self) -> List[str]:
+        """
+        获取所有股票代码
+        
+        Returns:
+            List[str]: 股票代码列表
+        """
+        return self.mapping_manager.get_all_stock_codes()
+    
+    def get_stock_statistics(self) -> Dict[str, int]:
+        """
+        获取股票统计信息
+        
+        Returns:
+            Dict[str, int]: 统计信息
+        """
+        return self.mapping_manager.get_statistics()
 
 
 class DownloadService:
@@ -54,9 +168,9 @@ class DownloadService:
         self.driver_manager = WebDriverManager(
             headless=True,
             download_dir=str(self.save_dir),
-            max_downloads_per_session=5,
-            page_load_timeout=30,
-            implicit_wait=5
+            max_downloads_per_session=10,
+            page_load_timeout=8,
+            implicit_wait=2
         )
         self.anti_crawler = AntiCrawlerStrategy()
         
@@ -69,9 +183,20 @@ class DownloadService:
         
         # 配置反爬虫策略
         human_behavior_delay = self.config.get('download.human_behavior_delay', 3)
+        # 确保 human_behavior_delay 是整数
+        if isinstance(human_behavior_delay, list):
+            # 如果是列表，取第一个元素或平均值
+            human_behavior_delay = human_behavior_delay[0] if human_behavior_delay else 3
+        elif not isinstance(human_behavior_delay, (int, float)):
+            # 如果不是数字类型，使用默认值
+            human_behavior_delay = 3
+        
+        # 确保是整数
+        human_behavior_delay = int(human_behavior_delay)
+        
         self.anti_crawler.set_session_parameters(
-            min_delay=human_behavior_delay - 1,
-            max_delay=human_behavior_delay + 5,
+            min_delay=max(1, human_behavior_delay - 1),
+            max_delay=human_behavior_delay + 2,  # 减少最大延迟
             max_downloads=self.max_downloads_per_session
         )
         
@@ -93,6 +218,7 @@ class DownloadService:
         """获取股票代码对应的组织ID（从旧下载器复制）"""
         return self.mapping_manager.get_org_id(stock_code, force_refresh=force_run)
     
+    @monitor_performance("DownloadService.download_stock_pdfs")
     def download_stock_pdfs(self, 
                           stock_code: str,
                           target_pages: Optional[List[str]] = None,
@@ -126,6 +252,11 @@ class DownloadService:
         
         return self._execute_download_task(task)
     
+    @with_error_handling(
+        error_code=ErrorCode.DOWNLOAD_STOCK_INFO_ERROR,
+        severity=ErrorSeverity.ERROR,
+        recovery_strategy=RecoveryStrategy.SKIP
+    )
     def _get_stock_info(self, stock_code: str) -> Optional[StockInfo]:
         """获取股票信息（与旧下载器对齐）"""
         try:
@@ -141,8 +272,13 @@ class DownloadService:
             
             org_id = self.mapping_manager.get_org_id(stock_code)
             if not org_id:
-                logger.error(f"无法获取组织ID: {stock_code}")
-                return None
+                raise DownloadError(
+                    f"无法获取组织ID: {stock_code}",
+                    error_code=ErrorCode.DOWNLOAD_ORG_ID_ERROR,
+                    severity=ErrorSeverity.ERROR,
+                    recovery_strategy=RecoveryStrategy.SKIP,
+                    context={"stock_code": stock_code, "operation": "get_stock_info"}
+                )
             
             return StockInfo(
                 stock_code=stock_code,
@@ -151,9 +287,24 @@ class DownloadService:
             )
             
         except Exception as e:
-            logger.error(f"获取股票信息失败: {e}")
-            return None
+            if isinstance(e, DownloadError):
+                raise
+            raise DownloadError(
+                f"获取股票信息失败: {e}",
+                error_code=ErrorCode.DOWNLOAD_STOCK_INFO_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.SKIP,
+                context={"stock_code": stock_code, "operation": "get_stock_info"},
+                original_exception=e
+            )
     
+    @monitor_performance("DownloadService._execute_download_task")
+    @with_error_handling(
+        error_code=ErrorCode.DOWNLOAD_TASK_ERROR,
+        severity=ErrorSeverity.ERROR,
+        recovery_strategy=RecoveryStrategy.RETRY,
+        max_retries=2
+    )
     def _execute_download_task(self, task: DownloadTask) -> List[DownloadRecord]:
         """执行下载任务"""
         records = []
@@ -175,10 +326,20 @@ class DownloadService:
                         self.anti_crawler.apply_anti_detection(driver)
         
         except Exception as e:
-            logger.error(f"执行下载任务失败: {e}")
+            if isinstance(e, (WebDriverError, NetworkError, DownloadError)):
+                raise
+            raise DownloadError(
+                f"执行下载任务失败: {e}",
+                error_code=ErrorCode.DOWNLOAD_TASK_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.RETRY,
+                context={"task_id": task.task_id, "stock_code": task.stock_info.stock_code},
+                original_exception=e
+            )
         
         return records
     
+    @monitor_performance("DownloadService._download_from_page")
     def _download_from_page(self, 
                           driver,
                           stock_info: StockInfo,
@@ -210,10 +371,10 @@ class DownloadService:
                     logger.info(f"访问页面: {url} (尝试 {attempt + 1})")
                     
                     driver.get(url)
-                    self.anti_crawler.random_delay(1, 2)
+                    self.anti_crawler.random_delay(0.5, 1)
                     
-                    # 等待页面加载 - 减少超时时间防止崩溃
-                    WebDriverWait(driver, 15).until(
+                    # 等待页面加载 - 优化超时时间
+                    WebDriverWait(driver, 5).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
                     
@@ -258,8 +419,8 @@ class DownloadService:
         start_time = time.time()
         
         try:
-            # 等待页面元素加载，进一步减少超时时间防止崩溃
-            WebDriverWait(driver, 10).until(
+            # 等待页面元素加载 - 优化超时时间
+            WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'a'))
             )
             
@@ -492,7 +653,7 @@ class DownloadService:
                     suffix = page_config.get("suffix", "research")
                     url = f"{base_url}/new/disclosure/stock?orgId={stock_info.org_id}&stockCode={stock_info.stock_code}#{suffix}"
                     driver.get(url)
-                    self.anti_crawler.dynamic_delay(2, 4)
+                    self.anti_crawler.dynamic_delay(0.5, 1)
                     
                     # 导航到当前页（如果不是第一页）
                     if page_num > 1:
@@ -537,14 +698,33 @@ class DownloadService:
                 logger.info(f"已达到最大页数限制: {max_pages}")
                 break
                 
-            # 尝试翻到下一页（使用旧下载器的成熟算法）
-            if not self._go_to_next_page_old_style(driver):
-                logger.info("已到达最后一页")
-                break
+            # 尝试翻到下一页（优先使用直接页码导航，失败时使用旧算法）
+            try:
+                pagination_success = scraper.go_to_page(page_num + 1)
+                if not pagination_success:
+                    pagination_success = self._go_to_next_page_old_style(driver)
                 
-            # 等待页面加载（使用动态延迟）
+                if not pagination_success:
+                    logger.info("已到达最后一页")
+                    break
+            except Exception as pagination_error:
+                if "chrome" in str(pagination_error).lower() or "tab crashed" in str(pagination_error).lower():
+                    logger.warning(f"翻页时发生ChromeDriver错误: {pagination_error}")
+                    # 尝试重启driver
+                    if self.driver_manager.restart_driver():
+                        driver = self.driver_manager.get_driver()
+                        scraper = WebScraper(driver)
+                        continue
+                    else:
+                        logger.error("无法重启WebDriver，停止翻页")
+                        break
+                else:
+                    logger.error(f"翻页失败: {pagination_error}")
+                    break
+                
+            # 等待页面加载（优化延迟时间）
             scraper.wait_for_page_load()
-            self.anti_crawler.dynamic_delay(3, 6)
+            self.anti_crawler.dynamic_delay(0.5, 1.5)
         
         return records
     
@@ -567,7 +747,7 @@ class DownloadService:
                 go_button.click()
                 
                 # 等待页面加载
-                time.sleep(2)
+                time.sleep(1)
                 
                 logger.info(f"已导航到第{page_num}页")
                 return True
@@ -577,7 +757,7 @@ class DownloadService:
                 if next_buttons:
                     for _ in range(page_num - 1):
                         next_buttons[0].click()
-                        time.sleep(2)
+                        time.sleep(1)
                     logger.info(f"已导航到第{page_num}页")
                     return True
                 
@@ -598,7 +778,7 @@ class DownloadService:
                 if next_btn.is_enabled():
                     actions = ActionChains(driver)
                     actions.move_to_element(next_btn).pause(random.uniform(0.5, 1.5)).click().perform()
-                    self.anti_crawler.dynamic_delay(1, 2)
+                    self.anti_crawler.dynamic_delay(0.5, 1)
                     return True
             except Exception:
                 pass
@@ -610,7 +790,7 @@ class DownloadService:
                 if parent_btn.is_enabled():
                     actions = ActionChains(driver)
                     actions.move_to_element(parent_btn).pause(random.uniform(0.5, 1.5)).click().perform()
-                    self.anti_crawler.dynamic_delay(1, 2)
+                    self.anti_crawler.dynamic_delay(0.5, 1)
                     return True
             except Exception:
                 pass
@@ -630,7 +810,7 @@ class DownloadService:
                 go_button.click()
                 
                 # 等待页面加载
-                self.anti_crawler.dynamic_delay(1, 2)
+                self.anti_crawler.dynamic_delay(0.5, 1)
                 return True
             except Exception:
                 pass
@@ -660,6 +840,7 @@ class DownloadService:
         
         return filtered_links
     
+    @monitor_performance("DownloadService._download_from_detail_page")
     def _download_from_detail_page(self, driver, stock_info: StockInfo, link_data: Dict[str, str]) -> Optional[DownloadRecord]:
         """从详情页下载PDF文件（优化版本：移除重复的文件存在检查）"""
         start_time = time.time()
@@ -688,7 +869,7 @@ class DownloadService:
             try:
                 # 访问详情页获取日期信息
                 driver.get(detail_url)
-                self.anti_crawler.random_delay(1, 3)
+                self.anti_crawler.random_delay(0.5, 1.5)
                 
                 # 查找详情页中的链接元素来提取日期
                 detail_links = driver.find_elements(By.TAG_NAME, 'a')
@@ -702,33 +883,67 @@ class DownloadService:
         
         logger.info(f"访问详情页开始下载: {title}")
         
-        # 添加重试机制处理tab crashed错误
-        max_retries = 2
+        # 添加重试机制处理tab crashed错误和ChromeDriver错误（增强版）
+        max_retries = 3  # 增加重试次数
         for attempt in range(max_retries + 1):
             try:
-                # 访问详情页
-                driver.get(detail_url)
-                self.anti_crawler.random_delay(1, 3)
+                # 访问详情页 - 添加更好的错误处理
+                try:
+                    driver.get(detail_url)
+                except Exception as get_error:
+                    if "tab crashed" in str(get_error).lower() or "chrome" in str(get_error).lower():
+                        logger.warning(f"ChromeDriver错误，尝试重启driver (尝试 {attempt + 1}/{max_retries + 1}): {get_error}")
+                        if attempt < max_retries:
+                            # 等待更长时间让Chrome完全重启
+                            time.sleep(3)
+                            # 重启WebDriver
+                            if self.driver_manager.restart_driver():
+                                driver = self.driver_manager.get_driver()
+                                if driver:
+                                    logger.info("WebDriver重启成功，继续执行")
+                                    continue
+                                else:
+                                    logger.error("WebDriver重启失败")
+                                    raise get_error
+                            else:
+                                logger.error("无法重启WebDriver")
+                                raise get_error
+                        else:
+                            logger.error(f"ChromeDriver重试失败，放弃: {get_error}")
+                            raise get_error
+                    else:
+                        raise get_error
+                
+                self.anti_crawler.random_delay(0.5, 1.5)
                 
                 # 模拟人类行为
                 self.anti_crawler.simulate_human_behavior(driver)
                 
-                # 查找并点击下载按钮
+                # 查找并点击下载按钮 - 优化等待时间
                 try:
-                    download_btn = WebDriverWait(driver, 15).until(
+                    download_btn = WebDriverWait(driver, 5).until(
                         EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]"))
                     )
                     
-                    # 记录点击前的文件列表（对齐旧下载器：检查整个下载目录）
-                    before_files = set(os.listdir(self.save_dir))
+                    # 记录点击前的文件列表（分别记录两个目录）
+                    before_files_save_dir = set(os.listdir(self.save_dir))
+                    
+                    # 记录Chrome默认下载目录的文件
+                    chrome_default_downloads = os.path.expanduser("~/Downloads")
+                    before_files_chrome = set()
+                    if os.path.exists(chrome_default_downloads):
+                        before_files_chrome = set(os.listdir(chrome_default_downloads))
+                    
+                    # 保存两个目录的初始文件列表用于传递给_wait_for_download
+                    before_files = (before_files_save_dir, before_files_chrome)
                     
                     # 模拟人类点击
                     actions = ActionChains(driver)
                     actions.move_to_element(download_btn).pause(random.uniform(0.5, 1.5)).click().perform()
                     logger.info(f"已点击下载按钮，等待文件下载...")
                     
-                    # 等待下载完成
-                    if self._wait_for_download(before_files, str(file_path), timeout=180):
+                    # 等待下载完成 - 优化超时时间
+                    if self._wait_for_download(before_files, str(file_path), timeout=60):
                         file_size = file_path.stat().st_size
                         total_time = time.time() - start_time
                         logger.info(f"下载成功: {file_name} ({file_size} bytes), 总耗时: {total_time:.3f}s")
@@ -804,21 +1019,49 @@ class DownloadService:
             error_message=f"达到最大重试次数 {max_retries}"
         )
     
-    def _wait_for_download(self, before_files, target_path, timeout=180):
-        """等待文件下载完成（对齐旧下载器算法）"""
+    @monitor_performance("DownloadService._wait_for_download")
+    def _wait_for_download(self, before_files, target_path, timeout=60):
+        """等待文件下载完成（性能优化版本）"""
         start_time = time.time()
+        check_interval = 0.5  # 开始时使用0.5秒间隔
         
         while time.time() - start_time < timeout:
-            time.sleep(0.5)  # 减少等待时间，提高响应速度
+            time.sleep(check_interval)
+            # 渐进式增加检查间隔，最大2.0秒
+            check_interval = min(check_interval * 1.2, 2.0)
             
             # 清理pdf.txt文件
             self._cleanup_pdf_txt()
             
             # 检查新文件（对齐旧下载器：先检查整个下载目录）
             try:
-                # 方法1: 检查整个下载目录（浏览器默认下载位置）
-                after_files = set(os.listdir(self.save_dir))
-                new_files = after_files - before_files
+                # 解析两个目录的初始文件列表
+                before_files_save_dir, before_files_chrome = before_files
+                
+                # 方法1: 检查配置的下载目录
+                after_files_save_dir = set(os.listdir(self.save_dir))
+                new_files_save_dir = after_files_save_dir - before_files_save_dir
+                
+                # 方法2: 检查Chrome默认下载目录
+                chrome_default_downloads = os.path.expanduser("~/Downloads")
+                new_files_chrome = set()
+                if os.path.exists(chrome_default_downloads):
+                    after_files_chrome = set(os.listdir(chrome_default_downloads))
+                    new_files_chrome = after_files_chrome - before_files_chrome
+                        
+                # 合并两个目录的新文件
+                new_files = new_files_save_dir.union(new_files_chrome)
+                
+                # 将Chrome默认目录中的新文件移动到配置的下载目录
+                for file in new_files_chrome:
+                    chrome_file_path = os.path.join(chrome_default_downloads, file)
+                    if file.lower().endswith('.pdf') and os.path.exists(chrome_file_path):
+                        target_file_path = os.path.join(self.save_dir, file)
+                        try:
+                            shutil.move(chrome_file_path, target_file_path)
+                            logger.info(f"从Chrome默认目录移动文件: {chrome_file_path} -> {target_file_path}")
+                        except Exception as e:
+                            logger.error(f"移动Chrome默认目录文件失败: {e}")
                 
                 for file in new_files:
                     file_path = os.path.join(self.save_dir, file)

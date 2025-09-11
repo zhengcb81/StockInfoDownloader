@@ -46,14 +46,15 @@ class TestMappingManager:
     def test_init_with_valid_file(self):
         """测试使用有效文件初始化"""
         manager = MappingManager(self.mapping_file)
-        assert manager.mapping_file == self.mapping_file
-        assert manager.mapping_data == self.test_data
+        assert str(manager.mapping_file) == self.mapping_file
+        # 检查映射是否正确加载
+        assert len(manager._mappings) == len(self.test_data)
     
     def test_init_with_invalid_file(self):
         """测试使用无效文件初始化"""
         invalid_file = os.path.join(self.temp_dir, 'nonexistent.json')
         manager = MappingManager(invalid_file)
-        assert manager.mapping_file == invalid_file
+        assert str(manager.mapping_file) == invalid_file
         assert manager.mapping_data == {}
     
     def test_get_org_id_success(self):

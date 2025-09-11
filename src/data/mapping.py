@@ -32,6 +32,32 @@ class MappingManager:
         
         self._load_mappings()
     
+    @property
+    def mapping_data(self) -> Dict[str, OrgIdMapping]:
+        """
+        获取映射数据属性
+        
+        Returns:
+            Dict[str, OrgIdMapping]: 映射数据字典
+        """
+        return self._mappings.copy()
+    
+    def reload_mapping(self) -> bool:
+        """
+        重新加载映射数据
+        
+        Returns:
+            bool: 重新加载是否成功
+        """
+        try:
+            self._mappings.clear()
+            self._load_mappings()
+            logger.info("映射数据重新加载成功")
+            return True
+        except Exception as e:
+            logger.error(f"重新加载映射数据失败: {e}")
+            return False
+    
     def _load_mappings(self) -> None:
         """加载映射文件"""
         if not self.mapping_file.exists():
@@ -143,7 +169,7 @@ class MappingManager:
                    org_id: str, 
                    stock_name: str,
                    source: str = "auto",
-                   confidence: float = 0.8) -> None:
+                   confidence: float = 0.8) -> bool:
         """
         添加映射
         
@@ -153,21 +179,29 @@ class MappingManager:
             stock_name: 股票名称
             source: 来源
             confidence: 置信度
+            
+        Returns:
+            bool: 添加是否成功
         """
-        stock_code = stock_code.strip().zfill(6)
-        
-        mapping = OrgIdMapping(
-            stock_code=stock_code,
-            org_id=org_id,
-            stock_name=stock_name,
-            source=source,
-            confidence=confidence
-        )
-        
-        self._mappings[stock_code] = mapping
-        self._save_mappings()
-        
-        logger.info(f"添加映射: {stock_code} -> {org_id} ({stock_name})")
+        try:
+            stock_code = stock_code.strip().zfill(6)
+            
+            mapping = OrgIdMapping(
+                stock_code=stock_code,
+                org_id=org_id,
+                stock_name=stock_name,
+                source=source,
+                confidence=confidence
+            )
+            
+            self._mappings[stock_code] = mapping
+            self._save_mappings()
+            
+            logger.info(f"添加映射: {stock_code} -> {org_id} ({stock_name})")
+            return True
+        except Exception as e:
+            logger.error(f"添加映射失败: {e}")
+            return False
     
     def remove_mapping(self, stock_code: str) -> bool:
         """
@@ -225,6 +259,35 @@ class MappingManager:
         
         logger.info(f"更新映射: {stock_code}")
         return True
+    
+    def add_duplicate_mapping(self, 
+                            stock_code: str, 
+                            org_id: str, 
+                            stock_name: str,
+                            source: str = "auto",
+                            confidence: float = 0.8) -> bool:
+        """
+        添加重复映射（应该失败）
+        
+        Args:
+            stock_code: 股票代码
+            org_id: 组织ID
+            stock_name: 股票名称
+            source: 来源
+            confidence: 置信度
+            
+        Returns:
+            bool: 添加是否成功（应该总是返回False）
+        """
+        stock_code = stock_code.strip().zfill(6)
+        
+        # 检查是否已存在
+        if stock_code in self._mappings:
+            logger.warning(f"尝试添加重复映射: {stock_code} -> {org_id}")
+            return False
+        
+        # 如果不存在，正常添加
+        return self.add_mapping(stock_code, org_id, stock_name, source, confidence)
     
     def get_all_mappings(self) -> Dict[str, OrgIdMapping]:
         """获取所有映射"""
@@ -407,3 +470,33 @@ class MappingManager:
                 logger.error(f"从文件获取组织信息失败: {e}")
         
         return None
+    
+    def _validate_mapping_data(self, data: dict) -> bool:
+        """
+        验证映射数据格式
+        
+        Args:
+            data: 要验证的数据
+            
+        Returns:
+            bool: 数据是否有效
+        """
+        if not isinstance(data, dict):
+            return False
+        
+        for stock_code, mapping in data.items():
+            if not isinstance(mapping, dict):
+                return False
+            
+            # 检查必需字段
+            if 'org_id' not in mapping or 'name' not in mapping:
+                return False
+            
+            # 检查字段值不为空且不是明显的无效值
+            if (not mapping['org_id'] or 
+                not mapping['name'] or 
+                mapping['org_id'] == 'invalid' or 
+                mapping['name'] == 'invalid'):
+                return False
+        
+        return True

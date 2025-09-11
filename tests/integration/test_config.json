@@ -1,0 +1,42 @@
+{
+  "test_mappings": [
+    {
+      "stock_code": "002415",
+      "org_id": "9900012688",
+      "stock_name": "海康威视"
+    },
+    {
+      "stock_code": "300010",
+      "org_id": "9900008267",
+      "stock_name": "豆神教育"
+    },
+    {
+      "stock_code": "002050",
+      "org_id": "gssz0002050",
+      "stock_name": "三花智控"
+    },
+    {
+      "stock_code": "301611",
+      "org_id": "9900056250",
+      "stock_name": "珂玛科技"
+    }
+  ],
+  "validation_test_cases": [
+    {
+      "org_id": "9900012688",
+      "expected": true
+    },
+    {
+      "org_id": "gssz0002050",
+      "expected": true
+    },
+    {
+      "org_id": "",
+      "expected": false
+    },
+    {
+      "org_id": "invalid",
+      "expected": false
+    }
+  ]
+}

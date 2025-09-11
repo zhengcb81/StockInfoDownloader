@@ -14,7 +14,7 @@ import glob
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
-from tests.test_report_generator import TestReportGenerator
+from tests.unit.test_report_generator import TestReportGenerator
 
 
 class CICDReportGenerator(TestReportGenerator):

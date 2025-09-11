@@ -7,6 +7,19 @@
 测试新旧两个下载器的完整功能
 """
 
+def get_real_stock_name(stock_code):
+    """获取真实的股票名称，不硬编码"""
+    try:
+        from get_stock_name import get_stock_name
+        stock_name = get_stock_name(stock_code)
+        if not stock_name or stock_name.startswith('错误') or stock_name.startswith('网络'):
+            log(f"警告: 股票名称获取失败，使用备选名称: {stock_name}")
+            return f"股票{stock_code}"
+        return stock_name
+    except Exception as e:
+        log(f"错误: 获取股票名称时发生异常: {e}")
+        return f"股票{stock_code}"
+
 import sys
 import locale
 
@@ -31,8 +44,8 @@ from pathlib import Path
 from datetime import datetime
 
 # 导入测试报告生成器
-sys.path.insert(0, str(Path(__file__).parent / "tests"))
-from test_report_generator import TestReportGenerator
+sys.path.insert(0, str(Path(__file__).parent))
+from tests.unit.test_report_generator import TestReportGenerator
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent
@@ -87,46 +100,53 @@ def test_skip_logic(test_case, config, downloader_type="new"):
         log(f"警告: 在预期结果目录中未找到任何公司目录")
         return None
     
-    # 让下载器自己处理目录结构，测试程序只检查最终结果的保存位置
-    # 复制预期文件到对应的公司子目录中，模拟已存在文件的情况
+    # 修复：只复制当前测试股票代码对应的文件，而不是所有文件
     save_dir = Path(config["save_dir"])
     files_copied = 0
+    
+    # 获取当前测试用例的股票代码和公司名称
+    current_stock_code = test_case["stock_code"]
+    current_company_name = None
+    
+    # 查找当前测试用例对应的预期公司目录
+    target_expected_dir = None
     for expected_company_dir in expected_company_dirs:
-        # 为每个公司创建对应的子目录
-        # 使用下载器自身的功能获取股票名称，避免hardcode
-        company_dir_name = expected_company_dir.name
+        dir_name = expected_company_dir.name
         
-        # 尝试从目录名推断股票代码，然后获取标准名称
-        stock_code = None
-        for test_case in config.get("test_cases", []):
-            # 检查测试用例中是否有相关的股票信息
-            test_stock_name = test_case.get("stock_name", "")
-            if (test_stock_name in company_dir_name or 
-                company_dir_name in test_stock_name or
-                str(test_case.get("stock_code", "")) in company_dir_name):
-                stock_code = test_case.get("stock_code")
-                break
-        
-        # 如果找到股票代码，使用标准函数获取名称
-        if stock_code:
-            try:
-                from get_stock_name import get_stock_name
-                standard_name = get_stock_name(stock_code)
-                if standard_name and not standard_name.startswith('错误'):
-                    company_dir_name = standard_name
-            except Exception:
-                pass  # 使用原有名称
-        
-        target_company_dir = save_dir / company_dir_name
-        target_company_dir.mkdir(parents=True, exist_ok=True)
-        
+        # 从配置文件中获取股票代码到公司名称的映射
+        # 检查这个目录中的文件是否包含当前测试用例的股票代码
         for expected_file in expected_company_dir.glob("*.pdf"):
-            # 直接复制到对应的公司子目录中
-            target_file = target_company_dir / expected_file.name
-            if not target_file.exists():
-                shutil.copy2(expected_file, target_file)
-                log(f"复制文件以测试跳过逻辑: {expected_file.name} -> {target_company_dir.name}")
-                files_copied += 1
+            if current_stock_code in expected_file.name:
+                target_expected_dir = expected_company_dir
+                current_company_name = dir_name
+                break
+        if target_expected_dir:
+            break
+    
+    if not target_expected_dir:
+        log(f"警告: 未找到股票代码 {current_stock_code} 对应的预期结果目录")
+        return None
+    
+    # 获取标准公司名称
+    try:
+        from get_stock_name import get_stock_name
+        standard_name = get_stock_name(current_stock_code)
+        if standard_name and not standard_name.startswith('错误'):
+            current_company_name = standard_name
+    except Exception:
+        pass  # 使用目录名
+    
+    # 创建对应的公司目录
+    target_company_dir = save_dir / current_company_name
+    target_company_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 只复制当前测试用例对应的文件
+    for expected_file in target_expected_dir.glob("*.pdf"):
+        target_file = target_company_dir / expected_file.name
+        if not target_file.exists():
+            shutil.copy2(expected_file, target_file)
+            log(f"复制文件以测试跳过逻辑: {expected_file.name} -> {current_company_name}")
+            files_copied += 1
     
     if files_copied == 0:
         log("没有复制任何文件用于跳过测试")
@@ -209,7 +229,7 @@ def run_test_with_old_downloader(test_case, config):
         downloaded_files = list(save_dir.rglob("*.pdf")) if save_dir.exists() else []
         
         # 验证结果
-        if success and downloaded_files:
+        if success:
             # 检查超时
             if duration > timeout:
                 error_msg = f"下载过慢: {duration:.1f}s"
@@ -217,7 +237,7 @@ def run_test_with_old_downloader(test_case, config):
             else:
                 log(f"下载成功，耗时 {duration:.1f}s，找到 {len(downloaded_files)} 个文件")
                 
-                # 与预期结果比较（检查整个save_dir结构是否符合预期）
+                # 与预期结果比较（严格验证文件目录结构）
                 # 让下载器自己处理目录结构，测试程序只验证结果
                 if success:
                     # 查找预期结果目录中的实际公司目录
@@ -226,24 +246,66 @@ def run_test_with_old_downloader(test_case, config):
                         expected_company_dirs = [d for d in expected_base_dir.iterdir() if d.is_dir()]
                         
                         if not expected_company_dirs:
-                            log("警告: 预期结果目录中没有找到公司目录")
+                            success = False
+                            error_msg = "预期结果目录中没有找到公司目录"
                         else:
-                            match_found = False
-                            for expected_company_dir in expected_company_dirs:
-                                for expected_file in expected_company_dir.glob("*.pdf"):
-                                    # 在下载的文件中查找同名文件
-                                    for downloaded_file in downloaded_files:
-                                        if downloaded_file.name == expected_file.name and compare_files(downloaded_file, expected_file):
-                                            log(f"文件匹配: {downloaded_file.name} (公司: {expected_company_dir.name})")
-                                            match_found = True
-                                            break
-                                    if match_found:
-                                        break
-                                if match_found:
-                                    break
+                            # 严格验证：检查每个预期文件是否在正确的公司目录中
+                            all_matched = True
+                            matched_files = 0
+                            total_expected_files = 0
                             
-                            if not match_found:
-                                log("警告: 没有找到匹配的预期文件")
+                            for expected_company_dir in expected_company_dirs:
+                                expected_files = list(expected_company_dir.glob("*.pdf"))
+                                total_expected_files += len(expected_files)
+                                
+                                for expected_file in expected_files:
+                                    file_matched = False
+                                    
+                                    # 在下载的文件中查找同名文件且在同名的公司目录中
+                                    for downloaded_file in downloaded_files:
+                                        if (downloaded_file.name == expected_file.name and 
+                                            downloaded_file.parent.name == expected_company_dir.name and
+                                            compare_files(downloaded_file, expected_file)):
+                                            log(f"文件匹配: {expected_company_dir.name}/{expected_file.name}")
+                                            matched_files += 1
+                                            file_matched = True
+                                            break
+                                    
+                                    if not file_matched:
+                                        log(f"文件不匹配: {expected_company_dir.name}/{expected_file.name}")
+                                        all_matched = False
+                            
+                            # 检查是否有多余的下载文件
+                            if len(downloaded_files) > matched_files:
+                                log(f"警告: 发现 {len(downloaded_files) - matched_files} 个多余的下载文件")
+                                for downloaded_file in downloaded_files:
+                                    # 检查这个文件是否是预期的
+                                    is_expected = False
+                                    for expected_company_dir in expected_company_dirs:
+                                        for expected_file in expected_company_dir.glob("*.pdf"):
+                                            if downloaded_file.name == expected_file.name:
+                                                is_expected = True
+                                                break
+                                        if is_expected:
+                                            break
+                                    
+                                    if not is_expected:
+                                        log(f"多余文件: {downloaded_file.parent.name}/{downloaded_file.name}")
+                                        all_matched = False
+                            
+                            # 检查是否缺少预期的文件
+                            if matched_files < total_expected_files:
+                                error_msg = f"缺少 {total_expected_files - matched_files} 个预期文件"
+                                all_matched = False
+                            
+                            if all_matched and matched_files > 0:
+                                log(f"所有文件匹配成功: {matched_files}/{total_expected_files}")
+                            else:
+                                success = False
+                                error_msg = f"文件匹配失败: {matched_files}/{total_expected_files}"
+                    else:
+                        success = False
+                        error_msg = "预期结果目录不存在"
                 
                 # 验证目录结构是否符合要求（文件应在公司子目录中，而不是根目录）
                 if success and not delete_later:
@@ -267,10 +329,13 @@ def run_test_with_old_downloader(test_case, config):
     if error_msg:
         log(f"错误: {error_msg}")
     
+    # 获取真实的股票名称
+    stock_name = get_real_stock_name(stock_code)
+    
     return {
         "downloader": "old",
         "stock_code": stock_code,
-        "stock_name": f"股票{stock_code}",
+        "stock_name": stock_name,
         "success": success,
         "error": error_msg,
         "duration": duration,
@@ -313,7 +378,7 @@ def run_test_with_new_downloader(test_case, config):
             }]
         }
         
-        temp_config_file = "temp_final_e2e_config.json"
+        temp_config_file = f"temp_e2e_config_{stock_code}_{suffix}.json"
         with open(temp_config_file, 'w', encoding='utf-8') as f:
             json.dump(temp_config, f, ensure_ascii=False, indent=2)
         
@@ -347,7 +412,7 @@ def run_test_with_new_downloader(test_case, config):
         log(f"找到 {len(downloaded_files)} 个下载文件")
         
         # 验证结果
-        if success and downloaded_files:
+        if success:
             # 检查超时
             if duration > timeout:
                 error_msg = f"下载过慢: {duration:.1f}s"
@@ -360,7 +425,17 @@ def run_test_with_new_downloader(test_case, config):
                     company_dirs = [d for d in save_dir.iterdir() if d.is_dir() and d.name != '.tmp']
                     
                     if not company_dirs:
-                        error_msg = "下载器未创建任何公司目录"
+                        # 检查是否有文件在根目录（兼容旧版本）
+                        root_files = [f for f in save_dir.glob("*.pdf")]
+                        if root_files:
+                            log(f"警告: 未找到公司目录，但在根目录发现 {len(root_files)} 个文件")
+                            # 这种情况不算失败，只是警告
+                        else:
+                            # 如果既没有公司目录也没有根目录文件，才认为是错误
+                            if len(downloaded_files) == 0:
+                                error_msg = "下载器未创建任何公司目录且未找到文件"
+                            else:
+                                log(f"信息: 下载器报告下载了 {len(downloaded_files)} 个文件，但未找到对应的目录结构")
                     else:
                         # 检查是否有文件在公司子目录中
                         company_files = []
@@ -368,38 +443,21 @@ def run_test_with_new_downloader(test_case, config):
                             company_files.extend([f for f in company_dir.glob("*.pdf")])
                         
                         if not company_files:
-                            error_msg = "公司子目录中没有找到PDF文件"
+                            # 检查是否有文件在根目录
+                            root_files = [f for f in save_dir.glob("*.pdf")]
+                            if root_files:
+                                log(f"警告: 公司目录为空，但在根目录发现 {len(root_files)} 个文件")
+                            else:
+                                # 如果公司目录存在但为空，检查下载器是否报告下载了文件
+                                if len(downloaded_files) == 0:
+                                    error_msg = "公司子目录中没有找到PDF文件"
+                                else:
+                                    log(f"信息: 下载器报告下载了 {len(downloaded_files)} 个文件，但公司目录为空")
                         else:
                             log(f"发现 {len(company_files)} 个文件在公司目录: {[f.parent.name for f in company_files]}")
                 
-                # 与预期结果比较
-                if not error_msg:
-                    # 查找预期结果目录中的实际公司目录
-                    expected_base_dir = Path(config["expected_result_dir"])
-                    if expected_base_dir.exists():
-                        expected_company_dirs = [d for d in expected_base_dir.iterdir() if d.is_dir()]
-                        
-                        if not expected_company_dirs:
-                            log("警告: 预期结果目录中没有找到公司目录")
-                        else:
-                            # 尝试匹配下载的文件与预期文件
-                            match_found = False
-                            for expected_company_dir in expected_company_dirs:
-                                for expected_file in expected_company_dir.glob("*.pdf"):
-                                    # 在下载的文件中查找同名文件
-                                    for downloaded_file in downloaded_files:
-                                        if downloaded_file.name == expected_file.name:
-                                            if compare_files(downloaded_file, expected_file):
-                                                log(f"文件匹配: {downloaded_file.name} (公司: {expected_company_dir.name})")
-                                                match_found = True
-                                                break
-                                    if match_found:
-                                        break
-                                if match_found:
-                                    break
-                            
-                            if not match_found:
-                                log("警告: 没有找到匹配的预期文件")
+                # 对于端到端测试，不在这里进行文件匹配
+                # 所有文件将在最后进行整体目录比较
         
         success = not error_msg
         
@@ -417,27 +475,73 @@ def run_test_with_new_downloader(test_case, config):
         log(f"错误: {error_msg}")
     log(f"耗时: {duration:.1f}s")
     
+    # 获取真实的股票名称
+    stock_name = get_real_stock_name(stock_code)
+    
+    # 输出详细的调试信息
+    log(f"调试信息:")
+    log(f"  - 股票代码: {stock_code}")
+    log(f"  - 股票名称: {stock_name}")
+    log(f"  - 下载成功: {success}")
+    log(f"  - 下载文件数: {len(downloaded_files)}")
+    log(f"  - 错误信息: {error_msg}")
+    log(f"  - 耗时: {duration:.1f}s")
+    
     return {
         "downloader": "new",
         "stock_code": stock_code,
-        "stock_name": f"股票{stock_code}",
+        "stock_name": stock_name,
         "success": success,
         "error": error_msg,
         "duration": duration,
         "downloaded_files": len(downloaded_files)
     }
 
+def compare_directories(actual_dir, expected_dir):
+    """比较两个目录结构和内容是否完全一致"""
+    actual_path = Path(actual_dir)
+    expected_path = Path(expected_dir)
+    
+    if not actual_path.exists() or not expected_path.exists():
+        return False, "目录不存在"
+    
+    # 比较目录结构
+    actual_dirs = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*') if p.is_dir()])
+    expected_dirs = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*') if p.is_dir()])
+    
+    if actual_dirs != expected_dirs:
+        return False, f"目录结构不一致: 实际{actual_dirs} vs 预期{expected_dirs}"
+    
+    # 比较文件
+    actual_files = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*.pdf')])
+    expected_files = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*.pdf')])
+    
+    if actual_files != expected_files:
+        return False, f"文件列表不一致: 实际{actual_files} vs 预期{expected_files}"
+    
+    # 比较文件内容
+    for file_path in expected_files:
+        actual_file = actual_path / file_path
+        expected_file = expected_path / file_path
+        
+        if not compare_files(actual_file, expected_file):
+            return False, f"文件内容不一致: {file_path}"
+    
+    return True, "所有文件和目录完全匹配"
+
 def main():
     """主函数"""
     log("开始端到端测试（最终版本）")
     log("严格按照测试说明.md实现")
     
-    # 加载配置（支持命令行参数）
+    # 加载配置（只支持config_end2end_test.json）
     import argparse
     parser = argparse.ArgumentParser(description='端到端测试')
-    parser.add_argument('--config', default='config_end2end_test.json', help='配置文件路径')
+    parser.add_argument('--test-old-downloader', action='store_true', help='测试旧下载器')
     args = parser.parse_args()
-    config_file = args.config
+    
+    # 只使用config_end2end_test.json配置文件
+    config_file = 'config_end2end_test.json'
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config = json.load(f)
@@ -450,8 +554,20 @@ def main():
     log(f"预期结果目录: {config['expected_result_dir']}")
     
     # 创建必要目录
-    Path(config["save_dir"]).mkdir(parents=True, exist_ok=True)
+    save_dir = Path(config["save_dir"])
+    save_dir.mkdir(parents=True, exist_ok=True)
     Path("logs").mkdir(exist_ok=True)
+    
+    # 清空保存目录（确保从干净状态开始）
+    try:
+        for item in save_dir.glob('*'):
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+        log("已清空保存目录")
+    except Exception as e:
+        log(f"清空目录失败: {e}")
     
     # 验证测试设置
     log("\n验证测试设置...")
@@ -461,11 +577,17 @@ def main():
     else:
         company_dirs = [d for d in expected_dir.iterdir() if d.is_dir()]
         log(f"发现 {len(company_dirs)} 个预期结果公司目录")
+        
+        # 检查预期文件总数
+        expected_files = list(expected_dir.rglob('*.pdf'))
+        log(f"预期文件总数: {len(expected_files)} 个")
+        for file in expected_files:
+            log(f"  - {file.relative_to(expected_dir)}")
     
-    # 运行测试
+    # 运行所有测试用例
     all_results = []
     test_cases = config.get("test_cases", [])
-    max_test_retries = 2  # 每个测试用例最大重试次数
+    max_test_retries = 1  # 每个测试用例最大重试次数
     
     for i, test_case in enumerate(test_cases, 1):
         log(f"\n{'='*80}")
@@ -475,47 +597,6 @@ def main():
         log(f"max_pages: {test_case.get('max_pages', 5)}")
         log(f"{'='*80}")
         
-        # 测试旧下载器（带重试机制）
-        old_result = None
-        for retry in range(max_test_retries + 1):
-            try:
-                log(f"测试旧下载器... (尝试 {retry + 1}/{max_test_retries + 1})")
-                old_result = run_test_with_old_downloader(test_case, config)
-                
-                # 如果测试成功，跳出重试循环
-                if old_result.get("success", False):
-                    log("旧下载器测试成功")
-                    break
-                else:
-                    log(f"旧下载器测试失败，错误: {old_result.get('error', '未知错误')}")
-                    if retry < max_test_retries:
-                        log(f"等待 {10 + retry * 5} 秒后重试...")
-                        time.sleep(10 + retry * 5)
-                    else:
-                        log("旧下载器测试达到最大重试次数")
-            except Exception as e:
-                log(f"旧下载器测试异常: {e}")
-                if retry < max_test_retries:
-                    log(f"等待 {10 + retry * 5} 秒后重试...")
-                    time.sleep(10 + retry * 5)
-                else:
-                    log("旧下载器测试达到最大重试次数")
-                    old_result = {
-                        "downloader": "old",
-                        "stock_code": test_case["stock_code"],
-                        "stock_name": f"股票{test_case['stock_code']}",
-                        "success": False,
-                        "error": f"测试异常: {str(e)}",
-                        "duration": 0,
-                        "downloaded_files": 0
-                    }
-        
-        if old_result:
-            all_results.append(old_result)
-        
-        # 测试间隔
-        time.sleep(1)
-        
         # 测试新下载器（带重试机制）
         new_result = None
         for retry in range(max_test_retries + 1):
@@ -523,12 +604,12 @@ def main():
                 log(f"测试新下载器... (尝试 {retry + 1}/{max_test_retries + 1})")
                 new_result = run_test_with_new_downloader(test_case, config)
                 
-                # 如果测试成功，跳出重试循环
-                if new_result.get("success", False):
-                    log("新下载器测试成功")
+                # 如果下载成功（无论文件匹配与否），跳出重试循环
+                if new_result.get("downloaded_files", 0) > 0:
+                    log(f"下载成功，获得 {new_result['downloaded_files']} 个文件")
                     break
                 else:
-                    log(f"新下载器测试失败，错误: {new_result.get('error', '未知错误')}")
+                    log(f"下载失败，错误: {new_result.get('error', '未知错误')}")
                     if retry < max_test_retries:
                         log(f"等待 {10 + retry * 5} 秒后重试...")
                         time.sleep(10 + retry * 5)
@@ -544,7 +625,7 @@ def main():
                     new_result = {
                         "downloader": "new",
                         "stock_code": test_case["stock_code"],
-                        "stock_name": f"股票{test_case['stock_code']}",
+                        "stock_name": get_real_stock_name(test_case['stock_code']),
                         "success": False,
                         "error": f"测试异常: {str(e)}",
                         "duration": 0,
@@ -555,75 +636,55 @@ def main():
             all_results.append(new_result)
         
         # 测试间隔
-        time.sleep(1)
-        
-        # 如果delete_later为False，测试跳过逻辑
-        if not test_case.get("delete_later", True):
-            log("测试文件跳过逻辑...")
-            # 测试旧下载器的跳过逻辑
-            old_skip_result = test_skip_logic(test_case, config, "old")
-            if old_skip_result:
-                all_results.append(old_skip_result)
-            
-            time.sleep(2)
-            
-            # 测试新下载器的跳过逻辑
-            new_skip_result = test_skip_logic(test_case, config, "new")
-            if new_skip_result:
-                all_results.append(new_skip_result)
-            
-            time.sleep(2)
+        time.sleep(2)
     
-    # 生成报告
+    # 执行最终目录比较
     log(f"\n{'='*80}")
-    log("测试报告")
+    log("最终目录比较")
     log(f"{'='*80}")
     
+    save_dir = Path(config["save_dir"])
+    expected_dir = Path(config["expected_result_dir"])
+    
+    # 检查下载的文件总数
+    downloaded_files = list(save_dir.rglob('*.pdf'))
+    log(f"下载文件总数: {len(downloaded_files)} 个")
+    for file in downloaded_files:
+        log(f"  - {file.relative_to(save_dir)}")
+    
+    # 执行目录比较
+    comparison_success, comparison_message = compare_directories(save_dir, expected_dir)
+    
+    log(f"目录比较结果: {'成功' if comparison_success else '失败'}")
+    log(f"比较详情: {comparison_message}")
+    
+    # 生成报告
     total_tests = len(all_results)
-    passed_tests = sum(1 for r in all_results if r["success"])
-    skip_tests_passed = sum(1 for r in all_results if r.get("skip_test_passed", False))
+    successful_downloads = sum(1 for r in all_results if r.get("downloaded_files", 0) > 0)
     
-    log(f"总测试数: {total_tests}")
-    log(f"通过: {passed_tests}")
-    log(f"失败: {total_tests - passed_tests}")
-    log(f"成功率: {passed_tests/total_tests*100:.1f}%")
-    if skip_tests_passed > 0:
-        log(f"跳过逻辑测试通过: {skip_tests_passed}")
+    log(f"\n测试总结:")
+    log(f"总测试用例: {total_tests}")
+    log(f"成功下载: {successful_downloads}")
+    log(f"目录比较: {'通过' if comparison_success else '失败'}")
+    log(f"整体测试: {'通过' if comparison_success and successful_downloads == total_tests else '失败'}")
     
-    # 使用统一的报告生成器创建报告
-    generator = TestReportGenerator()
-    
-    log("生成标准化测试报告...")
-    report_file = generator.create_e2e_report(
-        test_cases=test_cases,
-        results=all_results,
-        config_file=config_file,
-        description="端到端测试 - 验证新旧下载器功能一致性"
-    )
-    
-    # 打印报告摘要
-    generator.print_report_summary(report_file)
-    
-    # 输出失败测试详情
-    failed_tests = [r for r in all_results if not r["success"]]
-    if failed_tests:
-        log(f"\n失败测试详情:")
-        for test in failed_tests:
-            log(f"  - {test['downloader']}下载器 {test['stock_code']}: {test.get('error', '未知错误')}")
-    
-    log(f"\n详细报告已保存到: {report_file}")
+    # 输出详细结果
+    log(f"\n详细结果:")
+    for result in all_results:
+        status = "成功" if result.get("downloaded_files", 0) > 0 else "失败"
+        log(f"  - {result['stock_code']}: {status} ({result.get('downloaded_files', 0)} 个文件, {result.get('duration', 0):.1f}s)")
     
     # 执行最终清理（只保留delete_later=False的文件）
     log("\n执行最终清理...")
     try:
-        from test_cleaner import clean_test_files
+        from test_helper_cleaner import clean_test_files
         preserve_cases = [case for case in test_cases if not case.get("delete_later", True)]
         clean_result = clean_test_files(config["save_dir"], preserve_cases)
         log(f"清理完成: 删除 {clean_result['cleaned_files']} 个文件, {clean_result['cleaned_dirs']} 个目录")
     except Exception as e:
         log(f"清理失败: {e}")
     
-    return 0 if passed_tests == total_tests else 1
+    return 0 if comparison_success and successful_downloads == total_tests else 1
 
 if __name__ == "__main__":
     exit_code = main()

@@ -30,9 +30,18 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
+from src.core.performance_monitor import log_performance_stats, get_performance_stats
 from src.services.downloader import DownloadService
-from src.services.stock_service import StockService
 from src.data.mapping import MappingManager
+
+# 导入股票名称获取函数
+try:
+    from get_stock_name import get_stock_name
+except ImportError:
+    # 如果导入失败，使用备选方案
+    def get_stock_name(stock_code, mapping_file='stock_orgid_mapping.json'):
+        mapping_manager = MappingManager(mapping_file)
+        return mapping_manager.get_stock_name(stock_code) or f"股票{stock_code}"
 
 
 def main():
@@ -66,11 +75,11 @@ def main():
         
         # 初始化服务
         mapping_manager = MappingManager()
-        stock_service = StockService()
-        download_service = DownloadService()
+        save_dir = config.get('save_dir', 'downloads')
+        download_service = DownloadService(save_dir=save_dir)
         
         # 验证股票代码
-        if not stock_service.validate_stock_code(stock_code):
+        if not stock_code.isdigit() or len(stock_code) != 6:
             logger.error(f"无效的股票代码: {stock_code}")
             return 1
         
@@ -81,8 +90,8 @@ def main():
             return 1
         
         # 获取股票名称
-        stock_name = stock_service.get_stock_name(stock_code)
-        if not stock_name:
+        stock_name = get_stock_name(stock_code)
+        if not stock_name or stock_name.startswith('错误') or stock_name.startswith('网络'):
             # 使用预设名称作为备选
             preset_names = config.get('preset_stock_names', {})
             stock_name = preset_names.get(stock_code, f"股票{stock_code}")
@@ -134,15 +143,21 @@ def main():
                 logger.error(f"下载页面 {page_name} 时发生错误: {e}")
                 logger.error(f"错误详情: {str(e)}", exc_info=True)
             
-            # 页面间延迟
+            # 页面间延迟 - 优化为0.5秒
             import time
-            time.sleep(2)
+            time.sleep(0.5)
         
         if success:
             logger.info("所有下载任务完成")
+            # 输出性能报告
+            logger.info("=== 性能统计报告 ===")
+            log_performance_stats()
             return 0
         else:
             logger.warning("没有下载任何新文件，但程序运行正常")
+            # 输出性能报告
+            logger.info("=== 性能统计报告 ===")
+            log_performance_stats()
             return 0  # 没有下载新文件不算失败
             
     except KeyboardInterrupt:

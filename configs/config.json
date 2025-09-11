@@ -1,0 +1,55 @@
+{
+  "save_dir": "downloads",
+  "headless": true,
+  "max_retries": 3,
+  "use_dynamic_delay": true,
+  "base_url": "https://www.cninfo.com.cn",
+  "page_load_strategy": "eager",
+  "timeout": {
+    "page_load": 30,
+    "element_wait": 10,
+    "download": 60,
+    "script": 30
+  },
+  "selectors": {
+    "detail_links": "//a[contains(@href, '/new/disclosure/detail')]",
+    "download_button": "//button[contains(., '公告下载')]",
+    "next_page_button": "//button[contains(@class, 'el-pagination__next')]",
+    "table_element": "//table[contains(@class, 'el-table__body')]"
+  },
+  "files": {
+    "allowed_extensions": [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx"
+    ],
+    "mapping_file": "stock_orgid_mapping.json",
+    "log_dir": "logs"
+  },
+  "download": {
+    "max_downloads_per_session": 10,
+    "pagination_wait": 0.5,
+    "human_behavior_delay": 0.8
+  },
+  "pages": [
+    {
+      "name": "调研",
+      "suffix": "research",
+      "allowed_keywords": null
+    },
+    {
+      "name": "定期公告",
+      "suffix": "periodicReports",
+      "allowed_keywords": null
+    },
+    {
+      "name": "最新公告",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": [
+        "招股说明书"
+      ]
+    }
+  ]
+}
