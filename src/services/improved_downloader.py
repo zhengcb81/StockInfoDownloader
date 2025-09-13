@@ -120,9 +120,10 @@ class ImprovedDownloadService:
             logger.error(f"无法获取组织ID: {stock_code}")
             return False
         
-        # 创建公司目录
-        company_dir = self.save_dir / self.clean_filename(stock_name)
-        company_dir.mkdir(exist_ok=True)
+        # 使用目录管理器创建公司目录
+        from ..utils.directory_manager import create_directory_manager
+        directory_manager = create_directory_manager()
+        company_dir = directory_manager.create_company_directory(stock_code, self.save_dir)
         
         # 设置WebDriver
         try:

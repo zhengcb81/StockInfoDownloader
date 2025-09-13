@@ -760,6 +760,21 @@ class CninfoDownloader:
                 EC.presence_of_element_located((By.TAG_NAME, 'a'))
             )
             
+            # 首先尝试从表格行中提取完整的文件名信息
+            table_rows = driver.find_elements(By.CSS_SELECTOR, ".el-table__row, .table-row, tbody tr")
+            
+            # 构建链接文本到完整文件名的映射
+            text_to_fullname_map = {}
+            for row in table_rows:
+                try:
+                    row_text = row.text.strip()
+                    if row_text:
+                        # 提取链接文本（通常是标题部分）
+                        link_text = row_text.split('\n')[0] if '\n' in row_text else row_text
+                        text_to_fullname_map[link_text] = row_text
+                except Exception:
+                    continue
+            
             all_links = driver.find_elements(By.TAG_NAME, 'a')
             
             for link in all_links:
@@ -772,16 +787,19 @@ class CninfoDownloader:
                             and f'stockCode={stock_code}' in href):
                         continue
                         
-                    # 2. 然后检查关键词过滤
+                    # 2. 使用完整的文件名进行关键词匹配（如果可用）
+                    full_text = text_to_fullname_map.get(text, text)
+                    
+                    # 3. 然后检查关键词过滤
                     if allowed_keywords:
                         # 检查文件名是否包含允许的关键词
-                        keyword_match = any(keyword in text for keyword in allowed_keywords)
+                        keyword_match = any(keyword in full_text for keyword in allowed_keywords)
                         if not keyword_match:
-                            logger.debug(f"[跳过] 文件名不包含关键词: {text}")
+                            logger.debug(f"[跳过] 文件名不包含关键词: {full_text}")
                             continue
                     
-                    # 3. 立即生成文件名并检查文件是否已存在
-                    file_name = f"{self.clean_filename(text)}.pdf"
+                    # 4. 立即生成文件名并检查文件是否已存在
+                    file_name = f"{self.clean_filename(full_text)}.pdf"
                     save_path = os.path.join(stock_dir, file_name)
                     
                     # 尽早检查文件存在性，避免不必要的处理
@@ -801,7 +819,7 @@ class CninfoDownloader:
                         logger.info(f"[跳过] 文件已存在: {file_name}")
                         continue
                     
-                    # 4. 只有需要下载的文件才构建详细信息
+                    # 5. 只有需要下载的文件才构建详细信息
                     detail_infos.append({
                         'href': href,
                         'file_name': file_name,

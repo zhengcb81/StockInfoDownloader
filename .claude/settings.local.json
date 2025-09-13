@@ -23,7 +23,9 @@
       "WebFetch(domain:chromium.googlesource.com)",
       "WebFetch(domain:www.selenium.dev)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:peter.sh)"
+      "WebFetch(domain:peter.sh)",
+      "Bash(where:*)",
+      "Bash(\"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\":*)"
     ],
     "deny": [],
     "ask": [],

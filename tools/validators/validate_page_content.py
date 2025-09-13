@@ -16,6 +16,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core.logger import get_logger
+from src.core.config import ConfigManager
 from src.web.driver import WebDriverManager
 from src.web.scraper import WebScraper
 from selenium.webdriver.common.by import By
@@ -27,23 +28,31 @@ logger = get_logger(__name__)
 def validate_page_content_authenticity():
     """严格验证翻页内容真实性"""
     logger.info("开始严格验证翻页内容真实性...")
-    
-    # 使用可见模式以便观察
+
+    # 初始化配置管理器
+    config_manager = ConfigManager(environment='test')
+
+    # 从配置获取测试数据
+    test_stock = config_manager.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+    org_id = test_stock.get('org_id', '9900023856')
+
+    # 从配置获取URL和超时设置
+    base_url = config_manager.get('base_url', 'https://www.cninfo.com.cn')
+    page_load_timeout = config_manager.get_test_timeout('page_load')
+    element_wait_timeout = config_manager.get_test_timeout('validation')
+
+    # 使用配置参数初始化驱动
     driver_manager = WebDriverManager(
-        headless=False,
+        headless=config_manager.get_test_config('test_environment.headless', False),
         download_dir="validate_page_content",
-        page_load_timeout=30,
-        implicit_wait=10
+        page_load_timeout=page_load_timeout,
+        implicit_wait=element_wait_timeout
     )
-    
+
     try:
         with driver_manager as driver:
-            # 测试股票代码 300470 (中密控股)
-            stock_code = "300470"
-            org_id = "9900023856"
-            
             # 构建调研页面URL
-            base_url = "https://www.cninfo.com.cn"
             url = f"{base_url}/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
             
             logger.info(f"访问页面: {url}")

@@ -196,7 +196,8 @@ class WebDriverManager:
             if self.headless:
                 chrome_options.add_argument('--headless=new')
             chrome_options.add_argument(f'--window-size={self.window_size}')
-            # 性能优化：精简Chrome选项，只保留必要的
+            
+            # 必要的Chrome选项
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
@@ -204,88 +205,34 @@ class WebDriverManager:
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_argument('--remote-debugging-port=0')
             
-            # 添加Chrome稳定性选项以处理tab crash问题
-            chrome_options.add_argument('--disable-software-rasterizer')
-            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-            chrome_options.add_argument('--disable-accelerated-2d-canvas')
-            chrome_options.add_argument('--no-first-run')
-            chrome_options.add_argument('--no-default-browser-check')
-            chrome_options.add_argument('--disable-background-timer-throttling')
-            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
-            chrome_options.add_argument('--disable-renderer-backgrounding')
-            chrome_options.add_argument('--disable-features=site-per-process')
-            chrome_options.add_argument('--disable-ipc-flooding-protection')
-            chrome_options.add_argument('--disable-features=TranslateUI')
-            chrome_options.add_argument('--disable-component-extensions-with-background-pages')
-            chrome_options.add_argument('--disable-features=BackForwardCache')
-            chrome_options.add_argument('--disable-features=AutomaticLazyFrameLoading')
-            
-            # 新增更多Chrome稳定性选项（基于2024-2025最新解决方案）
-            chrome_options.add_argument('--disable-site-isolation-trials')
-            chrome_options.add_argument('--disable-gpu-sandbox')
-            chrome_options.add_argument('--disable-features=IsolateOrigins,site-per-process')
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-features=UseChromeOSDirectVideoDecoder')
-            chrome_options.add_argument('--disable-features=SpareRendererForSitePerProcess')
-            chrome_options.add_argument('--disable-features=StrictOriginIsolation')
-            chrome_options.add_argument('--process-per-site')
-            chrome_options.add_argument('--single-process')  # 单进程模式，减少崩溃
-            chrome_options.add_argument('--disable-features=CrossSiteDocumentBlockingIfIsolating')
-            chrome_options.add_argument('--disable-features=CrossSiteDocumentBlockingAlways')
-            chrome_options.add_argument('--disable-web-security')
-            chrome_options.add_argument('--disable-features=site-per-process')
-            chrome_options.add_argument('--disable-domain-reliability')
-            chrome_options.add_argument('--disable-component-update')
-            chrome_options.add_argument('--disable-features=InterestFeedContentSuggestions')
-            
-            # 2024-2025年最新的Chrome崩溃修复选项
-            chrome_options.add_argument('--disable-features=DownloadBubble,DownloadBubbleV2')  # Chrome ≥ 121下载气泡崩溃
-            chrome_options.add_argument('--disable-features=EnableNavigationPredictor')  # 导航预测器崩溃
-            chrome_options.add_argument('--disable-features=PrivacySandboxSettings4,PrivacySandboxAdsAPIs')  # 隐私沙盒崩溃
-            chrome_options.add_argument('--disable-setuid-sandbox')  # 权限问题
-            chrome_options.add_argument('--disable-backgrounding-occluded-windows')  # Windows硬件加速问题
-            
-            # 性能优化：从配置读取页面加载策略
-            page_load_strategy = self.config_manager.get_page_load_strategy()
-            chrome_options.page_load_strategy = page_load_strategy
-            
-            # 性能优化：精简稳定性选项，移除不必要的选项
-            stability_options = [
-                '--disable-software-rasterizer',
+            # 精简的稳定性选项（移除冗余和冲突的选项）
+            essential_stability_options = [
+                '--no-first-run',
+                '--no-default-browser-check',
                 '--disable-background-timer-throttling',
                 '--disable-backgrounding-occluded-windows',
                 '--disable-renderer-backgrounding',
-                '--no-first-run',
-                '--no-default-browser-check',
                 '--disable-sync',
                 '--disable-translate',
                 '--disable-default-apps',
                 '--disable-notifications',
                 '--disable-popup-blocking',
-                '--disable-logging',
                 '--log-level=3',
                 '--disable-features=TranslateUI',
                 '--disable-component-extensions-with-background-pages',
                 '--disable-domain-reliability',
-                '--disable-background-mode',
-                '--disable-renderer-backgrounding',
-                '--max_old_space_size=128',
                 '--disable-setuid-sandbox',
-                '--memory-pressure-off',
                 # 网络性能优化
-                '--disable-web-security',
-                '--allow-running-insecure-content',
                 '--disable-features=VizDisplayCompositor',
                 '--disable-ipc-flooding-protection',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-webgl',
-                '--disable-webrtc',
-                '--disable-features=WebRtcHideLocalIpsWithMdns'
             ]
             
-            for option in stability_options:
+            for option in essential_stability_options:
                 chrome_options.add_argument(option)
+            
+            # 性能优化：从配置读取页面加载策略
+            page_load_strategy = self.config_manager.get_page_load_strategy()
+            chrome_options.page_load_strategy = page_load_strategy
             
             # 反自动化检测
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -349,45 +296,33 @@ class WebDriverManager:
         return self.driver
     
     def _cleanup_chrome_processes(self):
-        """清理可能存在的Chrome僵尸进程，增强版本"""
+        """清理可能存在的Chrome僵尸进程（优化版本）"""
         try:
-            # 根据环境设置不同的超时时间
-            timeout_value = 3 if is_test_environment() else 10
+            # 只在非测试环境执行清理
+            if is_test_environment():
+                return
+                
+            # 设置合理的超时时间
+            timeout_value = 5
             
             # 清理chromedriver进程
             if platform.system() == "Windows":
-                # Windows系统清理chromedriver进程
-                processes_to_kill = ['chromedriver.exe', 'chrome.exe']
-                for process in processes_to_kill:
-                    try:
-                        subprocess.run(['taskkill', '/f', '/im', process], 
-                                     capture_output=True, timeout=timeout_value)
-                    except Exception:
-                        pass
+                # Windows系统 - 只清理chromedriver进程
+                try:
+                    subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
+                                 capture_output=True, timeout=timeout_value, check=False)
+                except Exception:
+                    pass
             else:
-                # Linux/Mac系统清理chromedriver进程
+                # Linux/Mac系统
                 try:
                     subprocess.run(['pkill', '-f', 'chromedriver'], 
-                                 capture_output=True, timeout=timeout_value)
-                    subprocess.run(['pkill', '-f', 'chrome.*--test-type=webdriver'], 
-                                 capture_output=True, timeout=timeout_value)
+                                 capture_output=True, timeout=timeout_value, check=False)
                 except Exception:
                     pass
             
-            # 根据环境设置不同的等待时间
-            wait_time = 0.5 if is_test_environment() else 2
-            import time
-            time.sleep(wait_time)
-            
-            # 验证进程是否真的被清理
-            if platform.system() == "Windows":
-                try:
-                    result = subprocess.run(['tasklist', '/fi', 'imagename eq chromedriver.exe'], 
-                                          capture_output=True, text=True, timeout=timeout_value)
-                    if 'chromedriver.exe' in result.stdout:
-                        logger.warning("Chrome进程清理可能不完整")
-                except Exception:
-                    pass
+            # 短暂等待确保进程结束
+            time.sleep(0.5)
             
         except Exception as e:
             logger.debug(f"清理Chrome进程时发生错误: {e}")
@@ -467,47 +402,12 @@ class WebDriverManager:
                 return False
     
     def close_driver(self) -> None:
-        """关闭WebDriver，包含完整的内存清理"""
+        """关闭WebDriver（优化版本）"""
         if self.driver:
             try:
-                # 强制停止所有页面加载
-                try:
-                    self.driver.execute_script("window.stop();")
-                except Exception:
-                    pass
-                
-                # 清理所有cookies
-                try:
-                    self.driver.delete_all_cookies()
-                except Exception:
-                    pass
-                
-                # 关闭所有标签页
-                try:
-                    handles = self.driver.window_handles
-                    if len(handles) > 1:
-                        for handle in handles[1:]:
-                            self.driver.switch_to.window(handle)
-                            self.driver.close()
-                        self.driver.switch_to.window(handles[0])
-                except Exception:
-                    pass
-                
-                # 强制垃圾回收
-                import gc
-                gc.collect()
-                
-                # 彻底关闭driver
+                # 简单直接地关闭driver
                 self.driver.quit()
-                
-                # 等待进程完全结束
-                import time
-                time.sleep(1)
-                
-                # 最终垃圾回收
-                gc.collect()
-                
-                logger.info("WebDriver已完全关闭")
+                logger.info("WebDriver已关闭")
                 
             except Exception as e:
                 logger.error(f"关闭WebDriver时发生错误: {e}")

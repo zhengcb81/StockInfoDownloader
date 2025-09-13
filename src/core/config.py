@@ -11,6 +11,7 @@ from .exceptions import (
     ConfigError, ErrorCode, ErrorSeverity, RecoveryStrategy,
     with_error_handling, handle_error
 )
+from .config_constants import ConfigConstants
 
 
 class ConfigManager:
@@ -24,10 +25,12 @@ class ConfigManager:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, config_file=None):
+    def __init__(self, config_file=None, environment='production'):
         if not hasattr(self, '_initialized'):
             self._initialized = True
             self._config_path = None
+            self._environment = environment
+            self._test_config = None
             if config_file:
                 self.load_config(config_file)
     
@@ -99,20 +102,18 @@ class ConfigManager:
         if not self._config:
             self.load_config()
         
+        # 简化点分路径访问
         keys = key.split('.')
         value = self._config
         
-        try:
-            for k in keys:
-                if isinstance(value, dict):
-                    value = value[k]
-                elif isinstance(value, list) and k.isdigit():
-                    value = value[int(k)]
-                else:
-                    return default
-            return value
-        except (KeyError, IndexError, TypeError):
-            return default
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            elif isinstance(value, list) and k.isdigit() and int(k) < len(value):
+                value = value[int(k)]
+            else:
+                return default
+        return value
     
     def set(self, key: str, value: Any) -> None:
         """
@@ -128,10 +129,9 @@ class ConfigManager:
         keys = key.split('.')
         target = self._config
         
+        # 简化嵌套字典创建
         for k in keys[:-1]:
-            if k not in target:
-                target[k] = {}
-            target = target[k]
+            target = target.setdefault(k, {})
         
         target[keys[-1]] = value
     
@@ -260,27 +260,11 @@ class ConfigManager:
         return self.get('base_url', 'https://www.cninfo.com.cn')
     
     def get_timeout(self, timeout_type: str = 'page_load') -> int:
-        """
-        获取超时时间
-        
-        Args:
-            timeout_type: 超时类型
-            
-        Returns:
-            超时时间（秒）
-        """
+        """获取超时时间"""
         return self.get(f'timeout.{timeout_type}', 60)
     
     def get_selector(self, selector_name: str) -> str:
-        """
-        获取选择器
-        
-        Args:
-            selector_name: 选择器名称
-            
-        Returns:
-            选择器字符串
-        """
+        """获取选择器"""
         return self.get(f'selectors.{selector_name}', '')
     
     def get_user_agents(self) -> list:
@@ -304,3 +288,146 @@ class ConfigManager:
     def get_page_load_strategy(self) -> str:
         """获取页面加载策略"""
         return self.get('page_load_strategy', 'eager')
+
+    def load_test_config(self, config_path: str = "configs/test_config.json") -> Dict[str, Any]:
+        """
+        加载测试配置文件
+
+        Args:
+            config_path: 测试配置文件路径
+
+        Returns:
+            Dict[str, Any]: 测试配置字典
+        """
+        try:
+            config_path = Path(config_path)
+            if not config_path.exists():
+                # 尝试相对于项目根目录的路径
+                project_root = Path(__file__).parent.parent.parent
+                config_path = project_root / config_path
+
+            if not config_path.exists():
+                raise ConfigError(
+                    f"测试配置文件不存在: {config_path}",
+                    error_code=ErrorCode.CONFIG_FILE_NOT_FOUND,
+                    severity=ErrorSeverity.ERROR,
+                    recovery_strategy=RecoveryStrategy.FALLBACK,
+                    context={"config_path": str(config_path)}
+                )
+
+            with open(config_path, 'r', encoding='utf-8') as f:
+                self._test_config = json.load(f)
+
+            return self._test_config
+
+        except Exception as e:
+            raise ConfigError(
+                f"加载测试配置文件失败: {e}",
+                error_code=ErrorCode.CONFIG_LOAD_ERROR,
+                severity=ErrorSeverity.ERROR,
+                recovery_strategy=RecoveryStrategy.FALLBACK,
+                context={"config_path": str(config_path)},
+                original_exception=e
+            )
+
+    def get_test_config(self, key: str = None, default: Any = None) -> Any:
+        """
+        获取测试配置值
+
+        Args:
+            key: 配置键名，支持点分路径
+            default: 默认值
+
+        Returns:
+            Any: 配置值
+        """
+        if self._test_config is None:
+            self.load_test_config()
+
+        if key is None:
+            return self._test_config.copy()
+
+        # 支持点分路径
+        keys = key.split('.')
+        value = self._test_config
+
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            elif isinstance(value, list) and k.isdigit() and int(k) < len(value):
+                value = value[int(k)]
+            else:
+                return default
+
+        return value
+
+    def get_test_stock(self, stock_code: str) -> Dict[str, str]:
+        """
+        获取测试股票信息
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            Dict[str, str]: 股票信息字典
+        """
+        test_stocks = self.get_test_config('test_data.stocks', [])
+        for stock in test_stocks:
+            if stock.get('code') == stock_code:
+                return stock
+        return {}
+
+    def get_test_timeout(self, timeout_type: str = 'validation') -> int:
+        """
+        获取测试超时时间
+
+        Args:
+            timeout_type: 超时类型
+
+        Returns:
+            int: 超时时间
+        """
+        return self.get_test_config(f'test_environment.{timeout_type}',
+                                   ConfigConstants.get_timeout(timeout_type))
+
+    def is_test_environment(self) -> bool:
+        """是否为测试环境"""
+        return self._environment == 'test'
+
+    def get_test_directory(self, dir_name: str) -> str:
+        """
+        获取测试目录路径
+
+        Args:
+            dir_name: 目录名称
+
+        Returns:
+            str: 目录路径
+        """
+        return self.get_test_config(f'test_directories.{dir_name}', '')
+
+    def use_constants(self, key: str) -> Any:
+        """
+        使用配置常量
+
+        Args:
+            key: 常量键名
+
+        Returns:
+            Any: 常量值
+        """
+        constant_map = {
+            'base_url': ConfigConstants.get_base_url(),
+            'timeouts': ConfigConstants.DEFAULT_TIMEOUTS,
+            'selectors': ConfigConstants.SELECTORS,
+            'test_data': ConfigConstants.TEST_DATA,
+            'user_agents': ConfigConstants.USER_AGENTS
+        }
+
+        if '.' in key:
+            parent, child = key.split('.', 1)
+            if parent in constant_map and isinstance(constant_map[parent], dict):
+                return constant_map[parent].get(child)
+            return None
+        else:
+            return constant_map.get(key)

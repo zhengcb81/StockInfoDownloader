@@ -630,6 +630,9 @@ def with_error_handling(error_code: ErrorCode = ErrorCode.SYSTEM_ERROR,
                         time.sleep(min(2 ** attempt, 10))  # 指数退避
                         continue
                     else:
+                        # 如果已经是配置相关的错误，直接抛出原异常
+                        if e.error_code.value.startswith('CFG_'):
+                            raise e
                         # 转换为指定类型的错误
                         raise StockInfoError(
                             message=f"{func.__name__} failed after {max_retries + 1} attempts: {e}",

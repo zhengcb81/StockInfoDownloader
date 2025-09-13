@@ -1,0 +1,276 @@
+"""
+下载器工厂模块
+提供统一的下载器创建和管理接口
+"""
+
+from typing import Dict, Any, Optional, Type
+from ..core.config import ConfigManager
+from ..core.logger import get_logger
+from .refactored_downloader import RefactoredDownloader
+from .improved_downloader import ImprovedDownloadService
+
+
+class DownloaderFactory:
+    """下载器工厂类"""
+
+    _downloaders: Dict[str, Type] = {
+        'refactored': RefactoredDownloader,
+        'improved': ImprovedDownloadService,
+    }
+
+    def __init__(self, config_manager: Optional[ConfigManager] = None):
+        """
+        初始化下载器工厂
+
+        Args:
+            config_manager: 配置管理器实例
+        """
+        self.config_manager = config_manager or ConfigManager()
+        self.logger = get_logger(__name__)
+
+    def create_downloader(self,
+                         downloader_type: str = 'refactored',
+                         **kwargs) -> Any:
+        """
+        创建下载器实例
+
+        Args:
+            downloader_type: 下载器类型
+            **kwargs: 下载器初始化参数
+
+        Returns:
+            Any: 下载器实例
+
+        Raises:
+            ValueError: 不支持的下载器类型
+        """
+        if downloader_type not in self._downloaders:
+            available_types = list(self._downloaders.keys())
+            raise ValueError(f"不支持的下载器类型: {downloader_type}. "
+                           f"可用类型: {available_types}")
+
+        downloader_class = self._downloaders[downloader_type]
+
+        try:
+            # 合并配置参数
+            config_kwargs = self._get_config_kwargs(downloader_type)
+            final_kwargs = {**config_kwargs, **kwargs}
+
+            downloader = downloader_class(**final_kwargs)
+            self.logger.info(f"成功创建 {downloader_type} 下载器")
+            return downloader
+
+        except Exception as e:
+            self.logger.error(f"创建下载器失败: {e}")
+            raise
+
+    def _get_config_kwargs(self, downloader_type: str) -> Dict[str, Any]:
+        """
+        获取下载器配置参数
+
+        Args:
+            downloader_type: 下载器类型
+
+        Returns:
+            Dict[str, Any]: 配置参数字典
+        """
+        base_config = {
+            'config_file': self.config_manager.config_path,
+        }
+
+        # 根据下载器类型添加特定配置
+        if downloader_type == 'refactored':
+            return base_config
+        elif downloader_type == 'improved':
+            save_dir = self.config_manager.get('save_dir', 'downloads')
+            mapping_file = self.config_manager.get('files.mapping_file', 'stock_orgid_mapping.json')
+            return {
+                **base_config,
+                'save_dir': save_dir,
+                'mapping_file': mapping_file,
+            }
+        else:
+            return base_config
+
+    def get_default_downloader_type(self) -> str:
+        """
+        获取默认下载器类型
+
+        Returns:
+            str: 默认下载器类型
+        """
+        return self.config_manager.get('downloader.default_type', 'refactored')
+
+    def create_default_downloader(self, **kwargs) -> Any:
+        """
+        创建默认下载器
+
+        Args:
+            **kwargs: 下载器初始化参数
+
+        Returns:
+            Any: 默认下载器实例
+        """
+        default_type = self.get_default_downloader_type()
+        return self.create_downloader(default_type, **kwargs)
+
+    def register_downloader(self,
+                           downloader_type: str,
+                           downloader_class: Type) -> None:
+        """
+        注册新的下载器类型
+
+        Args:
+            downloader_type: 下载器类型名称
+            downloader_class: 下载器类
+        """
+        self._downloaders[downloader_type] = downloader_class
+        self.logger.info(f"注册新下载器类型: {downloader_type}")
+
+    def list_available_downloaders(self) -> list:
+        """
+        列出可用的下载器类型
+
+        Returns:
+            list: 可用的下载器类型列表
+        """
+        return list(self._downloaders.keys())
+
+    def get_downloader_info(self, downloader_type: str) -> Dict[str, Any]:
+        """
+        获取下载器信息
+
+        Args:
+            downloader_type: 下载器类型
+
+        Returns:
+            Dict[str, Any]: 下载器信息
+        """
+        if downloader_type not in self._downloaders:
+            return {}
+
+        downloader_class = self._downloaders[downloader_type]
+        return {
+            'type': downloader_type,
+            'class_name': downloader_class.__name__,
+            'module': downloader_class.__module__,
+            'description': downloader_class.__doc__ or '无描述',
+            'is_default': downloader_type == self.get_default_downloader_type()
+        }
+
+    def compare_downloaders(self) -> Dict[str, Any]:
+        """
+        比较不同下载器的特性
+
+        Returns:
+            Dict[str, Any]: 下载器比较信息
+        """
+        comparison = {}
+        for downloader_type in self._downloaders:
+            info = self.get_downloader_info(downloader_type)
+            comparison[downloader_type] = info
+
+        return comparison
+
+    def create_unified_downloader(self, **kwargs) -> 'UnifiedDownloader':
+        """
+        创建统一下载器接口
+
+        Args:
+            **kwargs: 初始化参数
+
+        Returns:
+            UnifiedDownloader: 统一下载器实例
+        """
+        return UnifiedDownloader(self, **kwargs)
+
+
+class UnifiedDownloader:
+    """统一下载器接口"""
+
+    def __init__(self, factory: DownloaderFactory, **kwargs):
+        """
+        初始化统一下载器
+
+        Args:
+            factory: 下载器工厂实例
+            **kwargs: 初始化参数
+        """
+        self.factory = factory
+        self.config_manager = factory.config_manager
+        self.logger = get_logger(__name__)
+
+        # 根据配置选择底层下载器
+        self.downloader_type = self.config_manager.get('downloader.unified_type', 'refactored')
+        self.downloader = self.factory.create_downloader(self.downloader_type, **kwargs)
+
+    def download_stock_pdfs(self,
+                          stock_code: str,
+                          stock_name: str,
+                          suffix: str = "research",
+                          allowed_keywords: Optional[list] = None,
+                          max_pages: Optional[int] = None) -> list:
+        """
+        统一下载接口
+
+        Args:
+            stock_code: 股票代码
+            stock_name: 股票名称
+            suffix: 页面后缀
+            allowed_keywords: 允许的关键词列表
+            max_pages: 最大页数
+
+        Returns:
+            list: 下载成功的文件路径列表
+        """
+        try:
+            self.logger.info(f"开始下载股票 {stock_code} 的PDF文件")
+            self.logger.info(f"使用下载器类型: {self.downloader_type}")
+
+            # 调用底层下载器
+            if hasattr(self.downloader, 'download_stock_pdfs'):
+                return self.downloader.download_stock_pdfs(
+                    stock_code, stock_name, suffix, allowed_keywords, max_pages
+                )
+            else:
+                # 如果没有统一接口，尝试其他方法
+                if hasattr(self.downloader, 'download_activity_records'):
+                    return self.downloader.download_activity_records(
+                        stock_code=stock_code,
+                        suffix=suffix,
+                        allowed_keywords=allowed_keywords,
+                        max_pages=max_pages
+                    )
+                else:
+                    raise AttributeError(f"下载器 {self.downloader_type} 不支持下载操作")
+
+        except Exception as e:
+            self.logger.error(f"下载失败: {e}")
+            return []
+
+    def switch_downloader(self, downloader_type: str, **kwargs) -> None:
+        """
+        切换下载器类型
+
+        Args:
+            downloader_type: 新的下载器类型
+            **kwargs: 新下载器的初始化参数
+        """
+        try:
+            new_downloader = self.factory.create_downloader(downloader_type, **kwargs)
+            self.downloader_type = downloader_type
+            self.downloader = new_downloader
+            self.logger.info(f"成功切换到下载器: {downloader_type}")
+
+        except Exception as e:
+            self.logger.error(f"切换下载器失败: {e}")
+            raise
+
+    def get_current_downloader_info(self) -> Dict[str, Any]:
+        """
+        获取当前下载器信息
+
+        Returns:
+            Dict[str, Any]: 下载器信息
+        """
+        return self.factory.get_downloader_info(self.downloader_type)
