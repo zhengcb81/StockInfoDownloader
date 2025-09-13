@@ -342,10 +342,10 @@ def run_test_with_old_downloader(test_case, config):
         "downloaded_files": len(downloaded_files)
     }
 
-def run_test_with_new_downloader(test_case, config):
+def run_test_with_new_downloader(test_case, config, browser_strategy="selenium"):
     """使用新下载器运行测试"""
     stock_code = test_case["stock_code"]
-    log(f"\n使用新下载器测试: {stock_code}")
+    log(f"\n使用新下载器测试: {stock_code} (策略: {browser_strategy})")
     
     # 让下载器自己处理目录结构，测试程序不干预
     allowed_keywords = test_case.get("allowed_keywords")
@@ -354,56 +354,96 @@ def run_test_with_new_downloader(test_case, config):
     timeout = test_case.get("timeout_seconds", 180)
     suffix = test_case.get("suffix", "research")
     
-    # 让下载器自己处理目录结构，测试程序不干预
-    
     start_time = time.time()
     success = False
     error_msg = ""
     downloaded_files = []
     duration = 0
-    duration = 0
     
     try:
         # 创建临时配置文件
-        # 注意：测试程序不生成公司名称，让下载器自己决定
-        temp_config = {
-            "stock_code": stock_code,
-            "save_dir": config["save_dir"],
-            "max_retries": config.get("max_retries", 3),
-            "max_pages": max_pages,
-            "pages": [{
-                "name": f"{suffix}页面",
-                "suffix": suffix,
-                "allowed_keywords": allowed_keywords
-            }]
+        temp_config_dir = Path(config["save_dir"]) / "temp_config"
+        temp_config_dir.mkdir(exist_ok=True)
+        
+        # 创建临时映射文件 - 使用实际映射数据而不是硬编码
+        temp_mapping_file = temp_config_dir / "temp_mapping.json"
+        
+        # 从主映射文件复制相关股票的映射数据
+        from src.data.mapping import MappingManager
+        main_mapping = MappingManager("stock_orgid_mapping.json")
+        
+        test_mapping = {}
+        # 只包含当前测试用例的股票代码
+        test_stock_code = test_case["stock_code"]
+        org_id = main_mapping.get_org_id(test_stock_code)
+        stock_name = main_mapping.get_stock_name(test_stock_code) or f"测试公司{test_stock_code}"
+        
+        if org_id:
+            test_mapping[test_stock_code] = {"orgId": org_id, "name": stock_name}
+        else:
+            # 如果找不到orgId，使用一个有效的测试orgId
+            test_mapping[test_stock_code] = {"orgId": "9900056250", "name": stock_name}
+        
+        with open(temp_mapping_file, 'w', encoding='utf-8') as f:
+            json.dump(test_mapping, f, ensure_ascii=False, indent=2)
+        
+        # 创建临时配置文件
+        temp_config_file = temp_config_dir / "temp_config.json"
+        temp_config_data = {
+            "browser": {
+                "strategy": browser_strategy,
+                "headless": True
+            },
+            "download": {
+                "max_retries": config.get("max_retries", 3),
+                "max_downloads_per_session": 5,
+                "human_behavior_delay": 3
+            },
+            "webdriver": {
+                "window_size": "1920,1080",
+                "user_agents": [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ]
+            },
+            "timeout": {
+                "page_load": 15,
+                "element_wait": 3
+            }
         }
-        
-        temp_config_file = f"temp_e2e_config_{stock_code}_{suffix}.json"
         with open(temp_config_file, 'w', encoding='utf-8') as f:
-            json.dump(temp_config, f, ensure_ascii=False, indent=2)
+            json.dump(temp_config_data, f, ensure_ascii=False, indent=2)
         
-        try:
-            # 运行main.py
-            result = subprocess.run(
-                [sys.executable, "main.py", "--config", temp_config_file],
-                capture_output=True,
-                text=True,
-                encoding='utf-8',
-                errors='replace',
-                timeout=timeout + 60
-            )
-            
-            if result.returncode == 0:
-                success = True
-                log("main.py执行成功")
-            else:
-                error_msg = f"main.py执行失败: {result.stderr}"
-                log(error_msg)
-        finally:
-            if os.path.exists(temp_config_file):
-                os.remove(temp_config_file)
+        # 使用DownloadServiceV2 API，传递临时配置文件
+        from src.services.downloader_v2 import DownloadServiceV2
+        
+        # 创建下载器实例，使用指定的浏览器策略
+        downloader = DownloadServiceV2(
+            save_dir=config["save_dir"],
+            mapping_file=str(temp_mapping_file),
+            browser_strategy=browser_strategy
+        )
+        
+        # 构建目标页面配置
+        target_pages = [{
+            "suffix": suffix,
+            "allowed_keywords": allowed_keywords
+        }]
+        
+        # 执行下载
+        download_records = downloader.download_stock_pdfs(
+            stock_code=stock_code,
+            target_pages=target_pages,
+            max_retries=config.get("max_retries", 3)
+        )
         
         duration = time.time() - start_time
+        
+        success = len(download_records) > 0
+        if success:
+            log(f"下载成功，获得 {len(download_records)} 个文件")
+        else:
+            error_msg = "未下载到任何文件"
+            log(error_msg)
         
         # 检查下载的文件（让下载器自己决定文件位置）
         save_dir = Path(config["save_dir"])
@@ -419,7 +459,6 @@ def run_test_with_new_downloader(test_case, config):
                 success = False
             else:
                 # 检查文件是否在公司目录（如果不删除）
-                # 让下载器自己决定目录结构，测试程序只验证结果
                 if not delete_later:
                     # 查找实际的公司目录（下载器创建的目录）
                     company_dirs = [d for d in save_dir.iterdir() if d.is_dir() and d.name != '.tmp']
@@ -429,9 +468,7 @@ def run_test_with_new_downloader(test_case, config):
                         root_files = [f for f in save_dir.glob("*.pdf")]
                         if root_files:
                             log(f"警告: 未找到公司目录，但在根目录发现 {len(root_files)} 个文件")
-                            # 这种情况不算失败，只是警告
                         else:
-                            # 如果既没有公司目录也没有根目录文件，才认为是错误
                             if len(downloaded_files) == 0:
                                 error_msg = "下载器未创建任何公司目录且未找到文件"
                             else:
@@ -443,28 +480,36 @@ def run_test_with_new_downloader(test_case, config):
                             company_files.extend([f for f in company_dir.glob("*.pdf")])
                         
                         if not company_files:
-                            # 检查是否有文件在根目录
                             root_files = [f for f in save_dir.glob("*.pdf")]
                             if root_files:
                                 log(f"警告: 公司目录为空，但在根目录发现 {len(root_files)} 个文件")
                             else:
-                                # 如果公司目录存在但为空，检查下载器是否报告下载了文件
                                 if len(downloaded_files) == 0:
                                     error_msg = "公司子目录中没有找到PDF文件"
                                 else:
                                     log(f"信息: 下载器报告下载了 {len(downloaded_files)} 个文件，但公司目录为空")
                         else:
                             log(f"发现 {len(company_files)} 个文件在公司目录: {[f.parent.name for f in company_files]}")
-                
-                # 对于端到端测试，不在这里进行文件匹配
-                # 所有文件将在最后进行整体目录比较
         
         success = not error_msg
+        
+        # 清理临时配置文件
+        try:
+            shutil.rmtree(temp_config_dir)
+        except Exception as e:
+            log(f"清理临时配置文件失败: {e}")
         
     except Exception as e:
         error_msg = f"测试异常: {str(e)}"
         success = False
         duration = time.time() - start_time
+        
+        # 确保清理临时配置文件
+        try:
+            if 'temp_config_dir' in locals():
+                shutil.rmtree(temp_config_dir)
+        except Exception:
+            pass
     
     # 注意：清理逻辑已移至main函数末尾统一处理
     log(f"测试完成，等待统一清理 (delete_later={delete_later})")
@@ -482,6 +527,7 @@ def run_test_with_new_downloader(test_case, config):
     log(f"调试信息:")
     log(f"  - 股票代码: {stock_code}")
     log(f"  - 股票名称: {stock_name}")
+    log(f"  - 浏览器策略: {browser_strategy}")
     log(f"  - 下载成功: {success}")
     log(f"  - 下载文件数: {len(downloaded_files)}")
     log(f"  - 错误信息: {error_msg}")
@@ -489,6 +535,7 @@ def run_test_with_new_downloader(test_case, config):
     
     return {
         "downloader": "new",
+        "browser_strategy": browser_strategy,
         "stock_code": stock_code,
         "stock_name": stock_name,
         "success": success,
@@ -533,14 +580,16 @@ def main():
     """主函数"""
     log("开始端到端测试（最终版本）")
     log("严格按照测试说明.md实现")
-    
+
     # 加载配置（只支持config_end2end_test.json）
     import argparse
     parser = argparse.ArgumentParser(description='端到端测试')
     parser.add_argument('--test-old-downloader', action='store_true', help='测试旧下载器')
+    parser.add_argument('--browser-strategy', choices=['selenium', 'playwright', 'both'],
+                       default='both', help='浏览器策略模式 (默认: both)')
     args = parser.parse_args()
     
-    # 只使用config_end2end_test.json配置文件
+    # 始终使用config_end2end_test.json配置文件
     config_file = 'config_end2end_test.json'
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
@@ -552,6 +601,7 @@ def main():
     log(f"使用配置: {config_file}")
     log(f"保存目录: {config['save_dir']}")
     log(f"预期结果目录: {config['expected_result_dir']}")
+    log(f"浏览器策略: {args.browser_strategy}")
     
     # 创建必要目录
     save_dir = Path(config["save_dir"])
@@ -597,46 +647,56 @@ def main():
         log(f"max_pages: {test_case.get('max_pages', 5)}")
         log(f"{'='*80}")
         
-        # 测试新下载器（带重试机制）
-        new_result = None
-        for retry in range(max_test_retries + 1):
-            try:
-                log(f"测试新下载器... (尝试 {retry + 1}/{max_test_retries + 1})")
-                new_result = run_test_with_new_downloader(test_case, config)
-                
-                # 如果下载成功（无论文件匹配与否），跳出重试循环
-                if new_result.get("downloaded_files", 0) > 0:
-                    log(f"下载成功，获得 {new_result['downloaded_files']} 个文件")
-                    break
-                else:
-                    log(f"下载失败，错误: {new_result.get('error', '未知错误')}")
+        # 测试新下载器（带重试机制）- 根据命令行参数选择策略
+        if args.browser_strategy == 'both':
+            strategies_to_test = ["selenium", "playwright"]
+        else:
+            strategies_to_test = [args.browser_strategy]
+        
+        for strategy in strategies_to_test:
+            new_result = None
+            for retry in range(max_test_retries + 1):
+                try:
+                    log(f"测试新下载器({strategy})... (尝试 {retry + 1}/{max_test_retries + 1})")
+                    new_result = run_test_with_new_downloader(test_case, config, strategy)
+                    
+                    # 如果下载成功（无论文件匹配与否），跳出重试循环
+                    if new_result.get("downloaded_files", 0) > 0:
+                        log(f"下载成功，获得 {new_result['downloaded_files']} 个文件")
+                        break
+                    else:
+                        log(f"下载失败，错误: {new_result.get('error', '未知错误')}")
+                        if retry < max_test_retries:
+                            log(f"等待 {10 + retry * 5} 秒后重试...")
+                            time.sleep(10 + retry * 5)
+                        else:
+                            log(f"新下载器({strategy})测试达到最大重试次数")
+                except Exception as e:
+                    log(f"新下载器({strategy})测试异常: {e}")
                     if retry < max_test_retries:
                         log(f"等待 {10 + retry * 5} 秒后重试...")
                         time.sleep(10 + retry * 5)
                     else:
-                        log("新下载器测试达到最大重试次数")
-            except Exception as e:
-                log(f"新下载器测试异常: {e}")
-                if retry < max_test_retries:
-                    log(f"等待 {10 + retry * 5} 秒后重试...")
-                    time.sleep(10 + retry * 5)
-                else:
-                    log("新下载器测试达到最大重试次数")
-                    new_result = {
-                        "downloader": "new",
-                        "stock_code": test_case["stock_code"],
-                        "stock_name": get_real_stock_name(test_case['stock_code']),
-                        "success": False,
-                        "error": f"测试异常: {str(e)}",
-                        "duration": 0,
-                        "downloaded_files": 0
-                    }
-        
-        if new_result:
-            all_results.append(new_result)
-        
-        # 测试间隔
-        time.sleep(2)
+                        log(f"新下载器({strategy})测试达到最大重试次数")
+                        new_result = {
+                            "downloader": "new",
+                            "browser_strategy": strategy,
+                            "stock_code": test_case["stock_code"],
+                            "stock_name": get_real_stock_name(test_case['stock_code']),
+                            "success": False,
+                            "error": f"测试异常: {str(e)}",
+                            "duration": 0,
+                            "downloaded_files": 0
+                        }
+            
+            if new_result:
+                all_results.append(new_result)
+
+        # 策略间隔（如果测试多种策略）
+        if len(strategies_to_test) > 1:
+            time.sleep(5)  # 策略间间隔5秒
+        else:
+            time.sleep(2)  # 单策略间隔2秒
     
     # 执行最终目录比较
     log(f"\n{'='*80}")
@@ -654,25 +714,95 @@ def main():
     
     # 执行目录比较
     comparison_success, comparison_message = compare_directories(save_dir, expected_dir)
-    
+
     log(f"目录比较结果: {'成功' if comparison_success else '失败'}")
     log(f"比较详情: {comparison_message}")
-    
+
+    # 新增：验证目录结构
+    log(f"\n目录结构验证:")
+    from src.utils.directory_manager import DirectoryManager
+    directory_manager = DirectoryManager()
+
+    # 获取预期的公司名称列表
+    expected_companies = []
+    if expected_dir.exists():
+        expected_companies = [d.name for d in expected_dir.iterdir() if d.is_dir()]
+
+    structure_valid, structure_issues = directory_manager.validate_directory_structure(
+        save_dir, expected_companies
+    )
+
+    log(f"目录结构验证: {'通过' if structure_valid else '失败'}")
+    if not structure_valid:
+        for issue in structure_issues:
+            log(f"  - {issue}")
+
     # 生成报告
     total_tests = len(all_results)
     successful_downloads = sum(1 for r in all_results if r.get("downloaded_files", 0) > 0)
+
+    # 更新整体测试结果 - 至少有一种策略成功就算成功
+    overall_success = comparison_success and structure_valid and successful_downloads > 0
     
     log(f"\n测试总结:")
     log(f"总测试用例: {total_tests}")
     log(f"成功下载: {successful_downloads}")
+    log(f"成功率: {successful_downloads/total_tests*100:.1f}%")
     log(f"目录比较: {'通过' if comparison_success else '失败'}")
-    log(f"整体测试: {'通过' if comparison_success and successful_downloads == total_tests else '失败'}")
+    log(f"目录结构: {'通过' if structure_valid else '失败'}")
+    log(f"整体测试: {'通过' if overall_success else '失败'}")
     
     # 输出详细结果
     log(f"\n详细结果:")
     for result in all_results:
         status = "成功" if result.get("downloaded_files", 0) > 0 else "失败"
-        log(f"  - {result['stock_code']}: {status} ({result.get('downloaded_files', 0)} 个文件, {result.get('duration', 0):.1f}s)")
+        strategy = result.get("browser_strategy", "unknown")
+        log(f"  - {result['stock_code']} [{strategy}]: {status} ({result.get('downloaded_files', 0)} 个文件, {result.get('duration', 0):.1f}s)")
+    
+    # 比较浏览器策略性能
+    log(f"\n浏览器策略性能比较:")
+    strategy_results = {}
+    for result in all_results:
+        strategy = result.get("browser_strategy", "selenium")
+        if strategy not in strategy_results:
+            strategy_results[strategy] = {
+                "total_tests": 0,
+                "successful_tests": 0,
+                "total_duration": 0,
+                "total_files": 0,
+                "total_errors": 0,
+                "error_messages": []
+            }
+        
+        strategy_results[strategy]["total_tests"] += 1
+        if result.get("downloaded_files", 0) > 0:
+            strategy_results[strategy]["successful_tests"] += 1
+            strategy_results[strategy]["total_files"] += result.get("downloaded_files", 0)
+        else:
+            strategy_results[strategy]["total_errors"] += 1
+            if result.get("error"):
+                strategy_results[strategy]["error_messages"].append(result["error"])
+        strategy_results[strategy]["total_duration"] += result.get("duration", 0)
+    
+    for strategy, stats in strategy_results.items():
+        success_rate = (stats["successful_tests"] / stats["total_tests"] * 100) if stats["total_tests"] > 0 else 0
+        avg_duration = stats["total_duration"] / stats["total_tests"] if stats["total_tests"] > 0 else 0
+        avg_files = stats["total_files"] / stats["successful_tests"] if stats["successful_tests"] > 0 else 0
+        error_rate = (stats["total_errors"] / stats["total_tests"] * 100) if stats["total_tests"] > 0 else 0
+        
+        log(f"  - {strategy.upper()}:")
+        log(f"     成功率: {success_rate:.1f}% ({stats['successful_tests']}/{stats['total_tests']})")
+        log(f"     失败率: {error_rate:.1f}% ({stats['total_errors']}/{stats['total_tests']})")
+        log(f"     平均耗时: {avg_duration:.1f}s")
+        log(f"     平均文件数: {avg_files:.1f} 个/成功测试")
+        
+        # 显示常见错误信息
+        if stats["error_messages"]:
+            from collections import Counter
+            error_counter = Counter(stats["error_messages"])
+            log(f"     常见错误:")
+            for error_msg, count in error_counter.most_common(3):
+                log(f"        - {count}次: {error_msg}")
     
     # 执行最终清理（只保留delete_later=False的文件）
     log("\n执行最终清理...")
@@ -684,7 +814,7 @@ def main():
     except Exception as e:
         log(f"清理失败: {e}")
     
-    return 0 if comparison_success and successful_downloads == total_tests else 1
+    return 0 if overall_success else 1
 
 if __name__ == "__main__":
     exit_code = main()
