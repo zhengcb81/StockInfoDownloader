@@ -1,6 +1,43 @@
+# Downloads and outputs
 downloads/
+*.csv
+*.pdf
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Logs
 *.log
-*.csv # Ignore .claude directory
+
+# Cache directories
+cache/
+*.cache
+temp/
+tmp/
+
+# Test artifacts
+end2end_test/expected_results/
+test_results/
+*.tmp
+
+# Claude files
 .claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.venv/
+venv/
+env/
