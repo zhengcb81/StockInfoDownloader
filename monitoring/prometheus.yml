@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # API网关监控
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # 下载服务监控
+  - job_name: 'download-service'
+    static_configs:
+      - targets: ['download-service:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # 缓存服务监控
+  - job_name: 'cache-service'
+    static_configs:
+      - targets: ['cache-service:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # 错误服务监控
+  - job_name: 'error-service'
+    static_configs:
+      - targets: ['error-service:8003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # 配置服务监控
+  - job_name: 'config-service'
+    static_configs:
+      - targets: ['config-service:8004']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Redis监控
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 15s
+
+  # Nginx监控
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 15s

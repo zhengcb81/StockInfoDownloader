@@ -1,0 +1,13 @@
+# 微服务依赖
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+aiofiles==23.2.1
+aiohttp==3.9.1
+redis==5.0.1
+prometheus-client==0.19.0
+structlog==23.2.0
+pyyaml==6.0.1
+
+# 项目依赖
+# 这些需要从项目根目录安装
