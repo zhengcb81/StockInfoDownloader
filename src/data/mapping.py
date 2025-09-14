@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from .models import OrgIdMapping
 from ..core.exceptions import OrgIdError
 from ..core.logger import get_logger
+from ..utils.string_optimizer import standardize_stock_code
 
 logger = get_logger(__name__)
 
@@ -115,15 +116,17 @@ class MappingManager:
     def get_org_id(self, stock_code: str, force_refresh: bool = False) -> Optional[str]:
         """
         获取组织ID
-        
+
         Args:
             stock_code: 股票代码
             force_refresh: 是否强制刷新
-            
+
         Returns:
             Optional[str]: 组织ID，不存在返回None
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            return None
         
         if not force_refresh and stock_code in self._mappings:
             mapping = self._mappings[stock_code]
@@ -164,27 +167,30 @@ class MappingManager:
         
         return None
     
-    def add_mapping(self, 
-                   stock_code: str, 
-                   org_id: str, 
+    def add_mapping(self,
+                   stock_code: str,
+                   org_id: str,
                    stock_name: str,
                    source: str = "auto",
                    confidence: float = 0.8) -> bool:
         """
         添加映射
-        
+
         Args:
             stock_code: 股票代码
             org_id: 组织ID
             stock_name: 股票名称
             source: 来源
             confidence: 置信度
-            
+
         Returns:
             bool: 添加是否成功
         """
         try:
-            stock_code = stock_code.strip().zfill(6)
+            stock_code = standardize_stock_code(stock_code)
+            if not stock_code:
+                logger.warning(f"无效的股票代码格式: {stock_code}")
+                return False
             
             mapping = OrgIdMapping(
                 stock_code=stock_code,
@@ -206,14 +212,17 @@ class MappingManager:
     def remove_mapping(self, stock_code: str) -> bool:
         """
         移除映射
-        
+
         Args:
             stock_code: 股票代码
-            
+
         Returns:
             bool: 是否成功移除
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            logger.warning(f"无效的股票代码格式: {stock_code}")
+            return False
         
         if stock_code in self._mappings:
             del self._mappings[stock_code]
@@ -223,24 +232,27 @@ class MappingManager:
         
         return False
     
-    def update_mapping(self, 
-                      stock_code: str, 
-                      org_id: str = None, 
+    def update_mapping(self,
+                      stock_code: str,
+                      org_id: str = None,
                       stock_name: str = None,
                       confidence: float = None) -> bool:
         """
         更新映射
-        
+
         Args:
             stock_code: 股票代码
             org_id: 新的组织ID
             stock_name: 新的股票名称
             confidence: 新的置信度
-            
+
         Returns:
             bool: 是否成功更新
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            logger.warning(f"无效的股票代码格式: {stock_code}")
+            return False
         
         if stock_code not in self._mappings:
             return False
@@ -260,26 +272,29 @@ class MappingManager:
         logger.info(f"更新映射: {stock_code}")
         return True
     
-    def add_duplicate_mapping(self, 
-                            stock_code: str, 
-                            org_id: str, 
+    def add_duplicate_mapping(self,
+                            stock_code: str,
+                            org_id: str,
                             stock_name: str,
                             source: str = "auto",
                             confidence: float = 0.8) -> bool:
         """
         添加重复映射（应该失败）
-        
+
         Args:
             stock_code: 股票代码
             org_id: 组织ID
             stock_name: 股票名称
             source: 来源
             confidence: 置信度
-            
+
         Returns:
             bool: 添加是否成功（应该总是返回False）
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            logger.warning(f"无效的股票代码格式: {stock_code}")
+            return False
         
         # 检查是否已存在
         if stock_code in self._mappings:
@@ -375,14 +390,17 @@ class MappingManager:
     def get_stock_name(self, stock_code: str) -> Optional[str]:
         """
         获取股票名称
-        
+
         Args:
             stock_code: 股票代码
-            
+
         Returns:
             Optional[str]: 股票名称，不存在返回None
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            logger.warning(f"无效的股票代码格式: {stock_code}")
+            return None
         
         # 首先从内存中的映射查找
         if stock_code in self._mappings:
@@ -430,14 +448,17 @@ class MappingManager:
     def get_org_info(self, stock_code: str) -> Optional[Dict[str, str]]:
         """
         获取组织信息
-        
+
         Args:
             stock_code: 股票代码
-            
+
         Returns:
             Optional[Dict[str, str]]: 组织信息，不存在返回None
         """
-        stock_code = stock_code.strip().zfill(6)
+        stock_code = standardize_stock_code(stock_code)
+        if not stock_code:
+            logger.warning(f"无效的股票代码格式: {stock_code}")
+            return None
         
         # 首先从内存中的映射查找
         if stock_code in self._mappings:

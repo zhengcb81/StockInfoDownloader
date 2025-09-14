@@ -203,7 +203,7 @@ class TestConfigurationHandling(unittest.TestCase):
         self.assertEqual(downloader.save_dir, 'downloads')
         self.assertEqual(downloader.mapping_file, 'stock_orgid_mapping.json')
         self.assertEqual(downloader.download_count, 0)
-        self.assertEqual(downloader.max_downloads_per_session, 5)
+        self.assertEqual(downloader.max_downloads_per_session, 20)
     
     def test_custom_configuration(self):
         """测试自定义配置"""

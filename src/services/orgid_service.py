@@ -20,6 +20,7 @@ from ..core.logger import get_logger
 from ..data.models import OrgIdMapping
 from ..web.driver import WebDriverManager
 from ..web.anti_crawler import AntiCrawlerStrategy
+from ..utils.string_optimizer import standardize_stock_code
 
 logger = get_logger(__name__)
 
@@ -45,7 +46,10 @@ class OrgIdService:
             Optional[str]: 组织ID，获取失败返回None
         """
         try:
-            stock_code = stock_code.strip().zfill(6)
+            stock_code = standardize_stock_code(stock_code)
+            if not stock_code:
+                logger.warning(f"无效的股票代码格式: {stock_code}")
+                return None
             
             # 设置WebDriver参数
             self.driver_manager.headless = headless

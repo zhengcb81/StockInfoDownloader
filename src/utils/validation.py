@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .security import validate_stock_code, validate_org_id, sanitize_filename
+from .string_optimizer import get_string_optimizer
 from ..core.exceptions import (
     ValidationError, ErrorCode, ErrorSeverity, RecoveryStrategy,
     with_error_handling, handle_error
@@ -198,8 +199,8 @@ class DataValidator:
             if char in name_lower:
                 raise ValidationError(f"公司名称包含非法字符: {char}")
         
-        # 基本格式验证（中文、英文、数字、括号等）
-        if not re.match(r'^[\u4e00-\u9fa5a-zA-Z0-9\s\(\)（）\-\.·]+$', name):
+        # 基本格式验证（使用优化的字符串处理）
+        if not get_string_optimizer().validate_company_name(name):
             raise ValidationError("公司名称格式不正确，只能包含中文、英文、数字、括号和常见符号")
         
         return name
@@ -306,9 +307,8 @@ class DataValidator:
         
         email = email.strip()
         
-        # 基本格式验证
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(pattern, email):
+        # 基本格式验证（使用优化的字符串处理）
+        if not get_string_optimizer().patterns['email'].match(email):
             raise ValidationError("邮箱格式不正确")
         
         return email
@@ -326,14 +326,12 @@ class DataValidator:
         phone = phone.strip()
         
         if country_code == "CN":
-            # 中国手机号验证
-            pattern = r'^1[3-9]\d{9}$'
-            if not re.match(pattern, phone):
+            # 中国手机号验证（使用优化的字符串处理）
+            if not get_string_optimizer().patterns['phone'].match(phone):
                 raise ValidationError("手机号码格式不正确")
         else:
-            # 国际通用电话号码验证
-            pattern = r'^\+?[\d\s\-\(\)]+$'
-            if not re.match(pattern, phone):
+            # 国际通用电话号码验证（使用优化的字符串处理）
+            if not get_string_optimizer().patterns['phone_with_dash'].match(phone):
                 raise ValidationError("电话号码格式不正确")
         
         return phone

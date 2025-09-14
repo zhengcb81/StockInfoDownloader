@@ -4,58 +4,75 @@
 
 import os
 import tempfile
-import unittest
+import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from src.utils.directory_manager import DirectoryManager
 from src.data.mapping import MappingManager
+from tests.test_config_manager import TestConfigManager
 
 
-class TestDirectoryManager(unittest.TestCase):
-    """目录管理器测试类"""
+@pytest.fixture
+def temp_directory():
+    """创建临时目录的fixture"""
+    temp_dir = tempfile.mkdtemp()
+    base_dir = Path(temp_dir)
+    yield base_dir
 
-    def setUp(self):
-        """测试设置"""
-        self.temp_dir = tempfile.mkdtemp()
-        self.base_dir = Path(self.temp_dir)
+    # 清理
+    import shutil
+    shutil.rmtree(temp_dir)
 
-        # 创建模拟的映射管理器
-        self.mock_mapping_manager = Mock(spec=MappingManager)
-        self.mock_mapping_manager.get_stock_name.return_value = "测试公司"
 
-        self.directory_manager = DirectoryManager(self.mock_mapping_manager)
+@pytest.fixture
+def mock_mapping_manager():
+    """创建模拟映射管理器的fixture"""
+    mock_manager = Mock(spec=MappingManager)
+    mock_manager.get_stock_name.return_value = "测试公司"
+    return mock_manager
 
-    def tearDown(self):
-        """测试清理"""
-        import shutil
-        shutil.rmtree(self.temp_dir)
 
-    def test_get_company_directory(self):
-        """测试获取公司目录"""
-        stock_code = "300470"
-        company_dir = self.directory_manager.get_company_directory(stock_code, self.base_dir)
+@pytest.fixture
+def test_config():
+    """测试配置的fixture"""
+    return TestConfigManager()
 
-        expected_path = self.base_dir / "测试公司"
-        self.assertEqual(company_dir, expected_path)
 
-        # 验证映射管理器被调用
-        self.mock_mapping_manager.get_stock_name.assert_called_with(stock_code)
+@pytest.fixture
+def directory_manager(mock_mapping_manager):
+    """目录管理器的fixture"""
+    return DirectoryManager(mock_mapping_manager)
 
-    def test_get_company_directory_fallback(self):
-        """测试获取公司目录的回退机制"""
-        # 模拟映射管理器返回None
-        self.mock_mapping_manager.get_stock_name.return_value = None
 
-        stock_code = "999999"
-        company_dir = self.directory_manager.get_company_directory(stock_code, self.base_dir)
+def test_get_company_directory(directory_manager, mock_mapping_manager, test_config, temp_directory):
+    """测试获取公司目录"""
+    test_stock = test_config.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+    company_dir = directory_manager.get_company_directory(stock_code, temp_directory)
 
-        expected_path = self.base_dir / "股票999999"
-        self.assertEqual(company_dir, expected_path)
+    expected_path = temp_directory / "测试公司"
+    assert company_dir == expected_path
+
+    # 验证映射管理器被调用
+    mock_mapping_manager.get_stock_name.assert_called_with(stock_code)
+
+
+def test_get_company_directory_fallback(directory_manager, mock_mapping_manager, temp_directory):
+    """测试获取公司目录的回退机制"""
+    # 模拟映射管理器返回None
+    mock_mapping_manager.get_stock_name.return_value = None
+
+    stock_code = "999999"
+    company_dir = directory_manager.get_company_directory(stock_code, temp_directory)
+
+    expected_path = temp_directory / "股票999999"
+    assert company_dir == expected_path
 
     def test_create_company_directory(self):
         """测试创建公司目录"""
-        stock_code = "300470"
+        test_stock = self.test_config.get_test_stock("300470")
+        stock_code = test_stock.get('code', '300470')
         company_dir = self.directory_manager.create_company_directory(stock_code, self.base_dir)
 
         # 验证目录存在
@@ -72,7 +89,8 @@ class TestDirectoryManager(unittest.TestCase):
         existing_dir.mkdir()
 
         # 再次创建相同的目录
-        stock_code = "300470"
+        test_stock = self.test_config.get_test_stock("300470")
+        stock_code = test_stock.get('code', '300470')
         company_dir = self.directory_manager.create_company_directory(stock_code, self.base_dir)
 
         # 应该成功且目录仍然存在
@@ -96,7 +114,8 @@ class TestDirectoryManager(unittest.TestCase):
         temp_file = self.base_dir / "temp_file.pdf"
         temp_file.write_text("test content")
 
-        stock_code = "300470"
+        test_stock = self.test_config.get_test_stock("300470")
+        stock_code = test_stock.get('code', '300470')
         filename = "测试文件.pdf"
 
         # 组织文件
@@ -119,9 +138,11 @@ class TestDirectoryManager(unittest.TestCase):
         """测试组织不存在的文件"""
         nonexistent_file = self.base_dir / "nonexistent.pdf"
 
+        test_stock = self.test_config.get_test_stock("300470")
+        stock_code = test_stock.get('code', '300470')
         with self.assertRaises(FileNotFoundError):
             self.directory_manager.organize_downloaded_file(
-                nonexistent_file, "300470", "test.pdf", self.base_dir
+                nonexistent_file, stock_code, "test.pdf", self.base_dir
             )
 
     def test_validate_directory_structure_valid(self):

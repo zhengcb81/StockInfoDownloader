@@ -32,9 +32,14 @@
     "download_dir": "downloads"
   },
   "download": {
-    "max_downloads_per_session": 5,
+    "max_downloads_per_session": 20,
     "pagination_wait": 2,
     "human_behavior_delay": 3
+  },
+  "driver_pool": {
+    "pool_size": 3,
+    "max_session_downloads": 20,
+    "health_check_interval": 60
   },
   "browser": {
     "strategy": "playwright",

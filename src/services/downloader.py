@@ -21,13 +21,14 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from selenium.webdriver.common.action_chains import ActionChains
 
 from ..core.exceptions import (
-    DownloadError, WebDriverError, NetworkError, FileSystemError, 
+    DownloadError, WebDriverError, NetworkError, FileSystemError,
     ErrorCode, ErrorSeverity, RecoveryStrategy,
     with_error_handling, handle_error
 )
 from ..core.logger import get_logger
 from ..core.config import ConfigManager
 from ..core.performance_monitor import monitor_performance, monitor_operation, performance_monitor
+from ..utils.string_optimizer import standardize_stock_code
 from ..data.models import StockInfo, DownloadRecord, DownloadStatus, DownloadTask
 from ..data.mapping import MappingManager
 from ..web.driver import WebDriverManager
@@ -122,11 +123,9 @@ class StockService:
         if not stock_code:
             return False
         
-        # 移除空格并补零到6位
-        stock_code = stock_code.strip().zfill(6)
-        
-        # 检查是否为6位数字
-        return stock_code.isdigit() and len(stock_code) == 6
+        # 使用优化的股票代码标准化
+        standardized = standardize_stock_code(stock_code)
+        return standardized is not None
     
     def get_all_stock_codes(self) -> List[str]:
         """

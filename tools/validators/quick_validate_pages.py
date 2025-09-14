@@ -14,11 +14,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core.logger import get_logger
+from src.core.config import ConfigManager
 from src.web.driver import WebDriverManager
 from src.web.scraper import WebScraper
 from selenium.webdriver.common.by import By
 
 logger = get_logger(__name__)
+config_manager = ConfigManager()
 
 def quick_validate_pages():
     """快速验证翻页内容变化"""
@@ -33,9 +35,12 @@ def quick_validate_pages():
     
     try:
         with driver_manager as driver:
-            stock_code = "300470"
-            org_id = "9900023856"
-            url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
+            # 从配置获取测试股票信息
+            test_stock = config_manager.get_test_stock("300470")
+            stock_code = test_stock.get('code', '300470')
+            org_id = test_stock.get('org_id', '9900023856')
+            base_url = config_manager.get('base_url', 'https://www.cninfo.com.cn')
+            url = f"{base_url}/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
             
             logger.info(f"访问页面: {url}")
             driver.get(url)

@@ -8,6 +8,8 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
 
+from ..utils.string_optimizer import standardize_stock_code
+
 
 class DownloadStatus(Enum):
     """下载状态枚举"""
@@ -31,9 +33,12 @@ class StockInfo:
         """初始化后处理"""
         if not self.stock_code:
             raise ValueError("股票代码不能为空")
-        
+
         # 标准化股票代码
-        self.stock_code = self.stock_code.strip().zfill(6)
+        standardized = standardize_stock_code(self.stock_code)
+        if not standardized:
+            raise ValueError("无效的股票代码格式")
+        self.stock_code = standardized
     
     @property
     def is_valid(self) -> bool:
@@ -143,9 +148,12 @@ class OrgIdMapping:
         """初始化后处理"""
         if not self.stock_code or not self.org_id:
             raise ValueError("股票代码和组织ID不能为空")
-        
+
         # 标准化股票代码
-        self.stock_code = self.stock_code.strip().zfill(6)
+        standardized = standardize_stock_code(self.stock_code)
+        if not standardized:
+            raise ValueError("无效的股票代码格式")
+        self.stock_code = standardized
     
     @property
     def is_valid(self) -> bool:

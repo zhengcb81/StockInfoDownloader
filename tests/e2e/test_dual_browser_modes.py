@@ -18,6 +18,7 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.services.downloader_v2 import DownloadServiceV2
+from tests.test_config_manager import TestConfigManager
 
 
 class TestSeleniumModeE2E:
@@ -28,18 +29,22 @@ class TestSeleniumModeE2E:
         self.browser_strategy = "selenium"
         self.temp_dir = tempfile.mkdtemp()
         self.save_dir = os.path.join(self.temp_dir, 'downloads')
+        self.test_config = TestConfigManager()
 
-        # 创建测试映射文件（使用真实股票代码）
+        # 创建测试映射文件（使用测试配置）
         self.mapping_file = os.path.join(self.temp_dir, 'test_mapping.json')
+        test_stocks = self.test_config.get_test_stocks()
         test_mapping = {
-            "300470": {
-                "orgId": "9900023856",
-                "name": "中密控股"
-            },
-            "000001": {
-                "orgId": "9900000001",
-                "name": "平安银行"
+            stock.get('code'): {
+                "orgId": stock.get('org_id'),
+                "name": stock.get('name')
             }
+            for stock in test_stocks
+        }
+        # 添加额外的测试数据
+        test_mapping["000001"] = {
+            "orgId": "9900000001",
+            "name": "平安银行"
         }
 
         with open(self.mapping_file, 'w', encoding='utf-8') as f:
@@ -49,7 +54,7 @@ class TestSeleniumModeE2E:
         self.config_file = os.path.join(self.temp_dir, 'test_config.json')
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump({
-                "stock_code": "300470",
+                "stock_code": test_stock.get('code', '300470'),
                 "save_dir": self.save_dir,
                 "headless": True,
                 "max_retries": 2,
@@ -133,7 +138,7 @@ class TestSeleniumModeE2E:
         mock_create_strategy.return_value = mock_strategy
 
         # Mock组织ID获取
-        mock_get_org_id.return_value = "9900023856"
+        mock_get_org_id.return_value = test_stock.get('org_id', '9900023856')
 
         # 模拟成功的下载流程
         mock_strategy.navigate.return_value = True
@@ -149,7 +154,7 @@ class TestSeleniumModeE2E:
 
         # 执行下载
         download_records = downloader.download_stock_pdfs(
-            stock_code="300470",
+            stock_code=test_stock.get('code', '300470'),
             target_pages=[{
                 "suffix": "research",
                 "allowed_keywords": ["投资者关系", "调研"]
@@ -174,7 +179,7 @@ class TestSeleniumModeE2E:
         mock_create_strategy.return_value = mock_strategy
 
         # Mock组织ID获取
-        mock_get_org_id.return_value = "9900023856"
+        mock_get_org_id.return_value = test_stock.get('org_id', '9900023856')
 
         # 创建下载器
         downloader = DownloadServiceV2(
@@ -187,7 +192,7 @@ class TestSeleniumModeE2E:
         # 我们测试的是异常被正确抛出，而不是静默失败
         with pytest.raises(Exception) as exc_info:
             downloader.download_stock_pdfs(
-                stock_code="300470",
+                stock_code=test_stock.get('code', '300470'),
                 target_pages=[{
                     "suffix": "research",
                     "allowed_keywords": ["投资者关系", "调研"]
@@ -212,7 +217,7 @@ class TestSeleniumModeE2E:
         mock_create_strategy.return_value = mock_strategy
 
         # Mock组织ID获取
-        mock_get_org_id.return_value = "9900023856"
+        mock_get_org_id.return_value = test_stock.get('org_id', '9900023856')
 
         # 创建下载器
         downloader = DownloadServiceV2(
@@ -223,7 +228,7 @@ class TestSeleniumModeE2E:
 
         # 执行下载
         download_records = downloader.download_stock_pdfs(
-            stock_code="300470",
+            stock_code=test_stock.get('code', '300470'),
             target_pages=[{
                 "suffix": "research",
                 "allowed_keywords": ["投资者关系", "调研"]
@@ -310,7 +315,7 @@ class TestPlaywrightModeE2E:
         self.config_file = os.path.join(self.temp_dir, 'test_config.json')
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump({
-                "stock_code": "300470",
+                "stock_code": test_stock.get('code', '300470'),
                 "save_dir": self.save_dir,
                 "headless": True,
                 "max_retries": 2,
@@ -365,7 +370,7 @@ class TestPlaywrightModeE2E:
         mock_create_strategy.return_value = mock_strategy
 
         # Mock组织ID获取
-        mock_get_org_id.return_value = "9900023856"
+        mock_get_org_id.return_value = test_stock.get('org_id', '9900023856')
 
         # 模拟成功的下载流程
         mock_strategy.navigate.return_value = True
@@ -381,7 +386,7 @@ class TestPlaywrightModeE2E:
 
         # 执行下载
         download_records = downloader.download_stock_pdfs(
-            stock_code="300470",
+            stock_code=test_stock.get('code', '300470'),
             target_pages=[{
                 "suffix": "research",
                 "allowed_keywords": ["投资者关系", "调研"]
@@ -406,7 +411,7 @@ class TestPlaywrightModeE2E:
         mock_create_strategy.return_value = mock_strategy
 
         # Mock组织ID获取
-        mock_get_org_id.return_value = "9900023856"
+        mock_get_org_id.return_value = test_stock.get('org_id', '9900023856')
 
         # 创建下载器
         downloader = DownloadServiceV2(
@@ -419,7 +424,7 @@ class TestPlaywrightModeE2E:
         # 我们测试的是异常被正确抛出，而不是静默失败
         with pytest.raises(Exception) as exc_info:
             downloader.download_stock_pdfs(
-                stock_code="300470",
+                stock_code=test_stock.get('code', '300470'),
                 target_pages=[{
                     "suffix": "research",
                     "allowed_keywords": ["投资者关系", "调研"]

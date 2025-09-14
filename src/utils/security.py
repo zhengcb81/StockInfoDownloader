@@ -13,37 +13,32 @@ from pathlib import Path
 from typing import Optional, List
 from urllib.parse import urlparse
 
+from src.utils.string_optimizer import get_string_optimizer
+
 def sanitize_filename(filename: str) -> str:
     """
     净化文件名，移除危险字符
-    
+
     Args:
         filename: 原始文件名
-        
+
     Returns:
         str: 安全的文件名
     """
-    # 移除路径分隔符
-    filename = filename.replace('/', '_').replace('\\', '_')
-    
-    # 移除其他危险字符
-    dangerous_chars = ['..', ':', '*', '?', '"', '<', '>', '|']
-    for char in dangerous_chars:
-        filename = filename.replace(char, '_')
-    
-    # 移除控制字符
-    filename = ''.join(c for c in filename if ord(c) >= 32)
-    
+    # 使用优化后的字符串处理
+    optimizer = get_string_optimizer()
+    sanitized = optimizer.sanitize_filename(filename)
+
     # 确保文件名不为空
-    if not filename.strip():
-        filename = "unnamed_file"
-    
+    if not sanitized.strip():
+        sanitized = "unnamed_file"
+
     # 限制长度
-    if len(filename) > 255:
-        name, ext = os.path.splitext(filename)
-        filename = name[:255-len(ext)] + ext
-    
-    return filename.strip()
+    if len(sanitized) > 255:
+        name, ext = os.path.splitext(sanitized)
+        sanitized = name[:255-len(ext)] + ext
+
+    return sanitized.strip()
 
 def safe_join_path(base_path: str, *path_parts: str) -> str:
     """
@@ -81,40 +76,28 @@ def safe_join_path(base_path: str, *path_parts: str) -> str:
 def validate_stock_code(stock_code: str) -> bool:
     """
     验证股票代码格式
-    
+
     Args:
         stock_code: 股票代码
-        
+
     Returns:
         bool: 是否为有效的股票代码格式
     """
-    if not stock_code:
-        return False
-    
-    # 移除空格
-    stock_code = stock_code.strip()
-    
-    # 检查是否为6位数字
-    return re.match(r'^\d{6}$', stock_code) is not None
+    # 使用优化后的验证函数
+    return get_string_optimizer().validate_stock_code(stock_code)
 
 def validate_org_id(org_id: str) -> bool:
     """
     验证组织ID格式
-    
+
     Args:
         org_id: 组织ID
-        
+
     Returns:
         bool: 是否为有效的组织ID格式
     """
-    if not org_id:
-        return False
-    
-    # 移除空格
-    org_id = org_id.strip()
-    
-    # 检查是否为数字且以99开头（CNInfo模式）
-    return re.match(r'^99\d{8}$', org_id) is not None
+    # 使用优化后的验证函数
+    return get_string_optimizer().validate_org_id(org_id)
 
 def sanitize_url(url: str) -> str:
     """
@@ -189,17 +172,16 @@ def is_safe_file_content(content: bytes, max_size: int = 10 * 1024 * 1024) -> bo
 def sanitize_log_message(message: str) -> str:
     """
     净化日志消息，移除敏感信息
-    
+
     Args:
         message: 原始日志消息
-        
+
     Returns:
         str: 安全的日志消息
     """
-    # 移除文件路径
-    message = re.sub(r'[A-Za-z]:\\[^\\]+\\', '[REDACTED_PATH]\\', message)
-    message = re.sub(r'/[^/\s]+/[^/\s]+/', '[REDACTED_PATH]/', message)
-    
+    # 使用优化后的路径脱敏函数
+    message = get_string_optimizer().redact_sensitive_paths(message)
+
     # 移除潜在的敏感信息
     sensitive_patterns = [
         (r'password=[^&\s]+', 'password=***'),
@@ -208,10 +190,10 @@ def sanitize_log_message(message: str) -> str:
         (r'key=[^&\s]+', 'key=***'),
         (r'api_key=[^&\s]+', 'api_key=***'),
     ]
-    
+
     for pattern, replacement in sensitive_patterns:
         message = re.sub(pattern, replacement, message, flags=re.IGNORECASE)
-    
+
     return message
 
 def validate_directory_path(path: str, must_exist: bool = True) -> bool:

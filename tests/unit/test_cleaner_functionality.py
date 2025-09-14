@@ -18,6 +18,10 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from tests.unit.test_cleaner_module import TestCleaner, clean_test_files, get_test_directory_status
+from tests.test_config_manager import TestConfigManager
+
+# 初始化测试配置管理器
+test_config = TestConfigManager()
 
 def log(message):
     """统一的日志输出"""
@@ -170,10 +174,11 @@ def test_cleaner_edge_cases():
                 # 设置测试环境
                 test_case["setup"](test_dir)
                 
-                # 执行清理
+                # 执行清理 - 使用测试配置
+                test_stocks = test_config.get_test_stocks()
                 preserve_files = [
-                    {"stock_code": "301611", "delete_later": False},
-                    {"stock_code": "300470", "delete_later": True}
+                    {"stock_code": stock.get('code'), "delete_later": i == 1}
+                    for i, stock in enumerate(test_stocks)
                 ]
                 
                 cleaner = TestCleaner(str(test_dir))

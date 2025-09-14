@@ -12,6 +12,7 @@ from pathlib import Path
 from ..core.exceptions import OrgIdError
 from ..core.logger import get_logger
 from ..data.models import StockInfo
+from ..utils.string_optimizer import standardize_stock_code
 
 logger = get_logger(__name__)
 
@@ -38,7 +39,9 @@ class StockService:
             Optional[str]: 股票名称，获取失败返回None
         """
         try:
-            stock_code = stock_code.strip().zfill(6)
+            stock_code = standardize_stock_code(stock_code)
+            if not stock_code:
+                return None
             
             # 使用巨潮资讯网的API
             url = f"{self.base_url}/new/information/topSearch/query"
@@ -178,7 +181,9 @@ class StockService:
                 next(reader)  # 跳过表头
                 for row in reader:
                     if row and row[0].strip().isdigit():
-                        stock_codes.append(row[0].strip().zfill(6))
+                        standardized_code = standardize_stock_code(row[0])
+                        if standardized_code:
+                            stock_codes.append(standardized_code)
             
             logger.info(f"从文件加载 {len(stock_codes)} 个股票代码")
             return stock_codes
