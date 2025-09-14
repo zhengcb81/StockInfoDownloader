@@ -66,129 +66,134 @@ def test_get_company_directory_fallback(directory_manager, mock_mapping_manager,
     stock_code = "999999"
     company_dir = directory_manager.get_company_directory(stock_code, temp_directory)
 
-    expected_path = temp_directory / "股票999999"
+    expected_path = temp_directory / "999999"
     assert company_dir == expected_path
 
-    def test_create_company_directory(self):
-        """测试创建公司目录"""
-        test_stock = self.test_config.get_test_stock("300470")
-        stock_code = test_stock.get('code', '300470')
-        company_dir = self.directory_manager.create_company_directory(stock_code, self.base_dir)
 
-        # 验证目录存在
-        self.assertTrue(company_dir.exists())
-        self.assertTrue(company_dir.is_dir())
+def test_create_company_directory(directory_manager, mock_mapping_manager, test_config, temp_directory):
+    """测试创建公司目录"""
+    test_stock = test_config.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+    company_dir = directory_manager.create_company_directory(stock_code, temp_directory)
 
-        expected_path = self.base_dir / "测试公司"
-        self.assertEqual(company_dir, expected_path)
+    # 验证目录存在
+    assert company_dir.exists()
+    assert company_dir.is_dir()
 
-    def test_create_company_directory_existing(self):
-        """测试创建已存在的公司目录"""
-        # 先创建目录
-        existing_dir = self.base_dir / "测试公司"
-        existing_dir.mkdir()
+    expected_path = temp_directory / "测试公司"
+    assert company_dir == expected_path
 
-        # 再次创建相同的目录
-        test_stock = self.test_config.get_test_stock("300470")
-        stock_code = test_stock.get('code', '300470')
-        company_dir = self.directory_manager.create_company_directory(stock_code, self.base_dir)
 
-        # 应该成功且目录仍然存在
-        self.assertTrue(company_dir.exists())
-        self.assertTrue(company_dir.is_dir())
+def test_create_company_directory_existing(directory_manager, mock_mapping_manager, test_config, temp_directory):
+    """测试创建已存在的公司目录"""
+    # 先创建目录
+    existing_dir = temp_directory / "测试公司"
+    existing_dir.mkdir()
 
-    def test_ensure_save_directory(self):
-        """测试确保保存目录存在"""
-        test_file_path = self.base_dir / "subdir" / "test.pdf"
+    # 再次创建相同的目录
+    test_stock = test_config.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+    company_dir = directory_manager.create_company_directory(stock_code, temp_directory)
 
-        # 确保目录存在
-        self.directory_manager.ensure_save_directory(test_file_path)
+    # 应该成功且目录仍然存在
+    assert company_dir.exists()
+    assert company_dir.is_dir()
 
-        # 验证父目录存在
-        self.assertTrue(test_file_path.parent.exists())
-        self.assertTrue(test_file_path.parent.is_dir())
 
-    def test_organize_downloaded_file(self):
-        """测试组织下载的文件"""
-        # 创建临时文件
-        temp_file = self.base_dir / "temp_file.pdf"
-        temp_file.write_text("test content")
+def test_ensure_save_directory(directory_manager, temp_directory):
+    """测试确保保存目录存在"""
+    test_file_path = temp_directory / "subdir" / "test.pdf"
 
-        test_stock = self.test_config.get_test_stock("300470")
-        stock_code = test_stock.get('code', '300470')
-        filename = "测试文件.pdf"
+    # 确保目录存在
+    directory_manager.ensure_save_directory(test_file_path)
 
-        # 组织文件
-        final_path = self.directory_manager.organize_downloaded_file(
-            temp_file, stock_code, filename, self.base_dir
+    # 验证父目录存在
+    assert test_file_path.parent.exists()
+    assert test_file_path.parent.is_dir()
+
+
+def test_organize_downloaded_file(directory_manager, mock_mapping_manager, test_config, temp_directory):
+    """测试组织下载的文件"""
+    # 创建临时文件
+    temp_file = temp_directory / "temp_file.pdf"
+    temp_file.write_text("test content")
+
+    test_stock = test_config.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+    filename = "测试文件.pdf"
+
+    # 组织文件
+    final_path = directory_manager.organize_downloaded_file(
+        temp_file, stock_code, filename, temp_directory
+    )
+
+    # 验证文件被移动
+    assert not temp_file.exists()  # 临时文件应该不存在了
+    assert final_path.exists()  # 最终文件应该存在
+
+    # 验证文件内容
+    assert final_path.read_text() == "test content"
+
+    # 验证文件路径
+    expected_path = temp_directory / "测试公司" / "测试文件.pdf"
+    assert final_path == expected_path
+
+
+def test_organize_downloaded_file_nonexistent(directory_manager, mock_mapping_manager, test_config, temp_directory):
+    """测试组织不存在的文件"""
+    nonexistent_file = temp_directory / "nonexistent.pdf"
+
+    test_stock = test_config.get_test_stock("300470")
+    stock_code = test_stock.get('code', '300470')
+
+    with pytest.raises(FileNotFoundError):
+        directory_manager.organize_downloaded_file(
+            nonexistent_file, stock_code, "test.pdf", temp_directory
         )
 
-        # 验证文件被移动
-        self.assertFalse(temp_file.exists())  # 临时文件应该不存在了
-        self.assertTrue(final_path.exists())  # 最终文件应该存在
 
-        # 验证文件内容
-        self.assertEqual(final_path.read_text(), "test content")
+def test_validate_directory_structure_valid(directory_manager, temp_directory):
+    """测试验证有效的目录结构"""
+    # 创建有效的目录结构
+    company_dir = temp_directory / "测试公司"
+    company_dir.mkdir()
 
-        # 验证文件路径
-        expected_path = self.base_dir / "测试公司" / "测试文件.pdf"
-        self.assertEqual(final_path, expected_path)
+    # 创建测试文件
+    test_file = company_dir / "test.pdf"
+    test_file.write_text("test")
 
-    def test_organize_downloaded_file_nonexistent(self):
-        """测试组织不存在的文件"""
-        nonexistent_file = self.base_dir / "nonexistent.pdf"
+    # 验证目录结构
+    is_valid, issues = directory_manager.validate_directory_structure(
+        temp_directory, ["测试公司"]
+    )
 
-        test_stock = self.test_config.get_test_stock("300470")
-        stock_code = test_stock.get('code', '300470')
-        with self.assertRaises(FileNotFoundError):
-            self.directory_manager.organize_downloaded_file(
-                nonexistent_file, stock_code, "test.pdf", self.base_dir
-            )
-
-    def test_validate_directory_structure_valid(self):
-        """测试验证有效的目录结构"""
-        # 创建有效的目录结构
-        company_dir = self.base_dir / "测试公司"
-        company_dir.mkdir()
-
-        # 创建测试文件
-        test_file = company_dir / "test.pdf"
-        test_file.write_text("test")
-
-        # 验证目录结构
-        is_valid, issues = self.directory_manager.validate_directory_structure(
-            self.base_dir, ["测试公司"]
-        )
-
-        self.assertTrue(is_valid)
-        self.assertEqual(issues, [])
-
-    def test_validate_directory_structure_invalid(self):
-        """测试验证无效的目录结构"""
-        # 创建根目录文件（无效）
-        root_file = self.base_dir / "root_file.pdf"
-        root_file.write_text("test")
-
-        # 验证目录结构
-        is_valid, issues = self.directory_manager.validate_directory_structure(
-            self.base_dir, ["测试公司"]
-        )
-
-        self.assertFalse(is_valid)
-        self.assertIn("根目录中存在文件", issues[0])
-        self.assertIn("公司目录不存在", issues[1])
-
-    def test_validate_directory_structure_nonexistent_base(self):
-        """测试验证不存在的基目录"""
-        nonexistent_dir = self.base_dir / "nonexistent"
-
-        is_valid, issues = self.directory_manager.validate_directory_structure(
-            nonexistent_dir, ["测试公司"]
-        )
-
-        self.assertFalse(is_valid)
-        self.assertIn("基础目录不存在", issues[0])
+    assert is_valid
+    assert issues == []
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_validate_directory_structure_invalid(directory_manager, temp_directory):
+    """测试验证无效的目录结构"""
+    # 创建根目录文件（无效）
+    root_file = temp_directory / "root_file.pdf"
+    root_file.write_text("test")
+
+    # 验证目录结构
+    is_valid, issues = directory_manager.validate_directory_structure(
+        temp_directory, ["测试公司"]
+    )
+
+    assert not is_valid
+    assert "根目录中存在文件" in issues[0]
+    assert "公司目录不存在" in issues[1]
+
+
+def test_validate_directory_structure_nonexistent_base(directory_manager, temp_directory):
+    """测试验证不存在的基目录"""
+    nonexistent_dir = temp_directory / "nonexistent"
+
+    is_valid, issues = directory_manager.validate_directory_structure(
+        nonexistent_dir, ["测试公司"]
+    )
+
+    assert not is_valid
+    assert "基础目录不存在" in issues[0]

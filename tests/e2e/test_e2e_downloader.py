@@ -279,8 +279,8 @@ class TestE2EDownloader:
         downloader.download_count = 3
         assert downloader.download_count == 3, "下载计数应该能正确设置"
         
-        # 测试会话下载限制（从配置中获取，默认为10）
-        assert downloader.max_downloads_per_session == 5, "会话下载限制应该正确"
+        # 测试会话下载限制（从配置中获取，当前配置为20）
+        assert downloader.max_downloads_per_session == 20, "会话下载限制应该正确"
 
 
 if __name__ == "__main__":

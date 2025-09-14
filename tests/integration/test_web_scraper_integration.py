@@ -168,10 +168,21 @@ class TestWebScraperIntegration:
             mock_wait_instance = MagicMock()
             mock_wait.return_value = mock_wait_instance
             mock_wait_instance.until.return_value = [MagicMock()]  # 模拟找到的元素
-            
+
             # 初始化driver
             self.downloader.setup_driver(headless=True)
-            
+
+            # Mock find_elements method to return our test links
+            from tests.test_data.mock_stock_page_content import get_mock_links
+            mock_elements = []
+            for link_data in get_mock_links():
+                mock_element = MagicMock()
+                mock_element.text = link_data['text']
+                mock_element.get_attribute.return_value = link_data['href']
+                mock_elements.append(mock_element)
+
+            mock_driver.find_elements.return_value = mock_elements
+
             # 测试链接查找
             detail_infos = self.downloader._find_download_links(
                 driver=mock_driver,
@@ -281,30 +292,43 @@ class TestWebScraperIntegration:
         mock_wait_instance = MagicMock()
         mock_wait.return_value = mock_wait_instance
         mock_wait_instance.until.return_value = mock_download_btn
-        
-        # 初始化driver
-        self.downloader.setup_driver(headless=True)
-        
-        # 测试下载按钮点击
-        detail_info = {
-            'href': f'http://localhost:{self.server_port}/new/disclosure/detail?stockCode=000001&id=1',
-            'file_name': 'test_file.pdf',
-            'save_path': os.path.join(self.save_dir, 'test_file.pdf')
-        }
-        
-        # 模拟文件下载前的目录状态
-        before_files = set(os.listdir(self.save_dir))
-        
-        # 测试下载过程
-        success = self.downloader._download_page_files(
-            driver=mock_driver,
-            detail_infos=[detail_info],
-            headless=True,
-            max_retries=1
-        )
-        
-        # 验证下载按钮被点击
-        mock_download_btn.click.assert_called_once()
+
+        # Mock ActionChains to handle move_to_element and click
+        mock_actions = MagicMock()
+        mock_actions.move_to_element.return_value = mock_actions
+        mock_actions.pause.return_value = mock_actions
+        mock_actions.click.return_value = mock_actions
+        mock_actions.perform.return_value = None
+
+        # Set up the mock driver's ActionChains
+        with patch('cninfo_activity_downloader.ActionChains') as mock_action_chains:
+            mock_action_chains.return_value = mock_actions
+
+            # 初始化driver
+            self.downloader.setup_driver(headless=True)
+
+            # 测试下载按钮点击
+            detail_info = {
+                'href': f'http://localhost:{self.server_port}/new/disclosure/detail?stockCode=000001&id=1',
+                'file_name': 'test_file.pdf',
+                'save_path': os.path.join(self.save_dir, 'test_file.pdf')
+            }
+
+            # 模拟文件下载前的目录状态
+            before_files = set(os.listdir(self.save_dir))
+
+            # Mock the wait_for_download method to return True
+            with patch.object(self.downloader, '_wait_for_download', return_value=True):
+                # 测试下载过程
+                success = self.downloader._download_page_files(
+                    driver=mock_driver,
+                    detail_infos=[detail_info],
+                    headless=True,
+                    max_retries=1
+                )
+
+            # 验证下载按钮被点击
+            mock_actions.click.assert_called_once()
     
     def test_directory_structure_integration(self):
         """测试目录结构集成"""

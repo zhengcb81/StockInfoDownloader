@@ -21,6 +21,14 @@ from src.services.downloader_v2 import DownloadServiceV2
 from tests.test_config_manager import TestConfigManager
 
 
+# 测试股票数据
+test_stock = {
+    "code": "300470",
+    "name": "中密控股",
+    "org_id": "gssz0000470"
+}
+
+
 class TestSeleniumModeE2E:
     """Selenium模式端到端测试类"""
 
