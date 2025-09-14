@@ -271,11 +271,21 @@ class WebDriverManager:
             
             # 自定义选项
             if custom_options:
+                # 特殊处理代理配置
+                if 'proxy' in custom_options:
+                    proxy_config = custom_options['proxy']
+                    for proxy_type, proxy_url in proxy_config.items():
+                        if proxy_type and proxy_url:
+                            chrome_options.add_argument(f'--proxy-server={proxy_url}')
+                            logger.info(f"配置代理: {proxy_type}://{proxy_url}")
+
+                # 处理其他自定义选项
                 for key, value in custom_options.items():
-                    if value is True:
-                        chrome_options.add_argument(key)
-                    elif value is not False:
-                        chrome_options.add_argument(f'{key}={value}')
+                    if key != 'proxy':  # 跳过已处理的代理配置
+                        if value is True:
+                            chrome_options.add_argument(key)
+                        elif value is not False:
+                            chrome_options.add_argument(f'{key}={value}')
             
             return chrome_options
             

@@ -5,13 +5,14 @@
 
 import os
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 from .exceptions import (
     ConfigError, ErrorCode, ErrorSeverity, RecoveryStrategy,
     with_error_handling, handle_error
 )
 from .config_constants import ConfigConstants
+from .logger import get_logger
 
 
 class ConfigManager:
@@ -21,9 +22,19 @@ class ConfigManager:
     _config = {}
     
     def __new__(cls, config_file=None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+        # 对于不同的配置文件路径，创建不同的实例
+        # 这允许在测试中使用不同的配置文件而不相互影响
+        if config_file:
+            # 为测试文件创建新的实例
+            instance = super().__new__(cls)
+            instance._is_test_instance = True
+            return instance
+        else:
+            # 对于默认配置文件，使用单例模式
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._is_test_instance = False
+            return cls._instance
     
     def __init__(self, config_file=None, environment='production'):
         if not hasattr(self, '_initialized'):
@@ -31,6 +42,7 @@ class ConfigManager:
             self._config_path = None
             self._environment = environment
             self._test_config = None
+            self.logger = get_logger(self.__class__.__name__)
             if config_file:
                 self.load_config(config_file)
     
@@ -431,3 +443,344 @@ class ConfigManager:
             return None
         else:
             return constant_map.get(key)
+
+    # 多公司配置支持方法
+    def get_companies(self) -> List[Dict[str, Any]]:
+        """
+        获取配置的公司列表
+
+        Returns:
+            List[Dict[str, Any]]: 公司配置列表
+        """
+        companies = self.get('companies', [])
+
+        # 如果没有配置companies，尝试从旧的stock_code配置创建
+        if not companies and self.get('stock_code'):
+            stock_code = self.get('stock_code')
+            # 尝试获取公司名称
+            from src.data.mapping import MappingManager
+            try:
+                mapping_manager = MappingManager()
+                company_name = mapping_manager.get_stock_name(stock_code)
+            except:
+                company_name = f"股票{stock_code}"
+
+            companies = [{
+                'stock_code': stock_code,
+                'company_name': company_name,
+                'enabled': True,
+                'priority': 1,
+                'custom_pages': None
+            }]
+
+        # 过滤出启用的公司并按优先级排序
+        enabled_companies = [c for c in companies if c.get('enabled', True)]
+        enabled_companies.sort(key=lambda x: x.get('priority', 1))
+
+        return enabled_companies
+
+    def get_company_config(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """
+        获取特定公司的配置
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            Optional[Dict[str, Any]]: 公司配置，如果不存在则返回None
+        """
+        companies = self.get_companies()
+        for company in companies:
+            if company.get('stock_code') == stock_code:
+                return company
+        return None
+
+    def add_company(self, stock_code: str, company_name: str = None, priority: int = 1,
+                   enabled: bool = True, custom_pages: List[Dict] = None) -> bool:
+        """
+        添加公司配置
+
+        Args:
+            stock_code: 股票代码
+            company_name: 公司名称（可选）
+            priority: 优先级（数字越小优先级越高）
+            enabled: 是否启用
+            custom_pages: 自定义页面配置
+
+        Returns:
+            bool: 是否添加成功
+        """
+        try:
+            # 获取现有公司列表
+            companies = self.get('companies', [])
+
+            # 检查是否已存在
+            for company in companies:
+                if company.get('stock_code') == stock_code:
+                    self.logger.warning(f"公司 {stock_code} 已存在，将更新配置")
+                    # 更新现有配置
+                    company.update({
+                        'company_name': company_name or company.get('company_name', f"股票{stock_code}"),
+                        'priority': priority,
+                        'enabled': enabled,
+                        'custom_pages': custom_pages
+                    })
+                    break
+            else:
+                # 添加新公司
+                if not company_name:
+                    # 尝试获取公司名称
+                    from src.data.mapping import MappingManager
+                    try:
+                        mapping_manager = MappingManager()
+                        company_name = mapping_manager.get_stock_name(stock_code)
+                    except:
+                        company_name = f"股票{stock_code}"
+
+                companies.append({
+                    'stock_code': stock_code,
+                    'company_name': company_name,
+                    'enabled': enabled,
+                    'priority': priority,
+                    'custom_pages': custom_pages
+                })
+
+            # 保存配置
+            self.set('companies', companies)
+            self.save_config()
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"添加公司配置失败: {e}")
+            return False
+
+    def remove_company(self, stock_code: str) -> bool:
+        """
+        移除公司配置
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            bool: 是否移除成功
+        """
+        try:
+            companies = self.get('companies', [])
+            original_count = len(companies)
+
+            # 过滤掉指定公司
+            companies = [c for c in companies if c.get('stock_code') != stock_code]
+
+            if len(companies) == original_count:
+                # 没有找到要移除的公司
+                self.logger.warning(f"未找到公司 {stock_code}")
+                return False
+
+            # 保存配置
+            self.set('companies', companies)
+            self.save_config()
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"移除公司配置失败: {e}")
+            return False
+
+    def enable_company(self, stock_code: str) -> bool:
+        """
+        启用公司
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            bool: 是否启用成功
+        """
+        return self._update_company_status(stock_code, True)
+
+    def disable_company(self, stock_code: str) -> bool:
+        """
+        禁用公司
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            bool: 是否禁用成功
+        """
+        return self._update_company_status(stock_code, False)
+
+    def _update_company_status(self, stock_code: str, enabled: bool) -> bool:
+        """
+        更新公司状态
+
+        Args:
+            stock_code: 股票代码
+            enabled: 是否启用
+
+        Returns:
+            bool: 是否更新成功
+        """
+        try:
+            companies = self.get('companies', [])
+            updated = False
+
+            for company in companies:
+                if company.get('stock_code') == stock_code:
+                    company['enabled'] = enabled
+                    updated = True
+                    break
+
+            if updated:
+                self.set('companies', companies)
+                self.save_config()
+
+            return updated
+
+        except Exception as e:
+            self.logger.error(f"更新公司状态失败: {e}")
+            return False
+
+    def get_parallel_download_config(self) -> Dict[str, Any]:
+        """
+        获取并行下载配置
+
+        Returns:
+            Dict[str, Any]: 并行下载配置
+        """
+        return self.get('parallel_download', {
+            'enabled': False,
+            'max_workers': 3,
+            'batch_size': 50,
+            'task_timeout': 300
+        })
+
+    def get_proxy_config(self) -> Dict[str, Any]:
+        """
+        获取代理配置
+
+        Returns:
+            Dict[str, Any]: 代理配置
+        """
+        return self.get('proxy_management', {
+            'enabled': False,
+            'pools': {}
+        })
+
+    def get_anti_crawler_config(self) -> Dict[str, Any]:
+        """
+        获取反爬虫配置
+
+        Returns:
+            Dict[str, Any]: 反爬虫配置
+        """
+        return self.get('enhanced_anti_crawler', {
+            'enabled': True,
+            'level': 'high'
+        })
+
+    def is_parallel_download_enabled(self) -> bool:
+        """
+        检查是否启用并行下载
+
+        Returns:
+            bool: 是否启用并行下载
+        """
+        config = self.get_parallel_download_config()
+        return config.get('enabled', False)
+
+    def is_proxy_enabled(self) -> bool:
+        """
+        检查是否启用代理
+
+        Returns:
+            bool: 是否启用代理
+        """
+        config = self.get_proxy_config()
+        return config.get('enabled', False)
+
+    def get_max_workers(self) -> int:
+        """
+        获取最大工作线程数
+
+        Returns:
+            int: 最大工作线程数
+        """
+        config = self.get_parallel_download_config()
+        return config.get('max_workers', 3)
+
+    def validate_companies_config(self) -> Tuple[bool, List[str]]:
+        """
+        验证公司配置
+
+        Returns:
+            Tuple[bool, List[str]]: (是否有效, 错误信息列表)
+        """
+        errors = []
+        companies = self.get_companies()
+
+        if not companies:
+            errors.append("没有配置任何公司")
+            return False, errors
+
+        stock_codes = set()
+        for i, company in enumerate(companies):
+            stock_code = company.get('stock_code')
+
+            # 验证股票代码格式
+            if not stock_code or not str(stock_code).isdigit() or len(str(stock_code)) != 6:
+                errors.append(f"第{i+1}个公司的股票代码格式错误: {stock_code}")
+
+            # 检查重复
+            if stock_code in stock_codes:
+                errors.append(f"股票代码 {stock_code} 重复配置")
+            stock_codes.add(stock_code)
+
+            # 验证优先级
+            priority = company.get('priority', 1)
+            if not isinstance(priority, int) or priority < 1:
+                errors.append(f"公司 {stock_code} 的优先级设置错误: {priority}")
+
+            # 验证自定义页面配置
+            custom_pages = company.get('custom_pages')
+            if custom_pages is not None:
+                if not isinstance(custom_pages, list):
+                    errors.append(f"公司 {stock_code} 的custom_pages必须是数组")
+                else:
+                    for j, page in enumerate(custom_pages):
+                        if not isinstance(page, dict):
+                            errors.append(f"公司 {stock_code} 的第{j+1}个页面配置格式错误")
+                        elif 'suffix' not in page:
+                            errors.append(f"公司 {stock_code} 的第{j+1}个页面配置缺少suffix字段")
+
+        return len(errors) == 0, errors
+
+    def get_companies_summary(self) -> Dict[str, Any]:
+        """
+        获取公司配置摘要
+
+        Returns:
+            Dict[str, Any]: 公司配置摘要
+        """
+        # 获取所有公司（包括禁用的）
+        all_companies = self.get('companies', [])
+        enabled_companies = self.get_companies()  # 这个方法返回启用的公司
+
+        enabled_count = len(enabled_companies)
+        disabled_count = len(all_companies) - enabled_count
+
+        priorities = set()
+        for company in all_companies:
+            priorities.add(company.get('priority', 1))
+
+        return {
+            'total_companies': len(all_companies),
+            'enabled_companies': enabled_count,
+            'disabled_companies': disabled_count,
+            'priority_levels': sorted(priorities),
+            'stock_codes': [c.get('stock_code') for c in all_companies],
+            'parallel_download_enabled': self.is_parallel_download_enabled(),
+            'proxy_enabled': self.is_proxy_enabled(),
+            'max_workers': self.get_max_workers()
+        }

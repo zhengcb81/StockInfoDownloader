@@ -33,6 +33,72 @@
 - **🐳 容器化部署**: 完整Docker容器化和Docker Compose编排
 - **📊 监控告警**: Prometheus + Grafana监控体系和智能告警
 - **⚡ 分布式处理**: 基于Redis的异步任务队列和事件驱动架构
+- **🔄 多公司并行下载**: 支持同时下载多个公司的股票信息，提高效率
+- **🌐 IP轮换代理**: 智能代理池管理，防止反爬虫检测和IP封禁
+- **🎭 增强反爬虫**: 行为模拟、指纹随机化、自适应限流等多层保护
+
+## 🚀 多公司并行下载
+
+### 🔥 新功能亮点
+
+#### 多公司配置支持
+配置文件现在支持同时配置多个公司，实现批量并行下载：
+
+```json
+{
+  "companies": [
+    {
+      "stock_code": "300470",
+      "company_name": "中密控股",
+      "enabled": true,
+      "priority": 1,
+      "custom_pages": null
+    },
+    {
+      "stock_code": "301611",
+      "company_name": "珂玛科技",
+      "enabled": true,
+      "priority": 2,
+      "custom_pages": [
+        {"name": "自定义页面", "suffix": "custom", "allowed_keywords": ["测试"]}
+      ]
+    }
+  ],
+  "parallel_download": {
+    "enabled": true,
+    "max_workers": 5,
+    "task_timeout": 300
+  }
+}
+```
+
+#### 智能代理管理
+- **代理池管理**: 支持多个代理池，智能选择最优代理
+- **健康检查**: 自动检测代理可用性和响应时间
+- **负载均衡**: 避免单个代理过载
+- **故障转移**: 代理失效时自动切换备用代理
+
+#### 增强反爬虫保护
+- **行为模拟**: 模拟真实用户浏览行为
+- **指纹随机化**: 动态改变浏览器特征
+- **智能限流**: 自适应请求频率控制
+- **异常处理**: 多层异常恢复机制
+
+### 使用方法
+
+1. **使用新的并行下载器**:
+   ```bash
+   python main_parallel.py
+   ```
+
+2. **配置多个公司**:
+   在 `config.json` 的 `companies` 数组中添加要下载的公司
+
+3. **启用代理功能**:
+   在 `proxy_management` 配置中设置代理池信息
+
+4. **查看详细文档**:
+   参考 [多公司并行下载使用指南](MULTI_COMPANY_GUIDE.md) 获取更多详细信息
 
 ## 🏗️ 项目结构
 
@@ -85,6 +151,7 @@ StockInfoDownloader/
 │   ├── PROJECT_CLEANUP_GUIDE.md  # 项目清理指南
 │   ├── PHASE2_OPTIMIZATION.md    # Phase 2性能优化总结
 │   └── CHANGELOG.md              # 变更日志
+├── MULTI_COMPANY_GUIDE.md        # 多公司并行下载使用指南（新增）
 ├── configs/                      # 配置文件
 │   ├── config.json               # 主配置文件（重构后完全配置驱动）
 │   ├── test_config.json          # 测试配置文件（统一测试数据管理）
@@ -234,20 +301,106 @@ python main.py --stock-code 300470 --max-pages 5 --headless
 ```
 
 ### 3. 配置文件示例
+
+#### 新版多公司配置（推荐）
 ```json
 {
-  "stock_code": "300470",
+  "environment": "production",
   "save_dir": "downloads",
-  "max_pages": 5,
-  "headless": true,
-  "pages": [
+  "companies": [
     {
-      "name": "调研页面",
-      "suffix": "research",
-      "allowed_keywords": ["投资者关系", "2023年"]
+      "stock_code": "300470",
+      "company_name": "中密控股",
+      "enabled": true,
+      "priority": 1,
+      "custom_pages": null
+    },
+    {
+      "stock_code": "301611",
+      "company_name": "珂玛科技",
+      "enabled": true,
+      "priority": 2,
+      "custom_pages": [
+        {
+          "name": "自定义页面",
+          "suffix": "custom",
+          "allowed_keywords": ["测试"]
+        }
+      ]
+    },
+    {
+      "stock_code": "000001",
+      "company_name": "测试公司",
+      "enabled": false,
+      "priority": 3,
+      "custom_pages": null
     }
-  ]
+  ],
+  "parallel_download": {
+    "enabled": true,
+    "max_workers": 5,
+    "task_timeout": 300
+  },
+  "proxy_management": {
+    "enabled": true,
+    "pools": {
+      "main_pool": {
+        "enabled": true,
+        "proxies": [
+          {
+            "host": "proxy1.example.com",
+            "port": 8080,
+            "type": "http",
+            "username": "user1",
+            "password": "pass1"
+          }
+        ],
+        "health_check_interval": 60,
+        "max_failures": 3
+      }
+    }
+  },
+  "anti_crawler": {
+    "enabled": true,
+    "random_delay": {
+      "min": 2,
+      "max": 5
+    },
+    "behavior_simulation": true,
+    "fingerprint_randomization": true,
+    "adaptive_rate_limiting": true
+  }
 }
+```
+
+#### 配置参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `companies` | Array | [] | 公司配置数组，支持多个公司 |
+| `companies[].stock_code` | String | - | 股票代码（必需） |
+| `companies[].company_name` | String | - | 公司名称（可选） |
+| `companies[].enabled` | Boolean | true | 是否启用该公司下载 |
+| `companies[].priority` | Integer | 1 | 下载优先级（数字越小优先级越高） |
+| `companies[].custom_pages` | Array | null | 自定义页面配置 |
+| `parallel_download.enabled` | Boolean | false | 是否启用并行下载 |
+| `parallel_download.max_workers` | Integer | 3 | 最大并行工作线程数 |
+| `proxy_management.enabled` | Boolean | false | 是否启用代理管理 |
+| `anti_crawler.enabled` | Boolean | true | 是否启用反爬虫保护 |
+
+### 4. 使用并行下载器
+```bash
+# 使用新的多公司并行下载器
+python main_parallel.py
+
+# 查看帮助信息
+python main_parallel.py --help
+
+# 指定配置文件
+python main_parallel.py --config custom_config.json
+
+# 仅下载特定公司
+python main_parallel.py --companies 300470,301611
 ```
 
 ## 🧪 测试验证

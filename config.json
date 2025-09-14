@@ -1,6 +1,29 @@
 {
   "environment": "production",
   "save_dir": "downloads",
+  "companies": [
+    {
+      "stock_code": "002415",
+      "company_name": "海康威视",
+      "enabled": true,
+      "priority": 1,
+      "custom_pages": null
+    },
+    {
+      "stock_code": "301611",
+      "company_name": "珂玛科技",
+      "enabled": true,
+      "priority": 2,
+      "custom_pages": null
+    },
+    {
+      "stock_code": "300470",
+      "company_name": "中密控股",
+      "enabled": true,
+      "priority": 3,
+      "custom_pages": null
+    }
+  ],
   "headless": true,
   "max_retries": 3,
   "use_dynamic_delay": true,
@@ -32,9 +55,11 @@
     "download_dir": "downloads"
   },
   "download": {
-    "max_downloads_per_session": 20,
+    "max_downloads_per_session": 200,
     "pagination_wait": 2,
-    "human_behavior_delay": 3
+    "human_behavior_delay": 3,
+    "max_pages_per_type": 50,
+    "global_max_pages": 50
   },
   "driver_pool": {
     "pool_size": 3,
@@ -56,26 +81,36 @@
     "min_delay": 2.0,
     "max_delay": 8.0,
     "max_downloads": 5,
-    "scroll_range": [200, 600],
-    "behavior_delay": [0.5, 1.5]
+    "scroll_range": [
+      200,
+      600
+    ],
+    "behavior_delay": [
+      0.5,
+      1.5
+    ]
   },
   "pages": [
     {
       "name": "调研",
       "suffix": "research",
-      "allowed_keywords": null
+      "allowed_keywords": null,
+      "excluded_keywords": null,
+      "max_pages": 50
     },
     {
-      "name": "定期公告",
+      "name": "定期报告",
       "suffix": "periodicReports",
-      "allowed_keywords": null
+      "allowed_keywords": null,
+      "excluded_keywords": ["摘要"],
+      "max_pages": 50
     },
     {
       "name": "最新公告",
       "suffix": "latestAnnouncement",
-      "allowed_keywords": [
-        "招股说明书"
-      ]
+      "allowed_keywords": ["招股说明书", "问询函"],
+      "excluded_keywords": null,
+      "max_pages": 50
     }
   ],
   "logging": {
@@ -85,9 +120,163 @@
   },
   "validation": {
     "file_patterns": {
-      "research": ["投资者关系", "活动记录表"],
-      "periodicReports": ["季度报告", "年报", "半年报"],
-      "latestAnnouncement": ["招股说明书", "上市公告"]
+      "research": [
+        "投资者关系",
+        "活动记录表"
+      ],
+      "periodicReports": [
+        "季度报告",
+        "年报",
+        "半年报"
+      ],
+      "latestAnnouncement": [
+        "招股说明书",
+        "上市公告"
+      ]
+    }
+  },
+  "parallel_download": {
+    "enabled": true,
+    "max_workers": 5,
+    "batch_size": 50,
+    "task_timeout": 300,
+    "retry_policy": {
+      "max_retries": 3,
+      "retry_delay": 5,
+      "backoff_factor": 2
+    },
+    "priority_strategy": {
+      "enabled": true,
+      "factors": {
+        "market_cap_weight": 0.3,
+        "update_frequency_weight": 0.4,
+        "importance_weight": 0.3
+      }
+    }
+  },
+  "proxy_management": {
+    "enabled": false,
+    "pools": {
+      "data_center": {
+        "enabled": true,
+        "max_size": 200,
+        "rotation_interval": 100,
+        "health_check_interval": 60
+      },
+      "residential": {
+        "enabled": true,
+        "max_size": 100,
+        "rotation_interval": 50,
+        "max_usage_time": 1800
+      },
+      "elite": {
+        "enabled": true,
+        "max_size": 50,
+        "rotation_interval": 30,
+        "health_check_interval": 30
+      }
+    },
+    "providers": [
+      {
+        "name": "luminati",
+        "type": "residential",
+        "enabled": false,
+        "api_endpoint": "https://luminati.io/api",
+        "customer_id": "",
+        "zone": "",
+        "password": "",
+        "countries": [
+          "cn",
+          "us",
+          "hk",
+          "sg"
+        ],
+        "rotation_strategy": "request_based",
+        "max_requests_per_ip": 50
+      }
+    ],
+    "rotation_strategies": {
+      "request_based": {
+        "max_requests": 50,
+        "cooldown_period": 60
+      },
+      "time_based": {
+        "max_usage_time": 1800,
+        "min_usage_time": 300
+      },
+      "error_based": {
+        "max_failures": 3,
+        "recovery_time": 300
+      }
+    },
+    "health_check": {
+      "test_url": "http://httpbin.org/ip",
+      "timeout": 10,
+      "interval": 60,
+      "failure_threshold": 3
+    }
+  },
+  "enhanced_anti_crawler": {
+    "enabled": true,
+    "fingerprint_randomization": {
+      "user_agent_rotation": true,
+      "screen_resolution": true,
+      "timezone": true,
+      "language": true,
+      "platform": true,
+      "hardware_info": true
+    },
+    "behavior_simulation": {
+      "enabled": true,
+      "complexity_level": "high",
+      "randomization_factor": 0.3,
+      "patterns": [
+        "mouse_movement",
+        "scrolling",
+        "typing",
+        "tab_switching",
+        "idle_time"
+      ]
+    },
+    "adaptive_rate_limiting": {
+      "enabled": true,
+      "initial_requests_per_minute": 30,
+      "max_requests_per_minute": 100,
+      "adjustment_factor": 1.2,
+      "success_rate_threshold": 0.8,
+      "error_rate_threshold": 0.2
+    },
+    "captcha_handling": {
+      "enabled": true,
+      "strategies": [
+        "delay_retry",
+        "proxy_rotation",
+        "user_agent_change"
+      ],
+      "max_wait_time": 120,
+      "solve_timeout": 30
+    }
+  },
+  "performance_monitoring": {
+    "enabled": true,
+    "metrics": {
+      "response_time": true,
+      "success_rate": true,
+      "resource_usage": true,
+      "throughput": true
+    },
+    "alerting": {
+      "enabled": true,
+      "thresholds": {
+        "error_rate": 0.1,
+        "response_time": 30,
+        "memory_usage": 0.8,
+        "cpu_usage": 0.8
+      }
+    },
+    "reporting": {
+      "interval": 60,
+      "history_size": 1000
     }
   }
 }

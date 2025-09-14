@@ -342,7 +342,7 @@ def run_test_with_old_downloader(test_case, config):
         "downloaded_files": len(downloaded_files)
     }
 
-def run_test_with_new_downloader(test_case, config, browser_strategy="selenium"):
+def run_test_with_new_downloader(test_case, config, browser_strategy="playwright"):
     """使用新下载器运行测试"""
     stock_code = test_case["stock_code"]
     log(f"\n使用新下载器测试: {stock_code} (策略: {browser_strategy})")
@@ -586,7 +586,7 @@ def main():
     parser = argparse.ArgumentParser(description='端到端测试')
     parser.add_argument('--test-old-downloader', action='store_true', help='测试旧下载器')
     parser.add_argument('--browser-strategy', choices=['selenium', 'playwright', 'both'],
-                       default='both', help='浏览器策略模式 (默认: both)')
+                       default='playwright', help='浏览器策略模式 (默认: playwright)')
     args = parser.parse_args()
     
     # 始终使用config_end2end_test.json配置文件
@@ -649,7 +649,7 @@ def main():
         
         # 测试新下载器（带重试机制）- 根据命令行参数选择策略
         if args.browser_strategy == 'both':
-            strategies_to_test = ["selenium", "playwright"]
+            strategies_to_test = ["playwright", "selenium"]
         else:
             strategies_to_test = [args.browser_strategy]
         

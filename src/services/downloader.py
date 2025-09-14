@@ -149,9 +149,10 @@ class StockService:
 class DownloadService:
     """投资者关系活动记录表下载服务"""
     
-    def __init__(self, 
+    def __init__(self,
                  save_dir: str = "downloads",
-                 mapping_file: str = "stock_orgid_mapping.json"):
+                 mapping_file: str = "stock_orgid_mapping.json",
+                 config_file: Optional[str] = None):
         """
         初始化下载服务（增强版，对齐旧下载器）
         
@@ -169,7 +170,8 @@ class DownloadService:
             download_dir=str(self.save_dir),
             max_downloads_per_session=10,
             page_load_timeout=8,
-            implicit_wait=2
+            implicit_wait=2,
+            config_file=config_file
         )
         self.anti_crawler = AntiCrawlerStrategy()
         
@@ -218,24 +220,30 @@ class DownloadService:
         return self.mapping_manager.get_org_id(stock_code, force_refresh=force_run)
     
     @monitor_performance("DownloadService.download_stock_pdfs")
-    def download_stock_pdfs(self, 
+    def download_stock_pdfs(self,
                           stock_code: str,
                           target_pages: Optional[List[str]] = None,
-                          max_retries: int = 3) -> List[DownloadRecord]:
+                          max_retries: int = 3,
+                          proxy_info: Optional[Dict[str, Any]] = None) -> List[DownloadRecord]:
         """
         下载指定股票的PDF文件
-        
+
         Args:
             stock_code: 股票代码
             target_pages: 目标页面列表
             max_retries: 最大重试次数
-            
+            proxy_info: 代理信息（用于多公司并行下载）
+
         Returns:
             List[DownloadRecord]: 下载记录列表
         """
         if target_pages is None:
             target_pages = ["research"]
-        
+
+        # 如果提供了代理信息，配置代理
+        if proxy_info:
+            self._configure_proxy(proxy_info)
+
         stock_info = self._get_stock_info(stock_code)
         if not stock_info or not stock_info.org_id:
             logger.error(f"无法获取组织ID: {stock_code}")
@@ -407,7 +415,38 @@ class DownloadService:
             self._record_error()
 
         return records
-    
+
+    def _configure_proxy(self, proxy_info: Dict[str, Any]):
+        """
+        配置代理设置
+
+        Args:
+            proxy_info: 代理信息字典
+        """
+        try:
+            proxy_host = proxy_info.get('host')
+            proxy_port = proxy_info.get('port')
+            proxy_type = proxy_info.get('type', 'http')
+
+            if proxy_host and proxy_port:
+                # 创建代理选项
+                proxy_options = {
+                    'proxy': {
+                        proxy_type: f"{proxy_host}:{proxy_port}"
+                    }
+                }
+
+                # 重新创建WebDriver实例以应用代理设置
+                if self.driver_manager.driver:
+                    logger.info(f"应用代理设置: {proxy_type}://{proxy_host}:{proxy_port}")
+                    # 关闭现有驱动并创建新的带代理的驱动
+                    self.driver_manager.close_driver()
+                    self.driver_manager.create_driver(custom_options=proxy_options)
+            else:
+                logger.warning("代理信息不完整，跳过代理配置")
+        except Exception as e:
+            logger.error(f"配置代理失败: {e}")
+
     def _find_detail_links(self, driver, stock_info: StockInfo, allowed_keywords: List[str] = None) -> List[Dict[str, str]]:
         """查找当前页面的下载链接（精确复制旧版本算法）"""
         detail_infos = []
