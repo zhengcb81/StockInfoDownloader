@@ -37,9 +37,24 @@
 - **🌐 IP轮换代理**: 智能代理池管理，防止反爬虫检测和IP封禁
 - **🎭 增强反爬虫**: 行为模拟、指纹随机化、自适应限流等多层保护
 
-## 🚀 多公司并行下载
+## 🚀 重构架构特性
 
-### 🔥 新功能亮点
+### 🔥 重构亮点
+
+本系统已经完成重大架构重构，采用策略模式和微服务架构设计：
+
+#### 1. 策略模式浏览器自动化
+- **DownloadServiceV2**: 新一代下载服务，采用策略模式设计
+- **BrowserStrategyFactory**: 统一的浏览器策略工厂
+- **SeleniumStrategy**: Selenium浏览器策略实现
+- **PlaywrightStrategy**: Playwright浏览器策略实现（**默认策略**）
+- **BrowserStrategyManager**: 浏览器策略管理器，支持动态切换
+
+#### 2. 多公司并行下载
+- **MultiCompanyDownloader**: 支持多公司批量下载
+- **CompanyConfig**: 公司配置数据结构
+- **优先级队列**: 按公司优先级进行下载排序
+- **串行/并行模式**: 支持串行和并行两种下载模式
 
 #### 多公司配置支持
 配置文件现在支持同时配置多个公司，实现批量并行下载：
@@ -86,19 +101,87 @@
 
 ### 使用方法
 
-1. **使用新的并行下载器**:
-   ```bash
-   python main_parallel.py
-   ```
+#### 1. 使用新的并行下载器
+```bash
+# 使用多公司并行下载器
+python main_parallel.py
 
-2. **配置多个公司**:
-   在 `config.json` 的 `companies` 数组中添加要下载的公司
+# 或使用传统单公司下载器
+python main.py --stock 002415
+```
 
-3. **启用代理功能**:
-   在 `proxy_management` 配置中设置代理池信息
+#### 2. 配置多个公司
+在 `config.json` 的 `companies` 数组中添加要下载的公司：
 
-4. **查看详细文档**:
-   参考 [多公司并行下载使用指南](MULTI_COMPANY_GUIDE.md) 获取更多详细信息
+```json
+{
+  "companies": [
+    {
+      "stock_code": "002415",
+      "company_name": "海康威视",
+      "enabled": true,
+      "priority": 1,
+      "custom_pages": null
+    },
+    {
+      "stock_code": "301611",
+      "company_name": "珂玛科技",
+      "enabled": true,
+      "priority": 2,
+      "custom_pages": null
+    }
+  ],
+  "browser": {
+    "strategy": "playwright"
+  }
+}
+```
+
+#### 3. 浏览器策略配置
+系统支持两种浏览器自动化框架：
+
+```json
+{
+  "browser": {
+    "strategy": "playwright",  // 可选: "selenium" 或 "playwright"
+    "window_size": "1920,1080",
+    "user_agents": [
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    ]
+  }
+}
+```
+
+#### 4. 启用代理功能
+在 `proxy_management` 配置中设置代理池信息
+
+#### 5. 增强关键词过滤
+系统现在支持更精确的关键词过滤，包括允许和排除关键词：
+
+```json
+{
+  "pages": [
+    {
+      "name": "定期报告",
+      "suffix": "periodicReports",
+      "allowed_keywords": null,
+      "excluded_keywords": ["摘要", "英文版", "（英文版）"],
+      "max_pages": 3
+    },
+    {
+      "name": "最新公告",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": ["招股说明书", "问询函"],
+      "excluded_keywords": null,
+      "max_pages": 3
+    }
+  ]
+}
+```
+
+#### 6. 查看详细文档
+- 参考 [多公司并行下载使用指南](MULTI_COMPANY_GUIDE.md) 获取更多详细信息
+- 参考 [浏览器策略配置](BROWSER_STRATEGY.md) 了解策略模式使用方法
 
 ## 🏗️ 项目结构
 

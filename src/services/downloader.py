@@ -9,7 +9,7 @@ import time
 import uuid
 import random
 import shutil
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
@@ -34,6 +34,7 @@ from ..data.mapping import MappingManager
 from ..web.driver import WebDriverManager
 from ..web.anti_crawler import AntiCrawlerStrategy
 from ..web.scraper import WebScraper
+from ..web.browser_strategy_manager import BrowserStrategyManager, BrowserType
 from ..utils.keyword_matcher import KeywordMatcher
 
 logger = get_logger(__name__)
@@ -165,6 +166,21 @@ class DownloadService:
         self.mapping_file = mapping_file
         
         self.mapping_manager = MappingManager(mapping_file)
+
+        # 初始化浏览器策略管理器
+        self.browser_strategy_manager = BrowserStrategyManager(config_file)
+        self.browser_strategy = self.browser_strategy_manager.get_strategy(
+            headless=True,
+            download_dir=str(self.save_dir),
+            config={
+                'window_size': '1920,1080',
+                'page_load_timeout': 8,
+                'implicit_wait': 2,
+                'max_downloads_per_session': 10
+            }
+        )
+
+        # 兼容旧的WebDriverManager（用于过渡）
         self.driver_manager = WebDriverManager(
             headless=True,
             download_dir=str(self.save_dir),
@@ -174,7 +190,7 @@ class DownloadService:
             config_file=config_file
         )
         self.anti_crawler = AntiCrawlerStrategy()
-        
+
         # 加载配置
         self.config = ConfigManager()
         
@@ -222,7 +238,7 @@ class DownloadService:
     @monitor_performance("DownloadService.download_stock_pdfs")
     def download_stock_pdfs(self,
                           stock_code: str,
-                          target_pages: Optional[List[str]] = None,
+                          target_pages: Optional[List[Union[str, Dict[str, Any]]]] = None,
                           max_retries: int = 3,
                           proxy_info: Optional[Dict[str, Any]] = None) -> List[DownloadRecord]:
         """
@@ -230,7 +246,7 @@ class DownloadService:
 
         Args:
             stock_code: 股票代码
-            target_pages: 目标页面列表
+            target_pages: 目标页面列表（支持字符串格式或字典格式）
             max_retries: 最大重试次数
             proxy_info: 代理信息（用于多公司并行下载）
 
@@ -239,6 +255,19 @@ class DownloadService:
         """
         if target_pages is None:
             target_pages = ["research"]
+
+        # 转换字典格式的target_pages为字符串格式
+        normalized_target_pages = []
+        for page in target_pages:
+            if isinstance(page, dict):
+                # 字典格式: {'suffix': 'research', 'allowed_keywords': None}
+                suffix = page.get('suffix', 'research')
+                normalized_target_pages.append(suffix)
+            else:
+                # 字符串格式: 'research'
+                normalized_target_pages.append(page)
+
+        target_pages = normalized_target_pages
 
         # 如果提供了代理信息，配置代理
         if proxy_info:
@@ -315,17 +344,24 @@ class DownloadService:
     def _execute_download_task(self, task: DownloadTask) -> List[DownloadRecord]:
         """执行下载任务"""
         records = []
-        
+
         try:
+            # 暂时使用WebDriver管理器，因为Playwright策略需要修复
             with self.driver_manager as driver:
                 for page in task.target_pages:
-                    # 从page对象中提取参数
-                    page_type = page.get("suffix", "research")
-                    allowed_keywords = page.get("allowed_keywords")
+                    # 处理不同格式的page参数
+                    if isinstance(page, dict):
+                        # 字典格式: {'suffix': 'research', 'allowed_keywords': None}
+                        page_type = page.get("suffix", "research")
+                        allowed_keywords = page.get("allowed_keywords")
+                    else:
+                        # 字符串格式: 'research'
+                        page_type = page
+                        allowed_keywords = None
                     records.extend(
                         self._download_from_page(driver, task.stock_info, page_type, task.max_retries, allowed_keywords)
                     )
-                    
+
                     # 检查会话限制
                     if self.anti_crawler.check_session_limit(len(records)):
                         logger.info("达到会话下载限制，重启浏览器")
@@ -436,9 +472,29 @@ class DownloadService:
                     }
                 }
 
-                # 重新创建WebDriver实例以应用代理设置
+                logger.info(f"应用代理设置: {proxy_type}://{proxy_host}:{proxy_port}")
+
+                # 为新的浏览器策略配置代理
+                if hasattr(self, 'browser_strategy_manager'):
+                    current_type = self.browser_strategy_manager.get_current_type()
+                    if current_type:
+                        # 重新创建浏览器策略以应用代理
+                        config = {
+                            'window_size': '1920,1080',
+                            'page_load_timeout': 8,
+                            'implicit_wait': 2,
+                            'max_downloads_per_session': 10,
+                            **proxy_options
+                        }
+                        self.browser_strategy = self.browser_strategy_manager.get_strategy(
+                            browser_type=current_type,
+                            headless=True,
+                            download_dir=str(self.save_dir),
+                            config=config
+                        )
+
+                # 兼容旧的WebDriverManager
                 if self.driver_manager.driver:
-                    logger.info(f"应用代理设置: {proxy_type}://{proxy_host}:{proxy_port}")
                     # 关闭现有驱动并创建新的带代理的驱动
                     self.driver_manager.close_driver()
                     self.driver_manager.create_driver(custom_options=proxy_options)
@@ -455,38 +511,38 @@ class DownloadService:
         keyword_filtered = 0
         file_exists_filtered = 0
         start_time = time.time()
-        
+
         try:
             # 等待页面元素加载 - 优化超时时间
             WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'a'))
             )
-            
+
             # 检查页面是否正常加载
             if "cninfo.com.cn" not in driver.current_url:
                 logger.warning("页面未正确加载，URL不包含cninfo.com.cn")
                 return []
-            
+
             all_links = driver.find_elements(By.TAG_NAME, 'a')
             total_links = len(all_links)
             logger.debug(f"页面中共找到 {total_links} 个链接")
-            
+
             for link in all_links:
                 try:
                     text = link.text.strip()
                     href = link.get_attribute('href')
-                    
+
                     # 调试：记录前几个链接
                     if detail_links_found < 5:
                         logger.debug(f"[调试] 链接 {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
-                    
+
                     # 1. 首先检查基本条件：必须是详情页链接
                     if not (href and '/new/disclosure/detail' in href
                             and f'stockCode={stock_info.stock_code}' in href):
                         continue
-                    
+
                     detail_links_found += 1
-                    
+
                     # 2. 然后检查关键词过滤
                     if allowed_keywords is not None:
                         # 使用更灵活的关键词匹配
@@ -496,15 +552,15 @@ class DownloadService:
                             logger.debug(f"[跳过] 文件名不包含关键词: {text}")
                             logger.debug(f"[调试] 关键词: {allowed_keywords}, 文本: {text}")
                             continue
-                    
+
                     # 3. 立即生成文件名并检查文件是否已存在
                     safe_title = re.sub(r'[\\/:*?"<>|]', '_', text)
                     file_name = f"{safe_title}.pdf"
-                    
+
                     # 尽早检查文件存在性，避免不必要的处理
                     # 检查股票子目录和根目录（兼容旧版本文件位置）
                     file_exists = False
-                    
+
                     # 首先检查股票子目录
                     stock_dir = self.save_dir / stock_info.stock_name
                     stock_file_path = stock_dir / file_name
@@ -519,24 +575,121 @@ class DownloadService:
                             file_exists = True
                             file_exists_filtered += 1
                             logger.info(f"[跳过] 文件已存在 (根目录): {file_name}")
-                    
+
                     if file_exists:
                         continue
-                    
+
                     # 4. 只有需要下载的文件才构建详细信息（对齐旧下载器数据结构）
                     detail_infos.append({
                         'href': href,
                         'file_name': file_name,
                         'save_path': str(stock_dir / file_name)
                     })
-                    
+
                 except Exception as e:
                     logger.debug(f"处理链接时发生错误: {e}")
                     continue
-        
+
         except Exception as e:
             logger.error(f"查找下载链接时发生错误: {e}")
-        
+
+        processing_time = time.time() - start_time
+        logger.info(f"链接查找完成 - 总链接: {total_links}, 详情链接: {detail_links_found}, "
+                   f"关键词过滤: {keyword_filtered}, 文件存在过滤: {file_exists_filtered}, "
+                   f"需要下载: {len(detail_infos)}, 处理时间: {processing_time:.3f}s")
+        return detail_infos
+
+    def _find_detail_links_with_config(self, driver, stock_info: StockInfo, page_config: Dict[str, Any]) -> List[Dict[str, str]]:
+        """查找当前页面的下载链接（使用页面配置进行完整关键词匹配）"""
+        detail_infos = []
+        total_links = 0
+        detail_links_found = 0
+        keyword_filtered = 0
+        file_exists_filtered = 0
+        start_time = time.time()
+
+        # 创建关键词匹配器
+        keyword_matcher = self._create_keyword_matcher(page_config)
+
+        try:
+            # 等待页面元素加载 - 优化超时时间
+            WebDriverWait(driver, 3).until(
+                EC.presence_of_element_located((By.TAG_NAME, 'a'))
+            )
+
+            # 检查页面是否正常加载
+            if "cninfo.com.cn" not in driver.current_url:
+                logger.warning("页面未正确加载，URL不包含cninfo.com.cn")
+                return []
+
+            all_links = driver.find_elements(By.TAG_NAME, 'a')
+            total_links = len(all_links)
+            logger.debug(f"页面中共找到 {total_links} 个链接")
+
+            for link in all_links:
+                try:
+                    text = link.text.strip()
+                    href = link.get_attribute('href')
+
+                    # 调试：记录前几个链接
+                    if detail_links_found < 5:
+                        logger.debug(f"[调试] 链接 {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
+
+                    # 1. 首先检查基本条件：必须是详情页链接
+                    if not (href and '/new/disclosure/detail' in href
+                            and f'stockCode={stock_info.stock_code}' in href):
+                        continue
+
+                    detail_links_found += 1
+
+                    # 2. 使用KeywordMatcher进行关键词匹配（包含允许和排除关键词）
+                    keyword_match = keyword_matcher.matches(text=text, title=text)
+                    if not keyword_match:
+                        keyword_filtered += 1
+                        logger.debug(f"[跳过] 文件名不符合关键词配置: {text}")
+                        logger.debug(f"[调试] 页面配置: {page_config}")
+                        continue
+
+                    # 3. 立即生成文件名并检查文件是否已存在
+                    safe_title = re.sub(r'[\\/:*?"<>|]', '_', text)
+                    file_name = f"{safe_title}.pdf"
+
+                    # 尽早检查文件存在性，避免不必要的处理
+                    # 检查股票子目录和根目录（兼容旧版本文件位置）
+                    file_exists = False
+
+                    # 首先检查股票子目录
+                    stock_dir = self.save_dir / stock_info.stock_name
+                    stock_file_path = stock_dir / file_name
+                    if stock_file_path.exists() and stock_file_path.stat().st_size > 10 * 1024:
+                        file_exists = True
+                        file_exists_filtered += 1
+                        logger.info(f"[跳过] 文件已存在 (股票目录): {file_name}")
+                    else:
+                        # 然后检查根目录（兼容旧版本文件位置）
+                        root_file_path = self.save_dir / file_name
+                        if root_file_path.exists() and root_file_path.stat().st_size > 10 * 1024:
+                            file_exists = True
+                            file_exists_filtered += 1
+                            logger.info(f"[跳过] 文件已存在 (根目录): {file_name}")
+
+                    if file_exists:
+                        continue
+
+                    # 4. 只有需要下载的文件才构建详细信息（对齐旧下载器数据结构）
+                    detail_infos.append({
+                        'href': href,
+                        'file_name': file_name,
+                        'save_path': str(stock_dir / file_name)
+                    })
+
+                except Exception as e:
+                    logger.debug(f"处理链接时发生错误: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"查找下载链接时发生错误: {e}")
+
         processing_time = time.time() - start_time
         logger.info(f"链接查找完成 - 总链接: {total_links}, 详情链接: {detail_links_found}, "
                    f"关键词过滤: {keyword_filtered}, 文件存在过滤: {file_exists_filtered}, "
@@ -704,8 +857,8 @@ class DownloadService:
             # 模拟人类行为（从旧下载器复制）
             self.anti_crawler.simulate_complex_browsing(driver)
             
-            # 查找详情页链接（使用传递的关键词参数）
-            detail_links = self._find_detail_links(driver, stock_info, allowed_keywords)
+            # 查找详情页链接（使用页面配置进行关键词匹配）
+            detail_links = self._find_detail_links_with_config(driver, stock_info, page_config)
             
             # 下载详情页中的PDF文件（使用旧下载器的数据结构）
             for link_data in detail_links:

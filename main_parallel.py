@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
 from src.core.performance_monitor import log_performance_stats, get_performance_stats
-from src.services.downloader import DownloadService
+from src.services.downloader_v2 import DownloadServiceV2 as DownloadService
 from src.data.mapping import MappingManager
 
 # 导入新增的并行下载服务
@@ -89,8 +89,13 @@ class MultiCompanyDownloader:
         self.proxy_config = config.get('proxy_management', {})
         self.use_proxy = self.proxy_config.get('enabled', False)
 
-        # 初始化服务
-        self.download_service = DownloadService(save_dir=self.save_dir, config_file=self.config_file)
+        # 初始化服务 - 使用DownloadServiceV2
+        browser_strategy = config.get('browser', {}).get('strategy', 'playwright')
+        self.download_service = DownloadService(
+            save_dir=self.save_dir,
+            mapping_file="stock_orgid_mapping.json",
+            browser_strategy=browser_strategy
+        )
 
         # 如果需要并行下载，初始化并行下载管理器
         if self.use_parallel:
@@ -199,11 +204,11 @@ class MultiCompanyDownloader:
                 self.logger.info(f"开始下载 {company_config.stock_code} 的页面: {page_name}")
 
                 try:
-                    # 构建目标页面列表
+                    # 构建目标页面列表 - 传递完整的页面配置包括排除关键词
                     if suffix:
-                        target_pages = [{'suffix': suffix, 'allowed_keywords': allowed_keywords}]
+                        target_pages = [{'suffix': suffix, 'allowed_keywords': allowed_keywords, 'excluded_keywords': page_config.get('excluded_keywords')}]
                     else:
-                        target_pages = [{'suffix': 'research', 'allowed_keywords': None}]
+                        target_pages = [{'suffix': 'research', 'allowed_keywords': None, 'excluded_keywords': None}]
 
                     # 如果使用代理，设置代理
                     proxy_info = None
@@ -212,12 +217,11 @@ class MultiCompanyDownloader:
                         if proxy_info:
                             self.logger.info(f"使用代理: {proxy_info.get('ip', 'unknown')}")
 
-                    # 执行下载
+                    # 执行下载 - DownloadServiceV2不支持proxy_info参数
                     result = self.download_service.download_stock_pdfs(
                         stock_code=company_config.stock_code,
                         target_pages=target_pages,
-                        max_retries=self.config.get('max_retries', 3),
-                        proxy_info=proxy_info
+                        max_retries=self.config.get('max_retries', 3)
                     )
 
                     if result and len(result) > 0:

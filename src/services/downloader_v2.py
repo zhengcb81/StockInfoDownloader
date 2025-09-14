@@ -259,8 +259,8 @@ class DownloadServiceV2:
                 while current_page <= max_pages:
                     logger.info(f"处理第 {current_page} 页")
 
-                    # 查找当前页的下载链接
-                    download_links = self._find_download_links(stock_info['stock_code'], allowed_keywords)
+                    # 查找当前页的下载链接（传递完整页面配置）
+                    download_links = self._find_download_links(stock_info['stock_code'], page_config)
 
                     if download_links:
                         logger.info(f"第 {current_page} 页找到 {len(download_links)} 个下载链接")
@@ -321,65 +321,89 @@ class DownloadServiceV2:
         """构建披露页面URL（兼容旧测试）"""
         return f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
     
-    def _find_download_links(self, stock_code: str, allowed_keywords: Optional[List[str]] = None) -> List[Dict[str, str]]:
-        """查找下载链接"""
+    def _find_download_links(self, stock_code: str, page_config: Dict[str, Any] = None) -> List[Dict[str, str]]:
+        """查找下载链接（支持完整页面配置）"""
         try:
+            # 解析页面配置
+            allowed_keywords = None
+            excluded_keywords = None
+
+            if page_config:
+                if isinstance(page_config, dict):
+                    allowed_keywords = page_config.get('allowed_keywords')
+                    excluded_keywords = page_config.get('excluded_keywords')
+                elif isinstance(page_config, list):
+                    # 如果是列表，假设是allowed_keywords（兼容旧格式）
+                    allowed_keywords = page_config
+
+            # 创建关键词匹配器
+            from ..utils.keyword_matcher import KeywordMatcher, KeywordConfig
+
+            keyword_config = KeywordConfig(
+                allowed_keywords=allowed_keywords,
+                exclude_keywords=excluded_keywords
+            )
+            keyword_matcher = KeywordMatcher(keyword_config)
+
             # 使用浏览器策略查找元素
             links = self.browser_strategy.find_elements("a")
-            
+
             download_links = []
             total_links = 0
             detail_links = 0
-            
+            keyword_filtered = 0
+
             for link in links:
                 try:
                     # 获取链接文本和URL
                     text = self.browser_strategy.get_text(link)
                     href = self.browser_strategy.get_attribute(link, "href")
-                    
+
                     total_links += 1
-                    
+
                     if not (text and href):
                         continue
-                        
+
                     # 检查是否是详情页链接（不是直接PDF链接）
                     is_detail_link = False
                     if href and '/new/disclosure/detail' in href:
                         is_detail_link = True
                         detail_links += 1
                         logger.debug(f"找到详情页链接: {text} -> {href}")
-                    
+
                     # 检查是否包含股票代码
                     has_stock_code = f'stockCode={stock_code}' in href
-                    
+
                     if is_detail_link and has_stock_code:
-                        
-                        # 检查关键词过滤
-                        if allowed_keywords:
-                            text_lower = text.lower()
-                            if not any(keyword.lower() in text_lower for keyword in allowed_keywords):
-                                logger.debug(f"[跳过] 链接文本不包含关键词: {text}")
-                                continue
-                        
+
+                        # 使用KeywordMatcher进行关键词匹配（包含允许和排除关键词）
+                        keyword_match = keyword_matcher.matches(text=text, title=text)
+                        if not keyword_match:
+                            keyword_filtered += 1
+                            logger.debug(f"[跳过] 文件名不符合关键词配置: {text}")
+                            logger.debug(f"[调试] 页面配置: {page_config}")
+                            continue
+
                         # 修复相对URL
                         full_url = href
                         if href and href.startswith('/'):
                             full_url = f'https://www.cninfo.com.cn{href}'
-                        
+
                         download_links.append({
                             'text': text,
                             'url': full_url,
                             'title': text
                         })
-                        logger.info(f"[添加] 符合条件的链接: {text}")
-                        
+
+                        logger.debug(f"[通过] 关键词匹配成功: {text}")
+
                 except Exception as e:
                     logger.debug(f"处理链接时出错: {e}")
                     continue
-            
-            logger.info(f"扫描完成: 总共 {total_links} 个链接, 其中 {detail_links} 个详情页链接, 找到 {len(download_links)} 个符合条件的详情页链接")
+
+            logger.info(f"链接统计: 总链接{total_links}, 详情页{detail_links}, 关键词过滤{keyword_filtered}, 最终下载{len(download_links)}")
             return download_links
-            
+
         except Exception as e:
             logger.error(f"查找下载链接失败: {e}")
             return []

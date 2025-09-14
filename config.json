@@ -58,8 +58,8 @@
     "max_downloads_per_session": 200,
     "pagination_wait": 2,
     "human_behavior_delay": 3,
-    "max_pages_per_type": 50,
-    "global_max_pages": 50
+    "max_pages_per_type": 3,
+    "global_max_pages": 3
   },
   "driver_pool": {
     "pool_size": 3,
@@ -95,22 +95,22 @@
       "name": "调研",
       "suffix": "research",
       "allowed_keywords": null,
-      "excluded_keywords": null,
-      "max_pages": 50
+      "excluded_keywords": ["英文版", "（英文版）"],
+      "max_pages": 3
     },
     {
       "name": "定期报告",
       "suffix": "periodicReports",
       "allowed_keywords": null,
-      "excluded_keywords": ["摘要"],
-      "max_pages": 50
+      "excluded_keywords": ["摘要", "英文版", "（英文版）"],
+      "max_pages": 3
     },
     {
       "name": "最新公告",
       "suffix": "latestAnnouncement",
       "allowed_keywords": ["招股说明书", "问询函"],
       "excluded_keywords": null,
-      "max_pages": 50
+      "max_pages": 3
     }
   ],
   "logging": {
@@ -136,8 +136,8 @@
     }
   },
   "parallel_download": {
-    "enabled": true,
-    "max_workers": 5,
+    "enabled": false,
+    "max_workers": 1,
     "batch_size": 50,
     "task_timeout": 300,
     "retry_policy": {

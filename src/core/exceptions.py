@@ -29,6 +29,7 @@ class ErrorCode(Enum):
     WEBDRIVER_NAVIGATION_ERROR = "WD_2004"
     WEBDRIVER_SESSION_ERROR = "WD_2005"
     WEBDRIVER_CRASH_ERROR = "WD_2006"
+    WEBDRIVER_STRATEGY_ERROR = "WD_2007"
     
     # 配置错误 (3000-3999)
     CONFIG_FILE_ERROR = "CFG_3000"
@@ -271,6 +272,19 @@ class WebDriverCrashError(WebDriverError):
             error_code=ErrorCode.WEBDRIVER_CRASH_ERROR,
             severity=kwargs.get('severity', ErrorSeverity.CRITICAL),
             recovery_strategy=kwargs.get('recovery_strategy', RecoveryStrategy.TERMINATE),
+            context=kwargs.get('context', {}),
+            original_exception=kwargs.get('original_exception')
+        )
+
+class BrowserStrategyError(WebDriverError):
+    """浏览器策略错误"""
+
+    def __init__(self, message: str, **kwargs):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.WEBDRIVER_STRATEGY_ERROR,
+            severity=kwargs.get('severity', ErrorSeverity.ERROR),
+            recovery_strategy=kwargs.get('recovery_strategy', RecoveryStrategy.RETRY),
             context=kwargs.get('context', {}),
             original_exception=kwargs.get('original_exception')
         )
