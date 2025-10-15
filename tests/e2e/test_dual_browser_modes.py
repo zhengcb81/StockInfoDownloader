@@ -18,7 +18,7 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.services.downloader_v2 import DownloadServiceV2
-from tests.test_config_manager import TestConfigManager
+from tests.test_config_manager import ConfigManagerTool
 
 
 # 测试股票数据
@@ -37,7 +37,7 @@ class TestSeleniumModeE2E:
         self.browser_strategy = "selenium"
         self.temp_dir = tempfile.mkdtemp()
         self.save_dir = os.path.join(self.temp_dir, 'downloads')
-        self.test_config = TestConfigManager()
+        self.test_config = ConfigManagerTool()
 
         # 创建测试映射文件（使用测试配置）
         self.mapping_file = os.path.join(self.temp_dir, 'test_mapping.json')

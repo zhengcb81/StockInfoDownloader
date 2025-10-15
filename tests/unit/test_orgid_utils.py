@@ -16,7 +16,7 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from orgid_utils import get_org_id_by_code, _load_mapping, _save_to_mapping
-from tests.test_config import TestEnvironment, TEST_ORG_IDS, create_test_mapping
+from tests.test_config import EnvironmentManager, TEST_ORG_IDS, create_test_mapping
 
 def is_valid_stock_code(code):
     """验证股票代码是否有效"""
@@ -42,7 +42,7 @@ class TestOrgidUtils(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_mapping = create_test_mapping()
         
         # 创建测试映射文件
@@ -168,7 +168,7 @@ class TestOrgidUtilsIntegration(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
     
     def tearDown(self):
         """测试后清理"""

@@ -1,0 +1,140 @@
+{
+  "workflow_id": "workflow_1759267313",
+  "start_time": "2025-09-30T22:21:53.403113",
+  "end_time": "2025-09-30T22:21:53.403113",
+  "duration": 0.0,
+  "total_steps": 6,
+  "completed_steps": 0,
+  "failed_steps": 0,
+  "success": false,
+  "steps": [
+    {
+      "step_id": "preparation_check",
+      "name": "环境准备检查",
+      "description": "根据测试说明要求进行完整的环境准备和验证",
+      "required": true,
+      "estimated_time": 60,
+      "dependencies": [],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    },
+    {
+      "step_id": "document_verification",
+      "name": "文档完整性验证",
+      "description": "验证预期文档的完整性和可访问性",
+      "required": true,
+      "estimated_time": 30,
+      "dependencies": [
+        "preparation_check"
+      ],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    },
+    {
+      "step_id": "classification_update",
+      "name": "文档分类更新",
+      "description": "更新文档分类体系，确保分类信息准确",
+      "required": true,
+      "estimated_time": 45,
+      "dependencies": [
+        "document_verification"
+      ],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    },
+    {
+      "step_id": "test_case_validation",
+      "name": "测试用例验证",
+      "description": "验证所有测试用例配置的正确性",
+      "required": true,
+      "estimated_time": 30,
+      "dependencies": [
+        "classification_update"
+      ],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    },
+    {
+      "step_id": "test_scenario_ready",
+      "name": "测试场景准备",
+      "description": "确保所有测试场景都已准备就绪",
+      "required": true,
+      "estimated_time": 20,
+      "dependencies": [
+        "test_case_validation"
+      ],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    },
+    {
+      "step_id": "quality_check",
+      "name": "质量检查",
+      "description": "执行最终质量检查，确保所有要求都已满足",
+      "required": true,
+      "estimated_time": 25,
+      "dependencies": [
+        "test_scenario_ready"
+      ],
+      "status": "skipped",
+      "start_time": "2025-09-30T22:21:53.403113",
+      "end_time": "2025-09-30T22:21:53.403113",
+      "duration": 0.0,
+      "result": {
+        "dry_run": true,
+        "message": "干运行模式，跳过实际执行"
+      },
+      "errors": []
+    }
+  ],
+  "summary": {
+    "total_execution_time": 0,
+    "average_step_time": 0.0,
+    "success_rate": 0.0,
+    "required_steps_passed": false,
+    "tool_versions": {
+      "document_manager": "1.0",
+      "cleaner": "1.0",
+      "validator": "1.0",
+      "test_generator": "1.0",
+      "classification_system": "1.0",
+      "environment_preparer": "1.0"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

@@ -25,7 +25,15 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:peter.sh)",
       "Bash(where:*)",
-      "Bash(\"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\":*)"
+      "Bash(\"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\":*)",
+      "Bash(git pull:*)",
+      "Bash(git clean:*)",
+      "Bash(coverage report:*)",
+      "Bash(coverage run:*)",
+      "Bash(powershell:*)",
+      "Bash(xcopy:*)",
+      "Bash(playwright install:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],

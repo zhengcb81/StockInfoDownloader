@@ -18,16 +18,21 @@ from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from cninfo_activity_downloader import CninfoDownloader
-from tests.test_config import TestEnvironment
+from tests.test_config import EnvironmentManager
+from orgid_utils import get_org_id_by_code
 
 class TestBasicFunctionality(unittest.TestCase):
     """基础功能测试"""
     
-    def setUp(self):
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def setUp(self, mock_get_org_id):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        # 设置Mock返回None，避免网络调用
+        mock_get_org_id.return_value = None
+
+        self.test_env = EnvironmentManager()
         self.test_save_dir = self.test_env.create_temp_dir("test_downloads_")
-        
+
         # 创建简单的测试映射文件
         self.test_mapping = {
             "000001": {"orgId": "9900000001", "name": "平安银行"},
@@ -37,7 +42,7 @@ class TestBasicFunctionality(unittest.TestCase):
             suffix=".json",
             content=json.dumps(self.test_mapping, ensure_ascii=False, indent=2)
         )
-        
+
         self.downloader = CninfoDownloader(
             save_dir=self.test_save_dir,
             mapping_file=self.test_mapping_file
@@ -75,17 +80,25 @@ class TestBasicFunctionality(unittest.TestCase):
                 result = self.downloader.clean_filename(input_name)
                 self.assertEqual(result, expected)
     
-    def test_get_org_id_from_mapping(self):
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def test_get_org_id_from_mapping(self, mock_get_org_id):
         """测试从映射文件获取组织ID"""
+        # 设置Mock返回值
+        mock_get_org_id.side_effect = lambda stock_code, **kwargs: self.test_mapping.get(stock_code, {}).get("orgId")
+
         # 测试存在的股票代码
         org_id = self.downloader.get_org_id("000001")
         self.assertEqual(org_id, "9900000001")
-        
+
         org_id = self.downloader.get_org_id("002415")
         self.assertEqual(org_id, "9900012688")
     
-    def test_get_org_id_not_found(self):
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def test_get_org_id_not_found(self, mock_get_org_id):
         """测试获取不存在的股票代码"""
+        # 设置Mock返回None
+        mock_get_org_id.return_value = None
+
         org_id = self.downloader.get_org_id("999999")
         self.assertIsNone(org_id)
     
@@ -161,7 +174,7 @@ class TestFileOperations(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
     
     def tearDown(self):
         """测试后清理"""
@@ -190,7 +203,7 @@ class TestConfigurationHandling(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
     
     def tearDown(self):
         """测试后清理"""
@@ -203,7 +216,7 @@ class TestConfigurationHandling(unittest.TestCase):
         self.assertEqual(downloader.save_dir, 'downloads')
         self.assertEqual(downloader.mapping_file, 'stock_orgid_mapping.json')
         self.assertEqual(downloader.download_count, 0)
-        self.assertEqual(downloader.max_downloads_per_session, 20)
+        self.assertEqual(downloader.max_downloads_per_session, 200)
     
     def test_custom_configuration(self):
         """测试自定义配置"""

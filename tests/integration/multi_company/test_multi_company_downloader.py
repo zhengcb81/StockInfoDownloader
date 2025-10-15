@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+多公司下载器测试
+测试多公司下载器的功能
+"""
+
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+
+# 添加项目根目录到Python路径
+import sys
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from main_parallel import MultiCompanyDownloader, CompanyConfig
+
+
+class TestMultiCompanyDownloader:
+    """测试多公司下载器"""
+
+    @pytest.fixture
+    def downloader_config(self):
+        """下载器配置fixture"""
+        return {
+            "environment": "test",
+            "save_dir": "test_downloads",
+            "companies": [
+                {
+                    "stock_code": "300470",
+                    "company_name": "中密控股",
+                    "enabled": True,
+                    "priority": 1
+                },
+                {
+                    "stock_code": "301611",
+                    "company_name": "珂玛科技",
+                    "enabled": True,
+                    "priority": 2
+                }
+            ],
+            "parallel_download": {
+                "enabled": True,
+                "max_workers": 2,
+                "task_timeout": 30
+            },
+            "proxy_management": {
+                "enabled": False
+            }
+        }
+
+    @pytest.fixture
+    def downloader(self, downloader_config):
+        """下载器fixture"""
+        with patch('src.data.mapping.MappingManager') as mock_mapping:
+            # 模拟映射管理器
+            mock_mapping.return_value.get_org_id.return_value = '9900012345'
+            mock_mapping.return_value.get_stock_name.return_value = '测试公司'
+
+            with patch('src.services.downloader.DownloadService') as mock_service:
+                # 模拟下载服务
+                mock_service_instance = Mock()
+                mock_service_instance.download_stock_pdfs.return_value = {
+                    'success': True,
+                    'files_downloaded': 3,
+                    'execution_time': 15.0
+                }
+                mock_service.return_value = mock_service_instance
+
+                return MultiCompanyDownloader(downloader_config)
+
+    def test_get_company_configs(self, downloader):
+        """测试获取公司配置"""
+        configs = downloader.get_company_configs()
+
+        assert len(configs) == 2
+        assert isinstance(configs[0], CompanyConfig)
+        assert configs[0].stock_code == '300470'
+        assert configs[1].stock_code == '301611'
+
+    def test_download_company(self, downloader):
+        """测试下载单个公司"""
+        company_config = downloader.get_company_configs()[0]
+        result = downloader.download_company(company_config)
+
+        assert result['success'] is True
+        assert result['stock_code'] == '300470'
+        assert result['files_downloaded'] > 0
+
+    def test_download_companies_sequential(self, downloader):
+        """测试串行下载多个公司"""
+        configs = downloader.get_company_configs()
+        results = downloader.download_companies_sequential(configs)
+
+        assert len(results) == 2
+        assert all(result['success'] for result in results)
+
+    def test_download_companies_parallel(self, downloader):
+        """测试并行下载多个公司"""
+        configs = downloader.get_company_configs()
+        results = downloader.download_companies_parallel(configs)
+
+        assert len(results) == 2
+        assert all(result['success'] for result in results)
+
+    def test_download_all_companies(self, downloader):
+        """测试下载所有公司"""
+        results = downloader.download_all_companies()
+
+        assert len(results) == 2
+        assert all(result['success'] for result in results)
+
+    def test_print_summary(self, downloader, capsys):
+        """测试打印摘要"""
+        results = [
+            {
+                'success': True,
+                'stock_code': '300470',
+                'company_name': '中密控股',
+                'files_downloaded': 3,
+                'execution_time': 15.0
+            },
+            {
+                'success': True,
+                'stock_code': '301611',
+                'company_name': '珂玛科技',
+                'files_downloaded': 2,
+                'execution_time': 12.0
+            }
+        ]
+
+        downloader.print_summary(results)
+
+        # 检查输出
+        captured = capsys.readouterr()
+        assert '总处理公司数: 2' in captured.out
+        assert '成功下载公司数: 2' in captured.out
+        assert '下载文件总数: 5' in captured.out
+
+    @patch('main_parallel.get_stock_name')
+    def test_main_functionality(self, mock_get_stock_name, downloader_config, capsys):
+        """测试主要功能"""
+        # 模拟股票名称获取
+        mock_get_stock_name.return_value = '测试公司'
+
+        with patch('src.data.mapping.MappingManager') as mock_mapping:
+            mock_mapping.return_value.get_org_id.return_value = '9900012345'
+
+            with patch('src.services.downloader.DownloadService') as mock_service:
+                mock_service_instance = Mock()
+                mock_service_instance.download_stock_pdfs.return_value = {
+                    'success': True,
+                    'files_downloaded': 2,
+                    'execution_time': 10.0
+                }
+                mock_service.return_value = mock_service_instance
+
+                # 测试主程序
+                from main_parallel import main
+                with patch('sys.argv', ['main_parallel.py', '--config', str(Path(__file__).parent / 'test_config.json')]):
+                    with patch('src.core.config.ConfigManager.load_config') as mock_load:
+                        mock_load.return_value = downloader_config
+                        exit_code = main()
+
+        assert exit_code == 0
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

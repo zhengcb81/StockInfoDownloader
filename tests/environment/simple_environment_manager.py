@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+简化测试环境管理器
+确保测试环境的一致性和可靠性
+"""
+
+import os
+import sys
+import time
+import json
+import shutil
+import platform
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+
+# 添加当前目录到Python路径
+current_dir = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(current_dir))
+
+from src.core.logger import get_logger
+
+def log(message):
+    """记录日志"""
+    try:
+        print(f"[{time.strftime('%H:%M:%S')}] {message}")
+    except UnicodeEncodeError:
+        # 处理编码问题
+        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
+@dataclass
+class EnvironmentCheck:
+    """环境检查结果"""
+    component: str
+    status: str
+    version: str
+    required_version: str
+    check_passed: bool
+    error_message: Optional[str] = None
+
+@dataclass
+class EnvironmentValidation:
+    """环境验证结果"""
+    environment_name: str
+    checks_passed: int
+    checks_failed: int
+    total_checks: int
+    validation_passed: bool
+    environment_checks: List[EnvironmentCheck]
+
+class SimpleTestEnvironmentManager:
+    """简化测试环境管理器"""
+
+    def __init__(self):
+        self.logger = get_logger("simple_test_environment_manager")
+
+    def check_python_environment(self) -> EnvironmentCheck:
+        """检查Python环境"""
+        component = "Python"
+        log(f"检查 {component} 环境...")
+
+        try:
+            python_version = platform.python_version()
+            required_version = "3.8+"
+
+            # 检查Python版本
+            version_parts = python_version.split('.')
+            major = int(version_parts[0])
+            minor = int(version_parts[1])
+
+            check_passed = major == 3 and minor >= 8
+
+            status = f"版本 {python_version}"
+
+            result = EnvironmentCheck(
+                component=component,
+                status=status,
+                version=python_version,
+                required_version=required_version,
+                check_passed=check_passed
+            )
+
+            if check_passed:
+                log(f"✅ {component} 检查通过: {status}")
+            else:
+                log(f"❌ {component} 检查失败: 需要 {required_version}, 当前 {python_version}")
+
+            return result
+
+        except Exception as e:
+            result = EnvironmentCheck(
+                component=component,
+                status="检查失败",
+                version="未知",
+                required_version="3.8+",
+                check_passed=False,
+                error_message=str(e)
+            )
+            log(f"❌ {component} 检查失败: {e}")
+            return result
+
+    def check_operating_system(self) -> EnvironmentCheck:
+        """检查操作系统"""
+        component = "操作系统"
+        log(f"检查 {component}...")
+
+        try:
+            system = platform.system()
+            version = platform.version()
+
+            # 支持的操作系统
+            supported_systems = ["Windows", "Linux", "Darwin"]
+            check_passed = system in supported_systems
+
+            status = f"{system} {version}"
+
+            result = EnvironmentCheck(
+                component=component,
+                status=status,
+                version=system,
+                required_version="Windows/Linux/macOS",
+                check_passed=check_passed
+            )
+
+            if check_passed:
+                log(f"✅ {component} 检查通过: {status}")
+            else:
+                log(f"⚠️ {component} 警告: 当前系统 {system} 可能不完全支持")
+
+            return result
+
+        except Exception as e:
+            result = EnvironmentCheck(
+                component=component,
+                status="检查失败",
+                version="未知",
+                required_version="Windows/Linux/macOS",
+                check_passed=False,
+                error_message=str(e)
+            )
+            log(f"❌ {component} 检查失败: {e}")
+            return result
+
+    def check_dependencies(self) -> EnvironmentCheck:
+        """检查依赖项"""
+        component = "Python依赖项"
+        log(f"检查 {component}...")
+
+        try:
+            # 检查关键依赖项 (包名: 导入名)
+            required_packages = {
+                "pytest": "pytest",
+                "playwright": "playwright",
+                "selenium": "selenium",
+                "requests": "requests",
+                "beautifulsoup4": "bs4",
+                "lxml": "lxml",
+                "pandas": "pandas",
+                "numpy": "numpy"
+            }
+
+            missing_packages = []
+            installed_packages = []
+
+            for package_name, import_name in required_packages.items():
+                try:
+                    __import__(import_name)
+                    installed_packages.append(package_name)
+                except ImportError:
+                    missing_packages.append(package_name)
+
+            check_passed = len(missing_packages) == 0
+            status = f"已安装 {len(installed_packages)}/{len(required_packages)} 个包"
+
+            result = EnvironmentCheck(
+                component=component,
+                status=status,
+                version=f"{len(installed_packages)}/{len(required_packages)}",
+                required_version="全部安装",
+                check_passed=check_passed
+            )
+
+            if check_passed:
+                log(f"✅ {component} 检查通过: {status}")
+            else:
+                log(f"❌ {component} 检查失败: 缺失包 {missing_packages}")
+                result.error_message = f"缺失包: {missing_packages}"
+
+            return result
+
+        except Exception as e:
+            result = EnvironmentCheck(
+                component=component,
+                status="检查失败",
+                version="未知",
+                required_version="全部安装",
+                check_passed=False,
+                error_message=str(e)
+            )
+            log(f"❌ {component} 检查失败: {e}")
+            return result
+
+    def check_file_system(self) -> EnvironmentCheck:
+        """检查文件系统"""
+        component = "文件系统"
+        log(f"检查 {component}...")
+
+        try:
+            # 检查必要的目录
+            required_dirs = [
+                "tests", "src", "end2end_test", "logs"
+            ]
+
+            missing_dirs = []
+            existing_dirs = []
+
+            for dir_path in required_dirs:
+                if Path(dir_path).exists():
+                    existing_dirs.append(dir_path)
+                else:
+                    missing_dirs.append(dir_path)
+
+            check_passed = len(missing_dirs) == 0
+            status = f"存在 {len(existing_dirs)}/{len(required_dirs)} 个目录"
+
+            result = EnvironmentCheck(
+                component=component,
+                status=status,
+                version=f"{len(existing_dirs)}/{len(required_dirs)}",
+                required_version="全部存在",
+                check_passed=check_passed
+            )
+
+            if check_passed:
+                log(f"✅ {component} 检查通过: {status}")
+            else:
+                log(f"❌ {component} 检查失败: 缺失目录 {missing_dirs}")
+                result.error_message = f"缺失目录: {missing_dirs}"
+
+            return result
+
+        except Exception as e:
+            result = EnvironmentCheck(
+                component=component,
+                status="检查失败",
+                version="未知",
+                required_version="全部存在",
+                check_passed=False,
+                error_message=str(e)
+            )
+            log(f"❌ {component} 检查失败: {e}")
+            return result
+
+    def check_disk_space(self) -> EnvironmentCheck:
+        """检查磁盘空间"""
+        component = "磁盘空间"
+        log(f"检查 {component}...")
+
+        try:
+            # 检查当前目录所在磁盘的空间
+            current_path = Path.cwd()
+            disk_usage = shutil.disk_usage(current_path)
+
+            free_gb = disk_usage.free / (1024**3)  # GB
+            total_gb = disk_usage.total / (1024**3)  # GB
+            free_percentage = (free_gb / total_gb) * 100
+
+            # 要求至少1GB可用空间
+            required_space_gb = 1.0
+            check_passed = free_gb >= required_space_gb
+
+            status = f"可用 {free_gb:.1f}GB ({free_percentage:.1f}%)"
+
+            result = EnvironmentCheck(
+                component=component,
+                status=status,
+                version=f"{free_gb:.1f}GB",
+                required_version=f">{required_space_gb}GB",
+                check_passed=check_passed
+            )
+
+            if check_passed:
+                log(f"✅ {component} 检查通过: {status}")
+            else:
+                log(f"❌ {component} 检查失败: 磁盘空间不足")
+                result.error_message = f"磁盘空间不足，需要 {required_space_gb}GB，当前 {free_gb:.1f}GB"
+
+            return result
+
+        except Exception as e:
+            result = EnvironmentCheck(
+                component=component,
+                status="检查失败",
+                version="未知",
+                required_version=">1GB",
+                check_passed=False,
+                error_message=str(e)
+            )
+            log(f"❌ {component} 检查失败: {e}")
+            return result
+
+    def validate_environment(self, environment_name: str = "测试环境") -> EnvironmentValidation:
+        """验证测试环境"""
+        log(f"开始验证 {environment_name}...")
+
+        check_methods = [
+            self.check_python_environment,
+            self.check_operating_system,
+            self.check_dependencies,
+            self.check_file_system,
+            self.check_disk_space
+        ]
+
+        environment_checks = []
+
+        for check_method in check_methods:
+            result = check_method()
+            environment_checks.append(result)
+
+        # 计算统计信息
+        checks_passed = sum(1 for check in environment_checks if check.check_passed)
+        checks_failed = len(environment_checks) - checks_passed
+        total_checks = len(environment_checks)
+        validation_passed = checks_failed == 0
+
+        validation_result = EnvironmentValidation(
+            environment_name=environment_name,
+            checks_passed=checks_passed,
+            checks_failed=checks_failed,
+            total_checks=total_checks,
+            validation_passed=validation_passed,
+            environment_checks=environment_checks
+        )
+
+        # 显示验证结果
+        log("\n" + "="*50)
+        log(f"{environment_name} 验证结果:")
+        log(f"总检查数: {total_checks}")
+        log(f"通过检查: {checks_passed}")
+        log(f"失败检查: {checks_failed}")
+        log(f"验证通过: {'✅ 是' if validation_passed else '❌ 否'}")
+
+        return validation_result
+
+def main():
+    """主函数"""
+    log("开始测试环境管理...")
+
+    # 验证当前环境
+    manager = SimpleTestEnvironmentManager()
+    validation_result = manager.validate_environment("当前测试环境")
+
+    # 保存验证结果
+    result_data = {
+        "environment_validation": asdict(validation_result),
+        "timestamp": time.time(),
+        "system_info": {
+            "platform": platform.platform(),
+            "python_version": platform.python_version(),
+            "processor": platform.processor()
+        }
+    }
+
+    result_file = "test_environment_validation_results.json"
+    with open(result_file, 'w', encoding='utf-8') as f:
+        json.dump(result_data, f, ensure_ascii=False, indent=2)
+
+    log(f"✅ 测试环境验证结果已保存: {result_file}")
+
+    # 创建环境管理报告
+    report_file = "test_environment_management_report.md"
+    create_environment_report(result_data, report_file)
+
+    log(f"✅ 测试环境管理报告已生成: {report_file}")
+
+    return validation_result.validation_passed
+
+def create_environment_report(result_data: Dict[str, Any], report_file: str):
+    """创建环境管理报告"""
+    with open(report_file, 'w', encoding='utf-8') as f:
+        f.write("# 测试环境管理报告\n\n")
+        f.write("## 概述\n")
+        f.write("本报告总结了测试环境的验证结果和管理建议。\n\n")
+
+        validation = result_data["environment_validation"]
+
+        f.write("## 环境验证结果\n\n")
+        f.write(f"- **环境名称**: {validation['environment_name']}\n")
+        f.write(f"- **总检查数**: {validation['total_checks']}\n")
+        f.write(f"- **通过检查**: {validation['checks_passed']}\n")
+        f.write(f"- **失败检查**: {validation['checks_failed']}\n")
+        f.write(f"- **验证通过**: {'✅ 是' if validation['validation_passed'] else '❌ 否'}\n\n")
+
+        f.write("## 详细检查结果\n\n")
+        f.write("| 组件 | 状态 | 版本 | 要求版本 | 检查结果 |\n")
+        f.write("|------|------|------|----------|----------|\n")
+
+        for check in validation['environment_checks']:
+            status_icon = "✅" if check['check_passed'] else "❌"
+            f.write(f"| {check['component']} | {check['status']} | {check['version']} | {check['required_version']} | {status_icon} |\n")
+
+        f.write("\n## 系统信息\n\n")
+        system_info = result_data["system_info"]
+        f.write(f"- **平台**: {system_info['platform']}\n")
+        f.write(f"- **Python版本**: {system_info['python_version']}\n")
+        f.write(f"- **处理器**: {system_info['processor']}\n\n")
+
+        f.write("## 环境管理建议\n\n")
+
+        if validation['validation_passed']:
+            f.write("✅ 当前环境状态良好，建议：\n")
+            f.write("- 定期运行环境验证\n")
+            f.write("- 保持依赖项更新\n")
+            f.write("- 监控磁盘空间使用\n")
+        else:
+            f.write("⚠️ 当前环境存在问题，建议：\n")
+            for check in validation['environment_checks']:
+                if not check['check_passed']:
+                    f.write(f"- **{check['component']}**: {check.get('error_message', '需要修复')}\n")
+
+        f.write("\n## 持续环境管理\n\n")
+        f.write("1. **定期验证**: 每次测试前运行环境验证\n")
+        f.write("2. **依赖管理**: 保持依赖项版本一致性\n")
+        f.write("3. **环境隔离**: 使用虚拟环境避免冲突\n")
+        f.write("4. **监控告警**: 设置环境监控和告警\n")
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)

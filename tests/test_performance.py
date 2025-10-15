@@ -21,14 +21,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from cninfo_activity_downloader import CninfoDownloader
 # 删除不存在的导入，改用现有的服务
-from tests.test_config import TestEnvironment, TEST_ORG_IDS, create_test_mapping
+from tests.test_config import EnvironmentManager, TEST_ORG_IDS, create_test_mapping
 
 class PerformanceTestCase(unittest.TestCase):
     """性能测试基类"""
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.start_time = None
         self.start_memory = None
     

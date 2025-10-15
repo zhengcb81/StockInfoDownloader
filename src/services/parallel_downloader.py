@@ -519,8 +519,8 @@ class ParallelDownloadManager:
             if total_completed > 0:
                 self.stats['success_rate'] = self.stats['completed_tasks'] / total_completed
 
-            # 计算吞吐量
-            self.stats['throughput'] = self.performance_monitor.get_throughput()
+            # 计算吞吐量（暂时设为0，需要实现具体逻辑）
+            self.stats['throughput'] = 0
 
     def _cleanup_completed_tasks(self):
         """清理已完成的任务"""

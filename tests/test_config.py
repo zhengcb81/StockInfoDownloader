@@ -58,9 +58,9 @@ WEBDRIVER_CONFIG = {
     "implicit_wait": 10,
 }
 
-class TestEnvironment:
+class EnvironmentManager:
     """测试环境管理器"""
-    
+
     def __init__(self):
         self.temp_dirs = []
         self.temp_files = []

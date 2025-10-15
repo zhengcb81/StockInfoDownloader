@@ -4,6 +4,12 @@
   "headless": true,
   "max_retries": 2,
   "use_dynamic_delay": false,
+  "download": {
+    "human_behavior_delay": 0.1,
+    "element_wait": 1,
+    "max_retries": 2,
+    "max_downloads_per_session": 10
+  },
   "max_pages": 2,
   "pagination_wait": 1,
   "timeout_seconds": 300,

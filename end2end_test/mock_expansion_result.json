@@ -1,0 +1,22 @@
+{
+  "existing_documents": 3,
+  "added_documents": 12,
+  "skipped_documents": 0,
+  "final_count": 3,
+  "added_companies": [
+    "五粮液",
+    "铖昌科技",
+    "平安银行",
+    "万科A",
+    "海康威视",
+    "诺瓦星云"
+  ],
+  "added_document_types": [
+    "research",
+    "announcement",
+    "semi_annual_report",
+    "annual_report",
+    "quarterly_report"
+  ],
+  "errors": []
+}

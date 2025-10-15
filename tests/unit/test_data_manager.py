@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 
-class TestDataManager:
-    """测试数据管理器"""
-    
+class DataManagerTool:
+    """测试数据管理器工具"""
+
     def __init__(self, config_file: str = "tests/test_config.json"):
         """
         初始化测试数据管理器
@@ -126,7 +126,7 @@ class TestDataManager:
 
 
 # 全局测试数据管理器实例
-test_data_manager = TestDataManager()
+test_data_manager = DataManagerTool()
 
 
 def get_test_stock_code(index: int = 0) -> str:

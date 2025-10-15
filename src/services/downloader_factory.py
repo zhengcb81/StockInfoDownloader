@@ -85,7 +85,6 @@ class DownloaderFactory:
             save_dir = self.config_manager.get('save_dir', 'downloads')
             mapping_file = self.config_manager.get('files.mapping_file', 'stock_orgid_mapping.json')
             return {
-                **base_config,
                 'save_dir': save_dir,
                 'mapping_file': mapping_file,
             }

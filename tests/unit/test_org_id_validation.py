@@ -144,7 +144,7 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_config_driven_validation(self):
         """测试配置驱动的验证"""
-        config = self.config_manager.get('org_id_validation', {})
+        config = self.test_config["org_id_validation"]
         self.assertIsInstance(config, dict)
         self.assertIn('base_url', config)
         self.assertIn('validation_timeout', config)

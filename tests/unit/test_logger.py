@@ -38,15 +38,15 @@ class TestLogger:
         """测试默认配置初始化"""
         logger = get_logger("test")
         assert logger.name == "test"
-        assert logger.level == logging.INFO
-        assert isinstance(logger, logging.Logger)
+        assert logger.logger.level == logging.INFO
+        assert isinstance(logger.logger, logging.Logger)
     
     def test_init_with_file(self):
         """测试带文件初始化"""
         logger = self.logger_manager.get_logger("test", self.log_file)
-        
+
         # 检查文件处理器是否添加
-        file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
+        file_handlers = [h for h in logger.logger.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) == 1
     
     def test_init_with_level(self):
@@ -54,32 +54,32 @@ class TestLogger:
         # Note: LoggerManager returns existing loggers if they already exist
         # So we need to use a unique name to test level setting
         logger = self.logger_manager.get_logger(f"test_level_{id(self)}", level=logging.DEBUG)
-        assert logger.level == logging.DEBUG
+        assert logger.logger.level == logging.DEBUG
     
     def test_get_logger(self):
         """测试获取logger实例"""
         logger_instance = self.logger
         assert logger_instance is not None
-        assert isinstance(logger_instance, logging.Logger)
+        assert isinstance(logger_instance.logger, logging.Logger)
         assert logger_instance.name == "test_logger"
     
     def test_log_levels(self):
         """测试不同日志级别"""
         # 测试DEBUG级别
         self.logger_manager.set_log_level("test_logger", logging.DEBUG)
-        assert self.logger.level == logging.DEBUG
-        
+        assert self.logger.logger.level == logging.DEBUG
+
         # 测试INFO级别
         self.logger_manager.set_log_level("test_logger", logging.INFO)
-        assert self.logger.level == logging.INFO
+        assert self.logger.logger.level == logging.INFO
         
         # 测试WARNING级别
         self.logger_manager.set_log_level("test_logger", logging.WARNING)
-        assert self.logger.level == logging.WARNING
+        assert self.logger.logger.level == logging.WARNING
         
         # 测试ERROR级别
         self.logger_manager.set_log_level("test_logger", logging.ERROR)
-        assert self.logger.level == logging.ERROR
+        assert self.logger.logger.level == logging.ERROR
     
     def test_debug_logging(self):
         """测试DEBUG日志记录"""
@@ -130,15 +130,15 @@ class TestLogger:
     def test_log_to_file(self):
         """测试日志写入文件"""
         test_message = "Test log message"
-        
+
         # 写入日志
         self.logger.info(test_message)
-        
+
         # 强制刷新
-        for handler in self.logger.handlers:
+        for handler in self.logger.logger.handlers:
             if isinstance(handler, logging.FileHandler):
                 handler.flush()
-        
+
         # 检查文件内容
         if os.path.exists(self.log_file):
             with open(self.log_file, 'r', encoding='utf-8') as f:
@@ -149,15 +149,15 @@ class TestLogger:
         """测试多个处理器"""
         # 创建另一个日志器来测试多个处理器
         logger2 = self.logger_manager.get_logger("test_logger2", os.path.join(self.temp_dir, 'test2.log'))
-        
+
         # 检查处理器数量
-        file_handlers = [h for h in logger2.handlers if isinstance(h, logging.FileHandler)]
+        file_handlers = [h for h in logger2.logger.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) == 1
     
     def test_console_handler(self):
         """测试控制台处理器"""
         # 检查默认控制台处理器
-        console_handlers = [h for h in self.logger.handlers if isinstance(h, logging.StreamHandler)]
+        console_handlers = [h for h in self.logger.logger.handlers if isinstance(h, logging.StreamHandler)]
         assert len(console_handlers) >= 1
     
     def test_logger_singleton(self):

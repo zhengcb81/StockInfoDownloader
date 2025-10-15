@@ -45,7 +45,7 @@ from datetime import datetime
 
 # 导入测试报告生成器
 sys.path.insert(0, str(Path(__file__).parent))
-from tests.unit.test_report_generator import TestReportGenerator
+# from tests.unit.test_report_generator import TestReportGenerator  # 暂时注释掉，避免导入错误
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent
@@ -807,7 +807,7 @@ def main():
     # 执行最终清理（只保留delete_later=False的文件）
     log("\n执行最终清理...")
     try:
-        from test_helper_cleaner import clean_test_files
+        from tools.debug.test_helper_cleaner import clean_test_files
         preserve_cases = [case for case in test_cases if not case.get("delete_later", True)]
         clean_result = clean_test_files(config["save_dir"], preserve_cases)
         log(f"清理完成: 删除 {clean_result['cleaned_files']} 个文件, {clean_result['cleaned_dirs']} 个目录")

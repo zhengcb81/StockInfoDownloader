@@ -1,0 +1,228 @@
+{
+  "workflow_id": "workflow_1759267330",
+  "start_time": "2025-09-30T22:22:10.377193",
+  "end_time": "2025-09-30T22:22:11.032231",
+  "duration": 0.655038,
+  "total_steps": 6,
+  "completed_steps": 0,
+  "failed_steps": 5,
+  "success": false,
+  "steps": [
+    {
+      "step_id": "preparation_check",
+      "name": "环境准备检查",
+      "description": "根据测试说明要求进行完整的环境准备和验证",
+      "required": true,
+      "estimated_time": 60,
+      "dependencies": [],
+      "status": "completed_with_errors",
+      "start_time": "2025-09-30T22:22:10.377193",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.655038,
+      "result": {
+        "success": false,
+        "errors": [
+          "环境准备异常: 'name'"
+        ],
+        "warnings": [],
+        "actions_taken": [
+          "清理了测试结果目录"
+        ],
+        "checklist_results": {
+          "directory_structure": {
+            "status": "passed",
+            "missing_dirs": [],
+            "created_dirs": [],
+            "required_dirs": [
+              "end2end_test",
+              "end2end_test\\test_results",
+              "end2end_test\\expected_results"
+            ]
+          },
+          "permissions_check": {
+            "status": "passed",
+            "issues": []
+          },
+          "expected_documents": {
+            "status": "passed",
+            "document_count": 3,
+            "stock_codes": [
+              "301611",
+              "300470"
+            ],
+            "document_types": [
+              "research",
+              "quarterly_report"
+            ],
+            "documents": [
+              {
+                "stock_code": "300470",
+                "stock_name": "中密控股",
+                "document_type": "research",
+                "document_name": "中密控股：2025年9月17日投资者关系活动记录表.pdf",
+                "file_size": 80949
+              },
+              {
+                "stock_code": "300470",
+                "stock_name": "中密控股",
+                "document_type": "quarterly_report",
+                "document_name": "中密控股：2025年一季度报告.pdf",
+                "file_size": 612916
+              },
+              {
+                "stock_code": "301611",
+                "stock_name": "珂玛科技",
+                "document_type": "research",
+                "document_name": "珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf",
+                "file_size": 235962
+              }
+            ]
+          },
+          "document_integrity": {
+            "status": "passed",
+            "total_documents": 3,
+            "valid_documents": 3,
+            "integrity_issues": []
+          },
+          "configuration_validation": {
+            "status": "passed",
+            "config_file": "config_end2end_test.json",
+            "test_cases_count": 3,
+            "validation_issues": []
+          },
+          "clean_state": {
+            "status": "passed",
+            "cleanup_result": {
+              "cleaned_files": 2,
+              "cleaned_dirs": 1,
+              "preserved_files": 1,
+              "preserved_dirs": 1,
+              "errors": []
+            },
+            "restore_result": {
+              "restored_files": 2,
+              "restore_errors": []
+            }
+          }
+        }
+      },
+      "errors": []
+    },
+    {
+      "step_id": "document_verification",
+      "name": "文档完整性验证",
+      "description": "验证预期文档的完整性和可访问性",
+      "required": true,
+      "estimated_time": 30,
+      "dependencies": [
+        "preparation_check"
+      ],
+      "status": "failed",
+      "start_time": "2025-09-30T22:22:11.032231",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.0,
+      "result": {
+        "error": "依赖项未满足: ['preparation_check']"
+      },
+      "errors": [
+        "依赖项未满足: ['preparation_check']"
+      ]
+    },
+    {
+      "step_id": "classification_update",
+      "name": "文档分类更新",
+      "description": "更新文档分类体系，确保分类信息准确",
+      "required": true,
+      "estimated_time": 45,
+      "dependencies": [
+        "document_verification"
+      ],
+      "status": "failed",
+      "start_time": "2025-09-30T22:22:11.032231",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.0,
+      "result": {
+        "error": "依赖项未满足: ['document_verification']"
+      },
+      "errors": [
+        "依赖项未满足: ['document_verification']"
+      ]
+    },
+    {
+      "step_id": "test_case_validation",
+      "name": "测试用例验证",
+      "description": "验证所有测试用例配置的正确性",
+      "required": true,
+      "estimated_time": 30,
+      "dependencies": [
+        "classification_update"
+      ],
+      "status": "failed",
+      "start_time": "2025-09-30T22:22:11.032231",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.0,
+      "result": {
+        "error": "依赖项未满足: ['classification_update']"
+      },
+      "errors": [
+        "依赖项未满足: ['classification_update']"
+      ]
+    },
+    {
+      "step_id": "test_scenario_ready",
+      "name": "测试场景准备",
+      "description": "确保所有测试场景都已准备就绪",
+      "required": true,
+      "estimated_time": 20,
+      "dependencies": [
+        "test_case_validation"
+      ],
+      "status": "failed",
+      "start_time": "2025-09-30T22:22:11.032231",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.0,
+      "result": {
+        "error": "依赖项未满足: ['test_case_validation']"
+      },
+      "errors": [
+        "依赖项未满足: ['test_case_validation']"
+      ]
+    },
+    {
+      "step_id": "quality_check",
+      "name": "质量检查",
+      "description": "执行最终质量检查，确保所有要求都已满足",
+      "required": true,
+      "estimated_time": 25,
+      "dependencies": [
+        "test_scenario_ready"
+      ],
+      "status": "failed",
+      "start_time": "2025-09-30T22:22:11.032231",
+      "end_time": "2025-09-30T22:22:11.032231",
+      "duration": 0.0,
+      "result": {
+        "error": "依赖项未满足: ['test_scenario_ready']"
+      },
+      "errors": [
+        "依赖项未满足: ['test_scenario_ready']"
+      ]
+    }
+  ],
+  "summary": {
+    "total_execution_time": 0.655038,
+    "average_step_time": 0.109173,
+    "success_rate": 0.0,
+    "required_steps_passed": false,
+    "tool_versions": {
+      "document_manager": "1.0",
+      "cleaner": "1.0",
+      "validator": "1.0",
+      "test_generator": "1.0",
+      "classification_system": "1.0",
+      "environment_preparer": "1.0"
+    }
+  },
+  "errors": [],
+  "warnings": []
+}

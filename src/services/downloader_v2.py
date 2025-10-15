@@ -82,18 +82,21 @@ class DownloadServiceV2:
         self.max_downloads_per_session = self.config.get('download.max_downloads_per_session', 5)
         self.max_retries = self.config.get('download.max_retries', 3)
         
-        # 配置反爬虫策略
-        human_behavior_delay = self.config.get('download.human_behavior_delay', 3)
+        # 配置反爬虫策略 - 测试环境优化
+        human_behavior_delay = self.config.get('download.human_behavior_delay', 0.1)
         if isinstance(human_behavior_delay, list):
-            human_behavior_delay = human_behavior_delay[0] if human_behavior_delay else 3
+            human_behavior_delay = human_behavior_delay[0] if human_behavior_delay else 0.1
         elif not isinstance(human_behavior_delay, (int, float)):
-            human_behavior_delay = 3
-        
-        human_behavior_delay = int(human_behavior_delay)
-        
+            human_behavior_delay = 0.1
+
+        # 强制测试环境使用最小延迟
+        from ..web.anti_crawler import is_test_environment
+        if is_test_environment():
+            human_behavior_delay = 0.1
+
         self.anti_crawler.set_session_parameters(
-            min_delay=max(1, human_behavior_delay - 1),
-            max_delay=human_behavior_delay + 2,
+            min_delay=human_behavior_delay,
+            max_delay=human_behavior_delay * 2,
             max_downloads=self.max_downloads_per_session
         )
         

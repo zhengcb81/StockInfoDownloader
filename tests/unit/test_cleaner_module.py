@@ -14,9 +14,9 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 
-class TestCleaner:
-    """测试清理器"""
-    
+class CleanerTool:
+    """测试清理器工具"""
+
     def __init__(self, base_dir: str):
         """
         初始化清理器
@@ -198,7 +198,7 @@ def clean_test_files(base_dir: str, preserve_cases: List[Dict[str, Any]], dry_ru
     Returns:
         Dict: 清理结果
     """
-    cleaner = TestCleaner(base_dir)
+    cleaner = CleanerTool(base_dir)
     return cleaner.clean_test_directory(preserve_cases, dry_run)
 
 
@@ -212,7 +212,7 @@ def get_test_directory_status(base_dir: str) -> Dict[str, Any]:
     Returns:
         Dict: 目录状态信息
     """
-    cleaner = TestCleaner(base_dir)
+    cleaner = CleanerTool(base_dir)
     return cleaner.get_directory_status()
 
 

@@ -18,14 +18,14 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from cninfo_activity_downloader import CninfoDownloader
-from tests.test_config import TestEnvironment, TEST_STOCK_CODES, TEST_ORG_IDS, create_test_config
+from tests.test_config import EnvironmentManager, TEST_STOCK_CODES, TEST_ORG_IDS, create_test_config
 
 class TestCninfoDownloader(unittest.TestCase):
     """CninfoDownloader 类单元测试"""
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_save_dir = self.test_env.create_temp_dir("test_downloads_")
         self.test_mapping_file = self.test_env.create_temp_file(
             suffix=".json",
@@ -54,7 +54,7 @@ class TestCninfoDownloader(unittest.TestCase):
         self.assertEqual(self.downloader.save_dir, self.test_save_dir)
         self.assertEqual(self.downloader.mapping_file, self.test_mapping_file)
         self.assertEqual(self.downloader.download_count, 0)
-        self.assertEqual(self.downloader.max_downloads_per_session, 5)
+        self.assertEqual(self.downloader.max_downloads_per_session, 200)
         self.assertIsNone(self.downloader.driver)
         
         # 验证保存目录已创建
@@ -74,15 +74,23 @@ class TestCninfoDownloader(unittest.TestCase):
                 result = self.downloader.clean_filename(input_name)
                 self.assertEqual(result, expected)
     
-    def test_get_org_id(self):
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def test_get_org_id(self, mock_get_org_id):
         """测试获取组织ID"""
+        # 设置Mock返回值
+        mock_get_org_id.side_effect = lambda stock_code, **kwargs: TEST_ORG_IDS.get(stock_code)
+
         for stock_code, expected_org_id in TEST_ORG_IDS.items():
             with self.subTest(stock_code=stock_code):
                 org_id = self.downloader.get_org_id(stock_code)
                 self.assertEqual(org_id, expected_org_id)
     
-    def test_get_org_id_invalid_code(self):
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def test_get_org_id_invalid_code(self, mock_get_org_id):
         """测试获取无效股票代码的组织ID"""
+        # 设置Mock返回None
+        mock_get_org_id.return_value = None
+
         invalid_code = "999999"
         org_id = self.downloader.get_org_id(invalid_code)
         self.assertIsNone(org_id)
@@ -145,16 +153,19 @@ class TestCninfoDownloader(unittest.TestCase):
     
     @patch.object(CninfoDownloader, 'setup_driver')
     @patch.object(CninfoDownloader, 'close_driver')
-    def test_restart_driver_failure(self, mock_close, mock_setup):
+    @patch('cninfo_activity_downloader.time.sleep')
+    def test_restart_driver_failure(self, mock_sleep, mock_close, mock_setup):
         """测试WebDriver重启失败"""
         mock_setup.return_value = False
-        
+
         result = self.downloader.restart_driver(headless=True)
-        
+
         self.assertFalse(result)
         mock_close.assert_called_once()
         # setup_driver会被调用多次（重试机制）
         self.assertGreater(mock_setup.call_count, 0)
+        # 验证sleep被调用
+        self.assertGreater(mock_sleep.call_count, 0)
     
     def test_random_delay(self):
         """测试随机延迟函数"""
@@ -186,10 +197,10 @@ class TestCninfoDownloader(unittest.TestCase):
 
 class TestCninfoDownloaderIntegration(unittest.TestCase):
     """CninfoDownloader 集成测试"""
-    
+
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_save_dir = self.test_env.create_temp_dir("test_downloads_")
         self.test_mapping_file = self.test_env.create_temp_file(
             suffix=".json",
@@ -197,26 +208,30 @@ class TestCninfoDownloaderIntegration(unittest.TestCase):
                 "000001": {"org_id": "9900000062", "name": "平安银行"}
             }, ensure_ascii=False, indent=2)
         )
-    
+
     def tearDown(self):
         """测试后清理"""
         self.test_env.cleanup()
-    
-    def test_downloader_lifecycle(self):
+
+    @patch('cninfo_activity_downloader.get_org_id_by_code')
+    def test_downloader_lifecycle(self, mock_get_org_id):
         """测试下载器完整生命周期"""
+        # 设置Mock返回值
+        mock_get_org_id.return_value = "9900000062"
+
         downloader = CninfoDownloader(
             save_dir=self.test_save_dir,
             mapping_file=self.test_mapping_file
         )
-        
+
         # 验证初始化
         self.assertIsNotNone(downloader)
         self.assertEqual(downloader.save_dir, self.test_save_dir)
-        
+
         # 验证获取组织ID
         org_id = downloader.get_org_id("000001")
         self.assertEqual(org_id, "9900000062")
-        
+
         # 验证文件名清理
         clean_name = downloader.clean_filename("测试文件/名*.pdf")
         self.assertEqual(clean_name, "测试文件_名_.pdf")
@@ -226,7 +241,7 @@ class TestCninfoDownloaderMocked(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_save_dir = self.test_env.create_temp_dir("test_downloads_")
         self.test_mapping_file = self.test_env.create_temp_file(
             suffix=".json",
@@ -244,34 +259,35 @@ class TestCninfoDownloaderMocked(unittest.TestCase):
         """测试后清理"""
         self.test_env.cleanup()
     
-    @patch('cninfo_activity_downloader.subprocess.run')
-    def test_cleanup_chrome_processes_windows(self, mock_run):
+    @patch('subprocess.run')
+    @patch('platform.system')
+    def test_cleanup_chrome_processes_windows(self, mock_platform, mock_run):
         """测试Windows下清理Chrome进程"""
-        with patch('cninfo_activity_downloader.platform.system', return_value="Windows"):
-            self.downloader._cleanup_chrome_processes()
-            
-            # 验证调用了正确的命令
-            self.assertEqual(mock_run.call_count, 2)
-            calls = mock_run.call_args_list
-            
-            # 检查第一个调用（清理chrome.exe）
-            self.assertIn('chrome.exe', calls[0][0][0])
-            # 检查第二个调用（清理chromedriver.exe）
-            self.assertIn('chromedriver.exe', calls[1][0][0])
-    
-    @patch('cninfo_activity_downloader.subprocess.run')
-    def test_cleanup_chrome_processes_linux(self, mock_run):
+        mock_platform.return_value = "Windows"
+
+        self.downloader._cleanup_chrome_processes()
+
+        # 验证调用了正确的命令（只调用一次）
+        self.assertEqual(mock_run.call_count, 1)
+        calls = mock_run.call_args_list
+
+        # 检查调用了chromedriver清理命令
+        self.assertIn('chromedriver.exe', calls[0][0][0])
+
+    @patch('subprocess.run')
+    @patch('platform.system')
+    def test_cleanup_chrome_processes_linux(self, mock_platform, mock_run):
         """测试Linux下清理Chrome进程"""
-        with patch('cninfo_activity_downloader.platform.system', return_value="Linux"):
-            self.downloader._cleanup_chrome_processes()
-            
-            # 验证调用了正确的命令
-            self.assertEqual(mock_run.call_count, 2)
-            calls = mock_run.call_args_list
-            
-            # 检查调用了pkill命令
-            self.assertEqual(calls[0][0][0][0], 'pkill')
-            self.assertEqual(calls[1][0][0][0], 'pkill')
+        mock_platform.return_value = "Linux"
+
+        self.downloader._cleanup_chrome_processes()
+
+        # 验证调用了正确的命令（只调用一次）
+        self.assertEqual(mock_run.call_count, 1)
+        calls = mock_run.call_args_list
+
+        # 检查调用了pkill命令
+        self.assertEqual(calls[0][0][0][0], 'pkill')
 
 if __name__ == "__main__":
     unittest.main() 

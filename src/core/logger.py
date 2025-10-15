@@ -274,19 +274,65 @@ logger_manager = LoggerManager()
 
 
 def get_logger(
-    name: str, 
+    name: str,
     log_file: Optional[str] = None,
     level: int = logging.INFO
 ) -> StructuredLogger:
     """
     便捷获取结构化日志器的函数
-    
+
     Args:
         name: 日志器名称
         log_file: 日志文件路径
         level: 日志级别
-        
+
     Returns:
         StructuredLogger: 结构化日志器实例
     """
     return logger_manager.get_logger(name, log_file, level)
+
+
+def setup_global_logging(log_dir: str, level: int = logging.INFO) -> None:
+    """
+    设置全局日志配置
+
+    Args:
+        log_dir: 日志目录路径
+        level: 日志级别
+    """
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
+
+    # 配置根日志器
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+
+    # 清除现有处理器
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # 控制台处理器
+    console_handler = SafeStreamHandler()
+    console_handler.setLevel(level)
+    console_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+    # 文件处理器
+    app_log_file = log_path / 'application.log'
+    file_handler = logging.handlers.RotatingFileHandler(
+        app_log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(level)
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(file_formatter)
+    root_logger.addHandler(file_handler)

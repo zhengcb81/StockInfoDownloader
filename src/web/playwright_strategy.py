@@ -68,44 +68,46 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         # 确保之前的实例完全关闭
         if self.browser:
             self.close()
-        
+            import time
+            time.sleep(1)  # 等待浏览器完全关闭
+
         logger.info("正在初始化Playwright浏览器...")
-        
+
         try:
             import playwright
             from playwright.sync_api import sync_playwright
-            
+
             self.playwright = sync_playwright().start()
-            
+
             # 构建浏览器启动选项
             launch_options = self._build_launch_options()
-            
+
             # 启动浏览器
             self.browser = self.playwright.chromium.launch(**launch_options)
-            
+
             # 创建浏览器上下文
             context_options = self._build_context_options()
             self.context = self.browser.new_context(**context_options)
-            
+
             # 创建页面
             self.page = self.context.new_page()
-            
+
             # 设置超时
             self.page.set_default_timeout(self.timeout)
-            
+
             # 执行反检测脚本
             self.page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {get: () => undefined})
                 Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})
                 Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']})
             """)
-            
+
             # 测试页面是否正常工作
             self.page.goto('about:blank', wait_until='domcontentloaded')
-            
+
             logger.info("Playwright浏览器初始化成功")
             return self.browser
-            
+
         except ImportError:
             raise WebDriverInitError(
                 "Playwright未安装，请运行: pip install playwright && playwright install chromium",
@@ -114,10 +116,10 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         except Exception as e:
             error_msg = f"Playwright浏览器创建失败: {e}"
             logger.error(error_msg)
-            
+
             # 清理失败的实例
             self.close()
-            
+
             if "timeout" in str(e).lower():
                 raise WebDriverTimeoutError(
                     error_msg,
@@ -343,25 +345,46 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
     
     def close(self) -> None:
         """关闭浏览器"""
+        import time
+
         try:
             if self.page:
-                self.page.close()
+                try:
+                    self.page.close()
+                except Exception as e:
+                    logger.warning(f"关闭页面时发生错误: {e}")
+
             if self.context:
-                self.context.close()
+                try:
+                    self.context.close()
+                except Exception as e:
+                    logger.warning(f"关闭上下文时发生错误: {e}")
+
             if self.browser:
-                self.browser.close()
+                try:
+                    self.browser.close()
+                except Exception as e:
+                    logger.warning(f"关闭浏览器时发生错误: {e}")
+
             if hasattr(self, 'playwright') and self.playwright:
-                self.playwright.stop()
-            
+                try:
+                    self.playwright.stop()
+                except Exception as e:
+                    logger.warning(f"停止Playwright时发生错误: {e}")
+
             logger.info("Playwright浏览器已关闭")
-            
+
         except Exception as e:
             logger.error(f"关闭Playwright浏览器时发生错误: {e}")
         finally:
+            # 确保资源被释放
             self.browser = None
             self.context = None
             self.page = None
             self.download_count = 0
+
+            # 等待一小段时间确保资源完全释放
+            time.sleep(0.5)
     
     def is_healthy(self) -> bool:
         """检查浏览器是否健康"""

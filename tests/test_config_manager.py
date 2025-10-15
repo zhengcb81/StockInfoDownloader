@@ -10,8 +10,8 @@ from src.core.config import ConfigManager
 from src.core.logger import get_logger
 
 
-class TestConfigManager:
-    """测试配置管理器"""
+class ConfigManagerTool:
+    """测试配置管理器工具"""
 
     def __init__(self, test_config_path: Optional[str] = None):
         """
@@ -225,4 +225,4 @@ class TestConfigManager:
 
 
 # 全局测试配置管理器实例
-test_config_manager = TestConfigManager()
+test_config_manager = ConfigManagerTool()

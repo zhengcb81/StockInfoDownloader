@@ -46,16 +46,21 @@ class MappingManager:
     def reload_mapping(self) -> bool:
         """
         重新加载映射数据
-        
+
         Returns:
             bool: 重新加载是否成功
         """
+        # 备份当前映射数据
+        original_mappings = self._mappings.copy()
+
         try:
             self._mappings.clear()
             self._load_mappings()
             logger.info("映射数据重新加载成功")
             return True
         except Exception as e:
+            # 恢复原始映射数据
+            self._mappings = original_mappings
             logger.error(f"重新加载映射数据失败: {e}")
             return False
     
@@ -64,15 +69,15 @@ class MappingManager:
         if not self.mapping_file.exists():
             logger.info("映射文件不存在，创建空映射")
             return
-        
+
         try:
             with open(self.mapping_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             for stock_code, mapping_data in data.items():
                 org_id = mapping_data.get('orgId')
                 stock_name = mapping_data.get('name', 'Unknown')
-                
+
                 if org_id:
                     mapping = OrgIdMapping(
                         stock_code=stock_code,
@@ -82,12 +87,13 @@ class MappingManager:
                         confidence=mapping_data.get('confidence', 0.8)
                     )
                     self._mappings[stock_code] = mapping
-            
+
             logger.info(f"已加载 {len(self._mappings)} 个映射")
-            
+
         except Exception as e:
             logger.error(f"加载映射文件失败: {e}")
             self._mappings = {}
+            raise  # 重新抛出异常，让reload_mapping能够捕获
     
     def _save_mappings(self) -> None:
         """保存映射到文件"""
@@ -191,7 +197,12 @@ class MappingManager:
             if not stock_code:
                 logger.warning(f"无效的股票代码格式: {stock_code}")
                 return False
-            
+
+            # 检查是否已存在
+            if stock_code in self._mappings:
+                logger.warning(f"尝试添加重复映射: {stock_code} -> {org_id}")
+                return False
+
             mapping = OrgIdMapping(
                 stock_code=stock_code,
                 org_id=org_id,
@@ -199,10 +210,10 @@ class MappingManager:
                 source=source,
                 confidence=confidence
             )
-            
+
             self._mappings[stock_code] = mapping
             self._save_mappings()
-            
+
             logger.info(f"添加映射: {stock_code} -> {org_id} ({stock_name})")
             return True
         except Exception as e:

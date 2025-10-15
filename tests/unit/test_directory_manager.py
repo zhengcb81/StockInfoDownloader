@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 from src.utils.directory_manager import DirectoryManager
 from src.data.mapping import MappingManager
-from tests.test_config_manager import TestConfigManager
+from tests.test_config_manager import ConfigManagerTool
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def mock_mapping_manager():
 @pytest.fixture
 def test_config():
     """测试配置的fixture"""
-    return TestConfigManager()
+    return ConfigManagerTool()
 
 
 @pytest.fixture

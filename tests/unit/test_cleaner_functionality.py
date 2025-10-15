@@ -17,11 +17,11 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.unit.test_cleaner_module import TestCleaner, clean_test_files, get_test_directory_status
-from tests.test_config_manager import TestConfigManager
+from tests.unit.test_cleaner_module import CleanerTool, clean_test_files, get_test_directory_status
+from tests.test_config_manager import ConfigManagerTool
 
 # 初始化测试配置管理器
-test_config = TestConfigManager()
+test_config = ConfigManagerTool()
 
 def log(message):
     """统一的日志输出"""
@@ -56,7 +56,7 @@ def test_cleaner_basic_functionality():
         ]
         
         # 执行清理
-        cleaner = TestCleaner(str(test_dir))
+        cleaner = CleanerTool(str(test_dir))
         result = cleaner.clean_test_directory(preserve_files)
         
         # 验证结果
@@ -70,7 +70,6 @@ def test_cleaner_basic_functionality():
         assert status["dir_list"][0]["file_count"] == 1, "CompanyA目录应该包含1个文件"
         
         log("✓ 清理器基本功能测试通过")
-        return True
 
 def test_cleaner_with_real_config():
     """使用真实配置测试清理器"""
@@ -128,13 +127,9 @@ def test_cleaner_with_real_config():
         
         # 验证结果 - 应该保留的目录数量
         expected_preserved_dirs = len([case for case in config["test_cases"] if not case.get("delete_later", True)])
-        
-        if status_after["directories"] == expected_preserved_dirs:
-            log("✓ 真实配置测试通过")
-            return True
-        else:
-            log(f"✗ 期望保留 {expected_preserved_dirs} 个目录，实际保留 {status_after['directories']} 个")
-            return False
+
+        assert status_after["directories"] == expected_preserved_dirs, f"期望保留 {expected_preserved_dirs} 个目录，实际保留 {status_after['directories']} 个"
+        log("✓ 真实配置测试通过")
             
     finally:
         # 恢复备份
@@ -181,7 +176,7 @@ def test_cleaner_edge_cases():
                     for i, stock in enumerate(test_stocks)
                 ]
                 
-                cleaner = TestCleaner(str(test_dir))
+                cleaner = CleanerTool(str(test_dir))
                 result = cleaner.clean_test_directory(preserve_files)
                 
                 if result["status"] == "success":
@@ -193,12 +188,8 @@ def test_cleaner_edge_cases():
         except Exception as e:
             log(f"✗ {test_case['name']} 测试异常: {e}")
     
-    if passed == total:
-        log("✓ 边界情况测试全部通过")
-        return True
-    else:
-        log(f"✗ 边界情况测试通过 {passed}/{total}")
-        return False
+    assert passed == total, f"边界情况测试通过 {passed}/{total}"
+    log("✓ 边界情况测试全部通过")
 
 def _setup_delete_only(test_dir):
     """设置只有要删除的文件"""
@@ -238,18 +229,14 @@ def test_cleaner_dry_run():
             {"stock_code": "CompanyB", "delete_later": True}
         ]
         
-        cleaner = TestCleaner(str(test_dir))
+        cleaner = CleanerTool(str(test_dir))
         result_dry = cleaner.clean_test_directory(preserve_files, dry_run=True)
         
         # 验证文件没有被实际删除（应该仍然是2个目录）
         status_after_dry = cleaner.get_directory_status()
         
-        if status_after_dry["directories"] == 2 and result_dry["dry_run"]:
-            log("✓ 模拟运行测试通过")
-            return True
-        else:
-            log("✗ 模拟运行测试失败")
-            return False
+        assert status_after_dry["directories"] == 2 and result_dry["dry_run"], "模拟运行测试失败"
+        log("✓ 模拟运行测试通过")
 
 def main():
     """主测试函数"""

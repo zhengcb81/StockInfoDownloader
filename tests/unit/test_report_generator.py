@@ -15,9 +15,9 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 
-class TestReportGenerator:
-    """统一测试报告生成器"""
-    
+class ReportGeneratorTool:
+    """统一测试报告生成器工具"""
+
     def __init__(self, base_dir: str = "test_reports"):
         self.base_dir = Path(base_dir)
         self.ensure_directories()

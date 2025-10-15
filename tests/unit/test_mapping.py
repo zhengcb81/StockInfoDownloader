@@ -169,7 +169,7 @@ class TestMappingManager:
         
         # 修改文件内容
         new_data = {
-            "600519": {"org_id": "9900010519", "name": "贵州茅台"}
+            "600519": {"orgId": "9900010519", "name": "贵州茅台"}
         }
         with open(self.mapping_file, 'w', encoding='utf-8') as f:
             json.dump(new_data, f, ensure_ascii=False, indent=2)

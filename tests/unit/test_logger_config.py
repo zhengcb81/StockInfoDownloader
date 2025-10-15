@@ -16,8 +16,8 @@ import logging
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.core.logger import StructuredLogger, get_logger, logger_manager
-from tests.test_config import TestEnvironment
+from src.core.logger import StructuredLogger, get_logger, logger_manager, setup_global_logging
+from tests.test_config import EnvironmentManager
 
 
 class TestStructuredLogger(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestStructuredLogger(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_log_dir = self.test_env.create_temp_dir("test_logs_")
         self.test_log_file = os.path.join(self.test_log_dir, "test.log")
     
@@ -54,71 +54,99 @@ class TestStructuredLogger(unittest.TestCase):
     
     def test_info_logging(self):
         """测试信息日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_info_logger", self.test_log_file)
+
         # 记录一条信息日志
         logger.info("测试信息日志")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_info_logging_with_context(self):
         """测试带上下文的信息日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_info_context_logger", self.test_log_file)
+
         # 记录带上下文的信息日志
         logger.info("测试信息日志", user_id=123, action="test_action")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_error_logging(self):
         """测试错误日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_error_logger", self.test_log_file)
+
         # 记录一条错误日志
         logger.error("测试错误日志")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_error_logging_with_context(self):
         """测试带上下文的错误日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_error_context_logger", self.test_log_file)
+
         # 记录带上下文的错误日志
         logger.error("测试错误日志", error_code=500, error_message="内部服务器错误")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_warning_logging(self):
         """测试警告日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_warning_logger", self.test_log_file)
+
         # 记录一条警告日志
         logger.warning("测试警告日志")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_debug_logging(self):
         """测试调试日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file, logging.DEBUG)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_debug_logger", self.test_log_file, logging.DEBUG)
+
         # 记录一条调试日志
         logger.debug("测试调试日志")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
     def test_critical_logging(self):
         """测试严重错误日志记录"""
-        logger = StructuredLogger("test_logger", self.test_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_critical_logger", self.test_log_file)
+
         # 记录一条严重错误日志
         logger.critical("测试严重错误日志")
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(self.test_log_file))
     
@@ -126,12 +154,16 @@ class TestStructuredLogger(unittest.TestCase):
         """测试日志文件轮转"""
         # 创建一个小容量的日志记录器来测试轮转
         small_log_file = os.path.join(self.test_log_dir, "small.log")
-        logger = StructuredLogger("test_logger", small_log_file)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        logger = StructuredLogger("test_rotation_logger", small_log_file)
+
         # 记录大量日志来触发轮转
         for i in range(100):
             logger.info(f"测试日志消息 {i}" * 100)
-        
+
+        # 强制刷新所有处理器以确保日志写入文件
+        logger._flush_handlers()
+
         # 验证日志文件存在
         self.assertTrue(os.path.exists(small_log_file))
 
@@ -141,7 +173,7 @@ class TestGetLoggerFunction(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_log_dir = self.test_env.create_temp_dir("test_logs_")
         self.test_log_file = os.path.join(self.test_log_dir, "test.log")
     
@@ -165,8 +197,10 @@ class TestGetLoggerFunction(unittest.TestCase):
     
     def test_get_logger_with_custom_level(self):
         """测试获取自定义级别的日志记录器"""
-        logger = get_logger("test_logger", self.test_log_file, logging.DEBUG)
-        
+        # 使用唯一的logger名称避免单例模式问题
+        unique_name = f"test_logger_custom_level_{id(self)}"
+        logger = get_logger(unique_name, self.test_log_file, logging.DEBUG)
+
         self.assertIsInstance(logger, StructuredLogger)
         self.assertEqual(logger.logger.level, logging.DEBUG)
 
@@ -176,7 +210,7 @@ class TestGlobalLoggingSetup(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_log_dir = self.test_env.create_temp_dir("test_global_logs_")
     
     def tearDown(self):
@@ -214,7 +248,7 @@ class TestLoggerIntegration(unittest.TestCase):
     
     def setUp(self):
         """测试前准备"""
-        self.test_env = TestEnvironment()
+        self.test_env = EnvironmentManager()
         self.test_log_dir = self.test_env.create_temp_dir("test_integration_logs_")
     
     def tearDown(self):

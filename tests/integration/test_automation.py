@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-class TestAutomation:
+class AutomationTool:
     """测试自动化类"""
     
     def __init__(self):
