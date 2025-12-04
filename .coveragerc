@@ -1,0 +1,37 @@
+[run]
+source = src
+omit =
+    */test_*.py
+    */tests/*.py
+    */__pycache__/*
+    */setup.py
+    */conftest.py
+    */version.py
+    */migrations/*.py
+    */test_execution_monitor.py  # 这是一个测试监控工具，但可能不需要覆盖率
+branch = True
+parallel = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\b:
+ignore_errors = True
+show_missing = True
+skip_covered = False
+precision = 2
+
+[html]
+directory = htmlcov
+title = StockInfoDownloader Coverage Report
+skip_covered = True
+
+[xml]
+output = coverage.xml

@@ -313,7 +313,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
         
         try:
-            by_method = getattr(By, by.upper() if hasattr(By, by.upper()) else By.CSS_SELECTOR)
+            by_method = getattr(By, by.upper(), By.CSS_SELECTOR)
             wait = WebDriverWait(self.driver, timeout)
             
             if condition == "presence":

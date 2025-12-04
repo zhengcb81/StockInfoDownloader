@@ -37,6 +37,7 @@ from src.utils.enhanced_error_handler import (
     get_global_error_handler, error_protected
 )
 from src.core.logger import get_logger
+from tests.performance.assertion_utils import PerformanceAssertions
 
 
 class Phase2PerformanceTester:
@@ -102,9 +103,10 @@ class Phase2PerformanceTester:
                         driver = pool.get_driver(DriverPriority.NORMAL)
                         time.sleep(0.1)  # 模拟工作
                         pool.return_driver(driver, True)
-                        return {'worker_id': worker_id, 'success': True}
+                        result = {'worker_id': worker_id, 'success': True}
                     except Exception as e:
-                        return {'worker_id': worker_id, 'success': False, 'error': str(e)}
+                        result = {'worker_id': worker_id, 'success': False, 'error': str(e)}
+                    results.append(result)
 
                 # 创建多个工作线程
                 threads = []
@@ -126,11 +128,28 @@ class Phase2PerformanceTester:
                 pool_status = pool.get_pool_status()
                 detailed_metrics = pool.get_detailed_metrics()
 
+                # 性能断言
+                test_duration = end_time - start_time
+                successful_workers = sum(1 for r in results if r.get('success', False))
+                total_workers = len(results)
+
+                PerformanceAssertions.assert_response_time(
+                    test_duration,
+                    5.0,  # 最大5秒
+                    "增强WebDriver连接池测试时间过长"
+                )
+                PerformanceAssertions.assert_success_rate(
+                    successful_workers,
+                    total_workers,
+                    100.0,  # 要求100%成功率
+                    "增强WebDriver连接池成功率不足"
+                )
+
                 return {
-                    'test_duration': end_time - start_time,
+                    'test_duration': test_duration,
                     'pool_status': pool_status,
                     'detailed_metrics': detailed_metrics,
-                    'worker_results': [worker(worker_id) for worker_id in range(10)],
+                    'worker_results': results,
                     'success': True,
                     'message': '增强WebDriver连接池测试通过'
                 }
@@ -187,13 +206,29 @@ class Phase2PerformanceTester:
             successful_downloads = sum(1 for r in results.values() if r.success)
             total_downloaded = sum(r.bytes_downloaded for r in results.values() if r.success)
 
+            # 性能断言
+            test_duration = end_time - start_time
+            success_rate = (successful_downloads / len(download_tasks)) * 100
+
+            PerformanceAssertions.assert_response_time(
+                test_duration,
+                15.0,  # 最大15秒（考虑到网络延迟）
+                "异步操作测试时间过长"
+            )
+            PerformanceAssertions.assert_success_rate(
+                successful_downloads,
+                len(download_tasks),
+                80.0,  # 要求80%成功率（考虑到网络波动）
+                "异步操作成功率不足"
+            )
+
             return {
-                'test_duration': end_time - start_time,
+                'test_duration': test_duration,
                 'total_tasks': len(download_tasks),
                 'successful_downloads': successful_downloads,
-                'success_rate': (successful_downloads / len(download_tasks)) * 100,
+                'success_rate': success_rate,
                 'total_bytes_downloaded': total_downloaded,
-                'average_speed': total_downloaded / (end_time - start_time) if end_time > start_time else 0,
+                'average_speed': total_downloaded / test_duration if test_duration > 0 else 0,
                 'results_summary': {
                     'completed': len([r for r in results.values() if r.status.value == 'completed']),
                     'failed': len([r for r in results.values() if r.status.value == 'failed']),
@@ -263,10 +298,26 @@ class Phase2PerformanceTester:
             cache_stats = cache.get_stats()
             detailed_status = cache.get_detailed_status()
 
+            # 性能断言
+            test_duration = end_time - start_time
+            hit_rate = (hit_count / 500) * 100
+
+            PerformanceAssertions.assert_response_time(
+                test_duration,
+                2.0,  # 最大2秒
+                "智能缓存测试时间过长"
+            )
+            PerformanceAssertions.assert_success_rate(
+                hit_count,
+                500,  # 总读取次数
+                90.0,  # 要求90%命中率
+                "智能缓存命中率不足"
+            )
+
             return {
-                'test_duration': end_time - start_time,
+                'test_duration': test_duration,
                 'cache_stats': cache_stats,
-                'hit_rate': (hit_count / 500) * 100,
+                'hit_rate': hit_rate,
                 'total_operations': 600,  # 500读取 + 100不存在的键
                 'cache_config': {
                     'l1_max_size': cache_config.l1_max_size,
@@ -333,8 +384,22 @@ class Phase2PerformanceTester:
             error_stats = error_handler.get_error_stats()
             error_history = error_handler.get_error_history(limit=10)
 
+            # 性能断言
+            test_duration = end_time - start_time
+
+            PerformanceAssertions.assert_response_time(
+                test_duration,
+                1.0,  # 最大1秒
+                "增强错误处理测试时间过长"
+            )
+            # 断言重试测试成功
+            assert result == "success", f"重试测试失败，结果为: {result}"
+            # 断言熔断器触发
+            breaker_triggered = len([e for e in error_history if '熔断器开启' in str(e.get('message', ''))]) > 0
+            assert breaker_triggered, "熔断器未触发"
+
             return {
-                'test_duration': end_time - start_time,
+                'test_duration': test_duration,
                 'retry_test': {
                     'result': result,
                     'total_calls': call_count['count'],
@@ -342,7 +407,7 @@ class Phase2PerformanceTester:
                 },
                 'circuit_breaker_test': {
                     'breaker_stats': error_stats.get('circuit_breakers', {}).get('failing_service', {}),
-                    'triggered': len([e for e in error_history if '熔断器开启' in str(e.get('message', ''))]) > 0
+                    'triggered': breaker_triggered
                 },
                 'error_stats': error_stats,
                 'success': True,
@@ -426,16 +491,45 @@ class Phase2PerformanceTester:
             cache_stats = cache.get_stats()
             error_stats = error_handler.get_error_stats()
 
+            # 性能断言
+            test_duration = end_time - start_time
+            memory_change = final_memory - initial_memory
+            cpu_usage = final_cpu
+            cache_hit_rate = workload_results['cache_hit_rate']
+
+            PerformanceAssertions.assert_response_time(
+                test_duration,
+                30.0,  # 最大30秒
+                "综合性能测试时间过长"
+            )
+            PerformanceAssertions.assert_memory_growth(
+                initial_memory,
+                final_memory,
+                100.0,  # 最大内存增长100MB
+                "综合性能测试内存增长过大"
+            )
+            PerformanceAssertions.assert_cpu_usage(
+                cpu_usage,
+                80.0,  # 最大CPU使用率80%
+                "综合性能测试CPU使用率过高"
+            )
+            PerformanceAssertions.assert_success_rate(
+                workload_results['cache_hits'],
+                200,  # 总缓存请求数
+                90.0,  # 要求90%命中率
+                "综合性能测试缓存命中率不足"
+            )
+
             return {
-                'test_duration': end_time - start_time,
+                'test_duration': test_duration,
                 'resource_usage': {
-                    'memory_change_mb': final_memory - initial_memory,
+                    'memory_change_mb': memory_change,
                     'final_memory_mb': final_memory,
-                    'cpu_usage_percent': final_cpu
+                    'cpu_usage_percent': cpu_usage
                 },
                 'workload_results': workload_results,
                 'cache_performance': {
-                    'hit_rate': workload_results['cache_hit_rate'],
+                    'hit_rate': cache_hit_rate,
                     'cache_stats': cache_stats
                 },
                 'error_handling': {

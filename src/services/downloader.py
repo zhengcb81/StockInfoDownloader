@@ -162,7 +162,7 @@ class DownloadService:
             mapping_file: 映射文件路径
         """
         self.save_dir = Path(save_dir)
-        self.save_dir.mkdir(exist_ok=True)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
         self.mapping_file = mapping_file
         
         self.mapping_manager = MappingManager(mapping_file)
@@ -192,7 +192,8 @@ class DownloadService:
         self.anti_crawler = AntiCrawlerStrategy()
 
         # 加载配置
-        self.config = ConfigManager()
+        self.config = ConfigManager(config_file)
+        self.logger = logger  # 添加实例级logger属性用于测试
         
         # 从旧下载器复制的关键属性
         self.download_count = 0  # 下载计数器
@@ -229,7 +230,19 @@ class DownloadService:
     
     def clean_filename(self, filename):
         """清理文件名中的非法字符（从旧下载器复制）"""
-        return re.sub(r'[\/:*?"<>|]', '_', filename)
+        if not filename:
+            return filename
+        # 去除首尾空格
+        filename = filename.strip()
+        # 替换非法字符
+        filename = re.sub(r'[\\\/:*?"<>|]', '_', filename)
+        # 处理空格和点的组合：将连续的空格和点序列替换为单个点
+        # 首先将空格点序列标准化：将空格和点交错序列替换为单个点
+        # 使用正则表达式匹配任意数量的空格和点（至少一个点），替换为单个点
+        filename = re.sub(r'(?:\s*\.)+\s*', '.', filename)
+        # 确保没有连续的点（可能由上述替换产生）
+        filename = re.sub(r'\.{2,}', '.', filename)
+        return filename
     
     def get_org_id(self, stock_code, force_run=False):
         """获取股票代码对应的组织ID（从旧下载器复制）"""

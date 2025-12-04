@@ -113,8 +113,8 @@ python tools/page_monitor.py --stock-code 300470 --org-id 9900023856 --max-pages
 ## 📊 测试数据管理
 
 ### 测试配置
-- `config_test.json` - 基础测试配置
-- `config_end2end_test.json` - 端到端测试配置
+- `config_end2end_test.json` - 端到端测试配置（主要配置文件）
+- `config_performance_test.json` - 性能测试配置
 - `tests/integration/test_config.json` - 集成测试配置
 
 ### 测试数据

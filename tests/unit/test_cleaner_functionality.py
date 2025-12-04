@@ -17,8 +17,8 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.unit.test_cleaner_module import CleanerTool, clean_test_files, get_test_directory_status
-from tests.test_config_manager import ConfigManagerTool
+from .test_cleaner_module import CleanerTool, clean_test_files, get_test_directory_status
+from ..test_config_manager import ConfigManagerTool
 
 # 初始化测试配置管理器
 test_config = ConfigManagerTool()
@@ -70,6 +70,7 @@ def test_cleaner_basic_functionality():
         assert status["dir_list"][0]["file_count"] == 1, "CompanyA目录应该包含1个文件"
         
         log("✓ 清理器基本功能测试通过")
+        return True
 
 def test_cleaner_with_real_config():
     """使用真实配置测试清理器"""
@@ -139,6 +140,8 @@ def test_cleaner_with_real_config():
             shutil.move(str(backup_dir), str(save_dir))
             log(f"恢复备份目录")
 
+        return True
+
 def test_cleaner_edge_cases():
     """测试清理器边界情况"""
     log("测试清理器边界情况")
@@ -190,6 +193,7 @@ def test_cleaner_edge_cases():
     
     assert passed == total, f"边界情况测试通过 {passed}/{total}"
     log("✓ 边界情况测试全部通过")
+    return True
 
 def _setup_delete_only(test_dir):
     """设置只有要删除的文件"""
@@ -237,6 +241,7 @@ def test_cleaner_dry_run():
         
         assert status_after_dry["directories"] == 2 and result_dry["dry_run"], "模拟运行测试失败"
         log("✓ 模拟运行测试通过")
+        return True
 
 def main():
     """主测试函数"""

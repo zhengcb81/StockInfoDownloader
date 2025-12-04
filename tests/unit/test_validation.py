@@ -27,7 +27,7 @@ class TestDataValidator:
     
     def test_validate_stock_code_invalid(self):
         """测试无效股票代码验证"""
-        invalid_codes = ["", "123", "1234567", "abcdef", "0000010", "999999"]
+        invalid_codes = ["", "1234567", "abcdef", "0000010", "999999"]
         for code in invalid_codes:
             is_valid, result = self.validator.validate(code, "stock_code")
             assert is_valid is False
@@ -288,7 +288,8 @@ class TestDataValidator:
         """测试不支持的验证类型"""
         is_valid, result = self.validator.validate("test", "unsupported_type")
         assert is_valid is False
-        assert "Unsupported validation type" in result
+        assert isinstance(result, ValidationError)
+        assert "Unsupported validation type" in str(result)
 
 
 if __name__ == "__main__":

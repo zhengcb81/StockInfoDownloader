@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.services.downloader import DownloadService
 from src.utils.keyword_matcher import KeywordMatcher, KeywordConfig
+from tests.performance.assertion_utils import PerformanceAssertions
 
 
 class PerformanceTestRunner:
@@ -110,6 +111,20 @@ class PerformanceTestRunner:
             
             execution_time = time.time() - start_time
             
+            # 性能断言
+            PerformanceAssertions.assert_memory_growth(
+                initial_memory,
+                peak_memory,
+                50.0,  # 最大内存增长50MB
+                f"{test_name}内存增长过大"
+            )
+            PerformanceAssertions.assert_memory_leak(
+                initial_memory,
+                final_memory,
+                5.0,   # 最大内存泄漏5MB
+                f"{test_name}内存泄漏"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,
@@ -162,7 +177,19 @@ class PerformanceTestRunner:
             cpu_usage = psutil.cpu_percent(interval=1)
             
             execution_time = time.time() - start_time
-            
+
+            # 性能断言
+            PerformanceAssertions.assert_cpu_usage(
+                cpu_usage,
+                80.0,  # 最大CPU使用率80%
+                f"{test_name}CPU使用率过高"
+            )
+            PerformanceAssertions.assert_response_time(
+                cpu_execution_time,
+                5.0,  # 最大执行时间5秒
+                f"{test_name}执行时间过长"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,
@@ -224,7 +251,19 @@ class PerformanceTestRunner:
             
             matching_time = time.time() - start_match_time
             execution_time = time.time() - start_time
-            
+
+            # 性能断言
+            PerformanceAssertions.assert_response_time(
+                matching_time,
+                1.0,  # 最大匹配时间1秒
+                f"{test_name}匹配时间过长"
+            )
+            PerformanceAssertions.assert_response_time(
+                matching_time / len(test_texts) * 1000,
+                1.0,  # 最大平均时间每文本1毫秒
+                f"{test_name}平均匹配时间过长"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,
@@ -294,7 +333,19 @@ class PerformanceTestRunner:
             shutil.rmtree(temp_dir)
             
             execution_time = time.time() - start_time
-            
+
+            # 性能断言
+            PerformanceAssertions.assert_response_time(
+                write_time,
+                5.0,  # 最大写入时间5秒
+                f"{test_name}文件写入时间过长"
+            )
+            PerformanceAssertions.assert_response_time(
+                read_time,
+                2.0,  # 最大读取时间2秒
+                f"{test_name}文件读取时间过长"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,
@@ -373,7 +424,24 @@ class PerformanceTestRunner:
             os.unlink(temp_file.name)
             
             execution_time = time.time() - start_time
-            
+
+            # 性能断言
+            PerformanceAssertions.assert_response_time(
+                load_time,
+                2.0,  # 最大加载时间2秒
+                f"{test_name}映射加载时间过长"
+            )
+            PerformanceAssertions.assert_response_time(
+                query_time,
+                1.0,  # 最大查询时间1秒
+                f"{test_name}映射查询时间过长"
+            )
+            PerformanceAssertions.assert_response_time(
+                query_time / queries * 1000,
+                1.0,  # 最大平均查询时间1毫秒
+                f"{test_name}平均查询时间过长"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,
@@ -470,7 +538,20 @@ class PerformanceTestRunner:
                 results.append(result_queue.get())
             
             execution_time = time.time() - start_time
-            
+
+            # 性能断言
+            PerformanceAssertions.assert_concurrent_time(
+                concurrent_time,
+                10.0,  # 最大并发时间10秒
+                f"{test_name}并发执行时间过长"
+            )
+            PerformanceAssertions.assert_throughput(
+                len(results),
+                concurrent_time,
+                10.0,  # 最小吞吐量10任务/秒
+                f"{test_name}吞吐量不足"
+            )
+
             return {
                 "test_name": test_name,
                 "success": True,

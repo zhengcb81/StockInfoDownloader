@@ -64,6 +64,9 @@ jobs:
     - name: Run integration tests
       run: python tests/run_integration_tests.py
       timeout-minutes: 10
+
+    - name: Check test coverage
+      run: python -m pytest tests/unit/ --cov=src --cov-config=.coveragerc --cov-report=term --cov-fail-under=15
       
     - name: Upload test results
       uses: actions/upload-artifact@v3
@@ -273,7 +276,7 @@ jobs:
         python test_end_to_end_final.py
         
         # 生成覆盖率报告
-        python -m pytest tests/ --cov=src --cov-report=html --cov-report=xml
+        python -m pytest tests/ --cov=src --cov-config=.coveragerc --cov-fail-under=15 --cov-report=html --cov-report=xml
       timeout-minutes: 90
       
     - name: Security scan
@@ -359,16 +362,26 @@ jobs:
         sys.path.insert(0, '.')
         from tests.test_report_generator import TestReportGenerator
         generator = TestReportGenerator()
-        
+
         # 生成测试汇总报告
         summary_file = generator.generate_test_summary(
             workflow_name='${{ github.workflow }}',
             run_id='${{ github.run_id }}',
             run_number='${{ github.run_number }}'
         )
-        
+
         print(f'测试汇总报告已生成: {summary_file}')
         "
+
+    - name: Notify test status
+      run: |
+        echo "Test suite completed. Checking results..."
+        echo "Quick tests result: ${{ needs.quick-tests.result }}"
+        echo "Daily build result: ${{ needs.daily-build.result }}"
+        echo "Weekly regression result: ${{ needs.weekly-regression.result }}"
+        echo "Release tests result: ${{ needs.release-tests.result }}"
+        echo "Coverage threshold: 15% (minimum)"
+        echo "For detailed coverage report, check the artifacts."
       
     - name: Upload summary
       uses: actions/upload-artifact@v3

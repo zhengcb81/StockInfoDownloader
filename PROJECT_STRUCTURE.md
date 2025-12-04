@@ -104,9 +104,8 @@ tests/
 
 ### `config_*.json`
 **测试配置文件**
-- `config_end2end_test.json`: 端到端测试配置
-- `config_selenium_test.json`: Selenium测试配置
-- `config_both_test.json`: 双浏览器测试配置
+- `config_end2end_test.json`: 端到端测试配置（主要配置文件）
+- `config_performance_test.json`: 性能测试配置
 
 ### `stock_orgid_mapping.json`
 **股票代码映射文件**

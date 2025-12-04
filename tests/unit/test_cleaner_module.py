@@ -324,7 +324,7 @@ if __name__ == "__main__":
         {"stock_code": "002", "delete_later": True}
     ]
     
-    cleaner = TestCleaner(test_dir)
+    cleaner = CleanerTool(test_dir)
     result = cleaner.clean_test_directory(preserve_cases, dry_run=True)
     
     print("清理结果:", json.dumps(result, ensure_ascii=False, indent=2))

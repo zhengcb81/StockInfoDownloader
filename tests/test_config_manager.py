@@ -4,8 +4,13 @@
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+
+# 添加项目根目录到路径，确保可以导入src模块
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
 

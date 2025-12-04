@@ -248,6 +248,21 @@ StockInfoDownloader/
 └── downloads/                    # 下载文件保存目录
 ```
 
+## 🧹 项目清理与维护 (2025年12月)
+
+### 近期清理工作
+- **冗余配置文件清理**: 已删除 `config_both_test.json`、`config_selenium_test.json`、`configs/config_test.json` 等冗余配置文件
+- **临时文件清理**: 清理了所有 `__pycache__` 目录、`.pytest_cache` 缓存、覆盖率报告等临时文件
+- **空目录清理**: 移除了 `basic_test/`、`quick_test/`、`coverage_reports/`、`performance_reports/`、`test_downloads/` 等空目录
+- **文档更新**: 更新了 `测试说明.md`、`PROJECT_STRUCTURE.md` 等文档，确保与代码状态一致
+- **测试验证**: 端到端测试运行正常，测试报告自动生成到 `e2e_test_report.json`
+
+### 维护建议
+- 定期运行 `python tests/unit/test_cleaner_functionality.py` 验证清理工具功能
+- 使用 `python e2e_test.py --browser-strategy playwright` 进行端到端测试验证
+- 定期清理 `logs/` 目录中的旧日志文件
+- 遵循配置文件单一原则，只使用 `config_end2end_test.json` 进行端到端测试
+
 ## 🎉 重构完成通知 (2025年9月)
 
 本项目已于**2025年9月13日**完成全面重构，实现了以下重要改进：

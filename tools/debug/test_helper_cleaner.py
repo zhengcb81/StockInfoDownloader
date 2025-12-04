@@ -9,6 +9,7 @@
 import os
 import shutil
 import json
+import time
 from pathlib import Path
 from typing import Dict, List, Any
 
@@ -112,18 +113,35 @@ def clean_test_files(test_dir: str, preserve_cases: List[Dict[str, Any]] = None,
             # 清理目录
             if not dry_run:
                 try:
-                    shutil.rmtree(company_dir)
-                    cleaned_dirs += 1
-                    # 计算清理的文件数
+                    # 检查文件锁
+                    lock_file = company_dir / ".lock"
+                    if lock_file.exists():
+                        print(f"警告: 目录 {company_dir} 有锁文件，跳过清理")
+                        continue  # 跳过这个目录的清理
+
+                    # 先计算文件数
                     file_count = sum(1 for _ in company_dir.iterdir() if _.is_file())
                     cleaned_files += file_count
+
+                    # 删除目录，支持重试
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            shutil.rmtree(company_dir)
+                            cleaned_dirs += 1
+                            break  # 成功则退出重试循环
+                        except Exception as e:
+                            if attempt < max_retries - 1:
+                                time.sleep(0.1 * (attempt + 1))  # 指数退避
+                            else:
+                                raise  # 最后一次失败则重新抛出异常
                 except Exception as e:
                     print(f"清理目录 {company_dir} 失败: {e}")
             else:
                 # 干运行时只计数
-                cleaned_dirs += 1
                 file_count = sum(1 for _ in company_dir.iterdir() if _.is_file())
                 cleaned_files += file_count
+                cleaned_dirs += 1
     
     return {
         "cleaned_files": cleaned_files,

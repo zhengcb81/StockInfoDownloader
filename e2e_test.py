@@ -67,17 +67,27 @@ def calculate_file_hash(file_path):
             hasher.update(chunk)
     return hasher.hexdigest()
 
-def compare_files(file1, file2):
-    """比较两个文件是否相同"""
-    if not os.path.exists(file1) or not os.path.exists(file2):
-        return False
-    
-    # 比较大小
-    if os.path.getsize(file1) != os.path.getsize(file2):
-        return False
-    
-    # 比较MD5
-    return calculate_file_hash(file1) == calculate_file_hash(file2)
+def compare_files(file1, file2, max_retries=3):
+    """比较两个文件是否相同，支持重试"""
+    for attempt in range(max_retries):
+        try:
+            if not os.path.exists(file1) or not os.path.exists(file2):
+                time.sleep(0.1 * (attempt + 1))  # 指数退避
+                continue
+
+            # 比较大小
+            if os.path.getsize(file1) != os.path.getsize(file2):
+                return False
+
+            # 比较MD5
+            return calculate_file_hash(file1) == calculate_file_hash(file2)
+        except (PermissionError, OSError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(0.1 * (attempt + 1))
+            else:
+                log(f"文件比较失败 {file1} vs {file2}: {e}")
+                return False
+    return False
 
 def test_skip_logic(test_case, config, downloader_type="new"):
     """测试文件跳过逻辑（当delete_later=False时）"""
@@ -544,37 +554,80 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
         "downloaded_files": len(downloaded_files)
     }
 
-def compare_directories(actual_dir, expected_dir):
-    """比较两个目录结构和内容是否完全一致"""
+def compare_directories(actual_dir, expected_dir, companies_to_compare=None):
+    """比较两个目录结构和内容是否完全一致
+    如果指定了companies_to_compare，则只比较这些公司目录"""
     actual_path = Path(actual_dir)
     expected_path = Path(expected_dir)
-    
+
     if not actual_path.exists() or not expected_path.exists():
         return False, "目录不存在"
-    
-    # 比较目录结构
-    actual_dirs = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*') if p.is_dir()])
-    expected_dirs = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*') if p.is_dir()])
-    
-    if actual_dirs != expected_dirs:
-        return False, f"目录结构不一致: 实际{actual_dirs} vs 预期{expected_dirs}"
-    
-    # 比较文件
-    actual_files = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*.pdf')])
-    expected_files = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*.pdf')])
-    
-    if actual_files != expected_files:
-        return False, f"文件列表不一致: 实际{actual_files} vs 预期{expected_files}"
-    
-    # 比较文件内容
-    for file_path in expected_files:
-        actual_file = actual_path / file_path
-        expected_file = expected_path / file_path
-        
-        if not compare_files(actual_file, expected_file):
-            return False, f"文件内容不一致: {file_path}"
-    
-    return True, "所有文件和目录完全匹配"
+
+    # 创建文件锁防止清理
+    lock_files = []
+    try:
+        # 确定要加锁的公司目录
+        companies_to_lock = companies_to_compare if companies_to_compare else []
+        if not companies_to_lock:
+            # 如果没有指定公司，则为所有实际目录中的公司目录加锁
+            companies_to_lock = [d.name for d in actual_path.iterdir() if d.is_dir()]
+
+        log(f"开始文件比较，为 {len(companies_to_lock)} 个公司目录加锁防止清理...")
+        for company_name in companies_to_lock:
+            company_dir = actual_path / company_name
+            if company_dir.exists():
+                lock_file = company_dir / ".lock"
+                try:
+                    lock_file.touch(exist_ok=True)
+                    lock_files.append(lock_file)
+                except Exception as e:
+                    log(f"警告: 无法为目录 {company_dir} 创建锁文件: {e}")
+
+        # 比较目录结构
+        actual_dirs = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*') if p.is_dir()])
+        expected_dirs = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*') if p.is_dir()])
+
+        # 如果指定了要比较的公司，则筛选目录
+        if companies_to_compare:
+            # 将公司名称转换为字符串集合，便于比较
+            companies_set = set(str(name) for name in companies_to_compare)
+            actual_dirs = [d for d in actual_dirs if d.name in companies_set]
+            expected_dirs = [d for d in expected_dirs if d.name in companies_set]
+
+        if actual_dirs != expected_dirs:
+            return False, f"目录结构不一致: 实际{actual_dirs} vs 预期{expected_dirs}"
+
+        # 比较文件
+        actual_files = sorted([p.relative_to(actual_path) for p in actual_path.rglob('*.pdf')])
+        expected_files = sorted([p.relative_to(expected_path) for p in expected_path.rglob('*.pdf')])
+
+        # 如果指定了要比较的公司，则筛选文件（只保留属于这些公司目录的文件）
+        if companies_to_compare:
+            companies_set = set(str(name) for name in companies_to_compare)
+            actual_files = [f for f in actual_files if f.parent.name in companies_set]
+            expected_files = [f for f in expected_files if f.parent.name in companies_set]
+
+        if actual_files != expected_files:
+            return False, f"文件列表不一致: 实际{actual_files} vs 预期{expected_files}"
+
+        # 比较文件内容
+        for file_path in expected_files:
+            actual_file = actual_path / file_path
+            expected_file = expected_path / file_path
+
+            if not compare_files(actual_file, expected_file):
+                return False, f"文件内容不一致: {file_path}"
+
+        return True, "所有文件和目录完全匹配"
+    finally:
+        # 清理锁文件
+        log(f"文件比较完成，清理 {len(lock_files)} 个锁文件...")
+        for lock_file in lock_files:
+            try:
+                if lock_file.exists():
+                    lock_file.unlink()
+            except Exception as e:
+                log(f"警告: 无法删除锁文件 {lock_file}: {e}")
 
 def main():
     """主函数"""
@@ -583,6 +636,7 @@ def main():
 
     # 加载配置（只支持config_end2end_test.json）
     import argparse
+    import json
     parser = argparse.ArgumentParser(description='端到端测试')
     parser.add_argument('--test-old-downloader', action='store_true', help='测试旧下载器')
     parser.add_argument('--browser-strategy', choices=['selenium', 'playwright', 'both'],
@@ -605,19 +659,42 @@ def main():
     
     # 创建必要目录
     save_dir = Path(config["save_dir"])
-    save_dir.mkdir(parents=True, exist_ok=True)
     Path("logs").mkdir(exist_ok=True)
-    
-    # 清空保存目录（确保从干净状态开始）
+
+    # 获取测试用例列表（用于智能清理）
+    test_cases = config.get("test_cases", [])
+
+    # 测试前智能目录检查（确保测试目录完全符合要求）
     try:
-        for item in save_dir.glob('*'):
-            if item.is_file():
-                item.unlink()
-            elif item.is_dir():
-                shutil.rmtree(item)
-        log("已清空保存目录")
+        from tools.debug.test_helper_cleaner import get_test_directory_status, clean_test_files
+
+        # 检查目录状态
+        status = get_test_directory_status(config["save_dir"])
+        if status["exists"] and status["total_files"] > 0:
+            log(f"检测到非空目录，执行智能清理...")
+            log(f"目录状态: {status['total_dirs']} 个公司目录, {status['total_files']} 个文件")
+
+            # 只保留delete_later=False的测试用例
+            preserve_cases = [case for case in test_cases if not case.get("delete_later", True)]
+            clean_result = clean_test_files(config["save_dir"], preserve_cases, dry_run=False)
+            log(f"智能清理完成: 删除 {clean_result['cleaned_files']} 个文件, {clean_result['cleaned_dirs']} 个目录")
+            log(f"保留 {clean_result['preserved_files']} 个文件, {clean_result['preserved_dirs']} 个目录")
+        else:
+            save_dir.mkdir(parents=True, exist_ok=True)
+            log("测试目录为空或不存在，无需清理")
     except Exception as e:
-        log(f"清空目录失败: {e}")
+        log(f"智能目录检查失败: {e}")
+        # 回退到原始清空逻辑
+        try:
+            save_dir.mkdir(parents=True, exist_ok=True)
+            for item in save_dir.glob('*'):
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+            log("已使用回退逻辑清空保存目录")
+        except Exception as e2:
+            log(f"回退清空目录失败: {e2}")
     
     # 验证测试设置
     log("\n验证测试设置...")
@@ -636,7 +713,6 @@ def main():
     
     # 运行所有测试用例
     all_results = []
-    test_cases = config.get("test_cases", [])
     max_test_retries = 1  # 每个测试用例最大重试次数
     
     for i, test_case in enumerate(test_cases, 1):
@@ -692,6 +768,28 @@ def main():
             if new_result:
                 all_results.append(new_result)
 
+        # 测试旧下载器（如果启用）
+        if args.test_old_downloader:
+            log(f"\n{'='*80}")
+            log(f"测试旧下载器: {test_case['stock_code']}")
+            log(f"{'='*80}")
+            try:
+                old_result = run_test_with_old_downloader(test_case, config)
+                all_results.append(old_result)
+                log(f"旧下载器测试完成: {old_result.get('success', False)}")
+                time.sleep(2)  # 旧下载器测试后间隔
+            except Exception as e:
+                log(f"旧下载器测试异常: {e}")
+                old_result = {
+                    "downloader": "old",
+                    "stock_code": test_case["stock_code"],
+                    "success": False,
+                    "error": f"旧下载器测试异常: {e}",
+                    "duration": 0,
+                    "downloaded_files": 0
+                }
+                all_results.append(old_result)
+
         # 策略间隔（如果测试多种策略）
         if len(strategies_to_test) > 1:
             time.sleep(5)  # 策略间间隔5秒
@@ -712,8 +810,19 @@ def main():
     for file in downloaded_files:
         log(f"  - {file.relative_to(save_dir)}")
     
-    # 执行目录比较
-    comparison_success, comparison_message = compare_directories(save_dir, expected_dir)
+    # 执行目录比较（只比较测试用例涉及的公司）
+    # 获取测试用例涉及的公司名称
+    companies_to_compare = []
+    for case in test_cases:
+        try:
+            company_name = get_real_stock_name(case["stock_code"])
+            if company_name and company_name not in companies_to_compare:
+                companies_to_compare.append(company_name)
+        except Exception as e:
+            log(f"获取公司名称失败 {case['stock_code']}: {e}")
+
+    log(f"比较公司目录: {companies_to_compare}")
+    comparison_success, comparison_message = compare_directories(save_dir, expected_dir, companies_to_compare)
 
     log(f"目录比较结果: {'成功' if comparison_success else '失败'}")
     log(f"比较详情: {comparison_message}")
@@ -723,10 +832,12 @@ def main():
     from src.utils.directory_manager import DirectoryManager
     directory_manager = DirectoryManager()
 
-    # 获取预期的公司名称列表
-    expected_companies = []
-    if expected_dir.exists():
+    # 获取预期的公司名称列表（只包含测试用例涉及的公司）
+    expected_companies = companies_to_compare if companies_to_compare else []
+    if not expected_companies and expected_dir.exists():
+        # 如果未获取到公司名称，回退到所有目录
         expected_companies = [d.name for d in expected_dir.iterdir() if d.is_dir()]
+    log(f"验证目录结构，预期公司: {expected_companies}")
 
     structure_valid, structure_issues = directory_manager.validate_directory_structure(
         save_dir, expected_companies
@@ -813,7 +924,41 @@ def main():
         log(f"清理完成: 删除 {clean_result['cleaned_files']} 个文件, {clean_result['cleaned_dirs']} 个目录")
     except Exception as e:
         log(f"清理失败: {e}")
-    
+
+    # 生成测试报告
+    log("\n生成测试报告...")
+    try:
+        import json
+        from datetime import datetime
+
+        report_data = {
+            "test_info": {
+                "timestamp": datetime.now().isoformat(),
+                "test_type": "e2e",
+                "description": "端到端测试报告",
+                "config_file": config_file
+            },
+            "test_cases": test_cases,
+            "results": strategy_results,
+            "summary": {
+                "overall_success": overall_success,
+                "total_tests": sum(stats["total_tests"] for stats in strategy_results.values()),
+                "successful_tests": sum(stats["successful_tests"] for stats in strategy_results.values()),
+                "total_errors": sum(stats["total_errors"] for stats in strategy_results.values()),
+                "total_duration": sum(stats["total_duration"] for stats in strategy_results.values()),
+                "total_files": sum(stats["total_files"] for stats in strategy_results.values())
+            }
+        }
+
+        report_file = "e2e_test_report.json"
+        with open(report_file, 'w', encoding='utf-8') as f:
+            json.dump(report_data, f, ensure_ascii=False, indent=2)
+
+        log(f"测试报告已保存到: {report_file}")
+
+    except Exception as e:
+        log(f"生成测试报告失败: {e}")
+
     return 0 if overall_success else 1
 
 if __name__ == "__main__":

@@ -33,12 +33,39 @@
       "Bash(powershell:*)",
       "Bash(xcopy:*)",
       "Bash(playwright install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(done)",
+      "Bash(move:*)",
+      "Bash(py:*)",
+      "Bash(pytest:*)",
+      "Bash(curl:*)",
+      "Bash(\"C:\\Miniconda\\python.exe\" \"C:\\Users\\郑曾波\\Projects\\StockInfoDownloader\\tests\\utils\\e2e_test_analyzer.py\")",
+      "Bash(if [ -d \"end2end_test/test_results\" ])",
+      "Bash(then rm -rf \"end2end_test/test_results\")",
+      "Bash(fi:*)",
+      "Bash(coverage erase:*)",
+      "Bash(git checkout:*)",
+      "Bash(if [ -d \"basic_test\" ])",
+      "Bash(then rmdir basic_test)",
+      "Bash(else echo \"目录 basic_test 不存在\")",
+      "Bash(if [ -d \"quick_test\" ])",
+      "Bash(then rmdir quick_test)",
+      "Bash(else echo \"目录 quick_test 不存在\")",
+      "Bash(if [ -d \"coverage_reports\" ])",
+      "Bash(then rmdir coverage_reports)",
+      "Bash(else echo \"目录 coverage_reports 不存在\")",
+      "Bash(if:*)",
+      "Bash(then rmdir performance_reports)",
+      "Bash(else echo \"目录 performance_reports 不存在\")",
+      "Bash(then rmdir test_downloads)",
+      "Bash(else echo \"目录 test_downloads 不存在\")",
+      "Bash(set:*)"
     ],
     "deny": [],
     "ask": [],
     "additionalDirectories": [
-      "C:\\Users\\zheng\\Projects"
+      "C:\\Users\\郑曾波\\Projects"
     ]
   }
 }

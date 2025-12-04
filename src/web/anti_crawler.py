@@ -120,6 +120,7 @@ class AntiCrawlerStrategy:
         delay = random.uniform(min_delay, max_delay)
         logger.debug(f"动态延迟 {delay:.2f} 秒 (因子: {delay_factor:.2f})")
         time.sleep(delay)
+        return delay
     
     def simulate_real_mouse_movement(self, driver, element=None):
         """模拟真实的鼠标移动轨迹（从旧下载器复制）"""

@@ -8,7 +8,7 @@ import traceback
 from typing import Dict, Any, Optional, Callable, Type
 from functools import wraps
 from .logger import get_logger
-from .exceptions import StockDownloaderError
+# from .exceptions import StockDownloaderError  # Not used in this module
 
 
 class ErrorHandler:

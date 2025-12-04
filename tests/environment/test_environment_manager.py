@@ -472,7 +472,7 @@ import platform
 from pathlib import Path
 
 def run_command(command, description):
-    """运行命令并检查结果"""
+    '''Run command and check result'''
     print(f"执行: {description}")
     try:
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
