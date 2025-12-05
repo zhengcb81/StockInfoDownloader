@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
 from src.core.performance_monitor import log_performance_stats, get_performance_stats
-from src.services.downloader import DownloadService
+from src.factory.downloader_factory import downloader_factory
 from src.data.mapping import MappingManager
 
 # 导入股票名称获取函数
@@ -76,7 +76,12 @@ def main():
         # 初始化服务
         mapping_manager = MappingManager()
         save_dir = config.get('save_dir', 'downloads')
-        download_service = DownloadService(save_dir=save_dir)
+
+        # 使用统一下载器工厂创建下载器（向后兼容）
+        download_service = downloader_factory.create_legacy_adapter(
+            'download_service',
+            save_dir=save_dir
+        )
         
         # 验证股票代码
         if not stock_code.isdigit() or len(stock_code) != 6:

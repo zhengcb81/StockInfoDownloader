@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
 from src.core.performance_monitor import log_performance_stats, get_performance_stats
-from src.services.downloader_v2 import DownloadServiceV2 as DownloadService
+from src.factory.downloader_factory import downloader_factory
 from src.data.mapping import MappingManager
 
 # 导入新增的并行下载服务
@@ -89,9 +89,10 @@ class MultiCompanyDownloader:
         self.proxy_config = config.get('proxy_management', {})
         self.use_proxy = self.proxy_config.get('enabled', False)
 
-        # 初始化服务 - 使用DownloadServiceV2
+        # 初始化服务 - 使用统一下载器工厂（向后兼容）
         browser_strategy = config.get('browser', {}).get('strategy', 'playwright')
-        self.download_service = DownloadService(
+        self.download_service = downloader_factory.create_legacy_adapter(
+            'download_service_v2',
             save_dir=self.save_dir,
             mapping_file="stock_orgid_mapping.json",
             browser_strategy=browser_strategy

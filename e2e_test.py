@@ -204,11 +204,14 @@ def run_test_with_old_downloader(test_case, config):
     duration = 0
     
     try:
-        # 导入旧下载器
-        from cninfo_activity_downloader import CninfoDownloader
-        
-        # 创建下载器
-        downloader = CninfoDownloader(save_dir=config["save_dir"])
+        # 使用统一下载器工厂创建旧下载器（向后兼容）
+        from src.factory.downloader_factory import downloader_factory
+
+        # 创建下载器（通过适配器保证完全兼容）
+        downloader = downloader_factory.create_legacy_adapter(
+            'cninfo',
+            save_dir=config["save_dir"]
+        )
         
         # 获取组织ID
         org_id = downloader.get_org_id(stock_code)
@@ -423,11 +426,12 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
         with open(temp_config_file, 'w', encoding='utf-8') as f:
             json.dump(temp_config_data, f, ensure_ascii=False, indent=2)
         
-        # 使用DownloadServiceV2 API，传递临时配置文件
-        from src.services.downloader_v2 import DownloadServiceV2
-        
-        # 创建下载器实例，使用指定的浏览器策略
-        downloader = DownloadServiceV2(
+        # 使用统一下载器工厂API（向后兼容）
+        from src.factory.downloader_factory import downloader_factory
+
+        # 创建下载器实例，使用指定的浏览器策略（通过适配器保证兼容性）
+        downloader = downloader_factory.create_legacy_adapter(
+            'download_service_v2',
             save_dir=config["save_dir"],
             mapping_file=str(temp_mapping_file),
             browser_strategy=browser_strategy
