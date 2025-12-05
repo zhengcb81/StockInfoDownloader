@@ -134,125 +134,28 @@ tests/
 
 ### C. 端到端测试协议
 
-#### C.1 核心功能测试
+**注意**：本项目中存在两种不同类型的"端到端测试"：
+1. **组件集成测试**（使用Mock对象）- 快速验证组件协作，无需网络连接
+2. **真正的端到端测试** - 使用真实网络连接和浏览器，访问真实网站
+
+#### C.1 组件集成测试（使用Mock对象）
 **文件**: `tests/e2e/test_e2e_downloader.py`
-**目标**: 验证完整下载流程
+**目标**: 验证核心组件协作，使用mock对象隔离外部依赖
 **测试方法**:
 1. 加载测试配置
-2. 初始化下载器
-3. 执行完整下载流程
-4. 验证下载结果
+2. 初始化下载器（使用mock浏览器策略）
+3. 模拟完整下载流程
+4. 验证组件间交互
 
-#### C.2 多下载器对比测试
-**文件**: `test_end_to_end_final.py`
-**目标**: 验证新旧下载器功能一致性
+#### C.2 真正的端到端测试
+**文件**: `e2e_test.py`
+**目标**: 使用真实网络连接验证完整下载流程
 **测试方法**:
-1. 使用相同配置测试新旧下载器
-2. 比较下载结果一致性
-3. 验证性能差异
+1. 加载 `config_end2end_test.json` 配置文件
+2. 使用真实浏览器访问网站下载文件
+3. 比较下载结果与预期文件
+4. 验证新旧下载器功能一致性（可选）
 
-#### C.3 逐步验证测试
-**文件**: `test_step_by_step.py`
-**目标**: 逐步验证每个关键环节
-**测试步骤**:
-
-**Step 1: 组织ID获取测试**
-```python
-mapping_manager = MappingManager("stock_orgid_mapping.json")
-org_id = mapping_manager.get_org_id("300470")
-assert org_id == "9900023856"
-```
-**成功标准**: 返回正确的组织ID `9900023856`
-**失败处理**: 检查映射文件是否存在，股票代码是否正确
-
-**Step 2: 页面访问测试**
-```python
-url = f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
-driver.get(url)
-assert "cninfo.com.cn/new/index" not in driver.current_url
-assert driver.title == "巨潮资讯网"
-```
-**成功标准**: 
-- 当前URL包含股票代码和组织ID
-- 页面标题为"巨潮资讯网"
-- 找到内容表格元素
-
-**失败处理**: 
-- 检查组织ID是否正确
-- 检查URL格式是否最新
-- 检查网络连接
-
-**Step 3: 链接发现测试**
-```python
-all_links = driver.find_elements(By.TAG_NAME, 'a')
-detail_links = []
-for link in all_links:
-    text = link.text.strip()
-    href = link.get_attribute('href')
-    if (href and '/new/disclosure/detail' in href 
-        and f'stockCode={stock_code}' in href):
-        detail_links.append({'text': text, 'href': href})
-assert len(detail_links) > 0
-```
-**成功标准**: 
-- 找到至少10个详情链接
-- 链接文本包含投资者关系相关信息
-
-**失败处理**:
-- 检查页面是否完全加载
-- 检查链接选择器是否需要更新
-- 检查股票代码参数是否正确
-
-**Step 4: 关键词过滤测试**
-```python
-allowed_keywords = ["投资者关系", "调研", "活动记录"]
-filtered_links = []
-for link_data in detail_links:
-    text = link_data['text']
-    if any(keyword in text for keyword in allowed_keywords):
-        filtered_links.append(link_data)
-assert len(filtered_links) > 0
-```
-**成功标准**: 
-- 关键词过滤后至少剩下5个链接
-- 过滤后的链接包含投资者关系相关内容
-
-**失败处理**:
-- 检查关键词列表是否合适
-- 检查页面内容是否变化
-
-**Step 5: 详情页访问测试**
-```python
-test_link = filtered_links[0]
-driver.get(test_link['href'])
-download_btn = driver.find_element(By.XPATH, "//button[contains(., '公告下载')]")
-assert download_btn.is_displayed()
-```
-**成功标准**: 
-- 成功访问详情页
-- 找到可见的下载按钮
-
-**失败处理**:
-- 检查详情页URL格式
-- 检查下载按钮选择器
-- 检查页面加载时间
-
-**Step 6: 分页测试**
-```python
-try:
-    next_btn = driver.find_element(By.XPATH, 
-        "//button[contains(@class, 'el-pagination__next')]")
-    print(f"下一页状态: {'可用' if next_btn.is_enabled() else '不可用'}")
-except:
-    print("单页内容，无需分页")
-```
-**成功标准**: 
-- 如果存在多页内容，下一页按钮应可点击
-- 如果是单页内容，无分页按钮属正常情况
-
-**失败处理**:
-- 检查当前页码
-- 检查总页数
 
 ### D. 回归测试协议
 

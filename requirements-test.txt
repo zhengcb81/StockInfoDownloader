@@ -6,6 +6,8 @@ psutil>=5.8.0
 
 # WebDriver测试依赖
 selenium>=4.0.0
+playwright>=1.40.0
+pytest-playwright>=0.4.0
 
 # 代码覆盖率测试
 coverage>=6.0

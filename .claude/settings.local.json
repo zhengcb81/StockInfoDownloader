@@ -60,7 +60,8 @@
       "Bash(else echo \"目录 performance_reports 不存在\")",
       "Bash(then rmdir test_downloads)",
       "Bash(else echo \"目录 test_downloads 不存在\")",
-      "Bash(set:*)"
+      "Bash(set:*)",
+      "Bash(killall:*)"
     ],
     "deny": [],
     "ask": [],

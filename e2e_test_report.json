@@ -1,6 +1,6 @@
 {
   "test_info": {
-    "timestamp": "2025-12-04T21:53:52.133861",
+    "timestamp": "2025-12-05T08:08:06.830532",
     "test_type": "e2e",
     "description": "端到端测试报告",
     "config_file": "config_end2end_test.json"
@@ -41,7 +41,7 @@
     "playwright": {
       "total_tests": 3,
       "successful_tests": 3,
-      "total_duration": 98.67586779594421,
+      "total_duration": 86.18040609359741,
       "total_files": 6,
       "total_errors": 0,
       "error_messages": []
@@ -52,7 +52,7 @@
     "total_tests": 3,
     "successful_tests": 3,
     "total_errors": 0,
-    "total_duration": 98.67586779594421,
+    "total_duration": 86.18040609359741,
     "total_files": 6
   }
 }

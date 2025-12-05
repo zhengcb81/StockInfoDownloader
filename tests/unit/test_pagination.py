@@ -113,9 +113,9 @@ class TestWebScraperPagination:
         """测试等待页面加载超时"""
         mock_driver = Mock()
         
-        # 模拟超时异常
+        # 模拟超时异常 - 补丁与fixture相同的路径
         from selenium.common.exceptions import TimeoutException
-        with patch('selenium.webdriver.support.wait.WebDriverWait', side_effect=TimeoutException()):
+        with patch('src.web.scraper.WebDriverWait', side_effect=TimeoutException()):
             scraper = WebScraper(mock_driver)
             result = scraper.wait_for_page_load()
             

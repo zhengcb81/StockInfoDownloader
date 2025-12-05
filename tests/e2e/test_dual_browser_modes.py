@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-双浏览器模式端到端测试
-测试Selenium和Playwright两种浏览器策略的完整下载工作流程
+双浏览器模式组件集成测试（使用mock对象）
+测试Selenium和Playwright两种浏览器策略的模拟下载工作流程
+注意：这不是真正的端到端测试，真正的端到端测试是 e2e_test.py
 """
 
 import pytest
@@ -30,7 +31,7 @@ test_stock = {
 
 
 class TestSeleniumModeE2E:
-    """Selenium模式端到端测试类"""
+    """Selenium模式组件集成测试类（使用mock对象）"""
 
     def setup_method(self):
         """测试设置"""
@@ -295,7 +296,7 @@ class TestSeleniumModeE2E:
 
 
 class TestPlaywrightModeE2E:
-    """Playwright模式端到端测试类"""
+    """Playwright模式组件集成测试类（使用mock对象）"""
 
     def setup_method(self):
         """测试设置"""

@@ -3,7 +3,8 @@
 
 """
 期待数据与实际数据比较测试
-集成期待数据验证框架的端到端测试
+集成期待数据验证框架的组件集成测试（使用mock对象）
+注意：这不是真正的端到端测试，真正的端到端测试是 e2e_test.py
 """
 
 import pytest
@@ -48,7 +49,7 @@ test_stocks = [
 
 
 class TestExpectedDataValidationE2E:
-    """期待数据验证端到端测试类"""
+    """期待数据验证组件集成测试类（使用mock对象）"""
     
     def setup_method(self):
         """测试设置"""

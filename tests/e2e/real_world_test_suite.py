@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-真实世界端到端测试套件
+真实世界端到端测试套件（需要网络连接）
 基于真实股票代码和实际网站进行测试，验证整个下载流程
 注意：这些测试需要网络连接，并且会访问真实网站，执行时间较长
+这是真正的端到端测试，区别于使用mock对象的组件集成测试
 """
 
 import pytest
@@ -55,7 +56,7 @@ def load_real_stock_codes() -> List[Dict[str, Any]]:
 
 
 class TestRealWorldEndToEnd:
-    """真实世界端到端测试"""
+    """真实世界端到端测试（需要网络连接）"""
 
     @classmethod
     def setup_class(cls):

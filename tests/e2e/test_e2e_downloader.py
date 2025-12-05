@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-端到端测试 - 测试完整的下载器工作流程
+组件集成测试 - 使用mock对象测试下载器核心组件的协作
+注意：这不是真正的端到端测试，真正的端到端测试是 e2e_test.py
 """
 
 import pytest
@@ -21,7 +22,7 @@ from src.services.downloader import DownloadService as LegacyDownloadService
 
 
 class TestE2EDownloader:
-    """端到端测试类"""
+    """组件集成测试类（使用mock对象）"""
     
     def setup_method(self):
         """测试设置"""
@@ -279,8 +280,8 @@ class TestE2EDownloader:
         downloader.download_count = 3
         assert downloader.download_count == 3, "下载计数应该能正确设置"
         
-        # 测试会话下载限制（从配置中获取，当前配置为20）
-        assert downloader.max_downloads_per_session == 20, "会话下载限制应该正确"
+        # 测试会话下载限制（从配置中获取，当前配置为200）
+        assert downloader.max_downloads_per_session == 200, "会话下载限制应该正确"
 
 
 if __name__ == "__main__":

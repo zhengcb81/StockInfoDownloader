@@ -15,7 +15,7 @@ from datetime import datetime
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.unit.test_report_generator import TestReportGenerator
+from tests.unit.test_report_generator import ReportGenerator
 
 
 def run_unit_tests():
@@ -29,7 +29,7 @@ def run_unit_tests():
         "tests/unit/test_mapping.py",
         "tests/unit/test_orgid_service.py", 
         "tests/unit/test_logger.py",
-        # "tests/unit/test_driver.py",  # 跳过 - 有WebDriver依赖问题
+        "tests/unit/test_driver.py",
         "tests/unit/test_config.py",
         "tests/unit/test_download_service.py",
         "tests/unit/test_file_utils.py",
@@ -118,7 +118,7 @@ def main():
     print("生成测试报告")
     print("=" * 60)
     
-    generator = TestReportGenerator()
+    generator = ReportGenerator()
     
     # 创建单元测试报告
     report_file = generator.create_unit_report(

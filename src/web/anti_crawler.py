@@ -286,18 +286,6 @@ class AntiCrawlerStrategy:
         """重置下载计数"""
         self.download_count = 0
     
-    def check_session_limit(self, current_downloads: int) -> bool:
-        """
-        检查是否达到会话下载限制
-        
-        Args:
-            current_downloads: 当前下载数量
-            
-        Returns:
-            bool: 是否达到限制
-        """
-        return current_downloads >= self.max_session_downloads
-    
     def set_session_parameters(self, min_delay: float, max_delay: float, max_downloads: int):
         """
         设置会话参数
@@ -310,35 +298,6 @@ class AntiCrawlerStrategy:
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.max_session_downloads = max_downloads
-    
-    def simulate_human_behavior(self, driver) -> None:
-        """
-        模拟人类行为（增强版）
-        
-        Args:
-            driver: WebDriver实例
-        """
-        try:
-            # 使用新的复杂浏览行为模拟
-            self.simulate_complex_browsing(driver)
-            
-        except Exception as e:
-            logger.debug(f"模拟人类行为时发生错误: {e}")
-    
-    def random_delay(self, min_delay: Optional[float] = None, max_delay: Optional[float] = None) -> None:
-        """
-        随机延迟
-        
-        Args:
-            min_delay: 最小延迟时间(秒)
-            max_delay: 最大延迟时间(秒)
-        """
-        min_d = min_delay or self.min_delay
-        max_d = max_delay or self.max_delay
-        
-        delay = random.uniform(min_d, max_d)
-        time.sleep(delay)
-        logger.debug(f"随机延迟: {delay:.2f}秒")
     
     def simulate_human_behavior(self, driver) -> None:
         """

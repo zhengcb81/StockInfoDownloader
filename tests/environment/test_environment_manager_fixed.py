@@ -486,6 +486,66 @@ def run_command(command, description):
         print(f"❌ {description} 异常: {e}")
         return False
 
+'''
+def setup_test_environment():
+    """Setup test environment"""
+    print("Setting up test environment...")
+
+    # 1. 安装Python依赖
+    print("\n1. 安装Python依赖...")
+    dependencies = [
+        "pytest",
+        "playwright",
+        "selenium",
+        "requests",
+        "beautifulsoup4",
+        "lxml",
+        "pandas",
+        "numpy",
+        "psutil"
+    ]
+
+    for package in dependencies:
+        run_command(f"pip install {package}", f"安装 {package}")
+
+    # 2. 安装Playwright浏览器
+    print("\n2. 安装Playwright浏览器...")
+    run_command("playwright install", "安装Playwright浏览器")
+
+    # 3. 创建必要的目录
+    print("\n3. 创建必要的目录...")
+    directories = [
+        "logs",
+        "test_results",
+        "test_cache",
+        "temp"
+    ]
+
+    for directory in directories:
+        Path(directory).mkdir(exist_ok=True)
+        print(f"✅ 创建目录: {directory}")
+
+    # 4. 验证环境
+    print("\n4. 验证环境...")
+    from tests.environment.test_environment_manager import TestEnvironmentManager
+
+    manager = TestEnvironmentManager()
+    validation = manager.validate_environment("设置后环境")
+
+    if validation.validation_passed:
+        print("✅ 环境设置完成，所有检查通过")
+    else:
+        print("⚠️ 环境设置完成，但存在警告")
+        print(f"   通过检查: {validation.checks_passed}/{validation.total_checks}")
+
+    return validation.validation_passed
+'''
+
+'''
+if __name__ == "__main__":
+    success = setup_test_environment()
+    sys.exit(0 if success else 1)
+'''
 """
 
     setup_script_path = "setup_test_environment.py"

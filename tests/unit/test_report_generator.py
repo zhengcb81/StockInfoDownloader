@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 
-class ReportGeneratorTool:
+class ReportGenerator:
     """统一测试报告生成器工具"""
 
     def __init__(self, base_dir: str = "test_reports"):
@@ -294,7 +294,7 @@ class ReportGeneratorTool:
 
 def main():
     """测试报告生成器示例用法"""
-    generator = TestReportGenerator()
+    generator = ReportGenerator()
     
     # 示例：创建端到端测试报告
     sample_results = [

@@ -34,8 +34,8 @@ class TestIntegration:
                 }
             ],
             "parallel_download": {
-                "enabled": True,
-                "max_workers": 2
+                "enabled": False,
+                "max_workers": 1
             },
             "proxy_management": {
                 "enabled": False

@@ -36,7 +36,7 @@ def run_tests(test_type, verbose=False, coverage=False):
         cmd.append('-v')
     
     if coverage:
-        cmd.extend(['--cov=cninfo_activity_downloader', '--cov-report=term'])
+        cmd.extend(['--cov=src', '--cov-report=term', '--cov-config=.coveragerc'])
     
     print(f"运行 {test_type} 测试...")
     print(f"命令: {' '.join(cmd)}")
