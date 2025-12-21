@@ -19,8 +19,6 @@ temp/
 tmp/
 
 # Test artifacts
-end2end_test/expected_results/
-test_results/
 *.tmp
 
 # Claude files
