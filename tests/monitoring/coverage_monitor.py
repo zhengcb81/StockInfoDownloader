@@ -15,7 +15,19 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from src.core.logger import get_logger
+import sys
+from pathlib import Path
+
+# 添加项目根目录到sys.path
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+try:
+    from src.core.logger import get_logger
+except ImportError:
+    import logging
+    get_logger = logging.getLogger
 
 logger = get_logger(__name__)
 

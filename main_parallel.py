@@ -225,10 +225,12 @@ class MultiCompanyDownloader:
                         max_retries=self.config.get('max_retries', 3)
                     )
 
-                    if result and len(result) > 0:
-                        total_files += len(result)
+                    # 处理DownloadResult对象（适配器返回格式）
+                    if result and result.downloaded_files:
+                        file_count = len(result.downloaded_files)
+                        total_files += file_count
                         successful_pages += 1
-                        self.logger.info(f"页面 {page_name} 下载完成，下载了 {len(result)} 个文件")
+                        self.logger.info(f"页面 {page_name} 下载完成，下载了 {file_count} 个文件")
                     else:
                         self.logger.warning(f"页面 {page_name} 下载失败或没有新文件")
 

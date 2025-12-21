@@ -486,7 +486,6 @@ def run_command(command, description):
         print(f"❌ {description} 异常: {e}")
         return False
 
-'''
 def setup_test_environment():
     """Setup test environment"""
     print("Setting up test environment...")

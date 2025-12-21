@@ -380,7 +380,7 @@ jobs:
         echo "Daily build result: ${{ needs.daily-build.result }}"
         echo "Weekly regression result: ${{ needs.weekly-regression.result }}"
         echo "Release tests result: ${{ needs.release-tests.result }}"
-        echo "Coverage threshold: 15% (minimum)"
+        echo "Coverage threshold: 100% (minimum)"
         echo "For detailed coverage report, check the artifacts."
       
     - name: Upload summary

@@ -30,7 +30,10 @@ class TestIntegration:
                     "stock_code": "300470",
                     "company_name": "中密控股",
                     "enabled": True,
-                    "priority": 1
+                    "priority": 1,
+                    "custom_pages": [
+                        {"name": "调研", "suffix": "research", "allowed_keywords": None}
+                    ]
                 }
             ],
             "parallel_download": {
@@ -46,14 +49,23 @@ class TestIntegration:
         with patch('src.data.mapping.MappingManager') as mock_mapping:
             mock_mapping.return_value.get_org_id.return_value = '9900012345'
 
-            with patch('src.services.downloader.DownloadService') as mock_service:
-                mock_service_instance = Mock()
-                mock_service_instance.download_stock_pdfs.return_value = {
-                    'success': True,
-                    'files_downloaded': 1,
-                    'execution_time': 5.0
-                }
-                mock_service.return_value = mock_service_instance
+            # 关键修复：必须拦截工厂方法，而不是直接拦截适配器类
+            # 因为 main_parallel.py 使用 downloader_factory.create_legacy_adapter()
+            with patch('main_parallel.downloader_factory.create_legacy_adapter') as mock_factory:
+                mock_adapter_instance = Mock()
+
+                # 创建DownloadResult对象（适配main_parallel.py的期望）
+                from src.interfaces.downloader_interface import DownloadResult
+                mock_result = DownloadResult(
+                    success=True,
+                    downloaded_files=['downloads/中密控股/test.pdf'],
+                    total_files=1,
+                    errors=[],
+                    duration_seconds=1.0,
+                    metadata={}
+                )
+                mock_adapter_instance.download_stock_pdfs.return_value = mock_result
+                mock_factory.return_value = mock_adapter_instance
 
                 # 创建下载器
                 downloader = MultiCompanyDownloader(test_config)

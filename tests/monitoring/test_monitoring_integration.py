@@ -9,18 +9,43 @@
 import pytest
 import time
 import json
+import sys
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from tests.monitoring.test_execution_monitor import (
-    TestExecutionMonitor, TestStatus, get_global_monitor
-)
-from tests.monitoring.coverage_monitor import (
-    CoverageMonitor, CoverageStatus, CoverageMetrics, get_global_coverage_monitor
-)
-from tests.monitoring.performance_monitor import (
-    PerformanceMonitor, PerformanceStatus, get_global_performance_monitor
-)
+# 添加项目根目录到sys.path
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+try:
+    from src.core.monitoring.test_execution_monitor import (
+        TestExecutionMonitor, TestStatus, get_global_monitor
+    )
+except ImportError:
+    # 回退方案
+    TestExecutionMonitor = None
+    TestStatus = None
+    get_global_monitor = None
+
+try:
+    from tests.monitoring.coverage_monitor import (
+        CoverageMonitor, CoverageStatus, CoverageMetrics, get_global_coverage_monitor
+    )
+except ImportError:
+    CoverageMonitor = None
+    CoverageStatus = None
+    CoverageMetrics = None
+    get_global_coverage_monitor = None
+
+try:
+    from tests.monitoring.performance_monitor import (
+        PerformanceMonitor, PerformanceStatus, get_global_performance_monitor
+    )
+except ImportError:
+    PerformanceMonitor = None
+    PerformanceStatus = None
+    get_global_performance_monitor = None
 
 
 class TestMonitoringIntegration:

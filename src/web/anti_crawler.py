@@ -445,13 +445,13 @@ class AntiCrawlerStrategy:
             logger.error(f"处理速率限制失败: {e}")
             return False
     
-    def set_session_parameters(self, 
+    def set_session_parameters(self,
                              min_delay: float = 1.0,
                              max_delay: float = 5.0,
                              max_downloads: int = 5) -> None:
         """
         设置会话参数
-        
+
         Args:
             min_delay: 最小延迟时间
             max_delay: 最大延迟时间
@@ -461,7 +461,36 @@ class AntiCrawlerStrategy:
         self.max_delay = max_delay
         self.max_session_downloads = max_downloads
         logger.info(f"会话参数已设置: 延迟{min_delay}-{max_delay}秒, 最大下载{max_downloads}次")
-    
+
+    def before_request(self, request_info):
+        """请求前处理（兼容接口）"""
+        # 应用随机延迟
+        self.random_delay()
+        logger.debug(f"请求前处理: {request_info}")
+
+    def after_request(self, response_info):
+        """请求后处理（兼容接口）"""
+        if response_info.get('success', False):
+            self.download_count += 1
+            logger.debug(f"请求成功: {response_info}")
+        else:
+            logger.debug(f"请求失败: {response_info}")
+
+    def should_retry(self, error):
+        """判断是否应该重试（兼容接口）"""
+        error_str = str(error).lower()
+        # 不重试的情况
+        no_retry_patterns = [
+            'timeout',
+            'connection refused',
+            'dns lookup failed',
+            'ssl error'
+        ]
+        for pattern in no_retry_patterns:
+            if pattern in error_str:
+                return False
+        return True
+
     def reset_download_count(self) -> None:
         """重置下载计数"""
         self.download_count = 0

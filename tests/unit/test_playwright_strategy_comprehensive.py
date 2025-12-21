@@ -534,9 +534,12 @@ class TestPlaywrightStrategyComprehensive:
 
     def test_is_healthy_page_exception(self):
         """测试页面异常时健康检查"""
+        from unittest.mock import PropertyMock
+
         strategy = PlaywrightStrategy()
         strategy.page = MagicMock()
-        strategy.page.url.side_effect = Exception("Page crashed")
+        # 使用PropertyMock来正确模拟属性异常
+        type(strategy.page).url = PropertyMock(side_effect=Exception("Page crashed"))
 
         result = strategy.is_healthy()
         # 根据实现，异常会被捕获并返回False

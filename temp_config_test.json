@@ -1,0 +1,18 @@
+{
+  "browser": {
+    "strategy": "playwright",
+    "headless": true
+  },
+  "download": {
+    "max_retries": 1,
+    "max_downloads_per_session": 5,
+    "human_behavior_delay": 3
+  },
+  "webdriver": {
+    "window_size": "1920,1080"
+  },
+  "timeout": {
+    "page_load": 15,
+    "element_wait": 3
+  }
+}

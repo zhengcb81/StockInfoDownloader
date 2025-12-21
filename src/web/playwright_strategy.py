@@ -33,7 +33,7 @@ def is_test_environment():
 class PlaywrightStrategy(BrowserAutomationStrategy):
     """Playwright浏览器自动化策略"""
     
-    def __init__(self, headless: bool = True, download_dir: Optional[str] = None, 
+    def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
                  config: Optional[Dict[str, Any]] = None):
         """初始化Playwright策略"""
         self.headless = headless
@@ -41,17 +41,26 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         self.config = config or {}
         self.browser = None
         self.page = None
+        self.user_data_dir = None  # 用于存储临时用户数据目录路径
         self.context = None
+        self.playwright = None
         self.download_count = 0
-        
+
         # 初始化配置管理器
         self.config_manager = ConfigManager()
-        
+
         # 从配置获取参数
         self.window_size = self.config.get('window_size', {'width': 1920, 'height': 1080})
-        self.timeout = self.config.get('timeout', 30000)  # Playwright使用毫秒
+
+        # 处理timeout配置 - 支持秒和毫秒两种格式
+        timeout_value = self.config.get('timeout', 180)
+        if timeout_value > 1000:  # 如果值大于1000，假设是毫秒，转换为秒
+            self.timeout = timeout_value  # 已经是毫秒，直接使用
+        else:  # 如果值小于等于1000，假设是秒，转换为毫秒
+            self.timeout = timeout_value * 1000  # 转换为毫秒
+
         self.max_downloads_per_session = self.config.get('max_downloads_per_session', 10)
-        
+
         self._user_agents = self.config.get('user_agents', [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -68,29 +77,50 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         # 确保之前的实例完全关闭
         if self.browser:
             self.close()
-            import time
             time.sleep(1)  # 等待浏览器完全关闭
 
         logger.info("正在初始化Playwright浏览器...")
 
         try:
-            import playwright
             from playwright.sync_api import sync_playwright
 
+            # 创建Playwright实例
             self.playwright = sync_playwright().start()
 
-            # 构建浏览器启动选项
+            # 构建启动选项
             launch_options = self._build_launch_options()
 
-            # 启动浏览器
-            self.browser = self.playwright.chromium.launch(**launch_options)
+            # 如果指定了下载目录，使用持久化上下文（persistent context）
+            # 这样可以设置 downloads_path 参数
+            if self.download_dir:
+                abs_download_dir = os.path.abspath(self.download_dir)
+                os.makedirs(abs_download_dir, exist_ok=True)
+                
+                # 创建临时用户数据目录
+                import tempfile
+                self.user_data_dir = tempfile.mkdtemp(prefix="playwright_user_")
 
-            # 创建浏览器上下文
-            context_options = self._build_context_options()
-            self.context = self.browser.new_context(**context_options)
+                # 使用持久化上下文启动，可以设置 downloads_path
+                context_options = self._build_context_options()
+                context_options['downloads_path'] = abs_download_dir
 
-            # 创建页面
-            self.page = self.context.new_page()
+                self.context = self.playwright.chromium.launch_persistent_context(
+                    self.user_data_dir,
+                    **launch_options,
+                    **context_options
+                )
+                self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
+                logger.info(f"使用持久化上下文启动，下载目录: {abs_download_dir}")
+            else:
+                # 启动浏览器
+                self.browser = self.playwright.chromium.launch(**launch_options)
+
+                # 创建浏览器上下文
+                context_options = self._build_context_options()
+                self.context = self.browser.new_context(**context_options)
+
+                # 创建页面
+                self.page = self.context.new_page()
 
             # 设置超时
             self.page.set_default_timeout(self.timeout)
@@ -102,7 +132,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                 Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']})
             """)
 
-            # 测试页面是否正常工作
+            # 测试页面
             self.page.goto('about:blank', wait_until='domcontentloaded')
 
             logger.info("Playwright浏览器初始化成功")
@@ -189,7 +219,6 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             os.makedirs(abs_download_dir, exist_ok=True)
             
             context_options['accept_downloads'] = True
-            # Playwright使用不同的下载处理方式，不需要downloads_path参数
             logger.info(f"设置下载目录: {abs_download_dir}")
         
         return context_options
@@ -197,14 +226,51 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
     def get_driver(self) -> Any:
         """获取当前浏览器实例"""
         return self.browser
-    
+
+    def cleanup(self) -> None:
+        """
+        清理浏览器资源（实现接口）
+        """
+        try:
+            self.close()
+        except Exception as e:
+            logger.error(f"Playwright清理失败: {e}")
+
+    def initialize(self) -> bool:
+        """
+        初始化浏览器（实现接口）
+
+        Returns:
+            bool: 初始化是否成功
+        """
+        try:
+            self.create_driver()
+            return True
+        except Exception as e:
+            logger.error(f"Playwright初始化失败: {e}")
+            return False
+
+    def navigate_to_page(self, url: str) -> bool:
+        """
+        导航到指定页面（实现接口）
+
+        Args:
+            url: 目标URL
+
+        Returns:
+            bool: 导航是否成功
+        """
+        return self.navigate(url)
+
     def navigate(self, url: str) -> bool:
         """导航到指定URL"""
         if not self.page:
             return False
-        
+
         try:
-            self.page.goto(url, wait_until='domcontentloaded')
+            # 使用配置的超时时间（毫秒）
+            timeout_ms = self.timeout
+            self.page.goto(url, wait_until='domcontentloaded', timeout=timeout_ms)
             return True
         except Exception as e:
             logger.error(f"导航到 {url} 失败: {e}")
@@ -346,6 +412,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
     def close(self) -> None:
         """关闭浏览器"""
         import time
+        import shutil
 
         try:
             if self.page:
@@ -369,8 +436,21 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             if hasattr(self, 'playwright') and self.playwright:
                 try:
                     self.playwright.stop()
+                    # 额外等待确保Playwright完全停止
+                    import time
+                    time.sleep(0.5)
                 except Exception as e:
                     logger.warning(f"停止Playwright时发生错误: {e}")
+
+            # 清理临时用户数据目录
+            if self.user_data_dir:
+                try:
+                    if os.path.exists(self.user_data_dir):
+                        shutil.rmtree(self.user_data_dir, ignore_errors=True)
+                        logger.debug(f"清理临时用户数据目录: {self.user_data_dir}")
+                    self.user_data_dir = None
+                except Exception as e:
+                    logger.warning(f"清理临时用户数据目录失败: {e}")
 
             logger.info("Playwright浏览器已关闭")
 
@@ -378,9 +458,14 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             logger.error(f"关闭Playwright浏览器时发生错误: {e}")
         finally:
             # 确保资源被释放
-            self.browser = None
-            self.context = None
             self.page = None
+            self.context = None
+            self.browser = None
+            if hasattr(self, 'playwright'):
+                self.playwright = None
+            self.page = None
+            self.playwright = None
+            self.user_data_dir = None
             self.download_count = 0
 
             # 等待一小段时间确保资源完全释放
@@ -390,10 +475,10 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         """检查浏览器是否健康"""
         if not self.page:
             return False
-        
+
         try:
             # 尝试获取页面URL来测试是否响应
-            self.page.url
+            _ = self.page.url
             return True
         except Exception:
             return False
@@ -653,7 +738,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             url: 要下载的URL
             save_path: 文件保存路径
             timeout: 超时时间（秒）
-            
+             
         Returns:
             bool: 下载是否成功
         """

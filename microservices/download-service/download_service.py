@@ -30,8 +30,8 @@ from src.core.logger import get_logger
 
 
 # 请求和响应模型
-class DownloadRequest(BaseModel):
-    """下载请求"""
+class DownloadTaskRequest(BaseModel):
+    """下载任务请求 - 微服务API层的数据模型"""
     stock_code: str = Field(..., description="股票代码")
     stock_name: Optional[str] = Field(None, description="股票名称")
     page_types: List[str] = Field(["research", "periodicReports"], description="页面类型")
@@ -44,7 +44,7 @@ class DownloadRequest(BaseModel):
 class DownloadTask(BaseModel):
     """下载任务"""
     task_id: str
-    request: DownloadRequest
+    request: DownloadTaskRequest
     status: str
     created_at: datetime
     started_at: Optional[datetime] = None
@@ -140,7 +140,7 @@ class DownloadService(MicroserviceBase):
         """注册下载相关路由"""
 
         @self.app.post("/api/v1/download", response_model=DownloadResponse)
-        async def create_download_task(request: DownloadRequest, background_tasks: BackgroundTasks):
+        async def create_download_task(request: DownloadTaskRequest, background_tasks: BackgroundTasks):
             """创建下载任务"""
             try:
                 task_id = str(uuid.uuid4())
@@ -276,7 +276,7 @@ class DownloadService(MicroserviceBase):
                 raise HTTPException(status_code=500, detail=str(e))
 
         @self.app.post("/api/v1/download/batch")
-        async def create_batch_tasks(requests: List[DownloadRequest], background_tasks: BackgroundTasks):
+        async def create_batch_tasks(requests: List[DownloadTaskRequest], background_tasks: BackgroundTasks):
             """批量创建下载任务"""
             try:
                 task_ids = []
@@ -400,7 +400,7 @@ class DownloadService(MicroserviceBase):
             if task.request.callback_url:
                 asyncio.create_task(self._send_callback(task))
 
-    async def _perform_download(self, request: DownloadRequest) -> Dict[str, Any]:
+    async def _perform_download(self, request: DownloadTaskRequest) -> Dict[str, Any]:
         """执行实际的下载操作"""
         try:
             # 设置浏览器策略
@@ -408,20 +408,39 @@ class DownloadService(MicroserviceBase):
             config = ConfigManager()
             config.set('browser_strategy', 'playwright')
 
+            # 构建 target_pages 参数（DownloadServiceV2 的接口）
+            target_pages = []
+            for page_type in request.page_types:
+                page_config = {
+                    'suffix': page_type,
+                    'allowed_keywords': request.keywords if request.keywords else None
+                }
+                target_pages.append(page_config)
+
             # 执行下载
             result = self.download_service.download_stock_pdfs(
                 stock_code=request.stock_code,
-                page_types=request.page_types,
-                keywords=request.keywords,
-                max_pages=request.max_pages
+                target_pages=target_pages,
+                max_retries=3
             )
 
-            return {
-                "success": True,
-                "downloaded_files": result.get("downloaded_files", []),
-                "total_files": len(result.get("downloaded_files", [])),
-                "execution_time": result.get("execution_time", 0)
-            }
+            # DownloadServiceV2 返回 List[DownloadRecord]，需要转换
+            if isinstance(result, list):
+                downloaded_files = [record.file_path for record in result if record.status == "success"]
+                return {
+                    "success": len(downloaded_files) > 0,
+                    "downloaded_files": downloaded_files,
+                    "total_files": len(downloaded_files),
+                    "execution_time": sum(getattr(record, 'duration', 0) for record in result)
+                }
+            else:
+                # 兼容旧接口
+                return {
+                    "success": True,
+                    "downloaded_files": result.get("downloaded_files", []),
+                    "total_files": len(result.get("downloaded_files", [])),
+                    "execution_time": result.get("execution_time", 0)
+                }
 
         except Exception as e:
             raise Exception(f"Download failed: {e}")
@@ -449,7 +468,7 @@ class DownloadService(MicroserviceBase):
         except Exception as e:
             self.logger.error(f"Failed to send callback for task {task.task_id}: {e}")
 
-    def _estimate_download_time(self, request: DownloadRequest) -> int:
+    def _estimate_download_time(self, request: DownloadTaskRequest) -> int:
         """估算下载时间（秒）"""
         # 基于经验估算：每个页面类型约30秒
         base_time = len(request.page_types) * 30

@@ -15,7 +15,7 @@ from datetime import datetime
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tests.unit.test_report_generator import TestReportGenerator
+from tests.unit.test_report_generator import ReportGenerator
 
 
 def run_integration_tests():
@@ -112,7 +112,7 @@ def main():
     print("生成测试报告")
     print("=" * 60)
     
-    generator = TestReportGenerator()
+    generator = ReportGenerator()
     
     # 创建集成测试报告
     report_file = generator.create_integration_report(

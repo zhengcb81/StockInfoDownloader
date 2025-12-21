@@ -119,7 +119,8 @@ class TestSeleniumStrategyComprehensive:
 
         # 验证调用
         mock_chrome.assert_called_once()
-        mock_driver.set_page_load_timeout.assert_called_once_with(20)
+        # 默认配置：timeout=180, implicit_wait=3
+        mock_driver.set_page_load_timeout.assert_called_once_with(180)
         mock_driver.implicitly_wait.assert_called_once_with(3)
         mock_driver.get.assert_called_once_with("about:blank")
 

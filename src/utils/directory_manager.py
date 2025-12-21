@@ -115,7 +115,7 @@ class DirectoryManager:
     def validate_directory_structure(self, base_save_dir: Path,
                                   expected_companies: list) -> Tuple[bool, list]:
         """
-        验证目录结构是否符合预期
+        验证目录结构是否符合预期（严格模式）
 
         Args:
             base_save_dir: 基础保存目录
@@ -129,10 +129,14 @@ class DirectoryManager:
 
         issues = []
 
-        # 检查所有项目都应该是目录
+        # 检查所有项目都应该是目录（严格模式，不允许任何临时文件）
         for item in base_save_dir.iterdir():
             if item.is_file():
                 issues.append(f"根目录中存在文件: {item.name}")
+            elif item.is_dir():
+                # 检查是否是预期的公司目录
+                if item.name not in expected_companies:
+                    issues.append(f"根目录中存在非预期的目录: {item.name}")
 
         # 检查预期的公司目录
         for company in expected_companies:

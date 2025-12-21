@@ -327,6 +327,18 @@ class DownloadServiceV2:
     def _find_download_links(self, stock_code: str, page_config: Dict[str, Any] = None) -> List[Dict[str, str]]:
         """查找下载链接（支持完整页面配置）"""
         try:
+            # 调试：记录方法调用
+            logger.info(f"[DEBUG] _find_download_links called with stock_code={stock_code}, page_config={page_config}")
+
+            # 获取当前URL进行调试
+            try:
+                current_url = self.browser_strategy.get_current_url()
+                logger.info(f"[DEBUG] Current URL: {current_url}")
+                print(f"[DEBUG] Current URL: {current_url}")
+            except Exception as e:
+                logger.warning(f"[DEBUG] Failed to get current URL: {e}")
+                print(f"[DEBUG] Failed to get current URL: {e}")
+
             # 解析页面配置
             allowed_keywords = None
             excluded_keywords = None
@@ -350,6 +362,8 @@ class DownloadServiceV2:
 
             # 使用浏览器策略查找元素
             links = self.browser_strategy.find_elements("a")
+            logger.info(f"[DEBUG] Found {len(links)} <a> elements on page")
+            print(f"[DEBUG] Found {len(links)} <a> elements on page")
 
             download_links = []
             total_links = 0

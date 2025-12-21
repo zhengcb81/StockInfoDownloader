@@ -86,8 +86,8 @@ class BaseDownloader(IDownloader):
             return
 
         try:
-            from src.web.anti_crawler import EnhancedAntiCrawlerStrategy
-            self.anti_crawler_strategy = EnhancedAntiCrawlerStrategy(self.config)
+            from src.web.anti_crawler import AntiCrawlerStrategy
+            self.anti_crawler_strategy = AntiCrawlerStrategy()
             self.logger.info("反爬虫策略初始化成功")
         except Exception as e:
             self.logger.error(f"反爬虫策略初始化失败: {e}")

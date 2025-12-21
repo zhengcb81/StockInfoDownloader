@@ -1,0 +1,935 @@
+C:\Users\֣����\Projects\StockInfoDownloader\e2e_test.py:19: DeprecationWarning: There is no current event loop
+  loop = asyncio.get_event_loop()
+2025-12-21 13:26:53 - src.data.mapping - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.data.storage - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.utils.string_optimizer - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.utils.string_optimizer - INFO - info:108 - 字符串优化器初始化完成
+2025-12-21 13:26:53 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:26:53 - DownloaderConfigManager - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - DownloaderConfigManager - INFO - info:108 - 配置已从 config\downloader_config.json 加载
+2025-12-21 13:26:53 - src.web.driver - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.anti_crawler - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.scraper - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.browser_strategy - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.selenium_strategy - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.playwright_strategy - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.web.browser_strategy_manager - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.utils.keyword_matcher - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.services.downloader - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.services.orgid_service - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.services.stock_service - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - ConfigManager - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.factory.downloader_factory - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - src.factory.downloader_factory - INFO - info:108 - 增强版下载器工厂初始化完成
+2025-12-21 13:26:53 - DownloadServiceV2Adapter - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - 浏览器策略初始化成功: selenium
+2025-12-21 13:26:53 - src.web.anti_crawler - INFO - info:108 - 使用测试环境反爬虫参数
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - 反爬虫策略初始化成功
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - 组件初始化完成
+2025-12-21 13:26:53 - FileService - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - ValidationService - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - MonitoringService - INFO - info:108 - Logger initialized
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - 统一下载器初始化完成
+2025-12-21 13:26:53 - DownloadServiceV2Adapter - INFO - info:108 - DownloadServiceV2 适配器初始化完成，使用策略: selenium
+2025-12-21 13:26:53 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:26:53 - UnifiedDownloader - INFO - info:108 - 开始下载 301611 的PDF文件
+2025-12-21 13:26:53 - src.web.selenium_strategy - INFO - info:108 - 正在初始化Selenium WebDriver...
+2025-12-21 13:26:53 - src.web.selenium_strategy - INFO - info:108 - 设置下载目录: C:\Users\郑曾波\Projects\StockInfoDownloader\end2end_test\test_results
+2025-12-21 13:26:55 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver初始化成功
+2025-12-21 13:27:01 - UnifiedDownloader - INFO - info:108 - 尝试切换到标签页: suffix=research
+2025-12-21 13:27:07 - UnifiedDownloader - INFO - info:108 - 使用JavaScript切换标签页: 调研 (suffix: research)
+2025-12-21 13:27:07 - UnifiedDownloader - INFO - info:108 - JavaScript执行结果: None
+2025-12-21 13:27:07 - UnifiedDownloader - WARNING - warning:114 - JavaScript切换未确认: None，将验证当前URL状态
+2025-12-21 13:27:07 - UnifiedDownloader - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research
+2025-12-21 13:27:07 - UnifiedDownloader - INFO - info:108 - ✅ URL验证成功: 包含 #research
+[13:26:53] 开始端到端测试（最终版本）
+[13:26:53] 严格按照测试说明.md实现
+[13:26:53] 使用配置: config_end2end_test.json
+[13:26:53] 保存目录: end2end_test/test_results
+[13:26:53] 预期结果目录: end2end_test/expected_results
+[13:26:53] 浏览器策略: selenium
+[13:26:53] 检测到非空目录，执行智能清理...
+[13:26:53] 目录状态: 1 个公司目录, 1 个文件
+[13:26:53] 智能清理完成: 删除 0 个文件, 0 个目录
+[13:26:53] 保留 1 个文件, 1 个目录
+[13:26:53] 
+验证测试设置...
+[13:26:53] 发现 2 个预期结果公司目录
+[13:26:53] 预期文件总数: 3 个
+[13:26:53]   - 中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[13:26:53]   - 中密控股\中密控股：2025年一季度报告.pdf
+[13:26:53]   - 珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[13:26:53] 
+================================================================================
+[13:26:53] 测试用例 1/3: 301611
+[13:26:53] 类型: research
+[13:26:53] delete_later: False
+[13:26:53] max_pages: 1
+[13:26:53] ================================================================================
+[13:26:53] 测试新下载器(selenium)... (尝试 1/2)
+[13:26:53] 
+使用新下载器测试: 301611 (策略: selenium)
+[DEBUG] _init_browser_strategy: strategy=selenium, download_dir=end2end_test/test_results
+[DEBUG] download_stock_pdfs: 接收到request对象
+[DEBUG]   stock_code: 301611
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has org_id: False
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 珂玛科技
+[DEBUG_MARKER] SUCCESS ORG_ID_MAPPING | Details: {"result":"9900056250"}
+[DEBUG] 自动获取org_id: 9900056250
+[DEBUG] _perform_download: 接收到request对象
+[DEBUG]   stock_code: 301611
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 珂玛科技
+[DEBUG] 设置current_request: stock_code=301611, has_stock_name=True
+[DEBUG] current_request.stock_name = 珂玛科技
+[DEBUG] _build_target_url: stock_code=301611, suffix=research, org_id=9900056250
+[DEBUG] 构建的URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research
+[DEBUG] URL模式: base + hash (#research)
+[DEBUG_MARKER] SUCCESS URL_GENERATION | Details: {"result":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research"}
+[DEBUG_MARKER] SUCCESS WEBPAGE_CONNECTION | Details: {"result":{"url":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research","page_title":"巨潮资讯网"}}
+[DEBUG] 切换到标签页: 调研 (suffix: research)
+[DEBUG] 找到标签页元素: //a[contains(text(), '调研')]
+[DEBUG] _download_with_pagination: 接收到request对象
+[DEBUG]   stock_code: 301611
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 珂玛科技
+[DEBUG] UnifiedDownloader._find_download_links called
+[DEBUG] Current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research
+[DEBUG] allowed_keywords: ['投资者关系管理信息20250725']
+[DEBUG] Found 99 <a> elements on page
+[DEBUG] Found 0 potential list containers
+[DEBUG] 找到详情页链接 1: '珂玛科技：301611珂玛科技投资者关系管理信息20251202' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224846068&announcementTime=2025-12-03%2000:52
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20251202' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 2: '珂玛科技：301611珂玛科技投资者关系管理信息20250725' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18
+[DEBUG] [通过] 关键词匹配: '投资者关系管理信息20250725' in '珂玛科技：301611珂玛科技投资者关系管理信息20250725'
+[DEBUG] [通过] 详情页链接匹配成功: 珂玛科技：301611珂玛科技投资者关系管理信息20250725
+[DEBUG] 找到详情页链接 3: '珂玛科技：301611珂玛科技投资者关系管理信息20250509' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1223510928&announcementTime=2025-05-09%2010:16
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20250509' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 4: '珂玛科技：301611珂玛科技投资者关系管理信息20250429' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1223430836&announcementTime=2025-04-30%2002:08
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20250429' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 5: '珂玛科技：301611珂玛科技投资者关系管理信息20250303' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1222684712&announcementTime=2025-03-03%2001:08
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20250303' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 6: '珂玛科技：301611珂玛科技投资者关系管理信息20241111' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221679078&announcementTime=2024-11-11%2001:38
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20241111' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 7: '珂玛科技：301611珂玛科技投资者关系管理信息20241111' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221679062&announcementTime=2024-11-11%2001:36
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20241111' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 8: '珂玛科技：301611珂玛科技投资者关系管理信息20240919' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221245550&announcementTime=2024-09-19%2011:38
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20240919' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 9: '珂玛科技：301611珂玛科技投资者关系管理信息20240906' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221150719&announcementTime=2024-09-06%2004:05
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20240906' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 10: '珂玛科技：301611珂玛科技投资者关系管理信息20240902' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221108387&announcementTime=2024-09-02%2001:56
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20240902' 不包含任何关键词 ['投资者关系管理信息20250725']
+[DEBUG] 找到详情页链接 11: '珂玛科技：301611珂玛科技投资者关系管理信息20240829' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221038214&announcementTime=2024-08-29%2001:28
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '珂玛科技：301611珂玛科技投资者关系管理信息20240829' 不包含任何关键词 ['投资者关系管理信息20250725']2025-12-21 13:27:18 - UnifiedDownloader - INFO - info:108 - 链接统计: 总链接99, 详情页11, 关键词匹配1, 最终下载1
+2025-12-21 13:27:18 - src.services.download_helper - INFO - info:108 - Logger initialized
+2025-12-21 13:27:23 - src.web.selenium_strategy - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18
+2025-12-21 13:27:23 - src.web.selenium_strategy - INFO - info:108 - 目标URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18
+2025-12-21 13:27:23 - src.web.selenium_strategy - INFO - info:108 - 已点击下载按钮，等待文件下载...
+2025-12-21 13:27:24 - src.web.selenium_strategy - INFO - info:108 - 文件下载成功: end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+2025-12-21 13:27:24 - src.services.download_helper - INFO - info:108 - Selenium下载成功: end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+2025-12-21 13:27:24 - UnifiedDownloader - INFO - info:108 - 文件下载成功: 珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+2025-12-21 13:27:24 - UnifiedDownloader - INFO - info:108 - 已处理完所有 1 页
+2025-12-21 13:27:26 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver已关闭
+2025-12-21 13:27:26 - UnifiedDownloader - INFO - info:108 - 下载器资源清理完成
+
+[DEBUG] 前5个链接样本:
+  1. 文本: 
+     URL: https://www.cninfo.com.cn/new/index
+  2. 文本: 首页
+     URL: https://www.cninfo.com.cn/new/index
+  3. 文本: 公告
+     URL: None
+  4. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szse
+  5. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szseMain
+[DEBUG] 找到 11 个详情页链接样本 (总共 11 个):
+  详情页1. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20251202
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224846068&announcementTime=2025-12-03%2000:52
+  详情页2. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20250725
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18
+  详情页3. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20250509
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1223510928&announcementTime=2025-05-09%2010:16
+  详情页4. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20250429
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1223430836&announcementTime=2025-04-30%2002:08
+  详情页5. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20250303
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1222684712&announcementTime=2025-03-03%2001:08
+  详情页6. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20241111
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221679078&announcementTime=2024-11-11%2001:38
+  详情页7. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20241111
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221679062&announcementTime=2024-11-11%2001:36
+  详情页8. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20240919
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221245550&announcementTime=2024-09-19%2011:38
+  详情页9. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20240906
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221150719&announcementTime=2024-09-06%2004:05
+  详情页10. 文本: 珂玛科技：301611珂玛科技投资者关系管理信息20240902
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1221108387&announcementTime=2024-09-02%2001:56
+[DEBUG_MARKER] SUCCESS PDF_VISIBILITY | Details: {"result":[{"text":"珂玛科技：301611珂玛科技投资者关系管理信息20250725","url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=202...
+[DEBUG_MARKER] SUCCESS KEYWORD_MATCHING | Details: {"total_links":1,"keywords":["投资者关系管理信息20250725"],"matched_count":1}
+[DEBUG] _process_download_links: 接收到request对象, 链接数=1
+[DEBUG]   stock_code: 301611
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 珂玛科技
+[DEBUG] _download_file: 接收到request对象
+[DEBUG]   url: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18
+[DEBUG]   filename: 珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   request is None: False
+[DEBUG]   request.stock_code: 301611
+[DEBUG]   request has stock_name: True
+[DEBUG]   request.stock_name: 珂玛科技
+[DEBUG_MARKER] SUCCESS DOWNLOAD_PAGE_OPENING | Details: {"detail_url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18","filename":"珂玛科技：301611珂玛科技投资...
+[DEBUG] _download_file: 从request获取stock_name=珂玛科技
+[DEBUG] _download_file: url=https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900056250&stockCode=301611&announcementId=1224316725&announcementTime=2025-07-28%2009:18, filename=珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf, save_path=end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG] 下载尝试次数: 1/10
+[DEBUG selenium] download_dir type: <class 'str'>, value: end2end_test/test_results
+[DEBUG selenium] before_files (root only): set()
+[DEBUG selenium] after_files (root only): {WindowsPath('end2end_test/test_results/珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf')}
+[DEBUG selenium] before_files: set()
+[DEBUG selenium] new_files: {WindowsPath('end2end_test/test_results/珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf')}
+[DEBUG selenium] save_path type: <class 'str'>, value: end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG selenium] downloaded_file: end2end_test\test_results\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG selenium] 准备移动文件: end2end_test\test_results\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf -> end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG selenium] 文件移动成功: end2end_test\test_results\珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[DEBUG_MARKER] SUCCESS DOWNLOAD_SUCCESS | Details: {"result":"end2end_test\\test_results\\珂玛科技\\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf"}
+[DEBUG] download_stock_pdfs() 返回值类型: <class 'src.interfaces.downloader_interface.DownloadResult'>
+[DEBUG] download_stock_pdfs() 返回值: DownloadResult(success=True, downloaded_files=['end2end_test\\test_results\\珂玛科技\\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf'], total_files=1, errors=[], duration_seconds=0, metadata={'url': 'https://www.cninfo.com.cn/new/disclosure/stock?stockCode=301611&orgId=9900056250#research', 'session_id': 'session_20251221_132653', 'pages_processed': 1})
+[13:27:24] 下载成功，获得 1 个文件
+[13:27:24] 找到 1 个实际下载文件
+[13:27:24] 发现 1 个文件在公司目录: ['珂玛科技']
+[13:27:26] 下载器资源已清理
+[13:27:26] 获取到 7 个调试标记
+[13:27:26] 调试标记摘要: 成功=7, 失败=0
+[13:27:26]   - org_id_mapping: 1/1 成功
+[13:27:26]   - url_generation: 1/1 成功
+[13:27:26]   - webpage_connection: 1/1 成功
+[13:27:26]   - pdf_visibility: 1/1 成功
+[13:27:26]   - keyword_matching: 1/1 成功
+[13:27:26]   - download_page_opening: 1/1 成功
+[13:27:26]   - download_success: 1/1 成功
+[13:27:26] 测试完成 (delete_later=False)
+[13:27:26] 结果: 成功
+[13:27:26] 耗时: 30.6s
+[13:27:26] 调试信息:
+[13:27:26]   - 股票代码: 301611
+[13:27:26]   - 股票名称: 珂玛科技
+[13:27:26]   - 浏览器策略: selenium
+[13:27:26]   - 下载成功: True
+[13:27:26]   - 下载文件数: 1
+[13:27:26]   - 错误信息: 
+[13:27:26]   - 耗时: 30.6s
+[13:27:26]   - 调试标记数: 7
+[13:27:26] 下载成功，获得 1 个文件
+[13:27:28] 
+================================================================================
+[13:27:28] 测试用例 2/3: 300470
+[13:27:28] 类型: periodicReports
+[13:27:28] delete_later: True
+[13:27:28] max_pages: 5
+[13:27:28] ================================================================================2025-12-21 13:27:28 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:27:28 - UnifiedDownloader - INFO - info:108 - 浏览器策略初始化成功: selenium
+2025-12-21 13:27:28 - src.web.anti_crawler - INFO - info:108 - 使用测试环境反爬虫参数
+2025-12-21 13:27:28 - UnifiedDownloader - INFO - info:108 - 反爬虫策略初始化成功
+2025-12-21 13:27:28 - UnifiedDownloader - INFO - info:108 - 组件初始化完成
+2025-12-21 13:27:28 - UnifiedDownloader - INFO - info:108 - 统一下载器初始化完成
+2025-12-21 13:27:28 - DownloadServiceV2Adapter - INFO - info:108 - DownloadServiceV2 适配器初始化完成，使用策略: selenium
+2025-12-21 13:27:28 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:27:28 - UnifiedDownloader - INFO - info:108 - 开始下载 300470 的PDF文件
+2025-12-21 13:27:28 - src.web.selenium_strategy - INFO - info:108 - 正在初始化Selenium WebDriver...
+2025-12-21 13:27:28 - src.web.selenium_strategy - INFO - info:108 - 设置下载目录: C:\Users\郑曾波\Projects\StockInfoDownloader\end2end_test\test_results
+2025-12-21 13:27:29 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver初始化成功
+2025-12-21 13:27:36 - UnifiedDownloader - INFO - info:108 - 尝试切换到标签页: suffix=periodicReports
+2025-12-21 13:27:54 - UnifiedDownloader - INFO - info:108 - 使用JavaScript切换标签页: 定期报告 (suffix: periodicReports)
+2025-12-21 13:27:54 - UnifiedDownloader - INFO - info:108 - JavaScript执行结果: None
+2025-12-21 13:27:54 - UnifiedDownloader - WARNING - warning:114 - JavaScript切换未确认: None，将验证当前URL状态
+2025-12-21 13:27:54 - UnifiedDownloader - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+2025-12-21 13:27:54 - UnifiedDownloader - INFO - info:108 - ✅ URL验证成功: 包含 #periodicReports
+
+[13:27:28] 测试新下载器(selenium)... (尝试 1/2)
+[13:27:28] 
+使用新下载器测试: 300470 (策略: selenium)
+[DEBUG] _init_browser_strategy: strategy=selenium, download_dir=end2end_test/test_results
+[DEBUG] download_stock_pdfs: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has org_id: False
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG_MARKER] SUCCESS ORG_ID_MAPPING | Details: {"result":"9900023856"}
+[DEBUG] 自动获取org_id: 9900023856
+[DEBUG] _perform_download: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] 设置current_request: stock_code=300470, has_stock_name=True
+[DEBUG] current_request.stock_name = 中密控股
+[DEBUG] _build_target_url: stock_code=300470, suffix=periodicReports, org_id=9900023856
+[DEBUG] 构建的URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+[DEBUG] URL模式: base + hash (#periodicReports)
+[DEBUG_MARKER] SUCCESS URL_GENERATION | Details: {"result":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports"}
+[DEBUG_MARKER] SUCCESS WEBPAGE_CONNECTION | Details: {"result":{"url":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports","page_title":"巨潮资讯网"}}
+[DEBUG] 切换到标签页: 定期报告 (suffix: periodicReports)
+[DEBUG] _download_with_pagination: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] UnifiedDownloader._find_download_links called
+[DEBUG] Current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+[DEBUG] allowed_keywords: ['2025年一季度报告']
+[DEBUG] Found 118 <a> elements on page
+[DEBUG] Found 0 potential list containers
+[DEBUG] 找到详情页链接 1: '中密控股：2025年三季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224766216&announcementTime=2025-10-29%2016:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年三季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 2: '中密控股：2025年半年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224610247&announcementTime=2025-08-28%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年半年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 3: '中密控股：2025年半年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224610238&announcementTime=2025-08-28%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年半年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 4: '中密控股：2025年一季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+[DEBUG] [通过] 关键词匹配: '2025年一季度报告' in '中密控股：2025年一季度报告'
+[DEBUG] [通过] 详情页链接匹配成功: 中密控股：2025年一季度报告
+[DEBUG] 找到详情页链接 5: '中密控股：2024年年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223092160&announcementTime=2025-04-14%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 6: '中密控股：2024年年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223092159&announcementTime=2025-04-14%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 7: '中密控股：2024年三季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221539620&announcementTime=2024-10-28%2016:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年三季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 8: '中密控股：2024年半年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221048314&announcementTime=2024-08-29%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年半年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 9: '中密控股：2024年半年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221048313&announcementTime=2024-08-29%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年半年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 10: '中密控股：2023年年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219799973&announcementTime=2024-04-24%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 11: '中密控股：2023年年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219799900&announcementTime=2024-04-24%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 12: '中密控股：2024年一季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219799864&announcementTime=2024-04-24%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年一季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 13: '中密控股：2023年三季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218164327&announcementTime=2023-10-26%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年三季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 14: '中密控股：2023年半年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217695497&announcementTime=2023-08-29%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年半年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 15: '中密控股：2023年半年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217695493&announcementTime=2023-08-29%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年半年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 16: '中密控股：2023年一季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216583044&announcementTime=2023-04-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年一季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 17: '中密控股：2022年年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216583032&announcementTime=2023-04-25%2017:002025-12-21 13:28:06 - UnifiedDownloader - INFO - info:108 - 链接统计: 总链接118, 详情页30, 关键词匹配1, 最终下载1
+
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 18: '中密控股：2022年年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216583012&announcementTime=2023-04-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 19: '中密控股：2022年三季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1214901197&announcementTime=2022-10-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年三季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 20: '中密控股：2022年半年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1214404671&announcementTime=2022-08-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年半年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 21: '中密控股：2022年半年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1214404670&announcementTime=2022-08-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年半年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 22: '中密控股：2022年一季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1213113806&announcementTime=2022-04-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年一季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 23: '中密控股：2021年年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1213113803&announcementTime=2022-04-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 24: '中密控股：2021年年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1213113800&announcementTime=2022-04-25%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 25: '中密控股：2021年第三季度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1211401699&announcementTime=2021-10-27%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年第三季度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 26: '中密控股：2021年半年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1210872674&announcementTime=2021-08-26%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年半年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 27: '中密控股：2021年半年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1210872673&announcementTime=2021-08-26%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年半年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 28: '中密控股：2021年第一季度报告全文' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1209831314&announcementTime=2021-04-27%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2021年第一季度报告全文' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 29: '中密控股：2020年年度报告' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1209831313&announcementTime=2021-04-27%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2020年年度报告' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 找到详情页链接 30: '中密控股：2020年年度报告摘要' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1209831312&announcementTime=2021-04-27%2017:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2020年年度报告摘要' 不包含任何关键词 ['2025年一季度报告']
+[DEBUG] 前5个链接样本:
+  1. 文本: 
+     URL: https://www.cninfo.com.cn/new/index
+  2. 文本: 首页
+     URL: https://www.cninfo.com.cn/new/index
+  3. 文本: 公告
+     URL: None
+  4. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szse
+  5. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szseMain
+[DEBUG] 找到 20 个详情页链接样本 (总共 30 个):
+  详情页1. 文本: 中密控股：2025年三季度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224766216&announcementTime=2025-10-29%2016:00
+  详情页2. 文本: 中密控股：2025年半年度报告摘要
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224610247&announcementTime=2025-08-28%2017:00
+  详情页3. 文本: 中密控股：2025年半年度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224610238&announcementTime=2025-08-28%2017:00
+  详情页4. 文本: 中密控股：2025年一季度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+  详情页5. 文本: 中密控股：2024年年度报告摘要
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223092160&announcementTime=2025-04-14%2017:00
+  详情页6. 文本: 中密控股：2024年年度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223092159&announcementTime=2025-04-14%2017:00
+  详情页7. 文本: 中密控股：2024年三季度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221539620&announcementTime=2024-10-28%2016:00
+  详情页8. 文本: 中密控股：2024年半年度报告摘要
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221048314&announcementTime=2024-08-29%2017:00
+  详情页9. 文本: 中密控股：2024年半年度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221048313&announcementTime=2024-08-29%2017:00
+  详情页10. 文本: 中密控股：2023年年度报告
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219799973&announcementTime=2024-04-24%2017:00
+[DEBUG_MARKER] SUCCESS PDF_VISIBILITY | Details: {"result":[{"text":"中密控股：2025年一季度报告","url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00"}...
+[DEBUG_MARKER] SUCCESS KEYWORD_MATCHING | Details: {"total_links":1,"keywords":["2025年一季度报告"],"matched_count":1}2025-12-21 13:28:10 - src.web.selenium_strategy - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+2025-12-21 13:28:10 - src.web.selenium_strategy - INFO - info:108 - 目标URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+2025-12-21 13:28:10 - src.web.selenium_strategy - INFO - info:108 - 已点击下载按钮，等待文件下载...
+2025-12-21 13:28:10 - src.web.selenium_strategy - INFO - info:108 - 文件下载成功: end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+2025-12-21 13:28:10 - src.services.download_helper - INFO - info:108 - Selenium下载成功: end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+2025-12-21 13:28:10 - UnifiedDownloader - INFO - info:108 - 文件下载成功: 中密控股：2025年一季度报告.pdf
+2025-12-21 13:28:10 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: Checking if next page exists...
+2025-12-21 13:28:34 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: _has_next_page() returned False, current URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+2025-12-21 13:28:34 - UnifiedDownloader - INFO - info:108 - 已到达最后一页，第 1 页
+2025-12-21 13:28:36 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver已关闭
+2025-12-21 13:28:36 - UnifiedDownloader - INFO - info:108 - 下载器资源清理完成
+2025-12-21 13:28:38 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:28:38 - UnifiedDownloader - INFO - info:108 - 浏览器策略初始化成功: selenium
+2025-12-21 13:28:38 - src.web.anti_crawler - INFO - info:108 - 使用测试环境反爬虫参数
+2025-12-21 13:28:38 - UnifiedDownloader - INFO - info:108 - 反爬虫策略初始化成功
+2025-12-21 13:28:38 - UnifiedDownloader - INFO - info:108 - 组件初始化完成
+2025-12-21 13:28:38 - UnifiedDownloader - INFO - info:108 - 统一下载器初始化完成
+2025-12-21 13:28:38 - DownloadServiceV2Adapter - INFO - info:108 - DownloadServiceV2 适配器初始化完成，使用策略: selenium
+2025-12-21 13:28:38 - src.data.mapping - INFO - info:108 - 已加载 5 个映射
+2025-12-21 13:28:38 - UnifiedDownloader - INFO - info:108 - 开始下载 300470 的PDF文件
+2025-12-21 13:28:38 - src.web.selenium_strategy - INFO - info:108 - 正在初始化Selenium WebDriver...
+2025-12-21 13:28:38 - src.web.selenium_strategy - INFO - info:108 - 设置下载目录: C:\Users\郑曾波\Projects\StockInfoDownloader\end2end_test\test_results
+2025-12-21 13:28:39 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver初始化成功
+2025-12-21 13:28:51 - UnifiedDownloader - INFO - info:108 - 尝试切换到标签页: suffix=research
+2025-12-21 13:28:57 - UnifiedDownloader - INFO - info:108 - 使用JavaScript切换标签页: 调研 (suffix: research)
+2025-12-21 13:28:58 - UnifiedDownloader - INFO - info:108 - JavaScript执行结果: None
+2025-12-21 13:28:58 - UnifiedDownloader - WARNING - warning:114 - JavaScript切换未确认: None，将验证当前URL状态
+2025-12-21 13:28:58 - UnifiedDownloader - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+2025-12-21 13:28:58 - UnifiedDownloader - INFO - info:108 - ✅ URL验证成功: 包含 #research
+
+[DEBUG] _process_download_links: 接收到request对象, 链接数=1
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] _download_file: 接收到request对象
+[DEBUG]   url: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00
+[DEBUG]   filename: 中密控股：2025年一季度报告.pdf
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   request is None: False
+[DEBUG]   request.stock_code: 300470
+[DEBUG]   request has stock_name: True
+[DEBUG]   request.stock_name: 中密控股
+[DEBUG_MARKER] SUCCESS DOWNLOAD_PAGE_OPENING | Details: {"detail_url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00","filename":"中密控股：2025年一季度报告.p...
+[DEBUG] _download_file: 从request获取stock_name=中密控股
+[DEBUG] _download_file: url=https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223265547&announcementTime=2025-04-24%2017:00, filename=中密控股：2025年一季度报告.pdf, save_path=end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+[DEBUG] 下载尝试次数: 1/10
+[DEBUG selenium] download_dir type: <class 'str'>, value: end2end_test/test_results
+[DEBUG selenium] before_files (root only): set()
+[DEBUG selenium] after_files (root only): {WindowsPath('end2end_test/test_results/中密控股：2025年一季度报告.pdf')}
+[DEBUG selenium] before_files: set()
+[DEBUG selenium] new_files: {WindowsPath('end2end_test/test_results/中密控股：2025年一季度报告.pdf')}
+[DEBUG selenium] save_path type: <class 'str'>, value: end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+[DEBUG selenium] downloaded_file: end2end_test\test_results\中密控股：2025年一季度报告.pdf
+[DEBUG selenium] 准备移动文件: end2end_test\test_results\中密控股：2025年一季度报告.pdf -> end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+[DEBUG selenium] 文件移动成功: end2end_test\test_results\中密控股\中密控股：2025年一季度报告.pdf
+[DEBUG_MARKER] SUCCESS DOWNLOAD_SUCCESS | Details: {"result":"end2end_test\\test_results\\中密控股\\中密控股：2025年一季度报告.pdf"}
+[DEBUG] download_stock_pdfs() 返回值类型: <class 'src.interfaces.downloader_interface.DownloadResult'>
+[DEBUG] download_stock_pdfs() 返回值: DownloadResult(success=True, downloaded_files=['end2end_test\\test_results\\中密控股\\中密控股：2025年一季度报告.pdf'], total_files=1, errors=[], duration_seconds=0, metadata={'url': 'https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports', 'session_id': 'session_20251221_132728', 'pages_processed': 1})
+[13:28:34] 下载成功，获得 1 个文件
+[13:28:34] 找到 1 个实际下载文件
+[13:28:36] 下载器资源已清理
+[13:28:36] 获取到 14 个调试标记
+[13:28:36] 调试标记摘要: 成功=14, 失败=0
+[13:28:36]   - org_id_mapping: 2/2 成功
+[13:28:36]   - url_generation: 2/2 成功
+[13:28:36]   - webpage_connection: 2/2 成功
+[13:28:36]   - pdf_visibility: 2/2 成功
+[13:28:36]   - keyword_matching: 2/2 成功
+[13:28:36]   - download_page_opening: 2/2 成功
+[13:28:36]   - download_success: 2/2 成功
+[13:28:36] 测试完成 (delete_later=True)
+[13:28:36] 结果: 成功
+[13:28:36] 耗时: 65.7s
+[13:28:36] 调试信息:
+[13:28:36]   - 股票代码: 300470
+[13:28:36]   - 股票名称: 中密控股
+[13:28:36]   - 浏览器策略: selenium
+[13:28:36]   - 下载成功: True
+[13:28:36]   - 下载文件数: 1
+[13:28:36]   - 错误信息: 
+[13:28:36]   - 耗时: 65.7s
+[13:28:36]   - 调试标记数: 14
+[13:28:36] 下载成功，获得 1 个文件
+[13:28:38] 
+================================================================================
+[13:28:38] 测试用例 3/3: 300470
+[13:28:38] 类型: research
+[13:28:38] delete_later: True
+[13:28:38] max_pages: 3
+[13:28:38] ================================================================================
+[13:28:38] 测试新下载器(selenium)... (尝试 1/2)
+[13:28:38] 
+使用新下载器测试: 300470 (策略: selenium)
+[DEBUG] _init_browser_strategy: strategy=selenium, download_dir=end2end_test/test_results
+[DEBUG] download_stock_pdfs: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has org_id: False
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG_MARKER] SUCCESS ORG_ID_MAPPING | Details: {"result":"9900023856"}
+[DEBUG] 自动获取org_id: 9900023856
+[DEBUG] _perform_download: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] 设置current_request: stock_code=300470, has_stock_name=True
+[DEBUG] current_request.stock_name = 中密控股
+[DEBUG] _build_target_url: stock_code=300470, suffix=research, org_id=9900023856
+[DEBUG] 构建的URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+[DEBUG] URL模式: base + hash (#research)
+[DEBUG_MARKER] SUCCESS URL_GENERATION | Details: {"result":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research"}
+[DEBUG_MARKER] SUCCESS WEBPAGE_CONNECTION | Details: {"result":{"url":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research","page_title":"巨潮资讯网"}}
+[DEBUG] 切换到标签页: 调研 (suffix: research)
+[DEBUG] 找到标签页元素: //a[contains(text(), '调研')]
+[DEBUG] _download_with_pagination: 接收到request对象
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] UnifiedDownloader._find_download_links called
+[DEBUG] Current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+[DEBUG] allowed_keywords: ['2023年1月31日投资者关系活动记录表']
+[DEBUG] Found 118 <a> elements on page
+[DEBUG] Found 0 potential list containers
+[DEBUG] 找到详情页链接 1: '中密控股：2025年12月19日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224889102&announcementTime=2025-12-21%2009:52
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年12月19日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 2: '中密控股：2025年11月28日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224833712&announcementTime=2025-11-28%2009:08
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年11月28日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 3: '中密控股：2025年11月7日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224794429&announcementTime=2025-11-07%2017:18
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年11月7日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 4: '中密控股：2025年11月6日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224791617&announcementTime=2025-11-06%2013:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年11月6日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 5: '中密控股：2025年10月30日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224777951&announcementTime=2025-10-30%2012:10
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年10月30日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 6: '中密控股：2025年9月17日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224666507&announcementTime=2025-09-17%2010:52
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年9月17日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 7: '中密控股：中密控股2025年半年度网上业绩说明会投关记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224656691&announcementTime=2025-09-12%2010:43
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：中密控股2025年半年度网上业绩说明会投关记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 8: '中密控股：2025年8月29日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224629635&announcementTime=2025-08-30%2009:02
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年8月29日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 9: '中密控股：2025年7月28日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224318648&announcementTime=2025-07-28%2013:06
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年7月28日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 10: '中密控股：2025年6月30日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224036251&announcementTime=2025-06-30%2008:32
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年6月30日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 11: '中密控股：2025年6月18日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223909331&announcementTime=2025-06-18%2008:54
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年6月18日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 12: '中密控股：2025年5月26日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223683514&announcementTime=2025-05-26%2011:32
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年5月26日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 13: '中密控股：2025年5月9日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223509385&announcementTime=2025-05-09%2008:22
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年5月9日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 14: '中密控股：中密控股2024年度网上业绩说明会投关记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223362155&announcementTime=2025-04-28%2010:30
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：中密控股2024年度网上业绩说明会投关记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 15: '中密控股：2025年4月25日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1223307735&announcementTime=2025-04-25%2010:56
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年4月25日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 16: '中密控股：2025年1月24日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1222428451&announcementTime=2025-01-24%2008:36
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2025年1月24日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 17: '中密控股：2024年11月29日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221893533&announcementTime=2024-11-29%2015:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年11月29日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 18: '中密控股：2024年10月29日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221561587&announcementTime=2024-10-29%2015:40
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年10月29日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 19: '中密控股：2024年9月25日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221290939&announcementTime=2024-09-25%2010:44
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年9月25日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 20: '中密控股：2024年9月20日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221269176&announcementTime=2024-09-22%2013:44
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年9月20日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 21: '中密控股：中密控股2024年半年度网上业绩说明会投关记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221217053&announcementTime=2024-09-12%2010:26
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：中密控股2024年半年度网上业绩说明会投关记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 22: '中密控股：2024年9月6日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221171064&announcementTime=2024-09-08%2015:58
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年9月6日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 23: '中密控股：2024年8月30日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1221106649&announcementTime=2024-09-01%2007:262025-12-21 13:29:09 - UnifiedDownloader - INFO - info:108 - 链接统计: 总链接118, 详情页30, 关键词匹配0, 最终下载0
+2025-12-21 13:29:09 - UnifiedDownloader - INFO - info:108 - 第 1 页没有找到匹配的下载链接
+2025-12-21 13:29:09 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: Checking if next page exists...
+2025-12-21 13:29:10 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: _has_next_page() returned True, current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+2025-12-21 13:29:10 - UnifiedDownloader - INFO - info:108 - 翻到第 2 页...
+2025-12-21 13:29:10 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: Calling _go_to_next_page()...
+2025-12-21 13:29:24 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: _go_to_next_page() returned True
+2025-12-21 13:29:26 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: After pagination, URL is https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+2025-12-21 13:29:26 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 1: Pagination completed successfully: {'current_page': 1, 'next_page': 2, 'page_url': 'https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research', 'go_to_result': True}
+
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年8月30日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 24: '中密控股：2024年7月24日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220721272&announcementTime=2024-07-24%2015:16
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年7月24日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 25: '中密控股：2024年7月16日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220654809&announcementTime=2024-07-16%2015:40
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年7月16日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 26: '中密控股：2024年7月8日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220559459&announcementTime=2024-07-08%2011:42
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年7月8日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 27: '中密控股：2024年7月1日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220513514&announcementTime=2024-07-01%2016:02
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年7月1日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 28: '中密控股：2024年5月31日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220227439&announcementTime=2024-05-31%2016:36
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年5月31日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 29: '中密控股：2024年5月23日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220146742&announcementTime=2024-05-23%2015:40
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年5月23日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 30: '中密控股：2024年5月21日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220123290&announcementTime=2024-05-21%2016:22
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年5月21日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 前5个链接样本:
+  1. 文本: 
+     URL: https://www.cninfo.com.cn/new/index
+  2. 文本: 首页
+     URL: https://www.cninfo.com.cn/new/index
+  3. 文本: 公告
+     URL: None
+  4. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szse
+  5. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szseMain
+[DEBUG] 找到 20 个详情页链接样本 (总共 30 个):
+  详情页1. 文本: 中密控股：2025年12月19日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224889102&announcementTime=2025-12-21%2009:52
+  详情页2. 文本: 中密控股：2025年11月28日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224833712&announcementTime=2025-11-28%2009:08
+  详情页3. 文本: 中密控股：2025年11月7日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224794429&announcementTime=2025-11-07%2017:18
+  详情页4. 文本: 中密控股：2025年11月6日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224791617&announcementTime=2025-11-06%2013:00
+  详情页5. 文本: 中密控股：2025年10月30日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224777951&announcementTime=2025-10-30%2012:10
+  详情页6. 文本: 中密控股：2025年9月17日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224666507&announcementTime=2025-09-17%2010:52
+  详情页7. 文本: 中密控股：中密控股2025年半年度网上业绩说明会投关记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224656691&announcementTime=2025-09-12%2010:43
+  详情页8. 文本: 中密控股：2025年8月29日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224629635&announcementTime=2025-08-30%2009:02
+  详情页9. 文本: 中密控股：2025年7月28日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224318648&announcementTime=2025-07-28%2013:06
+  详情页10. 文本: 中密控股：2025年6月30日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1224036251&announcementTime=2025-06-30%2008:32
+[DEBUG_MARKER] SUCCESS PDF_VISIBILITY | Details: {"result":[]}
+[DEBUG_MARKER] SUCCESS PAGINATION | Details: {"result":{"current_page":1,"next_page":2,"page_url":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research","go_to_result":true}}
+[DEBUG] UnifiedDownloader._find_download_links called
+[DEBUG] Current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+[DEBUG] allowed_keywords: ['2023年1月31日投资者关系活动记录表']
+[DEBUG] Found 118 <a> elements on page
+[DEBUG] Found 0 potential list containers
+[DEBUG] 找到详情页链接 1: '中密控股：2024年5月16日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220076083&announcementTime=2024-05-16%2012:20
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年5月16日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 2: '中密控股：中密控股2023年度网上业绩说明会投关记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220021093&announcementTime=2024-05-09%2010:52
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：中密控股2023年度网上业绩说明会投关记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 3: '中密控股：2024年5月9日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220021034&announcementTime=2024-05-09%2010:46
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年5月9日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 4: '中密控股：2024年4月30日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219969184&announcementTime=2024-04-30%2016:55
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年4月30日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 5: '中密控股：2024年4月25日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219831385&announcementTime=2024-04-25%2013:32
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年4月25日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 6: '中密控股：2024年3月21日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219373972&announcementTime=2024-03-21%2010:01
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年3月21日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 7: '中密控股：2024年3月14日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219308280&announcementTime=2024-03-14%2015:21
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年3月14日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 8: '中密控股：2024年2月28日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219210847&announcementTime=2024-02-28%2014:11
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年2月28日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 9: '中密控股：2024年2月23日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219170376&announcementTime=2024-02-23%2007:53
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年2月23日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 10: '中密控股：2024年1月19日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218958313&announcementTime=2024-01-21%2006:41
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年1月19日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 11: '中密控股：2024年1月9日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218837857&announcementTime=2024-01-09%2012:01
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年1月9日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 12: '中密控股：2024年1月4日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218808147&announcementTime=2024-01-04%2008:11
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2024年1月4日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 13: '中密控股：2023年12月29日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218766178&announcementTime=2023-12-29%2008:05
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年12月29日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 14: '中密控股：2023年12月15日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218646112&announcementTime=2023-12-17%2012:29
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年12月15日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 15: '中密控股：2023年12月4日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218508440&announcementTime=2023-12-04%2008:51
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年12月4日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 16: '中密控股：2023年11月28日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218464170&announcementTime=2023-11-28%2007:23
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年11月28日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 17: '中密控股：2023年11月16日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218364077&announcementTime=2023-11-16%2014:19
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年11月16日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 18: '中密控股：2023年11月10日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218309302&announcementTime=2023-11-10%2014:14
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年11月10日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 19: '中密控股：300470中密控股调研活动信息20231107' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218274060&announcementTime=2023-11-07%2010:05
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：300470中密控股调研活动信息20231107' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 20: '中密控股：2023年11月3日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218259626&announcementTime=2023-11-05%2010:43
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年11月3日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 21: '中密控股：2023年10月31日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218217368&announcementTime=2023-10-31%2013:57
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年10月31日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 22: '中密控股：2023年10月27日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218193427&announcementTime=2023-10-29%2010:292025-12-21 13:29:32 - UnifiedDownloader - INFO - info:108 - 链接统计: 总链接118, 详情页30, 关键词匹配0, 最终下载0
+2025-12-21 13:29:32 - UnifiedDownloader - INFO - info:108 - 第 2 页没有找到匹配的下载链接
+2025-12-21 13:29:32 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: Checking if next page exists...
+2025-12-21 13:29:33 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: _has_next_page() returned True, current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+2025-12-21 13:29:33 - UnifiedDownloader - INFO - info:108 - 翻到第 3 页...
+2025-12-21 13:29:33 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: Calling _go_to_next_page()...
+2025-12-21 13:29:46 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: _go_to_next_page() returned True
+2025-12-21 13:29:48 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: After pagination, URL is https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+2025-12-21 13:29:48 - UnifiedDownloader - INFO - info:108 - [PAGINATION_DEBUG] Page 2: Pagination completed successfully: {'current_page': 2, 'next_page': 3, 'page_url': 'https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research', 'go_to_result': True}
+
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年10月27日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 23: '中密控股：2023年9月26日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217961776&announcementTime=2023-09-26%2015:13
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年9月26日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 24: '中密控股：300470中密控股调研活动信息20230922' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217931034&announcementTime=2023-09-22%2016:03
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：300470中密控股调研活动信息20230922' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 25: '中密控股：2023年9月7日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217805840&announcementTime=2023-09-07%2013:58
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年9月7日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 26: '中密控股：2023年9月5日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217785188&announcementTime=2023-09-05%2013:47
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年9月5日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 27: '中密控股：2023年8月31日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217738966&announcementTime=2023-08-31%2014:28
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年8月31日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 28: '中密控股：2023年7月25日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217386635&announcementTime=2023-07-25%2013:01
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年7月25日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 29: '中密控股：2023年7月20日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217348305&announcementTime=2023-07-20%2014:31
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年7月20日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 30: '中密控股：2023年7月12日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217285008&announcementTime=2023-07-12%2015:13
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年7月12日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 前5个链接样本:
+  1. 文本: 
+     URL: https://www.cninfo.com.cn/new/index
+  2. 文本: 首页
+     URL: https://www.cninfo.com.cn/new/index
+  3. 文本: 公告
+     URL: None
+  4. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szse
+  5. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szseMain
+[DEBUG] 找到 20 个详情页链接样本 (总共 30 个):
+  详情页1. 文本: 中密控股：2024年5月16日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220076083&announcementTime=2024-05-16%2012:20
+  详情页2. 文本: 中密控股：中密控股2023年度网上业绩说明会投关记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220021093&announcementTime=2024-05-09%2010:52
+  详情页3. 文本: 中密控股：2024年5月9日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1220021034&announcementTime=2024-05-09%2010:46
+  详情页4. 文本: 中密控股：2024年4月30日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219969184&announcementTime=2024-04-30%2016:55
+  详情页5. 文本: 中密控股：2024年4月25日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219831385&announcementTime=2024-04-25%2013:32
+  详情页6. 文本: 中密控股：2024年3月21日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219373972&announcementTime=2024-03-21%2010:01
+  详情页7. 文本: 中密控股：2024年3月14日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219308280&announcementTime=2024-03-14%2015:21
+  详情页8. 文本: 中密控股：2024年2月28日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219210847&announcementTime=2024-02-28%2014:11
+  详情页9. 文本: 中密控股：2024年2月23日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1219170376&announcementTime=2024-02-23%2007:53
+  详情页10. 文本: 中密控股：2024年1月19日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1218958313&announcementTime=2024-01-21%2006:41
+[DEBUG_MARKER] SUCCESS PDF_VISIBILITY | Details: {"result":[]}
+[DEBUG_MARKER] SUCCESS PAGINATION | Details: {"result":{"current_page":2,"next_page":3,"page_url":"https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research","go_to_result":true}}
+[DEBUG] UnifiedDownloader._find_download_links called
+[DEBUG] Current URL: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research
+[DEBUG] allowed_keywords: ['2023年1月31日投资者关系活动记录表']
+[DEBUG] Found 118 <a> elements on page
+[DEBUG] Found 0 potential list containers
+[DEBUG] 找到详情页链接 1: '中密控股：2023年7月7日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217240508&announcementTime=2023-07-07%2017:11
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年7月7日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 2: '中密控股：2023年7月3日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217208205&announcementTime=2023-07-04%2010:25
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年7月3日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 3: '中密控股：2023年6月26日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217147764&announcementTime=2023-06-27%2015:17
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年6月26日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 4: '中密控股：2023年6月21日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217133117&announcementTime=2023-06-25%2008:53
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年6月21日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 5: '中密控股：2023年6月19日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217100920&announcementTime=2023-06-19%2013:39
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年6月19日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 6: '中密控股：2023年6月7日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217024629&announcementTime=2023-06-08%2014:21
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年6月7日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 7: '中密控股：2023年5月19日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216876756&announcementTime=2023-05-22%2014:35
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年5月19日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 8: '中密控股：2023年5月17日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216844348&announcementTime=2023-05-17%2013:27
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年5月17日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 9: '中密控股：2023年5月15日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216822328&announcementTime=2023-05-15%2015:19
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年5月15日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 10: '中密控股：2023年5月11日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216801010&announcementTime=2023-05-11%2012:43
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年5月11日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 11: '中密控股：2022年度网上业绩说明会投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216799475&announcementTime=2023-05-11%2010:43
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年度网上业绩说明会投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 12: '中密控股：2023年5月8日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216768937&announcementTime=2023-05-08%2015:23
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年5月8日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 13: '中密控股：2023年4月28日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216748847&announcementTime=2023-05-04%2014:41
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年4月28日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 14: '中密控股：2023年4月27日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216656879&announcementTime=2023-04-27%2014:30
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年4月27日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 15: '中密控股：2023年3月24日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216222857&announcementTime=2023-03-24%2014:00
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年3月24日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 16: '中密控股：2023年3月21日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216192079&announcementTime=2023-03-22%2013:38
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年3月21日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 17: '中密控股：2023年3月14日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216117097&announcementTime=2023-03-14%2011:44
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年3月14日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 18: '中密控股：2023年3月7日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216073521&announcementTime=2023-03-08%2010:20
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年3月7日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 19: '中密控股：2023年3月2日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216042834&announcementTime=2023-03-02%2015:26
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年3月2日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 20: '中密控股：2023年2月17日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215894159&announcementTime=2023-02-18%2001:32
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年2月17日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 21: '中密控股：2023年2月15日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215874142&announcementTime=2023-02-15%2015:002025-12-21 13:29:54 - UnifiedDownloader - INFO - info:108 - 链接统计: 总链接118, 详情页30, 关键词匹配1, 最终下载1
+
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年2月15日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 22: '中密控股：2023年2月3日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215768230&announcementTime=2023-02-03%2009:48
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年2月3日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 23: '中密控股：2023年1月31日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26
+[DEBUG] [通过] 关键词匹配: '2023年1月31日投资者关系活动记录表' in '中密控股：2023年1月31日投资者关系活动记录表'
+[DEBUG] [通过] 详情页链接匹配成功: 中密控股：2023年1月31日投资者关系活动记录表
+[DEBUG] 找到详情页链接 24: '中密控股：2023年1月12日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215593227&announcementTime=2023-01-12%2013:14
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年1月12日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 25: '中密控股：2023年1月6日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215557928&announcementTime=2023-01-09%2013:32
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2023年1月6日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 26: '中密控股：2022年12月29日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215493658&announcementTime=2022-12-30%2009:28
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年12月29日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 27: '中密控股：2022年12月15日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215368940&announcementTime=2022-12-15%2014:40
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年12月15日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 28: '中密控股：2022年12月9日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215330321&announcementTime=2022-12-12%2008:18
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年12月9日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 29: '中密控股：2022年11月17日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215142624&announcementTime=2022-11-17%2013:20
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年11月17日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 找到详情页链接 30: '中密控股：2022年11月11日投资者关系活动记录表' -> https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215110995&announcementTime=2022-11-14%2012:48
+[DEBUG] [跳过] 关键词不匹配: 链接文本 '中密控股：2022年11月11日投资者关系活动记录表' 不包含任何关键词 ['2023年1月31日投资者关系活动记录表']
+[DEBUG] 前5个链接样本:
+  1. 文本: 
+     URL: https://www.cninfo.com.cn/new/index
+  2. 文本: 首页
+     URL: https://www.cninfo.com.cn/new/index
+  3. 文本: 公告
+     URL: None
+  4. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szse
+  5. 文本: 
+     URL: https://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice#szseMain
+[DEBUG] 找到 20 个详情页链接样本 (总共 30 个):
+  详情页1. 文本: 中密控股：2023年7月7日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217240508&announcementTime=2023-07-07%2017:11
+  详情页2. 文本: 中密控股：2023年7月3日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217208205&announcementTime=2023-07-04%2010:25
+  详情页3. 文本: 中密控股：2023年6月26日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217147764&announcementTime=2023-06-27%2015:17
+  详情页4. 文本: 中密控股：2023年6月21日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217133117&announcementTime=2023-06-25%2008:53
+  详情页5. 文本: 中密控股：2023年6月19日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217100920&announcementTime=2023-06-19%2013:39
+  详情页6. 文本: 中密控股：2023年6月7日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1217024629&announcementTime=2023-06-08%2014:21
+  详情页7. 文本: 中密控股：2023年5月19日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216876756&announcementTime=2023-05-22%2014:35
+  详情页8. 文本: 中密控股：2023年5月17日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216844348&announcementTime=2023-05-17%2013:27
+  详情页9. 文本: 中密控股：2023年5月15日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216822328&announcementTime=2023-05-15%2015:19
+  详情页10. 文本: 中密控股：2023年5月11日投资者关系活动记录表
+        URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1216801010&announcementTime=2023-05-11%2012:43
+[DEBUG_MARKER] SUCCESS PDF_VISIBILITY | Details: {"result":[{"text":"中密控股：2023年1月31日投资者关系活动记录表","url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01...
+[DEBUG_MARKER] SUCCESS KEYWORD_MATCHING | Details: {"total_links":1,"keywords":["2023年1月31日投资者关系活动记录表"],"matched_count":1}
+[DEBUG] _process_download_links: 接收到request对象, 链接数=1
+[DEBUG]   stock_code: 300470
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   has stock_name: True
+[DEBUG]   stock_name: 中密控股
+[DEBUG] _download_file: 接收到request对象
+[DEBUG]   url: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26
+[DEBUG]   filename: 中密控股：2023年1月31日投资者关系活动记录表.pdf2025-12-21 13:30:01 - src.web.selenium_strategy - INFO - info:108 - 当前URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26
+2025-12-21 13:30:01 - src.web.selenium_strategy - INFO - info:108 - 目标URL: https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26
+2025-12-21 13:30:01 - src.web.selenium_strategy - INFO - info:108 - 已点击下载按钮，等待文件下载...
+2025-12-21 13:30:02 - src.web.selenium_strategy - INFO - info:108 - 文件下载成功: end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+2025-12-21 13:30:02 - src.services.download_helper - INFO - info:108 - Selenium下载成功: end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+2025-12-21 13:30:02 - UnifiedDownloader - INFO - info:108 - 文件下载成功: 中密控股：2023年1月31日投资者关系活动记录表.pdf
+2025-12-21 13:30:02 - UnifiedDownloader - INFO - info:108 - 已处理完所有 3 页
+2025-12-21 13:30:04 - src.web.selenium_strategy - INFO - info:108 - Selenium WebDriver已关闭
+2025-12-21 13:30:04 - UnifiedDownloader - INFO - info:108 - 下载器资源清理完成
+
+[DEBUG]   save_dir: end2end_test/test_results
+[DEBUG]   request is None: False
+[DEBUG]   request.stock_code: 300470
+[DEBUG]   request has stock_name: True
+[DEBUG]   request.stock_name: 中密控股
+[DEBUG_MARKER] SUCCESS DOWNLOAD_PAGE_OPENING | Details: {"detail_url":"https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26","filename":"中密控股：2023年1月31日投资...
+[DEBUG] _download_file: 从request获取stock_name=中密控股
+[DEBUG] _download_file: url=https://www.cninfo.com.cn/new/disclosure/detail?plate=szse&orgId=9900023856&stockCode=300470&announcementId=1215749848&announcementTime=2023-02-01%2013:26, filename=中密控股：2023年1月31日投资者关系活动记录表.pdf, save_path=end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[DEBUG] 下载尝试次数: 1/10
+[DEBUG selenium] download_dir type: <class 'str'>, value: end2end_test/test_results
+[DEBUG selenium] before_files (root only): set()
+[DEBUG selenium] after_files (root only): {WindowsPath('end2end_test/test_results/中密控股：2023年1月31日投资者关系活动记录表.pdf')}
+[DEBUG selenium] before_files: set()
+[DEBUG selenium] new_files: {WindowsPath('end2end_test/test_results/中密控股：2023年1月31日投资者关系活动记录表.pdf')}
+[DEBUG selenium] save_path type: <class 'str'>, value: end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[DEBUG selenium] downloaded_file: end2end_test\test_results\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[DEBUG selenium] 准备移动文件: end2end_test\test_results\中密控股：2023年1月31日投资者关系活动记录表.pdf -> end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[DEBUG selenium] 文件移动成功: end2end_test\test_results\中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[DEBUG_MARKER] SUCCESS DOWNLOAD_SUCCESS | Details: {"result":"end2end_test\\test_results\\中密控股\\中密控股：2023年1月31日投资者关系活动记录表.pdf"}
+[DEBUG] download_stock_pdfs() 返回值类型: <class 'src.interfaces.downloader_interface.DownloadResult'>
+[DEBUG] download_stock_pdfs() 返回值: DownloadResult(success=True, downloaded_files=['end2end_test\\test_results\\中密控股\\中密控股：2023年1月31日投资者关系活动记录表.pdf'], total_files=1, errors=[], duration_seconds=0, metadata={'url': 'https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#research', 'session_id': 'session_20251221_132838', 'pages_processed': 3})
+[13:30:02] 下载成功，获得 1 个文件
+[13:30:02] 找到 1 个实际下载文件
+[13:30:04] 下载器资源已清理
+[13:30:04] 获取到 25 个调试标记
+[13:30:04] 调试标记摘要: 成功=25, 失败=0
+[13:30:04]   - org_id_mapping: 3/3 成功
+[13:30:04]   - url_generation: 3/3 成功
+[13:30:04]   - webpage_connection: 3/3 成功
+[13:30:04]   - pdf_visibility: 5/5 成功
+[13:30:04]   - pagination: 2/2 成功
+[13:30:04]   - keyword_matching: 3/3 成功
+[13:30:04]   - download_page_opening: 3/3 成功
+[13:30:04]   - download_success: 3/3 成功
+[13:30:04] 测试完成 (delete_later=True)
+[13:30:04] 结果: 成功
+[13:30:04] 耗时: 83.7s
+[13:30:04] 调试信息:
+[13:30:04]   - 股票代码: 300470
+[13:30:04]   - 股票名称: 中密控股
+[13:30:04]   - 浏览器策略: selenium
+[13:30:04]   - 下载成功: True
+[13:30:04]   - 下载文件数: 1
+[13:30:04]   - 错误信息: 
+[13:30:04]   - 耗时: 83.7s
+[13:30:04]   - 调试标记数: 25
+[13:30:04] 下载成功，获得 1 个文件
+[13:30:06] 
+================================================================================
+[13:30:06] 最终目录比较
+[13:30:06] ================================================================================
+[13:30:06] 下载文件总数: 3 个
+[13:30:06]   - 中密控股\中密控股：2023年1月31日投资者关系活动记录表.pdf
+[13:30:06]   - 中密控股\中密控股：2025年一季度报告.pdf
+[13:30:06]   - 珂玛科技\珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+[13:30:06] 开始100%严格目录比较...
+[13:30:06] 开始严格文件比较，为 2 个公司目录加锁防止清理...
+[13:30:06] 文件比较完成，清理 2 个锁文件...
+[13:30:06] 目录比较结果: 成功
+[13:30:06] 比较详情: 所有文件和目录完全匹配
+[13:30:06] 
+目录结构验证（严格模式）:
+[13:30:06] 验证目录结构，预期公司: ['中密控股', '珂玛科技']
+[13:30:06] 目录结构验证: 通过
+[13:30:06] 
+执行最终清理...
+[13:30:06] 清理完成:
+[13:30:06]   - 删除临时文件: 0 个
+[13:30:06]   - 删除临时目录: 0 个
+[13:30:06]   - 删除公司文件: 2 个
+[13:30:06]   - 删除公司目录: 1 个
+[13:30:06]   - 保留文件: 1 个
+[13:30:06]   - 保留目录: 1 个
+[13:30:06] 
+测试总结:
+[13:30:06] 总测试用例: 3
+[13:30:06] 成功下载: 3
+[13:30:06] 成功率: 100.0%
+[13:30:06] 目录比较: 通过
+[13:30:06] 目录结构: 通过
+[13:30:06] 整体测试: 通过
+[13:30:06] 
+详细结果:
+[13:30:06]   - 301611 [selenium]: 成功 (1 个文件, 30.6s)
+[13:30:06]   - 300470 [selenium]: 成功 (1 个文件, 65.7s)
+[13:30:06]   - 300470 [selenium]: 成功 (1 个文件, 83.7s)
+[13:30:06] 
+浏览器策略性能比较:
+[13:30:06]   - SELENIUM:
+[13:30:06]      成功率: 100.0% (3/3)
+[13:30:06]      失败率: 0.0% (0/3)
+[13:30:06]      平均耗时: 60.0s
+[13:30:06]      平均文件数: 1.0 个/成功测试
+[13:30:06] 
+生成测试报告...
+[13:30:06] 测试报告已保存到: e2e_test_report.json

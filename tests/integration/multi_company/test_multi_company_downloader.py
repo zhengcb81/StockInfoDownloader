@@ -12,8 +12,10 @@ from pathlib import Path
 
 # 添加项目根目录到Python路径
 import sys
-project_root = Path(__file__).parent.parent.parent
+import os
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
+os.chdir(project_root)
 
 from main_parallel import MultiCompanyDownloader, CompanyConfig
 
@@ -59,15 +61,23 @@ class TestMultiCompanyDownloader:
             mock_mapping.return_value.get_org_id.return_value = '9900012345'
             mock_mapping.return_value.get_stock_name.return_value = '测试公司'
 
-            with patch('src.services.downloader.DownloadService') as mock_service:
-                # 模拟下载服务
-                mock_service_instance = Mock()
-                mock_service_instance.download_stock_pdfs.return_value = {
-                    'success': True,
-                    'files_downloaded': 3,
-                    'execution_time': 15.0
-                }
-                mock_service.return_value = mock_service_instance
+            # 关键修复：必须拦截工厂方法，而不是直接拦截适配器类
+            # 因为 main_parallel.py 使用 downloader_factory.create_legacy_adapter()
+            with patch('main_parallel.downloader_factory.create_legacy_adapter') as mock_factory:
+                mock_adapter_instance = Mock()
+
+                # 创建DownloadResult对象（适配main_parallel.py的期望）
+                from src.interfaces.downloader_interface import DownloadResult
+                mock_result = DownloadResult(
+                    success=True,
+                    downloaded_files=['downloads/测试公司/test1.pdf', 'downloads/测试公司/test2.pdf', 'downloads/测试公司/test3.pdf'],
+                    total_files=3,
+                    errors=[],
+                    duration_seconds=1.0,
+                    metadata={}
+                )
+                mock_adapter_instance.download_stock_pdfs.return_value = mock_result
+                mock_factory.return_value = mock_adapter_instance
 
                 return MultiCompanyDownloader(downloader_config)
 
@@ -112,7 +122,7 @@ class TestMultiCompanyDownloader:
         assert len(results) == 2
         assert all(result['success'] for result in results)
 
-    def test_print_summary(self, downloader, capsys):
+    def test_print_summary(self, downloader, caplog):
         """测试打印摘要"""
         results = [
             {
@@ -133,11 +143,13 @@ class TestMultiCompanyDownloader:
 
         downloader.print_summary(results)
 
-        # 检查输出
-        captured = capsys.readouterr()
-        assert '总处理公司数: 2' in captured.out
-        assert '成功下载公司数: 2' in captured.out
-        assert '下载文件总数: 5' in captured.out
+        # 检查日志输出（使用caplog捕获logger输出）
+        log_messages = [record.message for record in caplog.records]
+        log_text = '\n'.join(log_messages)
+
+        assert '总处理公司数: 2' in log_text
+        assert '成功下载公司数: 2' in log_text
+        assert '下载文件总数: 5' in log_text
 
     @patch('main_parallel.get_stock_name')
     def test_main_functionality(self, mock_get_stock_name, downloader_config, capsys):
@@ -148,14 +160,21 @@ class TestMultiCompanyDownloader:
         with patch('src.data.mapping.MappingManager') as mock_mapping:
             mock_mapping.return_value.get_org_id.return_value = '9900012345'
 
-            with patch('src.services.downloader.DownloadService') as mock_service:
-                mock_service_instance = Mock()
-                mock_service_instance.download_stock_pdfs.return_value = {
-                    'success': True,
-                    'files_downloaded': 2,
-                    'execution_time': 10.0
-                }
-                mock_service.return_value = mock_service_instance
+            # 关键修复：使用工厂模式mock
+            with patch('main_parallel.downloader_factory.create_legacy_adapter') as mock_factory:
+                mock_adapter_instance = Mock()
+                # 创建DownloadResult对象（适配main_parallel.py的期望）
+                from src.interfaces.downloader_interface import DownloadResult
+                mock_result = DownloadResult(
+                    success=True,
+                    downloaded_files=['downloads/测试公司/test1.pdf', 'downloads/测试公司/test2.pdf'],
+                    total_files=2,
+                    errors=[],
+                    duration_seconds=1.0,
+                    metadata={}
+                )
+                mock_adapter_instance.download_stock_pdfs.return_value = mock_result
+                mock_factory.return_value = mock_adapter_instance
 
                 # 测试主程序
                 from main_parallel import main

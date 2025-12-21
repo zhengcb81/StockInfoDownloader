@@ -322,7 +322,7 @@ class TestAntiCrawlerEnhanced:
         mock_driver = MagicMock()
         mock_condition = MagicMock()
 
-        with patch('selenium.webdriver.support.ui.WebDriverWait') as mock_wait_class:
+        with patch('src.web.anti_crawler.WebDriverWait') as mock_wait_class:
             mock_wait_instance = MagicMock()
             mock_wait_class.return_value = mock_wait_instance
             mock_wait_instance.until.return_value = True
@@ -338,7 +338,8 @@ class TestAntiCrawlerEnhanced:
         mock_driver = MagicMock()
         mock_condition = MagicMock()
 
-        with patch('selenium.webdriver.support.ui.WebDriverWait') as mock_wait_class:
+        with patch('src.web.anti_crawler.WebDriverWait') as mock_wait_class, \
+             patch.object(self.strategy, 'random_delay') as mock_delay:
             from selenium.common.exceptions import TimeoutException
             mock_wait_instance = MagicMock()
             mock_wait_class.return_value = mock_wait_instance
@@ -347,13 +348,15 @@ class TestAntiCrawlerEnhanced:
             result = self.strategy.smart_wait(mock_driver, mock_condition, timeout=2)
 
             assert result is False
+            mock_delay.assert_called()  # random_delay should be called
 
     def test_smart_wait_exception(self):
         """测试智能等待出现异常"""
         mock_driver = MagicMock()
         mock_condition = MagicMock()
 
-        with patch('selenium.webdriver.support.ui.WebDriverWait') as mock_wait_class:
+        with patch('src.web.anti_crawler.WebDriverWait') as mock_wait_class, \
+             patch.object(self.strategy, 'random_delay') as mock_delay:
             mock_wait_instance = MagicMock()
             mock_wait_class.return_value = mock_wait_instance
             mock_wait_instance.until.side_effect = Exception("未知错误")
@@ -361,6 +364,7 @@ class TestAntiCrawlerEnhanced:
             result = self.strategy.smart_wait(mock_driver, mock_condition)
 
             assert result is False
+            mock_delay.assert_called()
 
     # ==================== 速率限制处理测试 ====================
 

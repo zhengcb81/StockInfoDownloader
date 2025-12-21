@@ -88,7 +88,7 @@ class KeywordMatcher:
     def _matches_any_keyword(self, text: str, title: str, date: str) -> bool:
         """匹配任意关键词"""
         text = " ".join([text, title, date]).lower()
-        
+
         for keyword in self.config.allowed_keywords:
             if keyword.lower() in text:
                 logger.debug(f"关键词匹配成功: {keyword}")
