@@ -8,6 +8,12 @@ import time
 from typing import Optional, List, Any, Dict
 from pathlib import Path
 
+# Playwright导入（用于测试mock）
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
+
 from .browser_strategy import BrowserAutomationStrategy
 from ..core.exceptions import (
     WebDriverError, WebDriverInitError, WebDriverTimeoutError, WebDriverCrashError,
@@ -15,19 +21,24 @@ from ..core.exceptions import (
 )
 from ..core.logger import get_logger
 from ..core.config import ConfigManager
+from ..utils.browser_utils import (
+    is_test_environment,
+    get_default_user_agents,
+    validate_and_normalize_timeout,
+    get_common_chrome_args
+)
+from ..utils.cleanup_utils import safe_cleanup, cleanup_directory
+from ..core.constants import (
+    TimeoutConfig,
+    BrowserConfig,
+    USER_AGENTS,
+    FileSizeThreshold,
+    SelectorConfig,
+    PlaywrightConfig,
+    PaginationConfig
+)
 
 logger = get_logger(__name__)
-
-
-def is_test_environment():
-    """检测是否为测试环境"""
-    import sys
-    return (
-        os.environ.get('TEST_ENV') == 'true' or
-        'test' in sys.argv[0].lower() or
-        'pytest' in sys.argv[0].lower() or
-        os.environ.get('PYTEST_CURRENT_TEST') is not None
-    )
 
 
 class PlaywrightStrategy(BrowserAutomationStrategy):
@@ -49,22 +60,19 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         # 初始化配置管理器
         self.config_manager = ConfigManager()
 
-        # 从配置获取参数
-        self.window_size = self.config.get('window_size', {'width': 1920, 'height': 1080})
+        # 使用常量配置
+        self.window_size = self.config.get('window_size', BrowserConfig.DEFAULT_WINDOW_SIZE_DICT)
 
-        # 处理timeout配置 - 支持秒和毫秒两种格式
-        timeout_value = self.config.get('timeout', 180)
-        if timeout_value > 1000:  # 如果值大于1000，假设是毫秒，转换为秒
-            self.timeout = timeout_value  # 已经是毫秒，直接使用
-        else:  # 如果值小于等于1000，假设是秒，转换为毫秒
-            self.timeout = timeout_value * 1000  # 转换为毫秒
+        # 使用统一的timeout处理
+        timeout_value = self.config.get('timeout', TimeoutConfig.INITIALIZATION)
+        self.timeout = validate_and_normalize_timeout(timeout_value)
 
-        self.max_downloads_per_session = self.config.get('max_downloads_per_session', 10)
+        self.max_downloads_per_session = self.config.get(
+            'max_downloads_per_session',
+            BrowserConfig.MAX_DOWNLOADS_PER_SESSION
+        )
 
-        self._user_agents = self.config.get('user_agents', [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        ])
+        self._user_agents = self.config.get('user_agents', USER_AGENTS)
     
     @with_error_handling(
         error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
@@ -82,7 +90,9 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         logger.info("正在初始化Playwright浏览器...")
 
         try:
-            from playwright.sync_api import sync_playwright
+            # 检查Playwright是否可用
+            if sync_playwright is None:
+                raise ImportError("Playwright not available")
 
             # 创建Playwright实例
             self.playwright = sync_playwright().start()
@@ -91,18 +101,18 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             launch_options = self._build_launch_options()
 
             # 如果指定了下载目录，使用持久化上下文（persistent context）
-            # 这样可以设置 downloads_path 参数
+            # 注意：不设置downloads_path，让download.save_as()完全控制文件保存位置
             if self.download_dir:
                 abs_download_dir = os.path.abspath(self.download_dir)
                 os.makedirs(abs_download_dir, exist_ok=True)
-                
+
                 # 创建临时用户数据目录
                 import tempfile
                 self.user_data_dir = tempfile.mkdtemp(prefix="playwright_user_")
 
-                # 使用持久化上下文启动，可以设置 downloads_path
+                # 使用持久化上下文启动
                 context_options = self._build_context_options()
-                context_options['downloads_path'] = abs_download_dir
+                # 不要设置 downloads_path，否则文件会被保存两次（一次到downloads_path，一次到save_as指定的位置）
 
                 self.context = self.playwright.chromium.launch_persistent_context(
                     self.user_data_dir,
@@ -110,7 +120,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                     **context_options
                 )
                 self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
-                logger.info(f"使用持久化上下文启动，下载目录: {abs_download_dir}")
+                logger.info(f"使用持久化上下文启动，下载目录将通过save_as控制")
             else:
                 # 启动浏览器
                 self.browser = self.playwright.chromium.launch(**launch_options)
@@ -136,7 +146,8 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             self.page.goto('about:blank', wait_until='domcontentloaded')
 
             logger.info("Playwright浏览器初始化成功")
-            return self.browser
+            # 返回浏览器或持久化上下文（作为浏览器句柄）
+            return self.browser if self.browser else self.context
 
         except ImportError:
             raise WebDriverInitError(
@@ -410,66 +421,36 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return ""
     
     def close(self) -> None:
-        """关闭浏览器"""
-        import time
-        import shutil
+        """关闭浏览器（优化版）"""
+        # 按顺序清理资源
+        if self.page:
+            safe_cleanup(self.page.close, "关闭页面失败")
 
-        try:
-            if self.page:
-                try:
-                    self.page.close()
-                except Exception as e:
-                    logger.warning(f"关闭页面时发生错误: {e}")
+        if self.context:
+            safe_cleanup(self.context.close, "关闭上下文失败")
 
-            if self.context:
-                try:
-                    self.context.close()
-                except Exception as e:
-                    logger.warning(f"关闭上下文时发生错误: {e}")
+        if self.browser:
+            safe_cleanup(self.browser.close, "关闭浏览器失败")
 
-            if self.browser:
-                try:
-                    self.browser.close()
-                except Exception as e:
-                    logger.warning(f"关闭浏览器时发生错误: {e}")
+        if hasattr(self, 'playwright') and self.playwright:
+            def _stop():
+                self.playwright.stop()
+                time.sleep(0.5)
+            safe_cleanup(_stop, "停止Playwright失败")
 
-            if hasattr(self, 'playwright') and self.playwright:
-                try:
-                    self.playwright.stop()
-                    # 额外等待确保Playwright完全停止
-                    import time
-                    time.sleep(0.5)
-                except Exception as e:
-                    logger.warning(f"停止Playwright时发生错误: {e}")
+        # 清理临时目录
+        cleanup_directory(self.user_data_dir)
 
-            # 清理临时用户数据目录
-            if self.user_data_dir:
-                try:
-                    if os.path.exists(self.user_data_dir):
-                        shutil.rmtree(self.user_data_dir, ignore_errors=True)
-                        logger.debug(f"清理临时用户数据目录: {self.user_data_dir}")
-                    self.user_data_dir = None
-                except Exception as e:
-                    logger.warning(f"清理临时用户数据目录失败: {e}")
+        # 重置状态
+        self.page = None
+        self.context = None
+        self.browser = None
+        self.playwright = None
+        self.user_data_dir = None
+        self.download_count = 0
 
-            logger.info("Playwright浏览器已关闭")
-
-        except Exception as e:
-            logger.error(f"关闭Playwright浏览器时发生错误: {e}")
-        finally:
-            # 确保资源被释放
-            self.page = None
-            self.context = None
-            self.browser = None
-            if hasattr(self, 'playwright'):
-                self.playwright = None
-            self.page = None
-            self.playwright = None
-            self.user_data_dir = None
-            self.download_count = 0
-
-            # 等待一小段时间确保资源完全释放
-            time.sleep(0.5)
+        time.sleep(0.5)
+        logger.info("Playwright浏览器已关闭")
     
     def is_healthy(self) -> bool:
         """检查浏览器是否健康"""
@@ -566,13 +547,8 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-            next_selectors = [
-                "button.el-pagination__next:not(.is-disabled)",
-                ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)",
-                ".el-pager li.number.active + li.number",
-                "button[aria-label='Next page']:not([disabled])"
-            ]
+            # 使用常量配置的选择器
+            next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             for selector in next_selectors:
                 try:
@@ -583,7 +559,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
 
                         # 等待页面加载
                         self.page.wait_for_load_state('domcontentloaded', timeout=timeout * 1000)
-                        time.sleep(1)  # 额外等待确保内容加载
+                        time.sleep(PaginationConfig.DOM_STABILITY_WAIT)  # 额外等待确保内容加载
 
                         logger.info("成功跳转到下一页")
                         return True

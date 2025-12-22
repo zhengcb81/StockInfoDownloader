@@ -25,25 +25,24 @@ from ..core.exceptions import (
 )
 from ..core.logger import get_logger
 from ..core.config import ConfigManager
+from ..utils.browser_utils import (
+    is_test_environment,
+    get_default_user_agents,
+    get_common_chrome_args,
+    get_default_window_size_string
+)
+from ..utils.cleanup_utils import safe_cleanup
+from ..core.constants import (
+    TimeoutConfig, BrowserConfig, USER_AGENTS, FileSizeThreshold, SelectorConfig
+)
 
 logger = get_logger(__name__)
-
-
-def is_test_environment():
-    """检测是否为测试环境"""
-    import sys
-    return (
-        os.environ.get('TEST_ENV') == 'true' or
-        'test' in sys.argv[0].lower() or
-        'pytest' in sys.argv[0].lower() or
-        os.environ.get('PYTEST_CURRENT_TEST') is not None
-    )
 
 
 class SeleniumStrategy(BrowserAutomationStrategy):
     """Selenium浏览器自动化策略"""
     
-    def __init__(self, headless: bool = True, download_dir: Optional[str] = None, 
+    def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
                  config: Optional[Dict[str, Any]] = None):
         """初始化Selenium策略"""
         self.headless = headless
@@ -55,18 +54,17 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         # 初始化配置管理器
         self.config_manager = ConfigManager()
 
-        # 从配置获取参数
-        self.window_size = self.config.get('window_size', '1920,1080')
+        # 使用常量配置
+        self.window_size = self.config.get('window_size', BrowserConfig.DEFAULT_WINDOW_SIZE)
+
         # BaseDownloader的timeout是秒，需要转换为秒（Selenium使用秒）
-        timeout_seconds = self.config.get('timeout', 180)
+        timeout_seconds = self.config.get('timeout', TimeoutConfig.PAGE_LOAD)
         self.page_load_timeout = self.config.get('page_load_timeout', timeout_seconds)
-        self.implicit_wait = self.config.get('implicit_wait', 3)
-        self.max_downloads_per_session = self.config.get('max_downloads_per_session', 10)
-        
-        self._user_agents = self.config.get('user_agents', [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        ])
+        self.implicit_wait = self.config.get('implicit_wait', BrowserConfig.IMPLICIT_WAIT)
+        self.max_downloads_per_session = self.config.get('max_downloads_per_session', BrowserConfig.MAX_DOWNLOADS_PER_SESSION)
+
+        # 使用常量用户代理
+        self._user_agents = self.config.get('user_agents', USER_AGENTS)
     
     @with_error_handling(
         error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
@@ -96,7 +94,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 logger.error(f"ChromeDriver创建失败: {create_error}")
                 # 尝试清理并重新创建
                 self._cleanup_chrome_processes()
-                time.sleep(2)
+                time.sleep(TimeoutConfig.RETRY_DELAY)
                 self.driver = webdriver.Chrome(options=chrome_options)
             
             # 配置driver
@@ -171,39 +169,20 @@ class SeleniumStrategy(BrowserAutomationStrategy):
     def _build_chrome_options(self) -> Options:
         """构建Chrome选项"""
         chrome_options = Options()
-        
+
         # 基础设置
         if self.headless:
             chrome_options.add_argument('--headless=new')
         chrome_options.add_argument(f'--window-size={self.window_size}')
-        
-        # 必要的Chrome选项
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-gpu')
-        chrome_options.add_argument('--disable-extensions')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        chrome_options.add_argument('--remote-debugging-port=0')
-        
-        # 稳定性选项
-        stability_options = [
-            '--no-first-run', '--no-default-browser-check',
-            '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
-            '--disable-renderer-backgrounding', '--disable-sync', '--disable-translate',
-            '--disable-default-apps', '--disable-notifications', '--disable-popup-blocking',
-            '--log-level=3', '--disable-features=TranslateUI',
-            '--disable-component-extensions-with-background-pages',
-            '--disable-domain-reliability', '--disable-setuid-sandbox',
-            '--disable-features=VizDisplayCompositor', '--disable-ipc-flooding-protection',
-        ]
-        
-        for option in stability_options:
-            chrome_options.add_argument(option)
-        
+
+        # 使用公共工具获取通用Chrome参数
+        for arg in get_common_chrome_args():
+            chrome_options.add_argument(arg)
+
         # 反自动化检测
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
-        
+
         # 设置下载目录
         if self.download_dir:
             abs_download_dir = os.path.abspath(self.download_dir)
@@ -227,11 +206,11 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             }
             chrome_options.add_experimental_option("prefs", prefs)
             logger.info(f"设置下载目录: {abs_download_dir}")
-        
+
         # 随机User-Agent
         user_agent = random.choice(self._user_agents)
         chrome_options.add_argument(f'--user-agent={user_agent}')
-        
+
         return chrome_options
     
     def _cleanup_chrome_processes(self):
@@ -246,11 +225,11 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
                              capture_output=True, timeout=timeout_value, check=False)
             else:
-                subprocess.run(['pkill', '-f', 'chromedriver'], 
+                subprocess.run(['pkill', '-f', 'chromedriver'],
                              capture_output=True, timeout=timeout_value, check=False)
-            
-            time.sleep(0.5)
-            
+
+            time.sleep(TimeoutConfig.BROWSER_CLOSE)
+
         except Exception as e:
             logger.debug(f"清理Chrome进程时发生错误: {e}")
     
@@ -409,16 +388,15 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
     
     def close(self) -> None:
-        """关闭浏览器"""
+        """关闭浏览器（优化版）"""
         if self.driver:
-            try:
-                self.driver.quit()
-                logger.info("Selenium WebDriver已关闭")
-            except Exception as e:
-                logger.error(f"关闭WebDriver时发生错误: {e}")
-            finally:
-                self.driver = None
-                self.download_count = 0
+            safe_cleanup(self.driver.quit, "关闭WebDriver失败")
+
+        # 重置状态
+        self.driver = None
+        self.download_count = 0
+
+        logger.info("Selenium WebDriver已关闭")
     
     def is_healthy(self) -> bool:
         """检查浏览器是否健康"""
@@ -476,7 +454,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def download_file(self, url: str, save_path: str, timeout: int = 10) -> bool:
         """
-        下载文件到指定路径
+        下载文件到指定路径（重构版）
 
         Args:
             url: 要下载的URL
@@ -491,225 +469,456 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-
-            # 记录下载前的文件列表 - 只检查根目录（不递归子目录）
-            print(f"[DEBUG selenium] download_dir type: {type(self.download_dir)}, value: {self.download_dir}")
-            before_files = set()
-            if os.path.exists(self.download_dir):
-                # 只检查根目录，不递归子目录
-                for file in os.listdir(self.download_dir):
-                    file_path = os.path.join(self.download_dir, file)
-                    if os.path.isfile(file_path) and file.lower().endswith('.pdf'):
-                        before_files.add(file_path)
-            print(f"[DEBUG selenium] before_files (root only): {before_files}")
-
-            # 导航到详情页
-            if not self.navigate(url):
-                logger.error(f"无法导航到详情页: {url}")
+            # 1. 准备下载
+            if not self._prepare_download():
                 return False
 
-            # 等待页面加载 - 使用条件等待代替固定sleep
-            # 尝试等待下载按钮出现，超时5秒
-            if not self.wait_for_element("//button[contains(., '公告下载')]", timeout=5, by="xpath", condition="visible"):
-                # 如果下载按钮未出现，等待页面标题包含"巨潮资讯网"
-                logger.info("下载按钮未立即出现，等待页面加载完成")
-                start_time = time.time()
-                while time.time() - start_time < 5:
-                    if "巨潮资讯网" in self.get_page_title():
-                        break
-                    time.sleep(0.5)
-
-            # 检查当前URL，如果是SPA应用，可能需要特殊处理
-            current_url = self.get_current_url()
-            logger.info(f"当前URL: {current_url}")
-            logger.info(f"目标URL: {url}")
-
-            # 如果URL不匹配，可能是SPA应用，尝试直接访问详情页
-            if current_url != url and "/new/disclosure/detail" in url:
-                logger.info("检测到SPA导航问题，尝试直接访问详情页")
-                # 直接导航到详情页URL
-                self.driver.get(url)
-                # 等待页面加载 - 使用条件等待
-                if not self.wait_for_element("//button[contains(., '公告下载')]", timeout=5, by="xpath", condition="visible"):
-                    # 如果下载按钮未出现，等待页面标题包含"巨潮资讯网"
-                    logger.info("直接访问后下载按钮未立即出现，等待页面加载")
-                    start_time = time.time()
-                    while time.time() - start_time < 5:
-                        if "巨潮资讯网" in self.get_page_title():
-                            break
-                        time.sleep(0.5)
-
-                # 再次检查URL
-                current_url = self.get_current_url()
-                logger.info(f"直接访问后URL: {current_url}")
-
-            # 查找并点击下载按钮（公告下载）
-            download_button = self.find_element("//button[contains(., '公告下载')]", by="xpath")
-            if not download_button:
-                logger.error("未找到下载按钮")
-
-                # 尝试其他选择器
-                alternative_selectors = [
-                    "//button[contains(., '下载')]",
-                    "//a[contains(., '公告下载')]",
-                    "//a[contains(., '下载')]",
-                    "//button[contains(., 'PDF')]",
-                    "//a[contains(., 'PDF')]",
-                    ".download-btn",
-                    ".pdf-download"
-                ]
-
-                for selector in alternative_selectors:
-                    download_button = self.find_element(selector, by="xpath")
-                    if download_button:
-                        logger.info(f"使用替代选择器找到下载按钮: {selector}")
-                        break
-
-                if not download_button:
-                    logger.error("所有选择器都未找到下载按钮")
-                    return False
-
-            # 点击下载按钮
-            if not self.click(download_button):
-                logger.error("点击下载按钮失败")
+            # 2. 导航到详情页并等待
+            if not self._navigate_to_detail_page(url):
                 return False
 
-            logger.info("已点击下载按钮，等待文件下载...")
+            # 3. 点击下载按钮
+            if not self._click_download_button():
+                return False
 
-            # 等待文件下载完成
-            start_time = time.time()
-            check_interval = 0.5
+            # 4. 等待并移动文件
+            return self._wait_and_move_file(save_path, timeout)
 
-            while time.time() - start_time < timeout:
-                time.sleep(check_interval)
-                check_interval = min(check_interval * 1.2, 2.0)
-
-                # 检查新文件 - 只检查根目录（不递归子目录）
-                if os.path.exists(self.download_dir):
-                    after_files = set()
-                    # 只检查根目录，不递归子目录
-                    for file in os.listdir(self.download_dir):
-                        file_path = os.path.join(self.download_dir, file)
-                        if os.path.isfile(file_path):
-                            # 检查PDF文件和临时文件
-                            if file.lower().endswith('.pdf') or file.endswith('.tmp'):
-                                after_files.add(Path(file_path))
-
-                    print(f"[DEBUG selenium] after_files (root only): {after_files}")
-                    print(f"[DEBUG selenium] before_files: {before_files}")
-
-                    new_files = after_files - before_files
-                    print(f"[DEBUG selenium] new_files: {new_files}")
-
-                    # 只处理第一个新文件（当前测试用例的文件）
-                    if new_files:
-                        # 找到最大的新文件（通常是最新的下载）
-                        downloaded_file = None
-                        max_size = 0
-                        for f in new_files:
-                            if f.exists():
-                                try:
-                                    size = f.stat().st_size
-                                    if size > max_size:
-                                        max_size = size
-                                        downloaded_file = f
-                                except:
-                                    pass
-
-                        if downloaded_file and downloaded_file.exists() and downloaded_file.stat().st_size > 10 * 1024:
-                            # 如果是临时文件，等待它完成下载
-                            if downloaded_file.suffix == '.tmp':
-                                # 检查临时文件是否稳定（不再增长）
-                                time.sleep(1)
-                                current_size = downloaded_file.stat().st_size
-                                time.sleep(1)
-                                new_size = downloaded_file.stat().st_size
-
-                                if current_size == new_size and current_size > 10 * 1024:
-                                    # 临时文件下载完成，重命名为PDF
-                                    pdf_file = downloaded_file.with_suffix('.pdf')
-                                    downloaded_file.rename(pdf_file)
-                                    downloaded_file = pdf_file
-                                else:
-                                    # 文件还在下载中，继续等待
-                                    continue
-
-                            # 移动文件到目标位置
-                            print(f"[DEBUG selenium] save_path type: {type(save_path)}, value: {save_path}")
-                            print(f"[DEBUG selenium] downloaded_file: {downloaded_file}")
-                            target_dir = Path(save_path).parent
-                            target_dir.mkdir(parents=True, exist_ok=True)
-
-                            # 增强的文件移动逻辑，包含错误处理和重试
-                            try:
-                                # 检查源文件是否存在且可访问
-                                if downloaded_file.exists() and downloaded_file.stat().st_size > 10 * 1024:
-                                    print(f"[DEBUG selenium] 准备移动文件: {downloaded_file} -> {save_path}")
-
-                                    # 尝试移动文件
-                                    shutil.move(str(downloaded_file), save_path)
-
-                                    # 验证移动是否成功
-                                    if Path(save_path).exists() and Path(save_path).stat().st_size > 10 * 1024:
-                                        print(f"[DEBUG selenium] 文件移动成功: {save_path}")
-                                        logger.info(f"文件下载成功: {save_path}")
-
-                                        # 清理可能残留的源文件（如果shutil.move创建了副本）
-                                        if downloaded_file.exists():
-                                            try:
-                                                downloaded_file.unlink()
-                                                print(f"[DEBUG selenium] 清理残留源文件: {downloaded_file}")
-                                            except:
-                                                pass
-
-                                        return True
-                                    else:
-                                        print(f"[DEBUG selenium] 文件移动失败: 目标文件不存在或大小异常")
-                                        # 继续执行，不立即返回，让后续逻辑处理
-                                else:
-                                    print(f"[DEBUG selenium] 源文件无效: 不存在或大小过小")
-                            except Exception as move_error:
-                                print(f"[DEBUG selenium] 文件移动异常: {move_error}")
-                                # 继续执行，让后续逻辑处理
-
-                # 检查目标文件是否已存在（可能被其他进程移动）
-                print(f"[DEBUG selenium 596] save_path type: {type(save_path)}, value: {save_path}")
-                if os.path.exists(save_path) and os.path.getsize(save_path) > 10 * 1024:
-                    logger.info(f"文件已下载: {save_path}")
-                    return True
-
-                # 检查临时文件（Chrome下载时可能使用临时文件名）
-                temp_files = []
-                if os.path.exists(self.download_dir):
-                    for file in os.listdir(self.download_dir):
-                        if file.endswith('.crdownload') or file.endswith('.tmp'):
-                            temp_files.append(file)
-                            logger.info(f"发现临时文件: {file}")
-
-                # 添加调试信息
-                elapsed = time.time() - start_time
-                if elapsed > 10 and elapsed % 10 < 1:  # 每10秒输出一次状态
-                    logger.info(f"下载状态: 已等待 {elapsed:.1f}s, 临时文件数: {len(temp_files)}")
-                    if os.path.exists(self.download_dir):
-                        current_files = list(Path(self.download_dir).rglob("*"))
-                        logger.info(f"当前下载目录文件数: {len(current_files)}")
-
-            logger.error(f"文件下载超时: {save_path}")
-            # 检查是否有部分下载的文件
-            if os.path.exists(save_path):
-                file_size = os.path.getsize(save_path)
-                logger.error(f"文件已存在但大小异常: {file_size} bytes")
-
-            # 检查下载目录状态
-            if os.path.exists(self.download_dir):
-                all_files = list(Path(self.download_dir).rglob("*"))
-                logger.error(f"下载目录文件列表: {[str(f) for f in all_files]}")
-
-            return False
-            
         except Exception as e:
             logger.error(f"文件下载失败: {e}")
             return False
+
+    def _prepare_download(self) -> bool:
+        """
+        准备下载：记录下载前的文件状态
+
+        Returns:
+            bool: 是否准备成功
+        """
+        # 记录下载前的文件列表 - 检查根目录和所有子目录
+        logger.debug(f"download_dir type: {type(self.download_dir)}, value: {self.download_dir}")
+        self._before_files = set()
+
+        if self.download_dir and os.path.exists(self.download_dir):
+            # 递归检查所有目录，包括子目录
+            for root, dirs, files in os.walk(self.download_dir):
+                for file in files:
+                    if file.lower().endswith('.pdf'):
+                        file_path = os.path.join(root, file)
+                        self._before_files.add(file_path)
+
+        logger.debug(f"before_files (all directories): {self._before_files}")
+        return True
+
+    def _navigate_to_detail_page(self, url: str) -> bool:
+        """
+        导航到详情页并等待页面准备就绪
+
+        Args:
+            url: 目标URL
+
+        Returns:
+            bool: 导航是否成功
+        """
+        # 导航到详情页
+        if not self.navigate(url):
+            logger.error(f"无法导航到详情页: {url}")
+            return False
+
+        # 等待页面加载
+        if not self._wait_for_page_ready():
+            return False
+
+        # 检查当前URL，处理SPA应用
+        current_url = self.get_current_url()
+        logger.info(f"当前URL: {current_url}")
+        logger.info(f"目标URL: {url}")
+
+        # 如果URL不匹配，可能是SPA应用，尝试直接访问详情页
+        if current_url != url and "/new/disclosure/detail" in url:
+            logger.info("检测到SPA导航问题，尝试直接访问详情页")
+            self.driver.get(url)
+
+            # 添加固定等待时间，确保页面完全加载（参考测试通过版本）
+            time.sleep(5)
+
+            if not self._wait_for_page_ready():
+                return False
+
+            # 再次检查URL
+            current_url = self.get_current_url()
+            logger.info(f"直接访问后URL: {current_url}")
+
+        return True
+
+    def _wait_for_page_ready(self) -> bool:
+        """
+        等待页面准备就绪
+
+        Returns:
+            bool: 页面是否准备就绪
+        """
+        # 尝试等待下载按钮出现，超时5秒
+        if self.wait_for_element("//button[contains(., '公告下载')]", timeout=5, by="xpath", condition="visible"):
+            return True
+
+        # 如果下载按钮未出现，等待页面标题包含"巨潮资讯网"
+        logger.info("下载按钮未立即出现，等待页面加载完成")
+        start_time = time.time()
+        while time.time() - start_time < 5:
+            if "巨潮资讯网" in self.get_page_title():
+                return True
+            time.sleep(TimeoutConfig.SHORT_WAIT)
+
+        logger.warning("页面加载超时，但继续尝试")
+        return True  # 即使超时也继续，让后续逻辑处理
+
+    def _click_download_button(self) -> bool:
+        """
+        查找并点击下载按钮（使用WebDriverWait确保按钮可点击）
+
+        Returns:
+            bool: 是否成功点击
+        """
+        try:
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.webdriver.common.by import By
+            from selenium.common.exceptions import TimeoutException
+
+            # 使用WebDriverWait等待按钮可点击（30秒超时，与测试通过版本一致）
+            download_btn = WebDriverWait(self.driver, 30).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]"))
+            )
+
+            # 点击下载按钮
+            download_btn.click()
+            logger.info("已点击下载按钮，等待文件下载...")
+            return True
+
+        except TimeoutException:
+            logger.error("等待下载按钮超时（30秒），尝试替代选择器")
+
+            # 尝试其他选择器
+            alternative_selectors = [
+                "//button[contains(., '下载')]",
+                "//a[contains(., '公告下载')]",
+                "//a[contains(., '下载')]",
+                "//button[contains(., 'PDF')]",
+                "//a[contains(., 'PDF')]",
+                ".download-btn",
+                ".pdf-download"
+            ]
+
+            for selector in alternative_selectors:
+                try:
+                    by_method = By.XPATH if "//" in selector else By.CSS_SELECTOR
+                    download_btn = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((by_method, selector))
+                    )
+                    download_btn.click()
+                    logger.info(f"使用替代选择器找到并点击下载按钮: {selector}")
+                    return True
+                except TimeoutException:
+                    continue
+
+            logger.error("所有选择器都未找到可点击的下载按钮")
+            return False
+
+        except Exception as e:
+            logger.error(f"点击下载按钮失败: {e}")
+            return False
+
+    def _wait_and_move_file(self, save_path: str, timeout: int) -> bool:
+        """
+        等待文件下载完成并移动到目标位置
+
+        Args:
+            save_path: 目标保存路径
+            timeout: 超时时间（秒）
+
+        Returns:
+            bool: 是否成功下载并移动
+        """
+        start_time = time.time()
+        check_interval = 0.5
+
+        while time.time() - start_time < timeout:
+            time.sleep(check_interval)
+            check_interval = min(check_interval * 1.2, 2.0)
+
+            # 检查新文件
+            downloaded_file = self._check_for_new_file()
+            if downloaded_file:
+                if self._handle_downloaded_file(downloaded_file, save_path):
+                    return True
+
+            # 检查目标文件是否已存在（可能被其他进程移动）
+            if self._check_target_file_exists(save_path):
+                return True
+
+            # 输出进度信息
+            self._log_download_progress(start_time)
+
+        # 超时处理
+        return self._handle_timeout(save_path, start_time)
+
+    def _check_for_new_file(self):
+        """
+        检查是否有新下载的文件
+
+        Returns:
+            Path or None: 新下载的文件路径
+        """
+        if not self.download_dir or not os.path.exists(self.download_dir):
+            return None
+
+        after_files = set()
+        # 递归检查所有目录，包括子目录
+        for root, dirs, files in os.walk(self.download_dir):
+            for file in files:
+                # 检查PDF文件和临时文件
+                if file.lower().endswith('.pdf') or file.endswith('.tmp'):
+                    file_path = os.path.join(root, file)
+                    after_files.add(Path(file_path))
+
+        logger.debug(f"after_files (all directories): {after_files}")
+        logger.debug(f"before_files: {self._before_files}")
+
+        new_files = after_files - self._before_files
+        logger.debug(f"new_files: {new_files}")
+
+        if not new_files:
+            return None
+
+        # 找到最大的新文件（通常是最新的下载）
+        downloaded_file = None
+        max_size = 0
+        for f in new_files:
+            if f.exists():
+                try:
+                    size = f.stat().st_size
+                    if size > max_size:
+                        max_size = size
+                        downloaded_file = f
+                except:
+                    pass
+
+        return downloaded_file
+
+    def _handle_downloaded_file(self, downloaded_file: Path, save_path: str) -> bool:
+        """
+        处理已下载的文件
+
+        Args:
+            downloaded_file: 下载的文件路径
+            save_path: 目标保存路径
+
+        Returns:
+            bool: 是否处理成功
+        """
+        if not downloaded_file or not downloaded_file.exists():
+            return False
+
+        file_size = downloaded_file.stat().st_size
+        if file_size <= FileSizeThreshold.MIN_VALID_PDF:
+            logger.debug(f"文件大小过小: {file_size} bytes")
+            return False
+
+        # 处理临时文件
+        if downloaded_file.suffix == '.tmp':
+            if not self._wait_for_temp_file_completion(downloaded_file):
+                return False
+
+        # 移动文件到目标位置
+        return self._move_file_to_target(downloaded_file, save_path)
+
+    def _find_download_button(self):
+        """查找下载按钮"""
+        # 主选择器
+        download_button = self.find_element("//button[contains(., '公告下载')]", by="xpath")
+        if download_button:
+            return download_button
+
+        # 备选选择器
+        for selector in SelectorConfig.DOWNLOAD_BUTTON_ALTERNATIVES:
+            download_button = self.find_element(selector, by="xpath" if "//" in selector else "css")
+            if download_button:
+                logger.info(f"使用替代选择器找到下载按钮: {selector}")
+                return download_button
+
+        return None
+
+    def _get_pdf_files_in_download_dir(self) -> set:
+        """获取下载目录中的PDF文件集合"""
+        if not self.download_dir or not os.path.exists(self.download_dir):
+            return set()
+
+        files = set()
+        # 递归检查所有目录，包括子目录
+        for root, dirs, file_list in os.walk(self.download_dir):
+            for file in file_list:
+                file_path = os.path.join(root, file)
+                if os.path.isfile(file_path) and file.lower().endswith('.pdf'):
+                    files.add(file_path)
+        return files
+
+    def _wait_for_temp_file_completion(self, temp_file: Path) -> bool:
+        """
+        等待临时文件下载完成
+
+        Args:
+            temp_file: 临时文件路径
+
+        Returns:
+            bool: 是否完成
+        """
+        # 检查临时文件是否稳定（不再增长）
+        time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
+        current_size = temp_file.stat().st_size
+        time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
+        new_size = temp_file.stat().st_size
+
+        if current_size == new_size and current_size > FileSizeThreshold.MIN_VALID_PDF:
+            # 临时文件下载完成，重命名为PDF
+            pdf_file = temp_file.with_suffix('.pdf')
+            try:
+                temp_file.rename(pdf_file)
+                return True
+            except Exception as e:
+                logger.warning(f"重命名临时文件失败: {e}")
+                return False
+        else:
+            # 文件还在下载中
+            return False
+
+    def _move_file_to_target(self, source_file: Path, save_path: str) -> bool:
+        """
+        移动文件到目标位置
+
+        Args:
+            source_file: 源文件路径
+            save_path: 目标保存路径
+
+        Returns:
+            bool: 是否移动成功
+        """
+        logger.debug(f"save_path type: {type(save_path)}, value: {save_path}")
+        logger.debug(f"downloaded_file: {source_file}")
+
+        # 确保目标目录存在
+        target_dir = Path(save_path).parent
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # 检查源文件和目标文件是否相同
+        target_path = Path(save_path)
+        if source_file.resolve() == target_path.resolve():
+            logger.debug(f"源文件和目标文件相同，无需移动: {source_file}")
+            # 但仍然需要验证文件大小
+            if source_file.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
+                logger.info(f"文件已就位: {save_path}")
+                return True
+            else:
+                logger.debug(f"文件大小无效: {source_file.stat().st_size}")
+                return False
+
+        try:
+            # 检查源文件是否存在且可访问
+            if not source_file.exists() or source_file.stat().st_size <= FileSizeThreshold.MIN_VALID_PDF:
+                logger.debug(f"源文件无效: 不存在或大小过小")
+                return False
+
+            logger.debug(f"准备移动文件: {source_file} -> {save_path}")
+
+            # 尝试移动文件
+            shutil.move(str(source_file), save_path)
+
+            # 验证移动是否成功
+            if target_path.exists() and target_path.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
+                logger.debug(f"文件移动成功: {save_path}")
+                logger.info(f"文件下载成功: {save_path}")
+
+                # 清理可能残留的源文件（如果shutil.move创建了副本）
+                if source_file.exists():
+                    try:
+                        source_file.unlink()
+                        logger.debug(f"清理残留源文件: {source_file}")
+                    except:
+                        pass
+
+                return True
+            else:
+                logger.debug(f"文件移动失败: 目标文件不存在或大小异常")
+                return False
+
+        except Exception as move_error:
+            logger.debug(f"文件移动异常: {move_error}")
+            return False
+
+    def _check_target_file_exists(self, save_path: str) -> bool:
+        """
+        检查目标文件是否已存在
+
+        Args:
+            save_path: 目标路径
+
+        Returns:
+            bool: 文件是否存在
+        """
+        logger.debug(f"save_path type: {type(save_path)}, value: {save_path}")
+        if os.path.exists(save_path) and os.path.getsize(save_path) > FileSizeThreshold.MIN_VALID_PDF:
+            logger.info(f"文件已下载: {save_path}")
+            return True
+        return False
+
+    def _log_download_progress(self, start_time: float):
+        """
+        记录下载进度信息
+
+        Args:
+            start_time: 开始时间
+        """
+        # 检查临时文件（递归检查所有目录）
+        temp_files = []
+        if self.download_dir and os.path.exists(self.download_dir):
+            for root, dirs, files in os.walk(self.download_dir):
+                for file in files:
+                    if file.endswith('.crdownload') or file.endswith('.tmp'):
+                        temp_files.append(os.path.join(root, file))
+
+        # 输出进度信息
+        elapsed = time.time() - start_time
+        if elapsed > 10 and elapsed % 10 < 1:  # 每10秒输出一次状态
+            logger.info(f"下载状态: 已等待 {elapsed:.1f}s, 临时文件数: {len(temp_files)}")
+            if self.download_dir and os.path.exists(self.download_dir):
+                current_files = list(Path(self.download_dir).rglob("*"))
+                logger.info(f"当前下载目录文件数: {len(current_files)}")
+
+    def _handle_timeout(self, save_path: str, start_time: float) -> bool:
+        """
+        处理下载超时
+
+        Args:
+            save_path: 目标保存路径
+            start_time: 开始时间
+
+        Returns:
+            bool: 始终返回False
+        """
+        elapsed = time.time() - start_time
+        logger.error(f"文件下载超时 ({elapsed:.1f}s): {save_path}")
+
+        # 检查是否有部分下载的文件
+        if os.path.exists(save_path):
+            file_size = os.path.getsize(save_path)
+            logger.error(f"文件已存在但大小异常: {file_size} bytes")
+
+        # 检查下载目录状态
+        if self.download_dir and os.path.exists(self.download_dir):
+            all_files = list(Path(self.download_dir).rglob("*"))
+            logger.error(f"下载目录文件列表: {[str(f) for f in all_files]}")
+
+        return False
 
     def go_to_next_page(self, timeout: int = 10) -> bool:
         """
@@ -773,7 +982,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     if next_button and next_button.is_enabled() and next_button.is_displayed():
                         # 滚动到元素位置
                         self.driver.execute_script("arguments[0].scrollIntoView();", next_button)
-                        time.sleep(0.5)
+                        time.sleep(TimeoutConfig.SCROLL_DELAY)
 
                         marker.add_step(f"clicking_{idx}", f"点击下一页按钮 {idx}", {
                             "selector": selector,
@@ -803,7 +1012,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                             # 点击已成功，即使等待超时也返回True
 
                         # CRITICAL: Add extra wait and URL verification
-                        time.sleep(2.0)  # Additional wait for page stabilization
+                        time.sleep(TimeoutConfig.CLICK_STABILIZATION)  # Additional wait for page stabilization
                         url_after_click = self.driver.current_url
                         marker.add_step(f"url_after_click_{idx}", f"点击后URL状态", {
                             "selector": selector,
@@ -930,13 +1139,13 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                             if button_text == str(page_number):
                                 # 滚动到元素位置
                                 self.driver.execute_script("arguments[0].scrollIntoView();", page_button)
-                                time.sleep(0.5)
+                                time.sleep(TimeoutConfig.SCROLL_DELAY)
 
                                 # 点击页码按钮
                                 page_button.click()
 
                                 # 等待页面加载
-                                time.sleep(3)
+                                time.sleep(TimeoutConfig.LONG_WAIT)
                                 logger.info(f"成功跳转到第{page_number}页")
                                 return True
 
@@ -983,7 +1192,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             # CRITICAL FIX: Add wait mechanism to ensure DOM is ready after previous pagination
             # This is the key difference from go_to_next_page() that was causing validation failures
             marker.add_step("wait_for_stability", "等待页面稳定", {})
-            time.sleep(1.0)  # Wait 1 second for DOM to stabilize
+            time.sleep(TimeoutConfig.MEDIUM_WAIT)  # Wait for DOM to stabilize
 
             # Also wait for any pending network requests or DOM updates
             try:
@@ -1031,7 +1240,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 try:
                     # Add small wait between selector attempts
                     if idx > 0:
-                        time.sleep(0.2)
+                        time.sleep(TimeoutConfig.SELECTOR_RETRY)
 
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
                     marker.add_step(f"check_selector_{idx}", f"检查选择器 {idx}", {
