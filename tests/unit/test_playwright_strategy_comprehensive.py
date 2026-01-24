@@ -165,12 +165,12 @@ class TestPlaywrightStrategyComprehensive:
 
         strategy = PlaywrightStrategy()
 
-        # 应该抛出WebDriverTimeoutError
+        # 应该抛出WebDriverTimeoutError（create_driver内部将timeout异常转换为WebDriverTimeoutError）
         with pytest.raises(WebDriverTimeoutError) as exc_info:
             strategy.create_driver()
 
         assert "timeout" in str(exc_info.value).lower()
-        assert exc_info.value.error_code == ErrorCode.WEBDRIVER_INIT_ERROR
+        assert exc_info.value.error_code == ErrorCode.WEBDRIVER_TIMEOUT_ERROR
 
     @patch('src.web.playwright_strategy.sync_playwright')
     def test_create_driver_close_existing(self, mock_sync_playwright):
@@ -209,7 +209,7 @@ class TestPlaywrightStrategyComprehensive:
         result = strategy.navigate("https://example.com")
 
         assert result is True
-        strategy.page.goto.assert_called_once_with("https://example.com", wait_until='domcontentloaded')
+        strategy.page.goto.assert_called_once_with("https://example.com", wait_until='domcontentloaded', timeout=180000)
 
     def test_navigate_no_page(self):
         """测试无页面时导航失败"""
@@ -252,7 +252,7 @@ class TestPlaywrightStrategyComprehensive:
         elements = strategy.find_elements("//div[@class='test']", "xpath")
 
         assert elements == mock_elements
-        strategy.page.query_selector_all.assert_called_once_with('xpath=//div[@class="test"]')
+        strategy.page.query_selector_all.assert_called_once_with("xpath=//div[@class='test']")
 
     def test_find_elements_no_page(self):
         """测试无页面时查找元素"""
@@ -388,7 +388,7 @@ class TestPlaywrightStrategyComprehensive:
 
         result = strategy.wait_for_element(".test", timeout=10)
         assert result is True
-        strategy.page.wait_for_selector.assert_called_once_with(".test", timeout=10000)
+        strategy.page.wait_for_selector.assert_called_once_with(".test", state='visible', timeout=10000)
 
     def test_wait_for_element_no_page(self):
         """测试无页面时等待元素"""
@@ -467,18 +467,26 @@ class TestPlaywrightStrategyComprehensive:
     def test_close_with_all_resources(self):
         """测试关闭所有浏览器资源"""
         strategy = PlaywrightStrategy()
-        strategy.browser = MagicMock()
-        strategy.context = MagicMock()
-        strategy.page = MagicMock()
-        strategy.playwright = MagicMock()
+        mock_browser = MagicMock()
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_playwright = MagicMock()
 
-        strategy.close()
+        strategy.browser = mock_browser
+        strategy.context = mock_context
+        strategy.page = mock_page
+        strategy.playwright = mock_playwright
+        strategy.user_data_dir = None
 
-        # 验证资源被关闭
-        strategy.page.close.assert_called_once()
-        strategy.context.close.assert_called_once()
-        strategy.browser.close.assert_called_once()
-        strategy.playwright.stop.assert_called_once()
+        # Mock time.sleep to speed up test
+        with patch('time.sleep'):
+            strategy.close()
+
+        # 验证资源被关闭 (使用存储的mock引用)
+        mock_page.close.assert_called_once()
+        mock_context.close.assert_called_once()
+        mock_browser.close.assert_called_once()
+        mock_playwright.stop.assert_called_once()
 
         # 验证资源被置为None
         assert strategy.browser is None
@@ -489,15 +497,19 @@ class TestPlaywrightStrategyComprehensive:
     def test_close_partial_resources(self):
         """测试关闭部分资源"""
         strategy = PlaywrightStrategy()
-        strategy.browser = MagicMock()
+        mock_browser = MagicMock()
+        strategy.browser = mock_browser
         strategy.context = None
         strategy.page = None
         strategy.playwright = None
+        strategy.user_data_dir = None
 
-        strategy.close()
+        # Mock time.sleep to speed up test
+        with patch('time.sleep'):
+            strategy.close()
 
-        # 只有browser应该被关闭
-        strategy.browser.close.assert_called_once()
+        # 只有browser应该被关闭 (使用存储的mock引用)
+        mock_browser.close.assert_called_once()
         assert strategy.browser is None
 
     def test_close_exception_handling(self):
@@ -507,9 +519,14 @@ class TestPlaywrightStrategyComprehensive:
         strategy.browser.close.side_effect = Exception("Close error")
         strategy.context = MagicMock()
         strategy.context.close.side_effect = Exception("Context close error")
+        strategy.page = None
+        strategy.playwright = None
+        strategy.user_data_dir = None
 
-        # 应该不会抛出异常
-        strategy.close()
+        # Mock time.sleep to speed up test
+        with patch('time.sleep'):
+            # 应该不会抛出异常
+            strategy.close()
 
         # 资源应该被置为None
         assert strategy.browser is None
@@ -849,11 +866,11 @@ class TestPlaywrightStrategyComprehensive:
     # ==================== 集成测试 ====================
 
     @patch('src.web.playwright_strategy.sync_playwright')
-    def test_full_workflow(self, mock_sync_playwright):
+    @patch('tempfile.mkdtemp')
+    def test_full_workflow(self, mock_mkdtemp, mock_sync_playwright):
         """测试完整工作流程"""
         # 设置mock
         mock_playwright_instance = MagicMock()
-        mock_browser = MagicMock()
         mock_context = MagicMock()
         mock_page = MagicMock()
 
@@ -861,22 +878,23 @@ class TestPlaywrightStrategyComprehensive:
         mock_sync_playwright_instance.start.return_value = mock_playwright_instance
         mock_sync_playwright.return_value = mock_sync_playwright_instance
 
-        mock_playwright_instance.chromium.launch.return_value = mock_browser
-        mock_browser.new_context.return_value = mock_context
-        mock_context.new_page.return_value = mock_page
+        # Mock persistent context (since download_dir is provided)
+        mock_playwright_instance.chromium.launch_persistent_context.return_value = mock_context
+        mock_context.pages = [mock_page]
+        mock_mkdtemp.return_value = "/tmp/playwright_user_test"
 
         # 创建策略
         strategy = PlaywrightStrategy(headless=True, download_dir=self.download_dir)
 
-        # 1. 创建driver
-        browser = strategy.create_driver()
-        assert browser == mock_browser
+        # 1. 创建driver (使用持久化上下文)
+        browser_or_context = strategy.create_driver()
+        assert browser_or_context == mock_context
         assert strategy.is_healthy() is True
 
         # 2. 导航
         result = strategy.navigate("https://example.com")
         assert result is True
-        mock_page.goto.assert_called_with("https://example.com", wait_until='domcontentloaded')
+        mock_page.goto.assert_called_with("https://example.com", wait_until='domcontentloaded', timeout=180000)
 
         # 3. 查找元素
         mock_elements = [MagicMock(), MagicMock()]
@@ -889,7 +907,8 @@ class TestPlaywrightStrategyComprehensive:
         assert strategy.get_current_url() == "https://example.com"
 
         # 5. 关闭
-        strategy.close()
+        with patch('time.sleep'):
+            strategy.close()
         assert strategy.browser is None
         assert strategy.page is None
         assert strategy.is_healthy() is False
