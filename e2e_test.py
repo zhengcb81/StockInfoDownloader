@@ -11,6 +11,13 @@
 import sys
 import asyncio
 if sys.platform == 'win32':
+    # 设置控制台编码为UTF-8，防止乱码
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
     # Windows上Playwright需要ProactorEventLoop，但sync_playwright会自动处理
     # 为避免事件循环冲突，确保每次测试都有干净的事件循环
     try:
@@ -48,19 +55,7 @@ def get_real_stock_name(stock_code):
 
 import sys
 import locale
-
-# 设置控制台编码为UTF-8
-if sys.platform == 'win32':
-    try:
-        # Windows下设置控制台编码为UTF-8
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        # 如果设置失败，忽略错误
-        pass
-
 import os
-import sys
 import json
 import time
 import shutil
@@ -78,9 +73,17 @@ current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
 def log(message):
-    """简单的日志输出"""
+    """简单的日志输出，处理编码问题"""
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"[{timestamp}] {message}")
+    try:
+        print(f"[{timestamp}] {message}")
+    except UnicodeEncodeError:
+        # 如果无法编码（例如在GBK终端打印特殊符号），则尝试用替换方式打印
+        try:
+            print(f"[{timestamp}] {message.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding)}")
+        except:
+            # 最后的退路：只打印ASCII部分
+            print(f"[{timestamp}] {message.encode('ascii', errors='replace').decode('ascii')}")
 
 def calculate_file_hash(file_path):
     """计算文件MD5"""
@@ -480,6 +483,8 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
         )
 
         # 执行下载 - 适配器需要单独参数，而不是DownloadRequest对象
+        # 注意：这里强制传入 delete_later=False，因为我们需要保留文件进行最终的目录比对。
+        # 清理工作将由 e2e_test.py 在比对完成后，根据 test_case 的配置统一执行。
         download_records = downloader.download_stock_pdfs(
             stock_code=request.stock_code,
             stock_name=request.stock_name,
@@ -488,7 +493,7 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
             max_pages=request.max_pages,
             timeout_seconds=request.timeout_seconds,
             save_dir=request.save_dir,
-            delete_later=request.delete_later
+            delete_later=False  # 强制不删除，等待测试脚本统一清理
         )
 
         # 诊断信息：打印返回值类型
@@ -772,37 +777,24 @@ def main():
     # 获取测试用例列表（用于智能清理）
     test_cases = config.get("test_cases", [])
 
-    # 测试前智能目录检查（确保测试目录完全符合要求）
+    # === 关键修改：强制重置测试目录 ===
+    # 痛点解决：确保每次测试前环境绝对干净，移除所有上一次测试的残留文件（包括.crdownload等垃圾文件）
+    log("正在初始化测试环境...")
     try:
-        from tools.debug.test_helper_cleaner import get_test_directory_status, clean_test_files
-
-        # 检查目录状态
-        status = get_test_directory_status(config["save_dir"])
-        if status["exists"] and status["total_files"] > 0:
-            log(f"检测到非空目录，执行智能清理...")
-            log(f"目录状态: {status['total_dirs']} 个公司目录, {status['total_files']} 个文件")
-
-            # 只保留delete_later=False的测试用例
-            preserve_cases = [case for case in test_cases if not case.get("delete_later", True)]
-            clean_result = clean_test_files(config["save_dir"], preserve_cases, dry_run=False)
-            log(f"智能清理完成: 删除 {clean_result['cleaned_files']} 个文件, {clean_result['cleaned_dirs']} 个目录")
-            log(f"保留 {clean_result['preserved_files']} 个文件, {clean_result['preserved_dirs']} 个目录")
-        else:
-            save_dir.mkdir(parents=True, exist_ok=True)
-            log("测试目录为空或不存在，无需清理")
+        if save_dir.exists():
+            log(f"清理旧测试目录: {save_dir}")
+            # 使用 shutil.rmtree 彻底删除目录及其所有内容
+            shutil.rmtree(save_dir)
+            # 稍微等待一下文件系统释放锁（Windows系统特有）
+            time.sleep(0.5)
+        
+        # 重新创建干净的空目录
+        save_dir.mkdir(parents=True, exist_ok=True)
+        log(f"已创建全新的测试结果目录: {save_dir}")
     except Exception as e:
-        log(f"智能目录检查失败: {e}")
-        # 回退到原始清空逻辑
-        try:
-            save_dir.mkdir(parents=True, exist_ok=True)
-            for item in save_dir.glob('*'):
-                if item.is_file():
-                    item.unlink()
-                elif item.is_dir():
-                    shutil.rmtree(item)
-            log("已使用回退逻辑清空保存目录")
-        except Exception as e2:
-            log(f"回退清空目录失败: {e2}")
+        log(f"严重错误: 无法重置测试目录: {e}")
+        # 如果无法清理目录，测试无法继续，必须报错退出
+        return 1
     
     # 验证测试设置
     log("\n验证测试设置...")
@@ -876,6 +868,10 @@ def main():
             
             if new_result:
                 all_results.append(new_result)
+            
+            # DEBUG CHECK
+            debug_file = Path(config["save_dir"]) / "中密控股" / "中密控股：2025年一季度报告.pdf"
+            log(f"DEBUG: After {strategy}, file exists: {debug_file.exists()}")
 
         # 测试旧下载器（如果启用）
         if args.test_old_downloader:

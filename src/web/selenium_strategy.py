@@ -392,6 +392,24 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if self.driver:
             safe_cleanup(self.driver.quit, "关闭WebDriver失败")
 
+        # 增强清理逻辑：清理下载根目录下的残留文件
+        try:
+            if self.download_dir and os.path.exists(self.download_dir):
+                logger.info(f"正在清理下载根目录残留: {self.download_dir}")
+                for item in os.listdir(self.download_dir):
+                    item_path = os.path.join(self.download_dir, item)
+                    # 只清理文件，不清理子目录
+                    if os.path.isfile(item_path):
+                        # 清理临时文件和pdf.txt (不清理PDF文件，防止误删)
+                        if item.lower() == 'pdf.txt' or item.endswith('.tmp') or item.endswith('.crdownload'):
+                            try:
+                                os.remove(item_path)
+                                logger.info(f"已清理残留文件: {item}")
+                            except Exception as e:
+                                logger.warning(f"无法清理文件 {item}: {e}")
+        except Exception as e:
+            logger.error(f"清理残留文件时出错: {e}")
+
         # 重置状态
         self.driver = None
         self.download_count = 0
@@ -504,7 +522,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             for root, dirs, files in os.walk(self.download_dir):
                 for file in files:
                     if file.lower().endswith('.pdf'):
-                        file_path = os.path.join(root, file)
+                        file_path = Path(os.path.join(root, file))
                         self._before_files.add(file_path)
 
         logger.debug(f"before_files (all directories): {self._before_files}")
@@ -679,14 +697,13 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             for file in files:
                 # 检查PDF文件和临时文件
                 if file.lower().endswith('.pdf') or file.endswith('.tmp'):
-                    file_path = os.path.join(root, file)
-                    after_files.add(Path(file_path))
+                    file_path = Path(os.path.join(root, file))
+                    after_files.add(file_path)
 
-        logger.debug(f"after_files (all directories): {after_files}")
-        logger.debug(f"before_files: {self._before_files}")
-
+        logger.debug(f"after_files count: {len(after_files)}")
+        
         new_files = after_files - self._before_files
-        logger.debug(f"new_files: {new_files}")
+        logger.debug(f"new_files found: {[str(f) for f in new_files]}")
 
         if not new_files:
             return None
@@ -731,7 +748,57 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 return False
 
         # 移动文件到目标位置
-        return self._move_file_to_target(downloaded_file, save_path)
+        success = self._move_file_to_target(downloaded_file, save_path)
+
+        # 如果移动成功，清理根目录中可能残留的源文件
+        if success:
+            self._cleanup_downloaded_file(downloaded_file, save_path)
+
+        return success
+
+    def _cleanup_downloaded_file(self, downloaded_file: Path, save_path: str):
+        """
+        清理下载后可能残留的源文件
+        删除根目录中所有与目标文件同内容的文件
+        """
+        try:
+            download_path = Path(self.download_dir)
+            target_path = Path(save_path)
+
+            if not target_path.exists():
+                return
+
+            target_size = target_path.stat().st_size
+            target_name = target_path.name
+            logger.debug(f"[CLEANUP] 目标文件: {target_path}, 大小: {target_size}")
+            
+            # DEBUG: Check directory and files
+            logger.info(f"[CLEANUP_DEBUG] self.download_dir: {self.download_dir}")
+            logger.info(f"[CLEANUP_DEBUG] download_path: {download_path}")
+
+            # 检查下载目录中所有PDF文件
+            root_pdfs = list(download_path.glob("*.pdf"))
+            logger.debug(f"[CLEANUP] 扫描下载目录PDF: {len(root_pdfs)} 个文件")
+            logger.info(f"[CLEANUP_DEBUG] root_pdfs: {[str(f) for f in root_pdfs]}")
+
+            for root_file in root_pdfs:
+                # 绝对不要删除目标文件自己！
+                if root_file.resolve() == target_path.resolve():
+                    continue
+                
+                # 不要删除同一目标目录下的其他文件
+                if root_file.parent.resolve() == target_path.parent.resolve():
+                    continue
+
+                try:
+                    # 如果文件名相同（但在不同目录，比如在根目录），或者文件大小相同且文件名相似
+                    if root_file.name == target_name or (root_file.stat().st_size == target_size and target_size > FileSizeThreshold.MIN_VALID_PDF):
+                        root_file.unlink()
+                        logger.info(f"[CLEANUP] 已清理残留源文件: {root_file}")
+                except (OSError, PermissionError) as e:
+                    logger.debug(f"无法清理文件 {root_file}: {e}")
+        except Exception as e:
+            logger.debug(f"清理下载文件时出错: {e}")
 
     def _find_download_button(self):
         """查找下载按钮"""
