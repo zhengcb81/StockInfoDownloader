@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-遗留下载器适配器
-为现有代码提供向后兼容的接口
+Legacy Downloader Adapter
+Provides backward-compatible interfaces for existing code
 """
 
 from typing import List, Dict, Any, Optional, Union
@@ -20,28 +20,28 @@ from src.core.logger import get_logger
 
 class CninfoDownloaderAdapter:
     """
-    CninfoDownloader 适配器
-    为旧的 CninfoDownloader 类提供兼容接口
+    CninfoDownloader Adapter
+    Provides compatible interface for the old CninfoDownloader class
     """
 
     def __init__(self, save_dir: Optional[str] = None, **kwargs):
         """
-        初始化适配器
+        Initialize adapter
 
         Args:
-            save_dir: 保存目录
-            **kwargs: 其他配置参数
+            save_dir: Save directory
+            **kwargs: Other configuration parameters
         """
         self.logger = get_logger("CninfoDownloaderAdapter")
 
-        # 创建统一下载器
+        # Create unified downloader
         config = {'save_dir': save_dir, **kwargs}
         self._unified_downloader = UnifiedDownloader(config)
 
-        # 为了兼容性，保留旧的方法签名
+        # Preserve old method signature for compatibility
         self.save_dir = save_dir or "downloads"
 
-        self.logger.info("CninfoDownloader 适配器初始化完成")
+        self.logger.info("CninfoDownloader Adapter initialized")
 
     def download_stock_pdfs(
         self,
@@ -50,18 +50,18 @@ class CninfoDownloaderAdapter:
         **kwargs
     ) -> Dict[str, Any]:
         """
-        下载股票PDF文件 (兼容旧接口)
+        Download stock PDF files (compatible with old interface)
 
         Args:
-            stock_code: 股票代码
-            target_pages: 目标页数
-            **kwargs: 其他参数
+            stock_code: Stock code
+            target_pages: Target number of pages
+            **kwargs: Other parameters
 
         Returns:
-            Dict[str, Any]: 兼容旧格式的结果
+            Dict[str, Any]: Result in old format
         """
         try:
-            # 创建新的请求对象
+            # Create new request object
             request = DownloadRequest(
                 stock_code=stock_code,
                 max_pages=target_pages,
@@ -69,10 +69,10 @@ class CninfoDownloaderAdapter:
                 **kwargs
             )
 
-            # 使用统一下载器执行下载
+            # Execute download using unified downloader
             result = self._unified_downloader.download_stock_pdfs(request)
 
-            # 转换为旧格式返回
+            # Convert to old format and return
             return {
                 'success': result.success,
                 'downloaded_files': result.downloaded_files,
@@ -83,7 +83,7 @@ class CninfoDownloaderAdapter:
             }
 
         except Exception as e:
-            self.logger.error(f"下载失败: {e}")
+            self.logger.error(f"Download failed: {e}")
             return {
                 'success': False,
                 'downloaded_files': [],
@@ -95,46 +95,46 @@ class CninfoDownloaderAdapter:
 
     def __getattr__(self, name: str):
         """
-        委托所有未定义的方法到内部统一下载器
+        Delegate all undefined methods to internal unified downloader
         """
         return getattr(self._unified_downloader, name)
 
-    # 保留一些可能有用的旧方法
+    # Preserve some possibly useful old methods
     def cleanup(self) -> None:
-        """清理资源"""
+        """Cleanup resources"""
         if self._unified_downloader:
             self._unified_downloader.cleanup()
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """配置下载器"""
+        """Configure downloader"""
         if self._unified_downloader:
             self._unified_downloader.configure(config)
 
 
 class DownloadServiceV1Adapter:
     """
-    DownloadService (v1) 适配器
-    为旧版本的 DownloadService 类提供兼容接口
+    DownloadService (v1) Adapter
+    Provides compatible interface for old version of DownloadService class
     """
 
     def __init__(self, save_dir: Optional[str] = None, **kwargs):
         """
-        初始化适配器
+        Initialize adapter
 
         Args:
-            save_dir: 保存目录
-            **kwargs: 其他配置参数
+            save_dir: Save directory
+            **kwargs: Other configuration parameters
         """
         self.logger = get_logger("DownloadServiceV1Adapter")
 
-        # 创建统一下载器
+        # Create unified downloader
         config = {'save_dir': save_dir, **kwargs}
         self._unified_downloader = UnifiedDownloader(config)
 
-        # 为了兼容性，保留旧的方法签名
+        # Preserve old method signature for compatibility
         self.save_dir = save_dir or "downloads"
 
-        self.logger.info("DownloadServiceV1 适配器初始化完成")
+        self.logger.info("DownloadServiceV1 Adapter initialized")
 
     def download_stock_pdfs(
         self,
@@ -143,18 +143,18 @@ class DownloadServiceV1Adapter:
         **kwargs
     ) -> List[str]:
         """
-        下载股票PDF文件 (兼容旧接口)
+        Download stock PDF files (compatible with old interface)
 
         Args:
-            stock_code: 股票代码
-            max_retries: 最大重试次数
-            **kwargs: 其他参数
+            stock_code: Stock code
+            max_retries: Max retries
+            **kwargs: Other parameters
 
         Returns:
-            List[str]: 已下载的文件路径列表
+            List[str]: List of downloaded file paths
         """
         try:
-            # 创建新的请求对象
+            # Create new request object
             request = DownloadRequest(
                 stock_code=stock_code,
                 max_pages=kwargs.get('max_pages', 5),
@@ -163,65 +163,59 @@ class DownloadServiceV1Adapter:
                 **kwargs
             )
 
-            # 设置重试次数
+            # Set retry count
             self._unified_downloader.config['retry_count'] = max_retries
 
-            # 使用统一下载器执行下载
+            # Execute download using unified downloader
             result = self._unified_downloader.download_stock_pdfs(request)
 
-            # 返回向后兼容的格式（文件名列表）
+            # Return backward-compatible format (filename list)
             return result.downloaded_files if hasattr(result, 'downloaded_files') else []
 
         except Exception as e:
-            self.logger.error(f"下载失败: {e}")
+            self.logger.error(f"Download failed: {e}")
             return []
 
     def __getattr__(self, name: str):
         """
-        委托所有未定义的方法到内部统一下载器
-        """
-        return getattr(self._unified_downloader, name)
-
-    def __getattr__(self, name: str):
-        """
-        委托所有未定义的方法到内部统一下载器
+        Delegate all undefined methods to internal unified downloader
         """
         return getattr(self._unified_downloader, name)
 
     def get_status(self) -> DownloadStatus:
-        """获取下载状态"""
+        """Get download status"""
         return self._unified_downloader.get_status()
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """配置下载器"""
+        """Configure downloader"""
         if self._unified_downloader:
             self._unified_downloader.configure(config)
 
 
 class DownloadServiceV2Adapter:
     """
-    DownloadServiceV2 适配器
-    为 DownloadServiceV2 类提供兼容接口
+    DownloadServiceV2 Adapter
+    Provides compatible interface for DownloadServiceV2 class
     """
 
     def __init__(self, browser_strategy: str = "playwright", **kwargs):
         """
-        初始化适配器
+        Initialize adapter
 
         Args:
-            browser_strategy: 浏览器策略
-            **kwargs: 其他配置参数
+            browser_strategy: Browser strategy
+            **kwargs: Other configuration parameters
         """
         self.logger = get_logger("DownloadServiceV2Adapter")
 
-        # 创建统一下载器
+        # Create unified downloader
         config = {'browser_strategy': browser_strategy, **kwargs}
         self._unified_downloader = UnifiedDownloader(config)
 
-        # 为了兼容性，保留旧的方法签名
+        # Preserve old method signature for compatibility
         self.browser_strategy = browser_strategy
 
-        self.logger.info(f"DownloadServiceV2 适配器初始化完成，使用策略: {browser_strategy}")
+        self.logger.info(f"DownloadServiceV2 Adapter initialized, using strategy: {browser_strategy}")
 
     def download_stock_pdfs(
         self,
@@ -232,44 +226,44 @@ class DownloadServiceV2Adapter:
         **kwargs
     ) -> DownloadResult:
         """
-        下载股票PDF文件 (兼容旧接口)
+        Download stock PDF files (compatible with old interface)
 
         Args:
-            stock_code: 股票代码
-            max_pages: 最大页数
-            timeout_seconds: 超时时间
-            target_pages: 目标页面配置列表（向后兼容）
-            **kwargs: 其他参数
+            stock_code: Stock code
+            max_pages: Max pages
+            timeout_seconds: Timeout in seconds
+            target_pages: Target page configuration list (backward compatible)
+            **kwargs: Other parameters
 
         Returns:
-            DownloadResult: 下载结果
+            DownloadResult: Download result
         """
         try:
-            # 从kwargs中提取参数，避免传递到DownloadRequest
+            # Extract parameters from kwargs to avoid passing them to DownloadRequest
             save_dir = kwargs.pop('save_dir', "downloads")
             stock_name = kwargs.pop('stock_name', None)
             suffix = kwargs.pop('suffix', None)
             allowed_keywords = kwargs.pop('allowed_keywords', None)
-            max_retries = kwargs.pop('max_retries', None)  # 提取max_retries，不传递给DownloadRequest
+            max_retries = kwargs.pop('max_retries', None)  # Extract max_retries, do not pass to DownloadRequest
 
-            # 如果stock_name未提供，尝试从映射管理器获取
+            # If stock_name not provided, try to get from mapping manager
             if not stock_name:
                 try:
                     from src.data.mapping import MappingManager
                     mapping_manager = MappingManager("stock_orgid_mapping.json")
                     stock_name = mapping_manager.get_stock_name(stock_code)
                     if not stock_name:
-                        stock_name = f"股票{stock_code}"
+                        stock_name = f"Stock{stock_code}"
                 except Exception as e:
-                    self.logger.warning(f"获取股票名称失败: {e}")
-                    stock_name = f"股票{stock_code}"
+                    self.logger.warning(f"Failed to get stock name: {e}")
+                    stock_name = f"Stock{stock_code}"
 
-            # 设置重试次数到统一下载器配置
+            # Set retry count to unified downloader config
             if max_retries is not None:
-                # 设置到UnifiedDownloader配置中
+                # Set to UnifiedDownloader config
                 self._unified_downloader.config['retry_count'] = max_retries
 
-            # 如果有target_pages，提取其中的allowed_keywords和suffix
+            # If target_pages exists, extract allowed_keywords and suffix from it
             if target_pages and len(target_pages) > 0:
                 first_page = target_pages[0]
                 if 'allowed_keywords' in first_page and first_page['allowed_keywords']:
@@ -277,7 +271,7 @@ class DownloadServiceV2Adapter:
                 if 'suffix' in first_page and first_page['suffix']:
                     suffix = first_page['suffix']
 
-            # 创建新的请求对象
+            # Create new request object
             request = DownloadRequest(
                 stock_code=stock_code,
                 stock_name=stock_name,
@@ -286,16 +280,16 @@ class DownloadServiceV2Adapter:
                 max_pages=max_pages,
                 timeout_seconds=timeout_seconds,
                 save_dir=save_dir,
-                **kwargs  # 剩余的未知参数
+                **kwargs  # Remaining unknown parameters
             )
 
-            # 使用统一下载器执行下载
+            # Execute download using unified downloader
             result = self._unified_downloader.download_stock_pdfs(request)
 
             return result
 
         except Exception as e:
-            self.logger.error(f"下载失败: {e}")
+            self.logger.error(f"Download failed: {e}")
             return DownloadResult(
                 success=False,
                 downloaded_files=[],
@@ -307,47 +301,47 @@ class DownloadServiceV2Adapter:
 
     def __getattr__(self, name: str):
         """
-        委托所有未定义的方法到内部统一下载器
+        Delegate all undefined methods to internal unified downloader
         """
         return getattr(self._unified_downloader, name)
 
     def get_status(self) -> DownloadStatus:
-        """获取下载状态"""
+        """Get download status"""
         return self._unified_downloader.get_status()
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """配置下载器"""
+        """Configure downloader"""
         if self._unified_downloader:
             self._unified_downloader.configure(config)
 
 
 class RefactoredDownloaderAdapter:
     """
-    RefactoredDownloader 适配器
-    为 RefactoredDownloader 类提供兼容接口
+    RefactoredDownloader Adapter
+    Provides compatible interface for RefactoredDownloader class
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None, save_dir: Optional[str] = None, **kwargs):
         """
-        初始化适配器
+        Initialize adapter
 
         Args:
-            config: 配置字典
-            save_dir: 保存目录（向后兼容）
-            **kwargs: 其他参数
+            config: Configuration dictionary
+            save_dir: Save directory (backward compatible)
+            **kwargs: Other parameters
         """
         self.logger = get_logger("RefactoredDownloaderAdapter")
 
-        # 合并配置参数 - 统一使用save_dir
+        # Merge config parameters - unify usage of save_dir
         merged_config = config or {}
         if save_dir:
             merged_config['save_dir'] = save_dir
         merged_config.update(kwargs)
 
-        # 创建统一下载器
+        # Create unified downloader
         self._unified_downloader = UnifiedDownloader(merged_config)
 
-        self.logger.info("RefactoredDownloader 适配器初始化完成")
+        self.logger.info("RefactoredDownloader Adapter initialized")
 
     def download_stock_pdfs(
         self,
@@ -359,21 +353,21 @@ class RefactoredDownloaderAdapter:
         **kwargs
     ) -> DownloadResult:
         """
-        下载股票PDF文件 (兼容旧接口)
+        Download stock PDF files (compatible with old interface)
 
         Args:
-            stock_code: 股票代码
-            stock_name: 股票名称
-            suffix: 后缀
-            allowed_keywords: 允许的关键词
-            max_pages: 最大页数
-            **kwargs: 其他参数
+            stock_code: Stock code
+            stock_name: Stock name
+            suffix: Suffix
+            allowed_keywords: Allowed keywords
+            max_pages: Max pages
+            **kwargs: Other parameters
 
         Returns:
-            DownloadResult: 下载结果
+            DownloadResult: Download result
         """
         try:
-            # 创建新的请求对象
+            # Create new request object
             request = DownloadRequest(
                 stock_code=stock_code,
                 stock_name=stock_name,
@@ -384,13 +378,13 @@ class RefactoredDownloaderAdapter:
                 **kwargs
             )
 
-            # 使用统一下载器执行下载
+            # Execute download using unified downloader
             result = self._unified_downloader.download_stock_pdfs(request)
 
             return result
 
         except Exception as e:
-            self.logger.error(f"下载失败: {e}")
+            self.logger.error(f"Download failed: {e}")
             return DownloadResult(
                 success=False,
                 downloaded_files=[],
@@ -402,30 +396,30 @@ class RefactoredDownloaderAdapter:
 
     def __getattr__(self, name: str):
         """
-        委托所有未定义的方法到内部统一下载器
+        Delegate all undefined methods to internal unified downloader
         """
         return getattr(self._unified_downloader, name)
 
     def get_status(self) -> DownloadStatus:
-        """获取下载状态"""
+        """Get download status"""
         return self._unified_downloader.get_status()
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """配置下载器"""
+        """Configure downloader"""
         if self._unified_downloader:
             self._unified_downloader.configure(config)
 
 
 def create_legacy_adapter(class_name: str, **kwargs) -> Any:
     """
-    创建遗留下载器适配器的工厂函数
+    Factory function to create legacy downloader adapter
 
     Args:
-        class_name: 类名称
-        **kwargs: 构造参数
+        class_name: Class name
+        **kwargs: Constructor arguments
 
     Returns:
-        Any: 适配器实例
+        Any: Adapter instance
     """
     adapters = {
         'CninfoDownloader': CninfoDownloaderAdapter,
@@ -436,30 +430,30 @@ def create_legacy_adapter(class_name: str, **kwargs) -> Any:
 
     adapter_class = adapters.get(class_name)
     if not adapter_class:
-        raise ValueError(f"不支持的下载器类型: {class_name}")
+        raise ValueError(f"Unsupported downloader type: {class_name}")
 
     return adapter_class(**kwargs)
 
 
-# 为了最大兼容性，创建一个通用的兼容包装器
+# For maximum compatibility, create a universal wrapper
 class UniversalDownloaderWrapper:
     """
-    通用下载器包装器
-    可以根据参数自动选择合适的适配器
+    Universal Downloader Wrapper
+    Can automatically select appropriate adapter based on arguments
     """
 
     def __init__(self, downloader_type: str = "auto", **kwargs):
         """
-        初始化通用包装器
+        Initialize universal wrapper
 
         Args:
-            downloader_type: 下载器类型，"auto"表示自动选择
-            **kwargs: 构造参数
+            downloader_type: Downloader type, "auto" means automatic selection
+            **kwargs: Constructor arguments
         """
         self.logger = get_logger("UniversalDownloaderWrapper")
 
         if downloader_type == "auto":
-            # 自动检测应该使用哪个适配器
+            # Automatically detect which adapter to use
             if 'browser_strategy' in kwargs:
                 self._downloader = DownloadServiceV2Adapter(**kwargs)
             elif 'max_retries' in kwargs:
@@ -467,17 +461,17 @@ class UniversalDownloaderWrapper:
             elif 'allowed_keywords' in kwargs:
                 self._downloader = RefactoredDownloaderAdapter(**kwargs)
             else:
-                # 默认使用 DownloadServiceV2
+                # Default to DownloadServiceV2
                 self._downloader = DownloadServiceV2Adapter(**kwargs)
         else:
-            # 使用指定的适配器
+            # Use specified adapter
             self._downloader = create_legacy_adapter(downloader_type, **kwargs)
 
-        self.logger.info(f"通用包装器初始化完成，使用类型: {downloader_type}")
+        self.logger.info(f"Universal wrapper initialized, using type: {downloader_type}")
 
     def __getattr__(self, name: str):
         """
-        委托所有未定义的方法到内部下载器
+        Delegate all undefined methods to internal downloader
         """
         return getattr(self._downloader, name)
 

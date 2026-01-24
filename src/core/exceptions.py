@@ -1,6 +1,6 @@
 """
-结构化错误处理系统
-提供全面的错误分类、上下文管理和恢复机制
+Structured Error Handling System
+Provides comprehensive error classification, context management, and recovery mechanisms
 """
 
 import os
@@ -13,15 +13,23 @@ from typing import Dict, Any, Optional, List, Union, Callable
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-# 错误代码枚举
+# Import logger
+try:
+    from .logger import get_logger
+    logger = get_logger(__name__)
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+# Error Code Enum
 class ErrorCode(Enum):
-    """错误代码枚举"""
-    # 系统错误 (1000-1999)
+    """Error Code Enum"""
+    # System Errors (1000-1999)
     SYSTEM_ERROR = "SYS_1000"
     INITIALIZATION_ERROR = "SYS_1001"
     RESOURCE_ERROR = "SYS_1002"
     
-    # WebDriver错误 (2000-2999)
+    # WebDriver Errors (2000-2999)
     WEBDRIVER_INIT_ERROR = "WD_2000"
     WEBDRIVER_CONNECTION_ERROR = "WD_2001"
     WEBDRIVER_TIMEOUT_ERROR = "WD_2002"
@@ -31,7 +39,7 @@ class ErrorCode(Enum):
     WEBDRIVER_CRASH_ERROR = "WD_2006"
     WEBDRIVER_STRATEGY_ERROR = "WD_2007"
     
-    # 配置错误 (3000-3999)
+    # Configuration Errors (3000-3999)
     CONFIG_FILE_ERROR = "CFG_3000"
     CONFIG_FILE_NOT_FOUND = "CFG_3001"
     CONFIG_FORMAT_ERROR = "CFG_3002"
@@ -41,7 +49,7 @@ class ErrorCode(Enum):
     CONFIG_MISSING_ERROR = "CFG_3006"
     CONFIG_PATH_NOT_SET = "CFG_3007"
     
-    # 下载错误 (4000-4999)
+    # Download Errors (4000-4999)
     DOWNLOAD_INIT_ERROR = "DL_4000"
     DOWNLOAD_NETWORK_ERROR = "DL_4001"
     DOWNLOAD_FILE_ERROR = "DL_4002"
@@ -53,30 +61,30 @@ class ErrorCode(Enum):
     DOWNLOAD_STOCK_INFO_ERROR = "DL_4008"
     DOWNLOAD_ORG_ID_ERROR = "DL_4009"
     
-    # 数据处理错误 (5000-5999)
+    # Data Processing Errors (5000-5999)
     DATA_PARSING_ERROR = "DATA_5000"
     DATA_VALIDATION_ERROR = "DATA_5001"
     DATA_MAPPING_ERROR = "DATA_5002"
     DATA_STORAGE_ERROR = "DATA_5003"
     
-    # 组织ID错误 (6000-6999)
+    # Org ID Errors (6000-6999)
     ORGID_FETCH_ERROR = "ORG_6000"
     ORGID_VALIDATION_ERROR = "ORG_6001"
     ORGID_MAPPING_ERROR = "ORG_6002"
     
-    # 网络错误 (7000-7999)
+    # Network Errors (7000-7999)
     NETWORK_CONNECTION_ERROR = "NET_7000"
     NETWORK_TIMEOUT_ERROR = "NET_7001"
     NETWORK_HTTP_ERROR = "NET_7002"
     NETWORK_DNS_ERROR = "NET_7003"
     
-    # 文件系统错误 (8000-8999)
+    # File System Errors (8000-8999)
     FILE_NOT_FOUND_ERROR = "FILE_8000"
     FILE_PERMISSION_ERROR = "FILE_8001"
     FILE_DISK_SPACE_ERROR = "FILE_8002"
     FILE_FORMAT_ERROR = "FILE_8003"
     
-    # 验证错误 (9000-9999)
+    # Validation Errors (9000-9999)
     VALIDATION_INPUT_ERROR = "VAL_9000"
     VALIDATION_FORMAT_ERROR = "VAL_9001"
     VALIDATION_RANGE_ERROR = "VAL_9002"
@@ -88,9 +96,9 @@ class ErrorCode(Enum):
     VALIDATION_STOCK_CODE_FORMAT = "VAL_9008"
     VALIDATION_STOCK_CODE_RANGE = "VAL_9009"
 
-# 错误严重级别枚举
+# Error Severity Enum
 class ErrorSeverity(Enum):
-    """错误严重级别"""
+    """Error Severity"""
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -98,19 +106,19 @@ class ErrorSeverity(Enum):
     CRITICAL = "CRITICAL"
     FATAL = "FATAL"
 
-# 错误恢复策略枚举
+# Error Recovery Strategy Enum
 class RecoveryStrategy(Enum):
-    """错误恢复策略"""
-    NONE = "NONE"  # 无恢复
-    RETRY = "RETRY"  # 重试
-    FALLBACK = "FALLBACK"  # 降级
-    SKIP = "SKIP"  # 跳过
-    TERMINATE = "TERMINATE"  # 终止
-    MANUAL = "MANUAL"  # 手动处理
+    """Error Recovery Strategy"""
+    NONE = "NONE"  # No recovery
+    RETRY = "RETRY"  # Retry
+    FALLBACK = "FALLBACK"  # Fallback
+    SKIP = "SKIP"  # Skip
+    TERMINATE = "TERMINATE"  # Terminate
+    MANUAL = "MANUAL"  # Manual handling
 
 @dataclass
 class ErrorContext:
-    """错误上下文信息"""
+    """Error Context Information"""
     timestamp: datetime
     error_code: ErrorCode
     severity: ErrorSeverity
@@ -125,7 +133,7 @@ class ErrorContext:
     recovery_successful: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         data = asdict(self)
         data['timestamp'] = self.timestamp.isoformat()
         data['error_code'] = self.error_code.value
@@ -133,7 +141,7 @@ class ErrorContext:
         return data
 
 class StockInfoError(Exception):
-    """基础异常类"""
+    """Base Exception Class"""
     
     def __init__(self, 
                  message: str,
@@ -143,15 +151,15 @@ class StockInfoError(Exception):
                  context: Optional[Dict[str, Any]] = None,
                  original_exception: Optional[Exception] = None):
         """
-        初始化异常
+        Initialize exception
         
         Args:
-            message: 错误消息
-            error_code: 错误代码
-            severity: 错误严重级别
-            recovery_strategy: 恢复策略
-            context: 错误上下文
-            original_exception: 原始异常
+            message: Error message
+            error_code: Error code
+            severity: Error severity
+            recovery_strategy: Recovery strategy
+            context: Error context
+            original_exception: Original exception
         """
         super().__init__(message)
         self.message = message
@@ -162,11 +170,11 @@ class StockInfoError(Exception):
         self.original_exception = original_exception
         self.timestamp = datetime.now()
         
-        # 获取调用栈信息
+        # Get stack trace info
         self.stack_trace = traceback.format_exc()
         self.caller_info = self._get_caller_info()
         
-        # 创建错误上下文
+        # Create error context
         self.error_context = ErrorContext(
             timestamp=self.timestamp,
             error_code=error_code,
@@ -182,13 +190,13 @@ class StockInfoError(Exception):
         )
     
     def _get_caller_info(self) -> Dict[str, str]:
-        """获取调用者信息"""
+        """Get caller info"""
         try:
-            # 跳过前几帧（异常构造和当前帧）
+            # Skip first few frames (exception construction and current frame)
             frame = sys._getframe(2)
             while frame:
                 filename = frame.f_code.co_filename
-                if 'src' in filename:  # 只关心项目源码
+                if 'src' in filename:  # Only care about project source
                     return {
                         'module': frame.f_globals.get('__name__', 'unknown'),
                         'function': frame.f_code.co_name,
@@ -206,7 +214,7 @@ class StockInfoError(Exception):
         }
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'error_code': self.error_code.value,
             'severity': self.severity.value,
@@ -220,12 +228,12 @@ class StockInfoError(Exception):
         }
     
     def __str__(self) -> str:
-        """字符串表示"""
+        """String representation"""
         return f"[{self.error_code.value}] {self.severity.value}: {self.message}"
 
-# WebDriver相关异常
+# WebDriver Related Exceptions
 class WebDriverError(StockInfoError):
-    """WebDriver相关异常"""
+    """WebDriver related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -238,7 +246,7 @@ class WebDriverError(StockInfoError):
         )
 
 class WebDriverInitError(WebDriverError):
-    """WebDriver初始化错误"""
+    """WebDriver initialization error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -251,7 +259,7 @@ class WebDriverInitError(WebDriverError):
         )
 
 class WebDriverTimeoutError(WebDriverError):
-    """WebDriver超时错误"""
+    """WebDriver timeout error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -264,7 +272,7 @@ class WebDriverTimeoutError(WebDriverError):
         )
 
 class WebDriverCrashError(WebDriverError):
-    """WebDriver崩溃错误"""
+    """WebDriver crash error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -277,7 +285,7 @@ class WebDriverCrashError(WebDriverError):
         )
 
 class BrowserStrategyError(WebDriverError):
-    """浏览器策略错误"""
+    """Browser strategy error"""
 
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -289,9 +297,9 @@ class BrowserStrategyError(WebDriverError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 配置相关异常
+# Configuration Related Exceptions
 class ConfigError(StockInfoError):
-    """配置相关异常"""
+    """Configuration related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -304,7 +312,7 @@ class ConfigError(StockInfoError):
         )
 
 class ConfigValidationError(ConfigError):
-    """配置验证错误"""
+    """Configuration validation error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -316,9 +324,9 @@ class ConfigValidationError(ConfigError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 下载相关异常
+# Download Related Exceptions
 class DownloadError(StockInfoError):
-    """下载相关异常"""
+    """Download related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -331,7 +339,7 @@ class DownloadError(StockInfoError):
         )
 
 class DownloadTimeoutError(DownloadError):
-    """下载超时错误"""
+    """Download timeout error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -344,7 +352,7 @@ class DownloadTimeoutError(DownloadError):
         )
 
 class DownloadRateLimitError(DownloadError):
-    """下载速率限制错误"""
+    """Download rate limit error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -356,9 +364,9 @@ class DownloadRateLimitError(DownloadError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 组织ID相关异常
+# Org ID Related Exceptions
 class OrgIdError(StockInfoError):
-    """组织ID获取异常"""
+    """Org ID related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -371,7 +379,7 @@ class OrgIdError(StockInfoError):
         )
 
 class OrgIdValidationError(OrgIdError):
-    """组织ID验证错误"""
+    """Org ID validation error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -383,9 +391,9 @@ class OrgIdValidationError(OrgIdError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 网络相关异常
+# Network Related Exceptions
 class NetworkError(StockInfoError):
-    """网络相关异常"""
+    """Network related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -398,7 +406,7 @@ class NetworkError(StockInfoError):
         )
 
 class NetworkTimeoutError(NetworkError):
-    """网络超时错误"""
+    """Network timeout error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -410,9 +418,9 @@ class NetworkTimeoutError(NetworkError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 文件系统相关异常
+# File System Related Exceptions
 class FileSystemError(StockInfoError):
-    """文件系统相关异常"""
+    """File system related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -425,7 +433,7 @@ class FileSystemError(StockInfoError):
         )
 
 class FilePermissionError(FileSystemError):
-    """文件权限错误"""
+    """File permission error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -437,9 +445,9 @@ class FilePermissionError(FileSystemError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 数据处理相关异常
+# Data Processing Related Exceptions
 class DataError(StockInfoError):
-    """数据处理相关异常"""
+    """Data processing related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -452,7 +460,7 @@ class DataError(StockInfoError):
         )
 
 class DataValidationError(DataError):
-    """数据验证错误"""
+    """Data validation error"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -464,9 +472,9 @@ class DataValidationError(DataError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 验证相关异常
+# Validation Related Exceptions
 class ValidationError(StockInfoError):
-    """验证相关异常"""
+    """Validation related exceptions"""
     
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -478,9 +486,9 @@ class ValidationError(StockInfoError):
             original_exception=kwargs.get('original_exception')
         )
 
-# 错误处理器类
+# Error Handler Class
 class ErrorHandler:
-    """错误处理器"""
+    """Error Handler"""
     
     def __init__(self):
         self.error_history: List[ErrorContext] = []
@@ -488,52 +496,52 @@ class ErrorHandler:
         self.max_history_size = 1000
     
     def register_recovery_handler(self, error_code: ErrorCode, handler: Callable):
-        """注册错误恢复处理器"""
+        """Register error recovery handler"""
         self.recovery_handlers[error_code] = handler
     
     def handle_error(self, error: StockInfoError) -> bool:
-        """处理错误"""
+        """Handle error"""
         try:
-            # 记录错误历史
+            # Record error history
             self._record_error(error)
             
-            # 记录错误上下文
+            # Record error context
             error.error_context.recovery_attempted = True
             
-            # 尝试恢复
+            # Attempt recovery
             recovery_success = False
             if error.recovery_strategy != RecoveryStrategy.NONE:
                 recovery_success = self._attempt_recovery(error)
             
             error.error_context.recovery_successful = recovery_success
             
-            # 记录错误日志
+            # Log error
             self._log_error(error)
             
             return recovery_success
             
         except Exception as e:
-            # 错误处理器本身出错
+            # Error handler itself failed
             print(f"Error handler failed: {e}")
             return False
     
     def _record_error(self, error: StockInfoError):
-        """记录错误历史"""
+        """Record error history"""
         self.error_history.append(error.error_context)
         
-        # 限制历史记录大小
+        # Limit history size
         if len(self.error_history) > self.max_history_size:
             self.error_history = self.error_history[-self.max_history_size:]
     
     def _attempt_recovery(self, error: StockInfoError) -> bool:
-        """尝试错误恢复"""
+        """Attempt error recovery"""
         try:
-            # 查找注册的恢复处理器
+            # Find registered recovery handler
             handler = self.recovery_handlers.get(error.error_code)
             if handler:
                 return handler(error)
             
-            # 默认恢复策略
+            # Default recovery strategy
             return self._default_recovery(error)
             
         except Exception as e:
@@ -541,32 +549,32 @@ class ErrorHandler:
             return False
     
     def _default_recovery(self, error: StockInfoError) -> bool:
-        """默认恢复策略"""
+        """Default recovery strategy"""
         strategy = error.recovery_strategy
         
         if strategy == RecoveryStrategy.RETRY:
-            # 简单延迟后重试
-            time.sleep(min(2 ** len(self.error_history), 30))  # 指数退避
+            # Simple retry with backoff
+            time.sleep(min(2 ** len(self.error_history), 30))  # Exponential backoff
             return True
         elif strategy == RecoveryStrategy.SKIP:
-            # 跳过当前操作
+            # Skip current operation
             return True
         elif strategy == RecoveryStrategy.FALLBACK:
-            # 使用备用方案
+            # Use fallback
             return True
         elif strategy == RecoveryStrategy.TERMINATE:
-            # 终止程序
+            # Terminate program
             sys.exit(1)
         
         return False
     
     def _log_error(self, error: StockInfoError):
-        """记录错误日志"""
+        """Log error"""
         try:
-            # 这里可以集成日志系统
+            # Here can integrate with logging system
             error_dict = error.to_dict()
             
-            # 根据严重级别选择输出方式
+            # Choose output method based on severity
             if error.severity in [ErrorSeverity.CRITICAL, ErrorSeverity.FATAL]:
                 print(f"CRITICAL ERROR: {error_dict}")
             elif error.severity == ErrorSeverity.ERROR:
@@ -580,7 +588,7 @@ class ErrorHandler:
             print(f"Failed to log error: {e}")
     
     def get_error_statistics(self) -> Dict[str, Any]:
-        """获取错误统计信息"""
+        """Get error statistics"""
         if not self.error_history:
             return {"total_errors": 0}
         
@@ -589,15 +597,15 @@ class ErrorHandler:
         modules = {}
         
         for context in self.error_history:
-            # 按错误代码统计
+            # Count by error code
             code = context.error_code.value
             error_codes[code] = error_codes.get(code, 0) + 1
             
-            # 按严重级别统计
+            # Count by severity
             severity = context.severity.value
             severities[severity] = severities.get(severity, 0) + 1
             
-            # 按模块统计
+            # Count by module
             module = context.module
             modules[module] = modules.get(module, 0) + 1
         
@@ -609,64 +617,165 @@ class ErrorHandler:
             "recovery_rate": sum(1 for ctx in self.error_history if ctx.recovery_successful) / len(self.error_history)
         }
 
-# 全局错误处理器实例
+# Global error handler instance
 error_handler = ErrorHandler()
 
-# 便捷函数
+# Helper functions
 def handle_error(error: StockInfoError) -> bool:
-    """便捷的错误处理函数"""
+    """Helper error handling function"""
     return error_handler.handle_error(error)
 
 def register_recovery_handler(error_code: ErrorCode, handler: Callable):
-    """便捷的恢复处理器注册函数"""
+    """Helper recovery handler registration function"""
     error_handler.register_recovery_handler(error_code, handler)
 
 def get_error_statistics() -> Dict[str, Any]:
-    """便捷的错误统计函数"""
+    """Helper error statistics function"""
     return error_handler.get_error_statistics()
 
-# 装饰器
+# Decorator
 def with_error_handling(error_code: ErrorCode = ErrorCode.SYSTEM_ERROR,
                        severity: ErrorSeverity = ErrorSeverity.ERROR,
                        recovery_strategy: RecoveryStrategy = RecoveryStrategy.NONE,
                        max_retries: int = 0):
-    """错误处理装饰器"""
+    """
+    Enhanced error handling decorator
+
+    Provides:
+    1. Automatic retry mechanism (exponential backoff)
+    2. Detailed error context logging
+    3. Intelligent error type conversion
+    4. Retry status tracking
+    5. Performance monitoring
+
+    Args:
+        error_code: Error code
+        severity: Error severity
+        recovery_strategy: Recovery strategy
+        max_retries: Maximum retries
+
+    Returns:
+        Decorated function
+    """
     def decorator(func):
         def wrapper(*args, **kwargs):
             last_error = None
-            
+            start_time = time.time()
+            attempt_details = []
+
             for attempt in range(max_retries + 1):
+                attempt_start = time.time()
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+
+                    # If success after retry, log success info
+                    if attempt > 0:
+                        logger.info(
+                            f"Function {func.__name__} executed successfully after {attempt + 1} attempts"
+                        )
+
+                    return result
+
                 except StockInfoError as e:
                     last_error = e
+                    attempt_time = time.time() - attempt_start
+
+                    attempt_details.append({
+                        'attempt': attempt + 1,
+                        'error_code': e.error_code.value,
+                        'error_type': type(e).__name__,
+                        'message': str(e),
+                        'duration': attempt_time
+                    })
+
+                    # Log detailed error info
+                    logger.warning(
+                        f"Function {func.__name__} attempt {attempt + 1}/{max_retries + 1} failed: "
+                        f"[{e.error_code.value}] {e.message} (Duration: {attempt_time:.2f}s)"
+                    )
+
+                    # Determine if retry is needed
                     if attempt < max_retries:
-                        time.sleep(min(2 ** attempt, 10))  # 指数退避
+                        # Exponential backoff delay, max 10 seconds
+                        delay = min(2 ** attempt, 10)
+                        logger.info(f"Retrying in {delay} seconds...")
+
+                        # Skip delay in test environment
+                        try:
+                            from src.utils.browser_utils import is_test_environment
+                            if not is_test_environment():
+                                time.sleep(delay)
+                        except ImportError:
+                            # Conservative handling: skip delay if import fails
+                            pass
+
                         continue
                     else:
-                        # 如果已经是配置相关的错误，直接抛出原异常
+                        # All retries failed
+                        total_time = time.time() - start_time
+
+                        # If config related error, raise original exception
                         if e.error_code.value.startswith('CFG_'):
+                            logger.error(
+                                f"Function {func.__name__} execution failed, config error unrecoverable: {e}"
+                            )
                             raise e
-                        # 转换为指定类型的错误
+
+                        # If subclass of StockInfoError (and not base class), raise original exception (preserve type and code)
+                        if isinstance(e, StockInfoError) and type(e) != StockInfoError:
+                            logger.error(
+                                f"Function {func.__name__} failed after {max_retries + 1} attempts: {e}"
+                            )
+                            raise e
+
+                        # Otherwise convert to specified error type, including retry history
                         raise StockInfoError(
-                            message=f"{func.__name__} failed after {max_retries + 1} attempts: {e}",
+                            message=f"{func.__name__} failed after {max_retries + 1} attempts: {e.message}",
                             error_code=error_code,
                             severity=severity,
                             recovery_strategy=recovery_strategy,
-                            context={"function": func.__name__, "args": str(args), "kwargs": str(kwargs)},
+                            context={
+                                "function": func.__name__,
+                                "args": str(args)[:200],  # Limit length
+                                "kwargs": str(kwargs)[:200],
+                                "total_attempts": max_retries + 1,
+                                "attempt_details": attempt_details,
+                                "total_duration": total_time,
+                                "final_error": str(e)
+                            },
                             original_exception=e
                         )
+
                 except Exception as e:
-                    # 将普通异常转换为StockInfoError
+                    # Convert normal exception to StockInfoError
+                    attempt_time = time.time() - attempt_start
+                    total_time = time.time() - start_time
+
+                    logger.error(
+                        f"Function {func.__name__} unexpected error: {type(e).__name__}: {e}"
+                    )
+
                     raise StockInfoError(
-                        message=f"Unexpected error in {func.__name__}: {e}",
+                        message=f"Function {func.__name__} execution unexpected error: {type(e).__name__}: {e}",
                         error_code=error_code,
                         severity=severity,
                         recovery_strategy=recovery_strategy,
-                        context={"function": func.__name__, "args": str(args), "kwargs": str(kwargs)},
+                        context={
+                            "function": func.__name__,
+                            "args": str(args)[:200],
+                            "kwargs": str(kwargs)[:200],
+                            "total_duration": total_time,
+                            "exception_type": type(e).__name__
+                        },
                         original_exception=e
                     )
-            
-            raise last_error
+
+            # Should theoretically not reach here, but kept for completeness
+            if last_error:
+                raise last_error
+
+            # If max_retries is 0 and no exception, return normally
+            return None
+
         return wrapper
     return decorator

@@ -1,6 +1,6 @@
 """
-下载服务模块
-提供投资者关系活动记录表的下载功能
+Download Service Module
+Provides download functionality for Investor Relations Activity Record Sheets
 """
 
 import os
@@ -41,40 +41,40 @@ logger = get_logger(__name__)
 
 
 class StockService:
-    """股票信息服务类，提供股票相关的基础服务"""
+    """Stock information service class, provides basic stock-related services"""
     
     def __init__(self, mapping_file: str = "stock_orgid_mapping.json"):
         """
-        初始化股票服务
+        Initialize stock service
         
         Args:
-            mapping_file: 映射文件路径
+            mapping_file: Mapping file path
         """
         self.mapping_manager = MappingManager(mapping_file)
         self.config = ConfigManager()
     
     def get_stock_info(self, stock_code: str) -> Optional[Dict[str, str]]:
         """
-        获取股票信息
+        Get stock information
         
         Args:
-            stock_code: 股票代码
+            stock_code: Stock code
             
         Returns:
-            Optional[Dict[str, str]]: 股票信息字典，包含org_id和stock_name
+            Optional[Dict[str, str]]: Stock info dictionary, containing org_id and stock_name
         """
         try:
-            # 获取组织ID
+            # Get Org ID
             org_id = self.mapping_manager.get_org_id(stock_code)
             if not org_id:
-                logger.warning(f"未找到股票代码 {stock_code} 的组织ID")
+                logger.warning(f"Org ID not found for stock code {stock_code}")
                 return None
             
-            # 获取股票名称
+            # Get stock name
             stock_name = self.mapping_manager.get_stock_name(stock_code)
             if not stock_name:
                 stock_name = stock_code
-                logger.warning(f"使用股票代码作为名称: {stock_code}")
+                logger.warning(f"Using stock code as name: {stock_code}")
             
             return {
                 'stock_code': stock_code,
@@ -83,83 +83,83 @@ class StockService:
             }
             
         except Exception as e:
-            logger.error(f"获取股票信息失败: {e}")
+            logger.error(f"Failed to get stock info: {e}")
             return None
     
     def get_stock_name(self, stock_code: str) -> Optional[str]:
         """
-        获取股票名称
+        Get stock name
         
         Args:
-            stock_code: 股票代码
+            stock_code: Stock code
             
         Returns:
-            Optional[str]: 股票名称
+            Optional[str]: Stock name
         """
         return self.mapping_manager.get_stock_name(stock_code)
     
     def get_org_id(self, stock_code: str, force_refresh: bool = False) -> Optional[str]:
         """
-        获取组织ID
+        Get Org ID
         
         Args:
-            stock_code: 股票代码
-            force_refresh: 是否强制刷新
+            stock_code: Stock code
+            force_refresh: Whether to force refresh
             
         Returns:
-            Optional[str]: 组织ID
+            Optional[str]: Org ID
         """
         return self.mapping_manager.get_org_id(stock_code, force_refresh)
     
     def validate_stock_code(self, stock_code: str) -> bool:
         """
-        验证股票代码格式
+        Validate stock code format
         
         Args:
-            stock_code: 股票代码
+            stock_code: Stock code
             
         Returns:
-            bool: 是否有效
+            bool: Whether valid
         """
         if not stock_code:
             return False
         
-        # 使用优化的股票代码标准化
+        # Use optimized stock code standardization
         standardized = standardize_stock_code(stock_code)
         return standardized is not None
     
     def get_all_stock_codes(self) -> List[str]:
         """
-        获取所有股票代码
+        Get all stock codes
         
         Returns:
-            List[str]: 股票代码列表
+            List[str]: List of stock codes
         """
         return self.mapping_manager.get_all_stock_codes()
     
     def get_stock_statistics(self) -> Dict[str, int]:
         """
-        获取股票统计信息
+        Get stock statistics
         
         Returns:
-            Dict[str, int]: 统计信息
+            Dict[str, int]: Statistics info
         """
         return self.mapping_manager.get_statistics()
 
 
 class DownloadService:
-    """投资者关系活动记录表下载服务"""
+    """Investor Relations Activity Record Sheet Download Service"""
     
     def __init__(self,
                  save_dir: str = "downloads",
                  mapping_file: str = "stock_orgid_mapping.json",
                  config_file: Optional[str] = None):
         """
-        初始化下载服务（增强版，对齐旧下载器）
+        Initialize download service (Enhanced version, aligned with old downloader)
         
         Args:
-            save_dir: 下载文件保存目录
-            mapping_file: 映射文件路径
+            save_dir: Download file save directory
+            mapping_file: Mapping file path
         """
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +167,7 @@ class DownloadService:
         
         self.mapping_manager = MappingManager(mapping_file)
 
-        # 初始化浏览器策略管理器
+        # Initialize browser strategy manager
         self.browser_strategy_manager = BrowserStrategyManager(config_file)
         self.browser_strategy = self.browser_strategy_manager.get_strategy(
             headless=True,
@@ -180,7 +180,7 @@ class DownloadService:
             }
         )
 
-        # 兼容旧的WebDriverManager（用于过渡）
+        # Compatible old WebDriverManager (for transition)
         self.driver_manager = WebDriverManager(
             headless=True,
             download_dir=str(self.save_dir),
@@ -191,104 +191,104 @@ class DownloadService:
         )
         self.anti_crawler = AntiCrawlerStrategy()
 
-        # 加载配置
+        # Load config
         self.config = ConfigManager(config_file)
-        self.logger = logger  # 添加实例级logger属性用于测试
+        self.logger = logger  # Add instance-level logger attribute for testing
         
-        # 从旧下载器复制的关键属性
-        self.download_count = 0  # 下载计数器
-        self.max_downloads_per_session = self.config.get('download.max_downloads_per_session', 5)  # 每个会话最大下载数
+        # Key attributes copied from old downloader
+        self.download_count = 0  # Download counter
+        self.max_downloads_per_session = self.config.get('download.max_downloads_per_session', 5)  # Max downloads per session
         
-        # 配置反爬虫策略
+        # Configure anti-crawler strategy
         human_behavior_delay = self.config.get('download.human_behavior_delay', 3)
-        # 确保 human_behavior_delay 是整数
+        # Ensure human_behavior_delay is integer
         if isinstance(human_behavior_delay, list):
-            # 如果是列表，取第一个元素或平均值
+            # If list, take first element or average
             human_behavior_delay = human_behavior_delay[0] if human_behavior_delay else 3
         elif not isinstance(human_behavior_delay, (int, float)):
-            # 如果不是数字类型，使用默认值
+            # If not number type, use default value
             human_behavior_delay = 3
         
-        # 确保是整数
+        # Ensure is integer
         human_behavior_delay = int(human_behavior_delay)
         
         self.anti_crawler.set_session_parameters(
             min_delay=max(1, human_behavior_delay - 1),
-            max_delay=human_behavior_delay + 2,  # 减少最大延迟
+            max_delay=human_behavior_delay + 2,  # Reduce max delay
             max_downloads=self.max_downloads_per_session
         )
         
-        # 当前公司目录（用于文件管理）
+        # Current stock directory (for file management)
         self._current_stock_dir = None
         
-        # 错误恢复机制
+        # Error recovery mechanism
         self._consecutive_errors = 0
         self._max_consecutive_errors = 3
         self._circuit_breaker_active = False
         self._last_error_time = None
-        self._circuit_breaker_timeout = 60  # 60秒后重试
+        self._circuit_breaker_timeout = 60  # Retry after 60 seconds
     
     def clean_filename(self, filename):
-        """清理文件名中的非法字符（从旧下载器复制）"""
+        """Clean illegal characters in filename (copied from old downloader)"""
         if not filename:
             return filename
-        # 去除首尾空格
+        # Remove leading/trailing spaces
         filename = filename.strip()
-        # 替换非法字符
-        filename = re.sub(r'[\\\/:*?"<>|]', '_', filename)
-        # 处理空格和点的组合：将连续的空格和点序列替换为单个点
-        # 首先将空格点序列标准化：将空格和点交错序列替换为单个点
-        # 使用正则表达式匹配任意数量的空格和点（至少一个点），替换为单个点
+        # Replace illegal characters
+        filename = re.sub(r'[\\[*?"<>|]', '_', filename)
+        # Handle space and dot combination: replace consecutive space and dot sequence with single dot
+        # First standardize space dot sequence: replace space and dot interleaved sequence with single dot
+        # Use regex to match any amount of spaces and dots (at least one dot), replace with single dot
         filename = re.sub(r'(?:\s*\.)+\s*', '.', filename)
-        # 确保没有连续的点（可能由上述替换产生）
+        # Ensure no consecutive dots (might be generated by above replacement)
         filename = re.sub(r'\.{2,}', '.', filename)
         return filename
     
     def get_org_id(self, stock_code, force_run=False):
-        """获取股票代码对应的组织ID（从旧下载器复制）"""
+        """Get Org ID for stock code (copied from old downloader)"""
         return self.mapping_manager.get_org_id(stock_code, force_refresh=force_run)
     
     @monitor_performance("DownloadService.download_stock_pdfs")
-    def download_stock_pdfs(self,
+    def download_stock_pdfs(
                           stock_code: str,
                           target_pages: Optional[List[Union[str, Dict[str, Any]]]] = None,
                           max_retries: int = 3,
                           proxy_info: Optional[Dict[str, Any]] = None) -> List[DownloadRecord]:
         """
-        下载指定股票的PDF文件
+        Download PDF files for specified stock
 
         Args:
-            stock_code: 股票代码
-            target_pages: 目标页面列表（支持字符串格式或字典格式）
-            max_retries: 最大重试次数
-            proxy_info: 代理信息（用于多公司并行下载）
+            stock_code: Stock code
+            target_pages: Target page list (supports string or dict format)
+            max_retries: Max retries
+            proxy_info: Proxy info (for multi-company parallel download)
 
         Returns:
-            List[DownloadRecord]: 下载记录列表
+            List[DownloadRecord]: List of download records
         """
         if target_pages is None:
             target_pages = ["research"]
 
-        # 转换字典格式的target_pages为字符串格式
+        # Convert dict format target_pages to string format
         normalized_target_pages = []
         for page in target_pages:
             if isinstance(page, dict):
-                # 字典格式: {'suffix': 'research', 'allowed_keywords': None}
+                # Dict format: {'suffix': 'research', 'allowed_keywords': None}
                 suffix = page.get('suffix', 'research')
                 normalized_target_pages.append(suffix)
             else:
-                # 字符串格式: 'research'
+                # String format: 'research'
                 normalized_target_pages.append(page)
 
         target_pages = normalized_target_pages
 
-        # 如果提供了代理信息，配置代理
+        # If proxy info provided, configure proxy
         if proxy_info:
             self._configure_proxy(proxy_info)
 
         stock_info = self._get_stock_info(stock_code)
         if not stock_info or not stock_info.org_id:
-            logger.error(f"无法获取组织ID: {stock_code}")
+            logger.error(f"Cannot get Org ID: {stock_code}")
             return []
         
         task = DownloadTask(
@@ -307,22 +307,22 @@ class DownloadService:
         recovery_strategy=RecoveryStrategy.SKIP
     )
     def _get_stock_info(self, stock_code: str) -> Optional[StockInfo]:
-        """获取股票信息（与旧下载器对齐）"""
+        """Get stock info (aligned with old downloader)"""
         try:
-            # 使用与旧下载器相同的股票名称获取逻辑
+            # Use same stock name retrieval logic as old downloader
             from get_stock_name import get_stock_name
             
             stock_name = get_stock_name(stock_code, self.mapping_file)
             
-            # 如果获取失败，使用股票代码作为名称
+            # If retrieval failed, use stock code as name
             if not stock_name or stock_name.startswith('错误') or stock_name.startswith('网络'):
                 stock_name = stock_code
-                logger.warning(f"使用股票代码作为名称: {stock_name}")
+                logger.warning(f"Using stock code as name: {stock_name}")
             
             org_id = self.mapping_manager.get_org_id(stock_code)
             if not org_id:
                 raise DownloadError(
-                    f"无法获取组织ID: {stock_code}",
+                    f"Cannot get Org ID: {stock_code}",
                     error_code=ErrorCode.DOWNLOAD_ORG_ID_ERROR,
                     severity=ErrorSeverity.ERROR,
                     recovery_strategy=RecoveryStrategy.SKIP,
@@ -339,7 +339,7 @@ class DownloadService:
             if isinstance(e, DownloadError):
                 raise
             raise DownloadError(
-                f"获取股票信息失败: {e}",
+                f"Failed to get stock info: {e}",
                 error_code=ErrorCode.DOWNLOAD_STOCK_INFO_ERROR,
                 severity=ErrorSeverity.ERROR,
                 recovery_strategy=RecoveryStrategy.SKIP,
@@ -355,29 +355,29 @@ class DownloadService:
         max_retries=2
     )
     def _execute_download_task(self, task: DownloadTask) -> List[DownloadRecord]:
-        """执行下载任务"""
+        """Execute download task"""
         records = []
 
         try:
-            # 暂时使用WebDriver管理器，因为Playwright策略需要修复
+            # Temporarily use WebDriver manager as Playwright strategy needs fixing
             with self.driver_manager as driver:
                 for page in task.target_pages:
-                    # 处理不同格式的page参数
+                    # Handle different formats of page parameter
                     if isinstance(page, dict):
-                        # 字典格式: {'suffix': 'research', 'allowed_keywords': None}
+                        # Dict format: {'suffix': 'research', 'allowed_keywords': None}
                         page_type = page.get("suffix", "research")
                         allowed_keywords = page.get("allowed_keywords")
                     else:
-                        # 字符串格式: 'research'
+                        # String format: 'research'
                         page_type = page
                         allowed_keywords = None
                     records.extend(
                         self._download_from_page(driver, task.stock_info, page_type, task.max_retries, allowed_keywords)
                     )
 
-                    # 检查会话限制
+                    # Check session limit
                     if self.anti_crawler.check_session_limit(len(records)):
-                        logger.info("达到会话下载限制，重启浏览器")
+                        logger.info("Session download limit reached, restarting browser")
                         driver = self.driver_manager.restart_driver()
                         self.anti_crawler.apply_anti_detection(driver)
         
@@ -385,7 +385,7 @@ class DownloadService:
             if isinstance(e, (WebDriverError, NetworkError, DownloadError)):
                 raise
             raise DownloadError(
-                f"执行下载任务失败: {e}",
+                f"Failed to execute download task: {e}",
                 error_code=ErrorCode.DOWNLOAD_TASK_ERROR,
                 severity=ErrorSeverity.ERROR,
                 recovery_strategy=RecoveryStrategy.RETRY,
@@ -396,81 +396,81 @@ class DownloadService:
         return records
     
     @monitor_performance("DownloadService._download_from_page")
-    def _download_from_page(self, 
+    def _download_from_page(
                           driver,
                           stock_info: StockInfo,
                           page_type: str,
                           max_retries: int,
                           allowed_keywords: List[str] = None) -> List[DownloadRecord]:
-        """从指定页面下载PDF，支持分页和关键词匹配"""
+        """Download PDFs from specified page, supports pagination and keyword matching"""
         records = []
         
-        # 检查断路器状态
+        # Check circuit breaker status
         if not self._check_circuit_breaker():
-            logger.error("断路器激活中，跳过下载")
+            logger.error("Circuit breaker active, skipping download")
             return records
         
-        # 获取页面配置
+        # Get page configuration
         page_config = self._get_page_config(page_type)
         max_pages = page_config.get("max_pages", self.config.get("max_pages", 5))
         
         try:
             base_url = "https://www.cninfo.com.cn"
-            # 使用配置中的suffix构建正确的URL格式
+            # Use suffix from config to build correct URL format
             url = f"{base_url}/new/disclosure/stock?orgId={stock_info.org_id}&stockCode={stock_info.stock_code}#{page_type}"
 
-            # 移除硬编码的页面类型检查，支持所有配置的页面类型
+            # Remove hardcoded page type check, support all configured page types
             scraper = WebScraper(driver)
 
             for attempt in range(max_retries + 1):
                 try:
-                    logger.info(f"访问页面: {url} (尝试 {attempt + 1})")
+                    logger.info(f"Accessing page: {url} (Attempt {attempt + 1})")
                     
                     driver.get(url)
                     self.anti_crawler.random_delay(0.5, 1)
                     
-                    # 等待页面加载 - 优化超时时间
+                    # Wait for page load - optimize timeout
                     WebDriverWait(driver, 5).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
                     
-                    # 模拟人类行为
+                    # Simulate human behavior
                     self.anti_crawler.simulate_human_behavior(driver)
                     
-                    # 分页下载
+                    # Pagination download
                     page_records = self._download_with_pagination(
                         driver, stock_info, page_config, max_pages, allowed_keywords
                     )
                     records.extend(page_records)
                     
-                    # 记录成功
+                    # Record success
                     self._record_success()
-                    break  # 成功完成
+                    break  # Completed successfully
                     
                 except Exception as e:
-                    logger.error(f"下载失败 (尝试 {attempt + 1}): {e}")
+                    logger.error(f"Download failed (Attempt {attempt + 1}): {e}")
                     self._record_error()
                     
                     if attempt < max_retries:
                         self.anti_crawler.handle_rate_limit(driver, attempt)
-                        if attempt > 0:  # 重启浏览器
+                        if attempt > 0:  # Restart browser
                             driver = self.driver_manager.restart_driver()
                             self.anti_crawler.apply_anti_detection(driver)
                     else:
-                        logger.error(f"达到最大重试次数: {max_retries}")
+                        logger.error(f"Reached max retries: {max_retries}")
 
         except Exception as e:
-            logger.error(f"下载过程失败: {e}")
+            logger.error(f"Download process failed: {e}")
             self._record_error()
 
         return records
 
     def _configure_proxy(self, proxy_info: Dict[str, Any]):
         """
-        配置代理设置
+        Configure proxy settings
 
         Args:
-            proxy_info: 代理信息字典
+            proxy_info: Proxy info dictionary
         """
         try:
             proxy_host = proxy_info.get('host')
@@ -478,20 +478,20 @@ class DownloadService:
             proxy_type = proxy_info.get('type', 'http')
 
             if proxy_host and proxy_port:
-                # 创建代理选项
+                # Create proxy options
                 proxy_options = {
                     'proxy': {
                         proxy_type: f"{proxy_host}:{proxy_port}"
                     }
                 }
 
-                logger.info(f"应用代理设置: {proxy_type}://{proxy_host}:{proxy_port}")
+                logger.info(f"Applying proxy settings: {proxy_type}://{proxy_host}:{proxy_port}")
 
-                # 为新的浏览器策略配置代理
+                # Configure proxy for new browser strategy
                 if hasattr(self, 'browser_strategy_manager'):
                     current_type = self.browser_strategy_manager.get_current_type()
                     if current_type:
-                        # 重新创建浏览器策略以应用代理
+                        # Recreate browser strategy to apply proxy
                         config = {
                             'window_size': '1920,1080',
                             'page_load_timeout': 8,
@@ -506,18 +506,18 @@ class DownloadService:
                             config=config
                         )
 
-                # 兼容旧的WebDriverManager
+                # Compatible with old WebDriverManager
                 if self.driver_manager.driver:
-                    # 关闭现有驱动并创建新的带代理的驱动
+                    # Close existing driver and create new driver with proxy
                     self.driver_manager.close_driver()
                     self.driver_manager.create_driver(custom_options=proxy_options)
             else:
-                logger.warning("代理信息不完整，跳过代理配置")
+                logger.warning("Proxy info incomplete, skipping proxy configuration")
         except Exception as e:
-            logger.error(f"配置代理失败: {e}")
+            logger.error(f"Failed to configure proxy: {e}")
 
     def _find_detail_links(self, driver, stock_info: StockInfo, allowed_keywords: List[str] = None) -> List[Dict[str, str]]:
-        """查找当前页面的下载链接（精确复制旧版本算法）"""
+        """Find download links on current page (exactly replicate old version algorithm)"""
         detail_infos = []
         total_links = 0
         detail_links_found = 0
@@ -526,73 +526,73 @@ class DownloadService:
         start_time = time.time()
 
         try:
-            # 等待页面元素加载 - 优化超时时间
+            # Wait for page elements to load - optimize timeout
             WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'a'))
             )
 
-            # 检查页面是否正常加载
+            # Check if page loaded correctly
             if "cninfo.com.cn" not in driver.current_url:
-                logger.warning("页面未正确加载，URL不包含cninfo.com.cn")
+                logger.warning("Page not loaded correctly, URL does not contain cninfo.com.cn")
                 return []
 
             all_links = driver.find_elements(By.TAG_NAME, 'a')
             total_links = len(all_links)
-            logger.debug(f"页面中共找到 {total_links} 个链接")
+            logger.debug(f"Found {total_links} links on page")
 
             for link in all_links:
                 try:
                     text = link.text.strip()
                     href = link.get_attribute('href')
 
-                    # 调试：记录前几个链接
+                    # Debug: Log first few links
                     if detail_links_found < 5:
-                        logger.debug(f"[调试] 链接 {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
+                        logger.debug(f"[Debug] Link {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
 
-                    # 1. 首先检查基本条件：必须是详情页链接
+                    # 1. First check basic condition: must be detail page link
                     if not (href and '/new/disclosure/detail' in href
                             and f'stockCode={stock_info.stock_code}' in href):
                         continue
 
                     detail_links_found += 1
 
-                    # 2. 然后检查关键词过滤
+                    # 2. Then check keyword filtering
                     if allowed_keywords is not None:
-                        # 使用更灵活的关键词匹配
+                        # Use more flexible keyword matching
                         keyword_match = self._matches_keywords(text, allowed_keywords)
                         if not keyword_match:
                             keyword_filtered += 1
-                            logger.debug(f"[跳过] 文件名不包含关键词: {text}")
-                            logger.debug(f"[调试] 关键词: {allowed_keywords}, 文本: {text}")
+                            logger.debug(f"[Skip] Filename does not contain keywords: {text}")
+                            logger.debug(f"[Debug] Keywords: {allowed_keywords}, Text: {text}")
                             continue
 
-                    # 3. 立即生成文件名并检查文件是否已存在
+                    # 3. Immediately generate filename and check if file already exists
                     safe_title = re.sub(r'[\\/:*?"<>|]', '_', text)
                     file_name = f"{safe_title}.pdf"
 
-                    # 尽早检查文件存在性，避免不必要的处理
-                    # 检查股票子目录和根目录（兼容旧版本文件位置）
+                    # Check file existence early to avoid unnecessary processing
+                    # Check stock subdirectory and root directory (compatible with old version file location)
                     file_exists = False
 
-                    # 首先检查股票子目录
+                    # First check stock subdirectory
                     stock_dir = self.save_dir / stock_info.stock_name
                     stock_file_path = stock_dir / file_name
                     if stock_file_path.exists() and stock_file_path.stat().st_size > 10 * 1024:
                         file_exists = True
                         file_exists_filtered += 1
-                        logger.info(f"[跳过] 文件已存在 (股票目录): {file_name}")
+                        logger.info(f"[Skip] File already exists (stock directory): {file_name}")
                     else:
-                        # 然后检查根目录（兼容旧版本文件位置）
+                        # Then check root directory (compatible with old version file location)
                         root_file_path = self.save_dir / file_name
                         if root_file_path.exists() and root_file_path.stat().st_size > 10 * 1024:
                             file_exists = True
                             file_exists_filtered += 1
-                            logger.info(f"[跳过] 文件已存在 (根目录): {file_name}")
+                            logger.info(f"[Skip] File already exists (root directory): {file_name}")
 
                     if file_exists:
                         continue
 
-                    # 4. 只有需要下载的文件才构建详细信息（对齐旧下载器数据结构）
+                    # 4. Only build detail info for files that need to be downloaded (aligned with old downloader data structure)
                     detail_infos.append({
                         'href': href,
                         'file_name': file_name,
@@ -600,20 +600,20 @@ class DownloadService:
                     })
 
                 except Exception as e:
-                    logger.debug(f"处理链接时发生错误: {e}")
+                    logger.debug(f"Error processing link: {e}")
                     continue
 
         except Exception as e:
-            logger.error(f"查找下载链接时发生错误: {e}")
+            logger.error(f"Error finding download links: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"链接查找完成 - 总链接: {total_links}, 详情链接: {detail_links_found}, "
-                   f"关键词过滤: {keyword_filtered}, 文件存在过滤: {file_exists_filtered}, "
-                   f"需要下载: {len(detail_infos)}, 处理时间: {processing_time:.3f}s")
+        logger.info(f"Link search complete - Total links: {total_links}, Detail links: {detail_links_found}, "
+                   f"Keyword filtered: {keyword_filtered}, File exists filtered: {file_exists_filtered}, "
+                   f"Need download: {len(detail_infos)}, Processing time: {processing_time:.3f}s")
         return detail_infos
 
     def _find_detail_links_with_config(self, driver, stock_info: StockInfo, page_config: Dict[str, Any]) -> List[Dict[str, str]]:
-        """查找当前页面的下载链接（使用页面配置进行完整关键词匹配）"""
+        """Find download links on current page (using page config for complete keyword matching)"""
         detail_infos = []
         total_links = 0
         detail_links_found = 0
@@ -621,75 +621,75 @@ class DownloadService:
         file_exists_filtered = 0
         start_time = time.time()
 
-        # 创建关键词匹配器
+        # Create keyword matcher
         keyword_matcher = self._create_keyword_matcher(page_config)
 
         try:
-            # 等待页面元素加载 - 优化超时时间
+            # Wait for page elements to load - optimize timeout
             WebDriverWait(driver, 3).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'a'))
             )
 
-            # 检查页面是否正常加载
+            # Check if page loaded correctly
             if "cninfo.com.cn" not in driver.current_url:
-                logger.warning("页面未正确加载，URL不包含cninfo.com.cn")
+                logger.warning("Page not loaded correctly, URL does not contain cninfo.com.cn")
                 return []
 
             all_links = driver.find_elements(By.TAG_NAME, 'a')
             total_links = len(all_links)
-            logger.debug(f"页面中共找到 {total_links} 个链接")
+            logger.debug(f"Found {total_links} links on page")
 
             for link in all_links:
                 try:
                     text = link.text.strip()
                     href = link.get_attribute('href')
 
-                    # 调试：记录前几个链接
+                    # Debug: Log first few links
                     if detail_links_found < 5:
-                        logger.debug(f"[调试] 链接 {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
+                        logger.debug(f"[Debug] Link {detail_links_found + 1}: text={text[:50]}, href={href[:100] if href else 'None'}")
 
-                    # 1. 首先检查基本条件：必须是详情页链接
+                    # 1. First check basic condition: must be detail page link
                     if not (href and '/new/disclosure/detail' in href
                             and f'stockCode={stock_info.stock_code}' in href):
                         continue
 
                     detail_links_found += 1
 
-                    # 2. 使用KeywordMatcher进行关键词匹配（包含允许和排除关键词）
+                    # 2. Use KeywordMatcher for keyword matching (including allowed and excluded keywords)
                     keyword_match = keyword_matcher.matches(text=text, title=text)
                     if not keyword_match:
                         keyword_filtered += 1
-                        logger.debug(f"[跳过] 文件名不符合关键词配置: {text}")
-                        logger.debug(f"[调试] 页面配置: {page_config}")
+                        logger.debug(f"[Skip] Filename does not match keyword config: {text}")
+                        logger.debug(f"[Debug] Page config: {page_config}")
                         continue
 
-                    # 3. 立即生成文件名并检查文件是否已存在
+                    # 3. Immediately generate filename and check if file already exists
                     safe_title = re.sub(r'[\\/:*?"<>|]', '_', text)
                     file_name = f"{safe_title}.pdf"
 
-                    # 尽早检查文件存在性，避免不必要的处理
-                    # 检查股票子目录和根目录（兼容旧版本文件位置）
+                    # Check file existence early to avoid unnecessary processing
+                    # Check stock subdirectory and root directory (compatible with old version file location)
                     file_exists = False
 
-                    # 首先检查股票子目录
+                    # First check stock subdirectory
                     stock_dir = self.save_dir / stock_info.stock_name
                     stock_file_path = stock_dir / file_name
                     if stock_file_path.exists() and stock_file_path.stat().st_size > 10 * 1024:
                         file_exists = True
                         file_exists_filtered += 1
-                        logger.info(f"[跳过] 文件已存在 (股票目录): {file_name}")
+                        logger.info(f"[Skip] File already exists (stock directory): {file_name}")
                     else:
-                        # 然后检查根目录（兼容旧版本文件位置）
+                        # Then check root directory (compatible with old version file location)
                         root_file_path = self.save_dir / file_name
                         if root_file_path.exists() and root_file_path.stat().st_size > 10 * 1024:
                             file_exists = True
                             file_exists_filtered += 1
-                            logger.info(f"[跳过] 文件已存在 (根目录): {file_name}")
+                            logger.info(f"[Skip] File already exists (root directory): {file_name}")
 
                     if file_exists:
                         continue
 
-                    # 4. 只有需要下载的文件才构建详细信息（对齐旧下载器数据结构）
+                    # 4. Only build detail info for files that need to be downloaded (aligned with old downloader data structure)
                     detail_infos.append({
                         'href': href,
                         'file_name': file_name,
@@ -697,22 +697,22 @@ class DownloadService:
                     })
 
                 except Exception as e:
-                    logger.debug(f"处理链接时发生错误: {e}")
+                    logger.debug(f"Error processing link: {e}")
                     continue
 
         except Exception as e:
-            logger.error(f"查找下载链接时发生错误: {e}")
+            logger.error(f"Error finding download links: {e}")
 
         processing_time = time.time() - start_time
-        logger.info(f"链接查找完成 - 总链接: {total_links}, 详情链接: {detail_links_found}, "
-                   f"关键词过滤: {keyword_filtered}, 文件存在过滤: {file_exists_filtered}, "
-                   f"需要下载: {len(detail_infos)}, 处理时间: {processing_time:.3f}s")
+        logger.info(f"Link search complete - Total links: {total_links}, Detail links: {detail_links_found}, "
+                   f"Keyword filtered: {keyword_filtered}, File exists filtered: {file_exists_filtered}, "
+                   f"Need download: {len(detail_infos)}, Processing time: {processing_time:.3f}s")
         return detail_infos
     
     def _extract_date_from_link(self, link) -> str:
-        """从链接元素提取日期"""
+        """Extract date from link element"""
         try:
-            # 尝试从父元素中查找日期
+            # Try finding date from parent element
             parent = link.find_element(By.XPATH, "./ancestor::tr")
             date_selectors = [
                 "td:nth-child(3)",
@@ -736,9 +736,9 @@ class DownloadService:
             return datetime.now().strftime("%Y-%m-%d")
     
     def _extract_date_from_item(self, item) -> str:
-        """从公告条目提取日期"""
+        """Extract date from announcement item"""
         try:
-            # 尝试多种日期选择器
+            # Try multiple date selectors
             date_selectors = [
                 "td:nth-child(3)",
                 ".el-table_1_column_3",
@@ -762,17 +762,17 @@ class DownloadService:
     
     
     def get_download_history(self) -> List[DownloadRecord]:
-        """获取下载历史"""
+        """Get download history"""
         records = []
         
         try:
             for file_path in self.save_dir.glob("*.pdf"):
                 stat = file_path.stat()
                 
-                # 创建下载记录（文件名格式与老版本保持一致，只包含标题）
+                # Create download record (filename format consistent with old version, only contains title)
                 record = DownloadRecord(
                     id=str(uuid.uuid4()),
-                    stock_code="unknown",  # 老版本文件名不包含股票代码信息
+                    stock_code="unknown",  # Old version filename does not contain stock code info
                     file_name=file_path.name,
                     file_path=str(file_path),
                     file_size=stat.st_size,
@@ -781,19 +781,19 @@ class DownloadService:
                 records.append(record)
         
         except Exception as e:
-            logger.error(f"获取下载历史失败: {e}")
+            logger.error(f"Failed to get download history: {e}")
         
         return records
     
     def cleanup_downloads(self, days: int = 30) -> int:
         """
-        清理旧下载文件
+        Cleanup old downloaded files
         
         Args:
-            days: 保留天数
+            days: Days to keep
             
         Returns:
-            int: 清理的文件数量
+            int: Number of files cleaned
         """
         from datetime import datetime, timedelta
         
@@ -806,17 +806,17 @@ class DownloadService:
                     try:
                         file_path.unlink()
                         cleaned_count += 1
-                        logger.info(f"清理旧文件: {file_path.name}")
+                        logger.info(f"Cleaned old file: {file_path.name}")
                     except Exception as e:
-                        logger.error(f"清理文件失败 {file_path.name}: {e}")
+                        logger.error(f"Failed to clean file {file_path.name}: {e}")
         
         except Exception as e:
-            logger.error(f"清理下载文件失败: {e}")
+            logger.error(f"Failed to clean downloaded files: {e}")
         
         return cleaned_count
 
     def _get_page_config(self, page_type: str) -> Dict[str, Any]:
-        """获取页面特定配置"""
+        """Get page specific configuration"""
         pages = self.config.get("pages", [])
         for page in pages:
             if page.get("suffix") == page_type:
@@ -824,34 +824,34 @@ class DownloadService:
         return {}
 
     def _create_keyword_matcher(self, page_config: Dict[str, Any]):
-        """创建关键词匹配器"""
+        """Create keyword matcher"""
         from ..utils.keyword_matcher import KeywordMatcher
         return KeywordMatcher.from_dict(page_config)
 
-    def _download_with_pagination(self,
+    def _download_with_pagination(
                                 driver,
                                 stock_info: StockInfo,
                                 page_config: Dict[str, Any],
                                 max_pages: int,
                                 allowed_keywords: List[str] = None) -> List[DownloadRecord]:
-        """支持分页的下载（增强版，对齐旧下载器）"""
+        """Pagination supported download (Enhanced version, aligned with old downloader)"""
         records = []
         scraper = WebScraper(driver)
         keyword_matcher = self._create_keyword_matcher(page_config)
         
         for page_num in range(1, max_pages + 1):
-            logger.info(f"正在处理第 {page_num} 页")
+            logger.info(f"Processing page {page_num}")
             
-            # 检查driver健康状态（从旧下载器复制）
+            # Check driver health status (copied from old downloader)
             if not self.driver_manager.is_driver_healthy():
-                logger.warning("检测到driver异常，尝试重启...")
+                logger.warning("Driver anomaly detected, attempting restart...")
                 if not self.driver_manager.restart_driver():
-                    logger.error("重启WebDriver失败")
+                    logger.error("Failed to restart WebDriver")
                     break
                 driver = self.driver_manager.get_driver()
                 scraper = WebScraper(driver)
                 
-                # 重新访问页面
+                # Re-access page
                 try:
                     base_url = "https://www.cninfo.com.cn"
                     suffix = page_config.get("suffix", "research")
@@ -859,23 +859,23 @@ class DownloadService:
                     driver.get(url)
                     self.anti_crawler.dynamic_delay(0.5, 1)
                     
-                    # 导航到当前页（如果不是第一页）
+                    # Navigate to current page (if not first page)
                     if page_num > 1:
                         self._navigate_to_page(driver, page_num)
                         
                 except Exception as e:
-                    logger.error(f"重新访问页面失败: {e}")
+                    logger.error(f"Failed to re-access page: {e}")
                     break
             
-            # 模拟人类行为（从旧下载器复制）
+            # Simulate human behavior (copied from old downloader)
             self.anti_crawler.simulate_complex_browsing(driver)
             
-            # 查找详情页链接（使用页面配置进行关键词匹配）
+            # Find detail page links (using page config for keyword matching)
             detail_links = self._find_detail_links_with_config(driver, stock_info, page_config)
             
-            # 下载详情页中的PDF文件（使用旧下载器的数据结构）
+            # Download PDF files in detail pages (using old downloader data structure)
             for link_data in detail_links:
-                # 将旧数据结构转换为新格式
+                # Convert old data structure to new format
                 converted_link_data = {
                     'title': link_data['file_name'].replace('.pdf', ''),
                     'detail_url': link_data['href'],
@@ -884,58 +884,58 @@ class DownloadService:
                 record = self._download_from_detail_page(driver, stock_info, converted_link_data)
                 if record:
                     records.append(record)
-                    # 增加下载计数
+                    # Increment download count
                     self.download_count += 1
             
-            # 检查是否需要重启浏览器（从旧下载器复制）
+            # Check if browser restart is needed (copied from old downloader)
             if self.download_count >= self.max_downloads_per_session:
-                logger.info("达到单次会话下载限制，重启浏览器...")
+                logger.info("Reached single session download limit, restarting browser...")
                 if not self.driver_manager.restart_driver():
-                    logger.error("重启WebDriver失败")
+                    logger.error("Failed to restart WebDriver")
                     break
                 driver = self.driver_manager.get_driver()
                 scraper = WebScraper(driver)
-                self.download_count = 0  # 重置计数
+                self.download_count = 0  # Reset count
             
-            # 检查是否需要翻页
+            # Check if pagination is needed
             if page_num >= max_pages:
-                logger.info(f"已达到最大页数限制: {max_pages}")
+                logger.info(f"Reached max pages limit: {max_pages}")
                 break
                 
-            # 尝试翻到下一页（优先使用直接页码导航，失败时使用旧算法）
+            # Try going to next page (prefer direct page number navigation, fallback to old algorithm)
             try:
                 pagination_success = scraper.go_to_page(page_num + 1)
                 if not pagination_success:
                     pagination_success = self._go_to_next_page_old_style(driver)
                 
                 if not pagination_success:
-                    logger.info("已到达最后一页")
+                    logger.info("Reached last page")
                     break
             except Exception as pagination_error:
                 if "chrome" in str(pagination_error).lower() or "tab crashed" in str(pagination_error).lower():
-                    logger.warning(f"翻页时发生ChromeDriver错误: {pagination_error}")
-                    # 尝试重启driver
+                    logger.warning(f"ChromeDriver error during pagination: {pagination_error}")
+                    # Try restarting driver
                     if self.driver_manager.restart_driver():
                         driver = self.driver_manager.get_driver()
                         scraper = WebScraper(driver)
                         continue
                     else:
-                        logger.error("无法重启WebDriver，停止翻页")
+                        logger.error("Unable to restart WebDriver, stopping pagination")
                         break
                 else:
-                    logger.error(f"翻页失败: {pagination_error}")
+                    logger.error(f"Pagination failed: {pagination_error}")
                     break
                 
-            # 等待页面加载（优化延迟时间）
+            # Wait for page load (optimize delay time)
             scraper.wait_for_page_load()
             self.anti_crawler.dynamic_delay(0.5, 1.5)
         
         return records
     
     def _navigate_to_page(self, driver, page_num):
-        """导航到指定页面（从旧下载器复制）"""
+        """Navigate to specified page (copied from old downloader)"""
         try:
-            # 查找页码输入框和跳转按钮
+            # Find page input box and go button
             page_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='number']")
             go_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), '跳转') or contains(text(), 'Go')]")
             
@@ -943,40 +943,40 @@ class DownloadService:
                 page_input = page_inputs[0]
                 go_button = go_buttons[0]
                 
-                # 输入页码
+                # Enter page number
                 page_input.clear()
                 page_input.send_keys(str(page_num))
                 
-                # 点击跳转按钮
+                # Click go button
                 go_button.click()
                 
-                # 等待页面加载
+                # Wait for page load
                 time.sleep(1)
                 
-                logger.info(f"已导航到第{page_num}页")
+                logger.info(f"Navigated to page {page_num}")
                 return True
             else:
-                # 尝试点击下一页按钮
+                # Try clicking next page button
                 next_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), '下一页') or contains(@class, 'next')]")
                 if next_buttons:
                     for _ in range(page_num - 1):
                         next_buttons[0].click()
                         time.sleep(1)
-                    logger.info(f"已导航到第{page_num}页")
+                    logger.info(f"Navigated to page {page_num}")
                     return True
                 
         except Exception as e:
-            logger.error(f"导航到第{page_num}页失败: {e}")
+            logger.error(f"Failed to navigate to page {page_num}: {e}")
         
         return False
 
     def _go_to_next_page_old_style(self, driver) -> bool:
-        """使用旧下载器的成熟分页算法"""
+        """Use old downloader's mature pagination algorithm"""
         try:
-            # 模拟人类行为
+            # Simulate human behavior
             self.anti_crawler.simulate_human_behavior(driver)
             
-            # 方法1: 查找下一页按钮
+            # Method 1: Find next page button
             try:
                 next_btn = driver.find_element(By.XPATH, "//button[contains(@class, 'el-pagination__next') and not(@disabled)]")
                 if next_btn.is_enabled():
@@ -987,7 +987,7 @@ class DownloadService:
             except Exception:
                 pass
             
-            # 方法2: 查找右箭头按钮
+            # Method 2: Find right arrow button
             try:
                 arrow_icon = driver.find_element(By.CSS_SELECTOR, "i.el-icon.el-icon-arrow-right")
                 parent_btn = arrow_icon.find_element(By.XPATH, "./ancestor::button[not(@disabled)]")
@@ -999,35 +999,35 @@ class DownloadService:
             except Exception:
                 pass
             
-            # 方法3: 查找页码输入框（备用方法）
+            # Method 3: Find page input box (backup method)
             try:
-                # 获取当前页码
+                # Get current page number
                 page_input = driver.find_element(By.CLASS_NAME, 'page-input')
                 current_page = int(page_input.get_attribute('value') or '1')
                 
-                # 输入下一页
+                # Enter next page
                 page_input.clear()
                 page_input.send_keys(str(current_page + 1))
                 
-                # 查找并点击跳转按钮
+                # Find and click go button
                 go_button = driver.find_element(By.CLASS_NAME, 'page-go')
                 go_button.click()
                 
-                # 等待页面加载
+                # Wait for page load
                 self.anti_crawler.dynamic_delay(0.5, 1)
                 return True
             except Exception:
                 pass
                 
         except Exception as e:
-            logger.debug(f"翻页失败: {e}")
+            logger.debug(f"Pagination failed: {e}")
         
         return False
 
-    def _filter_links_by_keywords(self,
+    def _filter_links_by_keywords(
                                 pdf_links: List[Dict[str, str]],
                                 keyword_matcher) -> List[Dict[str, str]]:
-        """根据关键词过滤PDF链接"""
+        """Filter PDF links by keywords"""
         filtered_links = []
         
         for link_data in pdf_links:
@@ -1036,121 +1036,121 @@ class DownloadService:
                 if keyword_matcher.matches(text=title, title=title):
                     filtered_links.append(link_data)
                 else:
-                    logger.debug(f"跳过不匹配的关键词: {title}")
+                    logger.debug(f"Skipping non-matching keywords: {title}")
             except Exception as e:
-                logger.warning(f"关键词匹配失败: {e}")
-                # 关键词匹配失败时默认包含
+                logger.warning(f"Keyword matching failed: {e}")
+                # Default include when matching fails
                 filtered_links.append(link_data)
         
         return filtered_links
     
     @monitor_performance("DownloadService._download_from_detail_page")
     def _download_from_detail_page(self, driver, stock_info: StockInfo, link_data: Dict[str, str]) -> Optional[DownloadRecord]:
-        """从详情页下载PDF文件（优化版本：移除重复的文件存在检查）"""
+        """Download PDF file from detail page (Optimized version: removed duplicate file existence check)"""
         start_time = time.time()
         detail_url = link_data['detail_url']
         title = link_data['title']
         
-        # 创建文件名（与老版本保持一致）
+        # Create filename (consistent with old version)
         safe_title = re.sub(r'[\\/:*?"<>|]', '_', title)
         file_name = f"{safe_title}.pdf"
         
-        logger.debug(f"开始处理详情页: {title}")
+        logger.debug(f"Processing detail page: {title}")
         
-        # 文件存在性检查已经在 _find_detail_links 中完成
-        # 使用公司子目录作为保存路径（与旧版本保持一致）
+        # File existence check already done in _find_detail_links
+        # Use company subdirectory as save path (consistent with old version)
         stock_dir = self.save_dir / stock_info.stock_name
         stock_dir.mkdir(parents=True, exist_ok=True)
         file_path = stock_dir / file_name
         
-        # 设置当前公司目录，用于文件管理
+        # Set current stock directory, used for file management
         self._current_stock_dir = stock_dir
         
-        # 如果需要日期，在下载阶段提取（性能优化）
+        # If date is needed, extract during download stage (performance optimization)
         date = link_data.get('date')
         if date is None:
-            # 从详情页提取日期
+            # Extract date from detail page
             try:
-                # 访问详情页获取日期信息
+                # Access detail page to get date info
                 driver.get(detail_url)
                 self.anti_crawler.random_delay(0.5, 1.5)
                 
-                # 查找详情页中的链接元素来提取日期
+                # Find link element in detail page to extract date
                 detail_links = driver.find_elements(By.TAG_NAME, 'a')
                 for link in detail_links:
                     if link.text.strip() == title:
                         date = self._extract_date_from_link(link)
                         break
             except Exception as e:
-                logger.debug(f"提取日期失败: {e}")
+                logger.debug(f"Failed to extract date: {e}")
                 date = datetime.now().strftime("%Y-%m-%d")
         
-        logger.info(f"访问详情页开始下载: {title}")
+        logger.info(f"Accessing detail page to start download: {title}")
         
-        # 添加重试机制处理tab crashed错误和ChromeDriver错误（增强版）
-        max_retries = 3  # 增加重试次数
+        # Add retry mechanism to handle tab crashed error and ChromeDriver error (Enhanced version)
+        max_retries = 3  # Increase max retries
         for attempt in range(max_retries + 1):
             try:
-                # 访问详情页 - 添加更好的错误处理
+                # Access detail page - add better error handling
                 try:
                     driver.get(detail_url)
                 except Exception as get_error:
                     if "tab crashed" in str(get_error).lower() or "chrome" in str(get_error).lower():
-                        logger.warning(f"ChromeDriver错误，尝试重启driver (尝试 {attempt + 1}/{max_retries + 1}): {get_error}")
+                        logger.warning(f"ChromeDriver error, attempting to restart driver (Attempt {attempt + 1}/{max_retries + 1}): {get_error}")
                         if attempt < max_retries:
-                            # 等待更长时间让Chrome完全重启
+                            # Wait longer for Chrome to fully restart
                             time.sleep(3)
-                            # 重启WebDriver
+                            # Restart WebDriver
                             if self.driver_manager.restart_driver():
                                 driver = self.driver_manager.get_driver()
                                 if driver:
-                                    logger.info("WebDriver重启成功，继续执行")
+                                    logger.info("WebDriver restarted successfully, continuing")
                                     continue
                                 else:
-                                    logger.error("WebDriver重启失败")
+                                    logger.error("WebDriver restart failed")
                                     raise get_error
                             else:
-                                logger.error("无法重启WebDriver")
+                                logger.error("Unable to restart WebDriver")
                                 raise get_error
                         else:
-                            logger.error(f"ChromeDriver重试失败，放弃: {get_error}")
+                            logger.error(f"ChromeDriver retry failed, giving up: {get_error}")
                             raise get_error
                     else:
                         raise get_error
                 
                 self.anti_crawler.random_delay(0.5, 1.5)
                 
-                # 模拟人类行为
+                # Simulate human behavior
                 self.anti_crawler.simulate_human_behavior(driver)
                 
-                # 查找并点击下载按钮 - 优化等待时间
+                # Find and click download button - optimize wait time
                 try:
                     download_btn = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]"))
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]" ))
                     )
                     
-                    # 记录点击前的文件列表（分别记录两个目录）
+                    # Record file list before click (record both directories separately)
                     before_files_save_dir = set(os.listdir(self.save_dir))
                     
-                    # 记录Chrome默认下载目录的文件
+                    # Record Chrome default download directory files
                     chrome_default_downloads = os.path.expanduser("~/Downloads")
                     before_files_chrome = set()
                     if os.path.exists(chrome_default_downloads):
                         before_files_chrome = set(os.listdir(chrome_default_downloads))
                     
-                    # 保存两个目录的初始文件列表用于传递给_wait_for_download
+                    # Save initial file lists of both directories to pass to _wait_for_download
                     before_files = (before_files_save_dir, before_files_chrome)
                     
-                    # 模拟人类点击
+                    # Simulate human click
                     actions = ActionChains(driver)
                     actions.move_to_element(download_btn).pause(random.uniform(0.5, 1.5)).click().perform()
-                    logger.info(f"已点击下载按钮，等待文件下载...")
+                    logger.info(f"Clicked download button, waiting for file download...")
                     
-                    # 等待下载完成 - 优化超时时间
+                    # Wait for download complete - optimize timeout
                     if self._wait_for_download(before_files, str(file_path), timeout=60):
                         file_size = file_path.stat().st_size
                         total_time = time.time() - start_time
-                        logger.info(f"下载成功: {file_name} ({file_size} bytes), 总耗时: {total_time:.3f}s")
+                        logger.info(f"Download successful: {file_name} ({file_size} bytes), Total time: {total_time:.3f}s")
                         
                         return DownloadRecord(
                             id=str(uuid.uuid4()),
@@ -1162,36 +1162,36 @@ class DownloadService:
                             status=DownloadStatus.COMPLETED
                         )
                     else:
-                        logger.warning(f"下载可能失败: {file_name}")
+                        logger.warning(f"Download might have failed: {file_name}")
                         return DownloadRecord(
                             id=str(uuid.uuid4()),
                             stock_code=stock_info.stock_code,
                             file_name=file_name,
                             file_path=str(file_path),
                             status=DownloadStatus.FAILED,
-                            error_message="文件未找到或文件大小异常"
+                            error_message="File not found or file size abnormal"
                         )
                         
                 except TimeoutException:
-                    logger.error(f"找不到下载按钮: {title}")
+                    logger.error(f"Download button not found: {title}")
                     return DownloadRecord(
                         id=str(uuid.uuid4()),
                         stock_code=stock_info.stock_code,
                         file_name=file_name,
                         file_path=str(file_path),
                         status=DownloadStatus.FAILED,
-                        error_message="找不到下载按钮"
+                        error_message="Download button not found"
                     )
                 
             except WebDriverException as e:
                 if "tab crashed" in str(e).lower() and attempt < max_retries:
-                    logger.warning(f"标签页崩溃，尝试重启WebDriver (尝试 {attempt + 1}/{max_retries})")
-                    # 重启WebDriver
+                    logger.warning(f"Tab crashed, attempting to restart WebDriver (Attempt {attempt + 1}/{max_retries})")
+                    # Restart WebDriver
                     driver = self.driver_manager.restart_driver()
                     self.anti_crawler.apply_anti_detection(driver)
                     continue
                 else:
-                    logger.error(f"从详情页下载失败: {e}")
+                    logger.error(f"Download from detail page failed: {e}")
                     return DownloadRecord(
                         id=str(uuid.uuid4()),
                         stock_code=stock_info.stock_code,
@@ -1201,7 +1201,7 @@ class DownloadService:
                         error_message=str(e)
                     )
             except Exception as e:
-                logger.error(f"从详情页下载失败: {e}")
+                logger.error(f"Download from detail page failed: {e}")
                 return DownloadRecord(
                     id=str(uuid.uuid4()),
                     stock_code=stock_info.stock_code,
@@ -1211,61 +1211,61 @@ class DownloadService:
                     error_message=str(e)
                 )
         
-        # 所有重试都失败
+        # All retries failed
         total_time = time.time() - start_time
-        logger.error(f"从详情页下载失败: 达到最大重试次数 {max_retries}, 总耗时: {total_time:.3f}s")
+        logger.error(f"Download from detail page failed: Reached max retries {max_retries}, Total time: {total_time:.3f}s")
         return DownloadRecord(
             id=str(uuid.uuid4()),
             stock_code=stock_info.stock_code,
             file_name=link_data.get('title', 'unknown'),
             file_path=str(self.save_dir / 'unknown.pdf'),
             status=DownloadStatus.FAILED,
-            error_message=f"达到最大重试次数 {max_retries}"
+            error_message=f"Reached max retries {max_retries}"
         )
     
     @monitor_performance("DownloadService._wait_for_download")
     def _wait_for_download(self, before_files, target_path, timeout=60):
-        """等待文件下载完成（性能优化版本）"""
+        """Wait for file download complete (Performance optimized version)"""
         start_time = time.time()
-        check_interval = 0.5  # 开始时使用0.5秒间隔
+        check_interval = 0.5  # Start with 0.5s interval
         
         while time.time() - start_time < timeout:
             time.sleep(check_interval)
-            # 渐进式增加检查间隔，最大2.0秒
+            # Progressively increase check interval, max 2.0s
             check_interval = min(check_interval * 1.2, 2.0)
             
-            # 清理pdf.txt文件
+            # Clean pdf.txt file
             self._cleanup_pdf_txt()
             
-            # 检查新文件（对齐旧下载器：先检查整个下载目录）
+            # Check for new file (Aligned with old downloader: check entire download directory first)
             try:
-                # 解析两个目录的初始文件列表
+                # Parse initial file lists of two directories
                 before_files_save_dir, before_files_chrome = before_files
                 
-                # 方法1: 检查配置的下载目录
+                # Method 1: Check configured download directory
                 after_files_save_dir = set(os.listdir(self.save_dir))
                 new_files_save_dir = after_files_save_dir - before_files_save_dir
                 
-                # 方法2: 检查Chrome默认下载目录
+                # Method 2: Check Chrome default download directory
                 chrome_default_downloads = os.path.expanduser("~/Downloads")
                 new_files_chrome = set()
                 if os.path.exists(chrome_default_downloads):
                     after_files_chrome = set(os.listdir(chrome_default_downloads))
                     new_files_chrome = after_files_chrome - before_files_chrome
                         
-                # 合并两个目录的新文件
+                # Merge new files from both directories
                 new_files = new_files_save_dir.union(new_files_chrome)
                 
-                # 将Chrome默认目录中的新文件移动到配置的下载目录
+                # Move new files from Chrome default directory to configured download directory
                 for file in new_files_chrome:
                     chrome_file_path = os.path.join(chrome_default_downloads, file)
                     if file.lower().endswith('.pdf') and os.path.exists(chrome_file_path):
                         target_file_path = os.path.join(self.save_dir, file)
                         try:
                             shutil.move(chrome_file_path, target_file_path)
-                            logger.info(f"从Chrome默认目录移动文件: {chrome_file_path} -> {target_file_path}")
+                            logger.info(f"Moved file from Chrome default dir: {chrome_file_path} -> {target_file_path}")
                         except Exception as e:
-                            logger.error(f"移动Chrome默认目录文件失败: {e}")
+                            logger.error(f"Failed to move Chrome default dir file: {e}")
                 
                 for file in new_files:
                     file_path = os.path.join(self.save_dir, file)
@@ -1273,45 +1273,45 @@ class DownloadService:
                     if file.lower().endswith('.pdf') and os.path.exists(file_path):
                         file_size = os.path.getsize(file_path)
                         
-                        if file_size > 10 * 1024:  # 文件大于10KB
-                            # 移动文件到目标位置（确保移动到正确的子目录）
+                        if file_size > 10 * 1024:  # File larger than 10KB
+                            # Move file to target location (ensure moving to correct subdirectory)
                             if file_path != target_path:
                                 try:
-                                    # 确保目标目录存在
+                                    # Ensure target directory exists
                                     target_dir = Path(target_path).parent
                                     target_dir.mkdir(parents=True, exist_ok=True)
                                     
-                                    # 如果目标文件已存在，先删除
+                                    # If target file exists, delete first
                                     if Path(target_path).exists():
                                         Path(target_path).unlink()
                                     
                                     shutil.move(file_path, target_path)
-                                    logger.info(f"文件移动成功: {file_path} -> {target_path}")
+                                    logger.info(f"File move successful: {file_path} -> {target_path}")
                                 except Exception as e:
-                                    logger.error(f"文件移动失败: {file_path} -> {target_path}, 错误: {e}")
-                                    # 如果移动失败，至少确保文件在正确的子目录中
+                                    logger.error(f"File move failed: {file_path} -> {target_path}, Error: {e}")
+                                    # If move failed, at least ensure file is in correct subdirectory
                                     try:
                                         target_dir = Path(target_path).parent
                                         fallback_path = target_dir / Path(file).name
                                         if fallback_path != file_path:
                                             shutil.move(file_path, fallback_path)
-                                            logger.info(f"文件移动到备用位置: {file_path} -> {fallback_path}")
+                                            logger.info(f"File moved to fallback location: {file_path} -> {fallback_path}")
                                     except Exception:
                                         pass
                             return True
                         else:
-                            # 删除过小的文件
+                            # Delete too small file
                             try:
                                 os.remove(file_path)
-                                logger.info(f"删除过小文件: {file_path}")
+                                logger.info(f"Deleted too small file: {file_path}")
                             except Exception:
                                 pass
                 
-                # 方法2: 检查目标文件是否已存在且大小合适
+                # Method 2: Check if target file already exists and size is appropriate
                 if os.path.exists(target_path) and os.path.getsize(target_path) > 10 * 1024:
                     return True
                 
-                # 方法3: 检查公司子目录（作为补充）
+                # Method 3: Check company subdirectory (as supplement)
                 target_path_obj = Path(target_path)
                 stock_dir = target_path_obj.parent
                 if stock_dir.exists() and stock_dir != Path(self.save_dir):
@@ -1331,9 +1331,9 @@ class DownloadService:
                                 return True
                             
             except Exception as e:
-                logger.debug(f"检查下载文件时发生错误: {e}")
+                logger.debug(f"Error checking download file: {e}")
         
-        # 超时后，清理根目录中可能残留的文件
+        # After timeout, clean up potentially residual files in root directory
         try:
             after_files = set(os.listdir(self.save_dir))
             new_files = after_files - before_files
@@ -1341,26 +1341,34 @@ class DownloadService:
             for file in new_files:
                 file_path = os.path.join(self.save_dir, file)
                 if file.lower().endswith('.pdf') and os.path.exists(file_path):
-                    logger.warning(f"清理超时未处理的文件: {file_path}")
+                    logger.warning(f"Cleaning timeout unprocessed file: {file_path}")
                     try:
                         os.remove(file_path)
                     except Exception:
                         pass
         except Exception as e:
-            logger.error(f"清理残留文件失败: {e}")
+            logger.error(f"Failed to clean residual files: {e}")
         
         return False
     
     def _cleanup_pdf_txt(self):
-        """清理pdf.txt文件（只清理公司目录）"""
+        """Clean pdf.txt file (clean root directory and company directory)"""
         try:
-            # 检查当前使用的公司目录
+            # Clean pdf.txt under root directory
+            root_pdf_txt = os.path.join(self.save_dir, 'pdf.txt')
+            if os.path.exists(root_pdf_txt):
+                try:
+                    os.remove(root_pdf_txt)
+                except Exception:
+                    pass
+
+            # Check current used company directory
             if hasattr(self, '_current_stock_dir') and self._current_stock_dir and self._current_stock_dir.exists():
                 for file in os.listdir(self._current_stock_dir):
                     if file.lower() == 'pdf.txt':
                         os.remove(os.path.join(self._current_stock_dir, file))
             else:
-                # 回退到检查所有可能的目录
+                # Fallback to check all possible directories
                 for item in os.listdir(self.save_dir):
                     item_path = os.path.join(self.save_dir, item)
                     if os.path.isdir(item_path):
@@ -1373,44 +1381,44 @@ class DownloadService:
         except Exception:
             pass
     
-    # 新增方法以对齐旧下载器
+    # New method to align with old downloader
     def dynamic_delay(self, base_min=2, base_max=8):
-        """动态延迟（从旧下载器复制）"""
+        """Dynamic delay (copied from old downloader)"""
         return self.anti_crawler.dynamic_delay(base_min, base_max)
     
     @property
     def retry_count(self):
-        """获取重试次数（从旧下载器复制）"""
+        """Get retry count (copied from old downloader)"""
         return getattr(self, '_retry_count', 0)
     
     @retry_count.setter
     def retry_count(self, value):
-        """设置重试次数"""
+        """Set retry count"""
         self._retry_count = value
     
     @property
     def max_retries(self):
-        """获取最大重试次数"""
+        """Get max retries"""
         return getattr(self, '_max_retries', 3)
     
     def should_retry(self):
-        """检查是否应该重试"""
+        """Check if should retry"""
         return self.retry_count < self.max_retries
     
     def log_info(self, message):
-        """记录信息日志"""
+        """Log info message"""
         logger.info(message)
     
     def log_error(self, message):
-        """记录错误日志"""
+        """Log error message"""
         logger.error(message)
     
     def log_warning(self, message):
-        """记录警告日志"""
+        """Log warning message"""
         logger.warning(message)
     
     def get_status(self):
-        """获取状态信息"""
+        """Get status info"""
         return {
             'download_count': self.download_count,
             'retry_count': self.retry_count,
@@ -1419,19 +1427,19 @@ class DownloadService:
         }
     
     def cleanup(self):
-        """清理资源"""
+        """Cleanup resources"""
         try:
             self.driver_manager.close_driver()
             self._cleanup_pdf_txt()
         except Exception as e:
-            logger.error(f"清理资源失败: {e}")
+            logger.error(f"Failed to cleanup resources: {e}")
     
     def _build_disclosure_url(self, stock_code, org_id):
-        """构建披露页面URL（从旧下载器复制）"""
+        """Build disclosure page URL (copied from old downloader)"""
         return f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
     
     def _generate_file_path(self, stock_name, file_title):
-        """生成文件路径（从旧下载器复制）"""
+        """Generate file path (copied from old downloader)"""
         company_dir = self.save_dir / stock_name
         company_dir.mkdir(exist_ok=True)
         
@@ -1442,18 +1450,18 @@ class DownloadService:
         return str(company_dir / clean_title)
     
     def _file_exists_and_valid(self, file_path):
-        """检查文件是否存在且有效"""
+        """Check if file exists and is valid"""
         try:
             return os.path.exists(file_path) and os.path.getsize(file_path) > 10 * 1024
         except Exception:
             return False
     
     def _clean_filename(self, filename):
-        """清理文件名（兼容方法）"""
+        """Clean filename (compatible method)"""
         return self.clean_filename(filename)
     
     def _matches_keywords(self, text, allowed_keywords):
-        """检查文本是否匹配关键词"""
+        """Check if text matches keywords"""
         if not allowed_keywords:
             return True
         
@@ -1464,36 +1472,36 @@ class DownloadService:
         return False
     
     def _check_circuit_breaker(self):
-        """检查断路器状态"""
+        """Check circuit breaker status"""
         if not self._circuit_breaker_active:
             return True
         
         if self._last_error_time is None:
             return True
         
-        # 检查是否超时
+        # Check if timeout
         if time.time() - self._last_error_time > self._circuit_breaker_timeout:
-            logger.info("断路器超时，重置状态")
+            logger.info("Circuit breaker timeout, resetting status")
             self._reset_circuit_breaker()
             return True
         
         return False
     
     def _activate_circuit_breaker(self):
-        """激活断路器"""
+        """Activate circuit breaker"""
         self._circuit_breaker_active = True
         self._last_error_time = time.time()
-        logger.warning(f"断路器激活，等待 {self._circuit_breaker_timeout} 秒后重试")
+        logger.warning(f"Circuit breaker activated, wait {self._circuit_breaker_timeout} seconds before retry")
     
     def _reset_circuit_breaker(self):
-        """重置断路器"""
+        """Reset circuit breaker"""
         self._circuit_breaker_active = False
         self._consecutive_errors = 0
         self._last_error_time = None
-        logger.info("断路器重置")
+        logger.info("Circuit breaker reset")
     
     def _record_error(self):
-        """记录错误"""
+        """Record error"""
         self._consecutive_errors += 1
         self._last_error_time = time.time()
         
@@ -1501,14 +1509,14 @@ class DownloadService:
             self._activate_circuit_breaker()
     
     def _record_success(self):
-        """记录成功"""
+        """Record success"""
         self._consecutive_errors = 0
         if self._circuit_breaker_active:
-            logger.info("成功恢复，重置断路器")
+            logger.info("Successfully recovered, resetting circuit breaker")
             self._reset_circuit_breaker()
     
     def __del__(self):
-        """析构函数"""
+        """Destructor"""
         try:
             self.driver_manager.close_driver()
         except Exception:

@@ -1,6 +1,4 @@
-"""
-Selenium浏览器自动化策略实现
-"""
+"Selenium Browser Automation Strategy Implementation"
 
 import os
 import random
@@ -40,30 +38,30 @@ logger = get_logger(__name__)
 
 
 class SeleniumStrategy(BrowserAutomationStrategy):
-    """Selenium浏览器自动化策略"""
+    """Selenium Browser Automation Strategy"""
     
     def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
                  config: Optional[Dict[str, Any]] = None):
-        """初始化Selenium策略"""
+        """Initialize Selenium Strategy"""
         self.headless = headless
         self.download_dir = download_dir
         self.config = config or {}
         self.driver = None
         self.download_count = 0
 
-        # 初始化配置管理器
+        # Initialize config manager
         self.config_manager = ConfigManager()
 
-        # 使用常量配置
+        # Use constant config
         self.window_size = self.config.get('window_size', BrowserConfig.DEFAULT_WINDOW_SIZE)
 
-        # BaseDownloader的timeout是秒，需要转换为秒（Selenium使用秒）
+        # BaseDownloader timeout is in seconds, convert to seconds (Selenium uses seconds)
         timeout_seconds = self.config.get('timeout', TimeoutConfig.PAGE_LOAD)
         self.page_load_timeout = self.config.get('page_load_timeout', timeout_seconds)
         self.implicit_wait = self.config.get('implicit_wait', BrowserConfig.IMPLICIT_WAIT)
         self.max_downloads_per_session = self.config.get('max_downloads_per_session', BrowserConfig.MAX_DOWNLOADS_PER_SESSION)
 
-        # 使用常量用户代理
+        # Use constant user agents
         self._user_agents = self.config.get('user_agents', USER_AGENTS)
     
     @with_error_handling(
@@ -73,48 +71,48 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         max_retries=3
     )
     def create_driver(self) -> Any:
-        """创建WebDriver实例"""
-        # 确保之前的driver完全关闭
+        """Create WebDriver instance"""
+        # Ensure previous driver is completely closed
         if self.driver:
             self.close()
         
-        logger.info("正在初始化Selenium WebDriver...")
+        logger.info("Initializing Selenium WebDriver...")
         
-        # 只有在非测试环境才清理进程
+        # Only cleanup processes in non-test environment
         if not is_test_environment():
             self._cleanup_chrome_processes()
         
         try:
             chrome_options = self._build_chrome_options()
             
-            # 创建driver
+            # Create driver
             try:
                 self.driver = webdriver.Chrome(options=chrome_options)
             except Exception as create_error:
-                logger.error(f"ChromeDriver创建失败: {create_error}")
-                # 尝试清理并重新创建
+                logger.error(f"Failed to create ChromeDriver: {create_error}")
+                # Try to cleanup and recreate
                 self._cleanup_chrome_processes()
                 time.sleep(TimeoutConfig.RETRY_DELAY)
                 self.driver = webdriver.Chrome(options=chrome_options)
             
-            # 配置driver
+            # Configure driver
             self.driver.set_page_load_timeout(self.page_load_timeout)
             self.driver.implicitly_wait(self.implicit_wait)
             
-            # 执行反检测脚本
+            # Execute anti-detection script
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
-            # 测试driver是否正常工作
+            # Test if driver is working
             self.driver.get("about:blank")
             
-            logger.info("Selenium WebDriver初始化成功")
+            logger.info("Selenium WebDriver initialized successfully")
             return self.driver
 
         except Exception as e:
-            error_msg = f"WebDriver创建失败: {e}"
+            error_msg = f"Failed to create WebDriver: {e}"
             logger.error(error_msg)
 
-            # 清理失败的driver
+            # Cleanup failed driver
             if self.driver:
                 try:
                     self.driver.quit()
@@ -122,7 +120,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     pass
                 self.driver = None
 
-            # 根据错误类型抛出不同的异常
+            # Raise different exceptions based on error type
             if "tab crashed" in str(e).lower():
                 raise WebDriverCrashError(
                     error_msg,
@@ -144,19 +142,19 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def initialize(self) -> bool:
         """
-        初始化浏览器（兼容IBrowserStrategy接口）
+        Initialize browser (compatible with IBrowserStrategy interface)
 
         Returns:
-            bool: 初始化是否成功
+            bool: Whether initialization was successful
         """
         try:
             if not self.driver:
                 self.create_driver()
             return self.driver is not None
         except Exception as e:
-            logger.error(f"初始化失败: {e}")
+            logger.error(f"Initialization failed: {e}")
 
-            # 清理失败的driver
+            # Cleanup failed driver
             if self.driver:
                 try:
                     self.driver.quit()
@@ -167,23 +165,23 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
     
     def _build_chrome_options(self) -> Options:
-        """构建Chrome选项"""
+        """Build Chrome options"""
         chrome_options = Options()
 
-        # 基础设置
+        # Basic settings
         if self.headless:
             chrome_options.add_argument('--headless=new')
         chrome_options.add_argument(f'--window-size={self.window_size}')
 
-        # 使用公共工具获取通用Chrome参数
+        # Use common tools to get generic Chrome args
         for arg in get_common_chrome_args():
             chrome_options.add_argument(arg)
 
-        # 反自动化检测
+        # Anti-automation detection
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
 
-        # 设置下载目录
+        # Set download directory
         if self.download_dir:
             abs_download_dir = os.path.abspath(self.download_dir)
             os.makedirs(abs_download_dir, exist_ok=True)
@@ -200,21 +198,21 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 "profile.default_content_settings.popups": 0,
                 "profile.default_content_setting_values.automatic_downloads": 1,
                 "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
-                "download_restrictions": 0,  # 允许所有下载
+                "download_restrictions": 0,  # Allow all downloads
                 "credentials_enable_service": False,
                 "password_manager_enabled": False
             }
             chrome_options.add_experimental_option("prefs", prefs)
-            logger.info(f"设置下载目录: {abs_download_dir}")
+            logger.info(f"Set download directory: {abs_download_dir}")
 
-        # 随机User-Agent
+        # Random User-Agent
         user_agent = random.choice(self._user_agents)
         chrome_options.add_argument(f'--user-agent={user_agent}')
 
         return chrome_options
     
     def _cleanup_chrome_processes(self):
-        """清理Chrome进程"""
+        """Cleanup Chrome processes"""
         try:
             if is_test_environment():
                 return
@@ -231,23 +229,23 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             time.sleep(TimeoutConfig.BROWSER_CLOSE)
 
         except Exception as e:
-            logger.debug(f"清理Chrome进程时发生错误: {e}")
+            logger.debug(f"Error cleaning up Chrome processes: {e}")
     
     def get_driver(self) -> Any:
-        """获取当前驱动实例"""
+        """Get current driver instance"""
         return self.driver
 
     def cleanup(self) -> None:
         """
-        清理浏览器资源（实现接口）
+        Cleanup browser resources (implement interface)
         """
         try:
             self.close()
         except Exception as e:
-            logger.error(f"Selenium清理失败: {e}")
+            logger.error(f"Selenium cleanup failed: {e}")
 
     def navigate(self, url: str) -> bool:
-        """导航到指定URL"""
+        """Navigate to specified URL"""
         if not self.driver:
             return False
 
@@ -255,23 +253,23 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             self.driver.get(url)
             return True
         except Exception as e:
-            logger.error(f"导航到 {url} 失败: {e}")
+            logger.error(f"Failed to navigate to {url}: {e}")
             return False
 
     def navigate_to_page(self, url: str) -> bool:
         """
-        导航到指定页面（兼容IBrowserStrategy接口）
+        Navigate to specified page (compatible with IBrowserStrategy interface)
 
         Args:
-            url: 目标URL
+            url: Target URL
 
         Returns:
-            bool: 导航是否成功
+            bool: Whether navigation was successful
         """
         return self.navigate(url)
 
     def find_elements(self, selector: str, by: str = "css") -> List[Any]:
-        """查找元素"""
+        """Find elements"""
         if not self.driver:
             return []
         
@@ -279,16 +277,16 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             by_method = getattr(By, by.upper(), By.CSS_SELECTOR)
             return self.driver.find_elements(by_method, selector)
         except Exception as e:
-            logger.error(f"查找元素失败: {e}")
+            logger.error(f"Failed to find elements: {e}")
             return []
     
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
-        """查找单个元素"""
+        """Find single element"""
         elements = self.find_elements(selector, by)
         return elements[0] if elements else None
     
     def click(self, element: Any) -> bool:
-        """点击元素"""
+        """Click element"""
         if not element:
             return False
         
@@ -296,45 +294,45 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             element.click()
             return True
         except Exception as e:
-            logger.error(f"点击元素失败: {e}")
+            logger.error(f"Failed to click element: {e}")
             return False
     
     def get_text(self, element: Any) -> str:
-        """获取元素文本"""
+        """Get element text"""
         if not element:
             return ""
         
         try:
             return element.text
         except Exception as e:
-            logger.error(f"获取元素文本失败: {e}")
+            logger.error(f"Failed to get element text: {e}")
             return ""
     
     def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
-        """获取元素属性"""
+        """Get element attribute"""
         if not element:
             return None
         
         try:
             return element.get_attribute(attribute)
         except Exception as e:
-            logger.error(f"获取元素属性失败: {e}")
+            logger.error(f"Failed to get element attribute: {e}")
             return None
     
     def execute_script(self, script: str, *args) -> Any:
-        """执行JavaScript脚本"""
+        """Execute JavaScript script"""
         if not self.driver:
             return None
         
         try:
             return self.driver.execute_script(script, *args)
         except Exception as e:
-            logger.error(f"执行脚本失败: {e}")
+            logger.error(f"Failed to execute script: {e}")
             return None
     
     def wait_for_element(self, selector: str, timeout: int = 10, 
                         by: str = "css", condition: str = "visible") -> bool:
-        """等待元素出现"""
+        """Wait for element to appear"""
         if not self.driver:
             return False
         
@@ -355,69 +353,69 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
     
     def get_page_source(self) -> str:
-        """获取页面源代码"""
+        """Get page source code"""
         if not self.driver:
             return ""
         
         try:
             return self.driver.page_source
         except Exception as e:
-            logger.error(f"获取页面源代码失败: {e}")
+            logger.error(f"Failed to get page source: {e}")
             return ""
     
     def get_current_url(self) -> str:
-        """获取当前URL"""
+        """Get current URL"""
         if not self.driver:
             return ""
         
         try:
             return self.driver.current_url
         except Exception as e:
-            logger.error(f"获取当前URL失败: {e}")
+            logger.error(f"Failed to get current URL: {e}")
             return ""
 
     def get_page_title(self) -> str:
-        """获取页面标题"""
+        """Get page title"""
         if not self.driver:
             return ""
         
         try:
             return self.driver.title
         except Exception as e:
-            logger.error(f"获取页面标题失败: {e}")
+            logger.error(f"Failed to get page title: {e}")
             return ""
     
     def close(self) -> None:
-        """关闭浏览器（优化版）"""
+        """Close browser (optimized version)"""
         if self.driver:
-            safe_cleanup(self.driver.quit, "关闭WebDriver失败")
+            safe_cleanup(self.driver.quit, "Failed to close WebDriver")
 
-        # 增强清理逻辑：清理下载根目录下的残留文件
+        # Enhanced cleanup logic: clean up residual files in download root directory
         try:
             if self.download_dir and os.path.exists(self.download_dir):
-                logger.info(f"正在清理下载根目录残留: {self.download_dir}")
+                logger.info(f"Cleaning up residual files in download root directory: {self.download_dir}")
                 for item in os.listdir(self.download_dir):
                     item_path = os.path.join(self.download_dir, item)
-                    # 只清理文件，不清理子目录
+                    # Only clean files, not subdirectories
                     if os.path.isfile(item_path):
-                        # 清理临时文件和pdf.txt (不清理PDF文件，防止误删)
+                        # Clean temp files and pdf.txt (do not clean PDF files to prevent accidental deletion)
                         if item.lower() == 'pdf.txt' or item.endswith('.tmp') or item.endswith('.crdownload'):
                             try:
                                 os.remove(item_path)
-                                logger.info(f"已清理残留文件: {item}")
+                                logger.info(f"Cleaned residual file: {item}")
                             except Exception as e:
-                                logger.warning(f"无法清理文件 {item}: {e}")
+                                logger.warning(f"Failed to clean file {item}: {e}")
         except Exception as e:
-            logger.error(f"清理残留文件时出错: {e}")
+            logger.error(f"Error while cleaning residual files: {e}")
 
-        # 重置状态
+        # Reset state
         self.driver = None
         self.download_count = 0
 
-        logger.info("Selenium WebDriver已关闭")
+        logger.info("Selenium WebDriver closed")
     
     def is_healthy(self) -> bool:
-        """检查浏览器是否健康"""
+        """Check if browser is healthy"""
         if not self.driver:
             return False
         
@@ -428,33 +426,33 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
     
     def restart(self) -> bool:
-        """重启浏览器"""
-        logger.info("正在重启Selenium WebDriver...")
+        """Restart browser"""
+        logger.info("Restarting Selenium WebDriver...")
         
         self.close()
         
-        # 增强重试机制
+        # Enhanced retry mechanism
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                logger.info(f"尝试重启WebDriver (第 {attempt + 1}/{max_attempts} 次)...")
+                logger.info(f"Attempting to restart WebDriver ({attempt + 1}/{max_attempts})...")
                 self.create_driver()
-                logger.info("WebDriver重启成功")
+                logger.info("WebDriver restarted successfully")
                 return True
                 
             except Exception as e:
-                logger.error(f"WebDriver重启尝试 {attempt + 1} 异常: {e}")
+                logger.error(f"WebDriver restart attempt {attempt + 1} failed: {e}")
                 
                 if attempt < max_attempts - 1:
                     retry_wait = random.uniform(2, 4)
-                    logger.info(f"等待 {retry_wait:.2f} 秒后重试...")
+                    logger.info(f"Waiting {retry_wait:.2f} seconds before retry...")
                     time.sleep(retry_wait)
         
-        logger.error("WebDriver重启失败，已尝试所有重试次数")
+        logger.error("WebDriver restart failed after all attempts")
         return False
     
     def take_screenshot(self, save_path: Optional[str] = None) -> Optional[bytes]:
-        """截取屏幕截图"""
+        """Take screenshot"""
         if not self.driver:
             return None
         
@@ -467,58 +465,58 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             
             return screenshot_data
         except Exception as e:
-            logger.error(f"截取屏幕截图失败: {e}")
+            logger.error(f"Failed to take screenshot: {e}")
             return None
 
     def download_file(self, url: str, save_path: str, timeout: int = 10) -> bool:
         """
-        下载文件到指定路径（重构版）
+        Download file to specified path (refactored version)
 
         Args:
-            url: 要下载的URL
-            save_path: 文件保存路径
-            timeout: 超时时间（秒）
+            url: URL to download
+            save_path: File save path
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 下载是否成功
+            bool: Whether download was successful
         """
         if not self.driver:
-            logger.error("浏览器未初始化，无法下载文件")
+            logger.error("Browser not initialized, cannot download file")
             return False
 
         try:
-            # 1. 准备下载
+            # 1. Prepare download
             if not self._prepare_download():
                 return False
 
-            # 2. 导航到详情页并等待
+            # 2. Navigate to detail page and wait
             if not self._navigate_to_detail_page(url):
                 return False
 
-            # 3. 点击下载按钮
+            # 3. Click download button
             if not self._click_download_button():
                 return False
 
-            # 4. 等待并移动文件
+            # 4. Wait and move file
             return self._wait_and_move_file(save_path, timeout)
 
         except Exception as e:
-            logger.error(f"文件下载失败: {e}")
+            logger.error(f"File download failed: {e}")
             return False
 
     def _prepare_download(self) -> bool:
         """
-        准备下载：记录下载前的文件状态
+        Prepare download: record file status before download
 
         Returns:
-            bool: 是否准备成功
+            bool: Whether preparation was successful
         """
-        # 记录下载前的文件列表 - 检查根目录和所有子目录
+        # Record file list before download - check root directory and all subdirectories
         logger.debug(f"download_dir type: {type(self.download_dir)}, value: {self.download_dir}")
         self._before_files = set()
 
         if self.download_dir and os.path.exists(self.download_dir):
-            # 递归检查所有目录，包括子目录
+            # Recursively check all directories, including subdirectories
             for root, dirs, files in os.walk(self.download_dir):
                 for file in files:
                     if file.lower().endswith('.pdf'):
@@ -530,73 +528,73 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def _navigate_to_detail_page(self, url: str) -> bool:
         """
-        导航到详情页并等待页面准备就绪
+        Navigate to detail page and wait for page ready
 
         Args:
-            url: 目标URL
+            url: Target URL
 
         Returns:
-            bool: 导航是否成功
+            bool: Whether navigation was successful
         """
-        # 导航到详情页
+        # Navigate to detail page
         if not self.navigate(url):
-            logger.error(f"无法导航到详情页: {url}")
+            logger.error(f"Failed to navigate to detail page: {url}")
             return False
 
-        # 等待页面加载
+        # Wait for page load
         if not self._wait_for_page_ready():
             return False
 
-        # 检查当前URL，处理SPA应用
+        # Check current URL, handle SPA application
         current_url = self.get_current_url()
-        logger.info(f"当前URL: {current_url}")
-        logger.info(f"目标URL: {url}")
+        logger.info(f"Current URL: {current_url}")
+        logger.info(f"Target URL: {url}")
 
-        # 如果URL不匹配，可能是SPA应用，尝试直接访问详情页
+        # If URL mismatch, might be SPA application, try accessing detail page directly
         if current_url != url and "/new/disclosure/detail" in url:
-            logger.info("检测到SPA导航问题，尝试直接访问详情页")
+            logger.info("Detected SPA navigation issue, trying to access detail page directly")
             self.driver.get(url)
 
-            # 添加固定等待时间，确保页面完全加载（参考测试通过版本）
+            # Add fixed wait time to ensure page fully loaded (reference passed tests)
             time.sleep(5)
 
             if not self._wait_for_page_ready():
                 return False
 
-            # 再次检查URL
+            # Check URL again
             current_url = self.get_current_url()
-            logger.info(f"直接访问后URL: {current_url}")
+            logger.info(f"URL after direct access: {current_url}")
 
         return True
 
     def _wait_for_page_ready(self) -> bool:
         """
-        等待页面准备就绪
+        Wait for page to be ready
 
         Returns:
-            bool: 页面是否准备就绪
+            bool: Whether page is ready
         """
-        # 尝试等待下载按钮出现，超时5秒
+        # Try waiting for download button to appear, timeout 5 seconds
         if self.wait_for_element("//button[contains(., '公告下载')]", timeout=5, by="xpath", condition="visible"):
             return True
 
-        # 如果下载按钮未出现，等待页面标题包含"巨潮资讯网"
-        logger.info("下载按钮未立即出现，等待页面加载完成")
+        # If download button not appeared immediately, wait for page title to contain "巨潮资讯网"
+        logger.info("Download button not appeared immediately, waiting for page load")
         start_time = time.time()
         while time.time() - start_time < 5:
             if "巨潮资讯网" in self.get_page_title():
                 return True
             time.sleep(TimeoutConfig.SHORT_WAIT)
 
-        logger.warning("页面加载超时，但继续尝试")
-        return True  # 即使超时也继续，让后续逻辑处理
+        logger.warning("Page load timeout, but continuing anyway")
+        return True  # Continue even if timeout, let subsequent logic handle it
 
     def _click_download_button(self) -> bool:
         """
-        查找并点击下载按钮（使用WebDriverWait确保按钮可点击）
+        Find and click download button (use WebDriverWait to ensure button clickable)
 
         Returns:
-            bool: 是否成功点击
+            bool: Whether click was successful
         """
         try:
             from selenium.webdriver.support.ui import WebDriverWait
@@ -604,20 +602,20 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             from selenium.webdriver.common.by import By
             from selenium.common.exceptions import TimeoutException
 
-            # 使用WebDriverWait等待按钮可点击（30秒超时，与测试通过版本一致）
+            # Use WebDriverWait to wait for button to be clickable (30s timeout, consistent with passed tests)
             download_btn = WebDriverWait(self.driver, 30).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]"))
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]" ))
             )
 
-            # 点击下载按钮
+            # Click download button
             download_btn.click()
-            logger.info("已点击下载按钮，等待文件下载...")
+            logger.info("Clicked download button, waiting for file download...")
             return True
 
         except TimeoutException:
-            logger.error("等待下载按钮超时（30秒），尝试替代选择器")
+            logger.error("Wait for download button timeout (30s), trying alternative selectors")
 
-            # 尝试其他选择器
+            # Try other selectors
             alternative_selectors = [
                 "//button[contains(., '下载')]",
                 "//a[contains(., '公告下载')]",
@@ -635,28 +633,28 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         EC.element_to_be_clickable((by_method, selector))
                     )
                     download_btn.click()
-                    logger.info(f"使用替代选择器找到并点击下载按钮: {selector}")
+                    logger.info(f"Found and clicked download button using alternative selector: {selector}")
                     return True
                 except TimeoutException:
                     continue
 
-            logger.error("所有选择器都未找到可点击的下载按钮")
+            logger.error("No clickable download button found with any selector")
             return False
 
         except Exception as e:
-            logger.error(f"点击下载按钮失败: {e}")
+            logger.error(f"Failed to click download button: {e}")
             return False
 
     def _wait_and_move_file(self, save_path: str, timeout: int) -> bool:
         """
-        等待文件下载完成并移动到目标位置
+        Wait for file download to complete and move to target location
 
         Args:
-            save_path: 目标保存路径
-            timeout: 超时时间（秒）
+            save_path: Target save path
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否成功下载并移动
+            bool: Whether download and move were successful
         """
         start_time = time.time()
         check_interval = 0.5
@@ -665,37 +663,37 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             time.sleep(check_interval)
             check_interval = min(check_interval * 1.2, 2.0)
 
-            # 检查新文件
+            # Check for new file
             downloaded_file = self._check_for_new_file()
             if downloaded_file:
                 if self._handle_downloaded_file(downloaded_file, save_path):
                     return True
 
-            # 检查目标文件是否已存在（可能被其他进程移动）
+            # Check if target file already exists (might have been moved by another process)
             if self._check_target_file_exists(save_path):
                 return True
 
-            # 输出进度信息
+            # Output progress info
             self._log_download_progress(start_time)
 
-        # 超时处理
+        # Handle timeout
         return self._handle_timeout(save_path, start_time)
 
     def _check_for_new_file(self):
         """
-        检查是否有新下载的文件
+        Check for newly downloaded file
 
         Returns:
-            Path or None: 新下载的文件路径
+            Path or None: Path to newly downloaded file
         """
         if not self.download_dir or not os.path.exists(self.download_dir):
             return None
 
         after_files = set()
-        # 递归检查所有目录，包括子目录
+        # Recursively check all directories, including subdirectories
         for root, dirs, files in os.walk(self.download_dir):
             for file in files:
-                # 检查PDF文件和临时文件
+                # Check PDF files and temp files
                 if file.lower().endswith('.pdf') or file.endswith('.tmp'):
                     file_path = Path(os.path.join(root, file))
                     after_files.add(file_path)
@@ -708,7 +706,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if not new_files:
             return None
 
-        # 找到最大的新文件（通常是最新的下载）
+        # Find largest new file (usually the latest download)
         downloaded_file = None
         max_size = 0
         for f in new_files:
@@ -725,32 +723,32 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def _handle_downloaded_file(self, downloaded_file: Path, save_path: str) -> bool:
         """
-        处理已下载的文件
+        Handle downloaded file
 
         Args:
-            downloaded_file: 下载的文件路径
-            save_path: 目标保存路径
+            downloaded_file: Path to downloaded file
+            save_path: Target save path
 
         Returns:
-            bool: 是否处理成功
+            bool: Whether handling was successful
         """
         if not downloaded_file or not downloaded_file.exists():
             return False
 
         file_size = downloaded_file.stat().st_size
         if file_size <= FileSizeThreshold.MIN_VALID_PDF:
-            logger.debug(f"文件大小过小: {file_size} bytes")
+            logger.debug(f"File size too small: {file_size} bytes")
             return False
 
-        # 处理临时文件
+        # Handle temp file
         if downloaded_file.suffix == '.tmp':
             if not self._wait_for_temp_file_completion(downloaded_file):
                 return False
 
-        # 移动文件到目标位置
+        # Move file to target location
         success = self._move_file_to_target(downloaded_file, save_path)
 
-        # 如果移动成功，清理根目录中可能残留的源文件
+        # If move successful, clean up potentially residual source file in root directory
         if success:
             self._cleanup_downloaded_file(downloaded_file, save_path)
 
@@ -758,8 +756,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def _cleanup_downloaded_file(self, downloaded_file: Path, save_path: str):
         """
-        清理下载后可能残留的源文件
-        删除根目录中所有与目标文件同内容的文件
+        Cleanup potentially residual source file after download.
+        Delete all files in root directory with same content as target file.
         """
         try:
             download_path = Path(self.download_dir)
@@ -770,59 +768,59 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             target_size = target_path.stat().st_size
             target_name = target_path.name
-            logger.debug(f"[CLEANUP] 目标文件: {target_path}, 大小: {target_size}")
+            logger.debug(f"[CLEANUP] Target file: {target_path}, Size: {target_size}")
             
             # DEBUG: Check directory and files
             logger.info(f"[CLEANUP_DEBUG] self.download_dir: {self.download_dir}")
             logger.info(f"[CLEANUP_DEBUG] download_path: {download_path}")
 
-            # 检查下载目录中所有PDF文件
+            # Check all PDF files in download directory
             root_pdfs = list(download_path.glob("*.pdf"))
-            logger.debug(f"[CLEANUP] 扫描下载目录PDF: {len(root_pdfs)} 个文件")
+            logger.debug(f"[CLEANUP] Scanning download directory PDFs: {len(root_pdfs)} files")
             logger.info(f"[CLEANUP_DEBUG] root_pdfs: {[str(f) for f in root_pdfs]}")
 
             for root_file in root_pdfs:
-                # 绝对不要删除目标文件自己！
+                # NEVER delete target file itself!
                 if root_file.resolve() == target_path.resolve():
                     continue
                 
-                # 不要删除同一目标目录下的其他文件
+                # Do not delete other files in the same target directory
                 if root_file.parent.resolve() == target_path.parent.resolve():
                     continue
 
                 try:
-                    # 如果文件名相同（但在不同目录，比如在根目录），或者文件大小相同且文件名相似
+                    # If filename is same (but in different directory, e.g. root), or file size same and filename similar
                     if root_file.name == target_name or (root_file.stat().st_size == target_size and target_size > FileSizeThreshold.MIN_VALID_PDF):
                         root_file.unlink()
-                        logger.info(f"[CLEANUP] 已清理残留源文件: {root_file}")
+                        logger.info(f"[CLEANUP] Cleaned residual source file: {root_file}")
                 except (OSError, PermissionError) as e:
-                    logger.debug(f"无法清理文件 {root_file}: {e}")
+                    logger.debug(f"Failed to clean file {root_file}: {e}")
         except Exception as e:
-            logger.debug(f"清理下载文件时出错: {e}")
+            logger.debug(f"Error cleaning downloaded file: {e}")
 
     def _find_download_button(self):
-        """查找下载按钮"""
-        # 主选择器
+        """Find download button"""
+        # Main selector
         download_button = self.find_element("//button[contains(., '公告下载')]", by="xpath")
         if download_button:
             return download_button
 
-        # 备选选择器
+        # Alternative selectors
         for selector in SelectorConfig.DOWNLOAD_BUTTON_ALTERNATIVES:
             download_button = self.find_element(selector, by="xpath" if "//" in selector else "css")
             if download_button:
-                logger.info(f"使用替代选择器找到下载按钮: {selector}")
+                logger.info(f"Found download button using alternative selector: {selector}")
                 return download_button
 
         return None
 
     def _get_pdf_files_in_download_dir(self) -> set:
-        """获取下载目录中的PDF文件集合"""
+        """Get set of PDF files in download directory"""
         if not self.download_dir or not os.path.exists(self.download_dir):
             return set()
 
         files = set()
-        # 递归检查所有目录，包括子目录
+        # Recursively check all directories, including subdirectories
         for root, dirs, file_list in os.walk(self.download_dir):
             for file in file_list:
                 file_path = os.path.join(root, file)
@@ -832,120 +830,120 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def _wait_for_temp_file_completion(self, temp_file: Path) -> bool:
         """
-        等待临时文件下载完成
+        Wait for temporary file download to complete
 
         Args:
-            temp_file: 临时文件路径
+            temp_file: Path to temp file
 
         Returns:
-            bool: 是否完成
+            bool: Whether completed
         """
-        # 检查临时文件是否稳定（不再增长）
+        # Check if temp file is stable (size not increasing)
         time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
         current_size = temp_file.stat().st_size
         time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
         new_size = temp_file.stat().st_size
 
         if current_size == new_size and current_size > FileSizeThreshold.MIN_VALID_PDF:
-            # 临时文件下载完成，重命名为PDF
+            # Temp file download complete, rename to PDF
             pdf_file = temp_file.with_suffix('.pdf')
             try:
                 temp_file.rename(pdf_file)
                 return True
             except Exception as e:
-                logger.warning(f"重命名临时文件失败: {e}")
+                logger.warning(f"Failed to rename temp file: {e}")
                 return False
         else:
-            # 文件还在下载中
+            # File still downloading
             return False
 
     def _move_file_to_target(self, source_file: Path, save_path: str) -> bool:
         """
-        移动文件到目标位置
+        Move file to target location
 
         Args:
-            source_file: 源文件路径
-            save_path: 目标保存路径
+            source_file: Source file path
+            save_path: Target save path
 
         Returns:
-            bool: 是否移动成功
+            bool: Whether move was successful
         """
         logger.debug(f"save_path type: {type(save_path)}, value: {save_path}")
         logger.debug(f"downloaded_file: {source_file}")
 
-        # 确保目标目录存在
+        # Ensure target directory exists
         target_dir = Path(save_path).parent
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # 检查源文件和目标文件是否相同
+        # Check if source and target files are the same
         target_path = Path(save_path)
         if source_file.resolve() == target_path.resolve():
-            logger.debug(f"源文件和目标文件相同，无需移动: {source_file}")
-            # 但仍然需要验证文件大小
+            logger.debug(f"Source and target files are the same, no need to move: {source_file}")
+            # Still need to verify file size
             if source_file.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
-                logger.info(f"文件已就位: {save_path}")
+                logger.info(f"File in place: {save_path}")
                 return True
             else:
-                logger.debug(f"文件大小无效: {source_file.stat().st_size}")
+                logger.debug(f"Invalid file size: {source_file.stat().st_size}")
                 return False
 
         try:
-            # 检查源文件是否存在且可访问
+            # Check if source file exists and is accessible
             if not source_file.exists() or source_file.stat().st_size <= FileSizeThreshold.MIN_VALID_PDF:
-                logger.debug(f"源文件无效: 不存在或大小过小")
+                logger.debug(f"Invalid source file: does not exist or size too small")
                 return False
 
-            logger.debug(f"准备移动文件: {source_file} -> {save_path}")
+            logger.debug(f"Preparing to move file: {source_file} -> {save_path}")
 
-            # 尝试移动文件
+            # Try to move file
             shutil.move(str(source_file), save_path)
 
-            # 验证移动是否成功
+            # Verify if move was successful
             if target_path.exists() and target_path.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
-                logger.debug(f"文件移动成功: {save_path}")
-                logger.info(f"文件下载成功: {save_path}")
+                logger.debug(f"File moved successfully: {save_path}")
+                logger.info(f"File download successful: {save_path}")
 
-                # 清理可能残留的源文件（如果shutil.move创建了副本）
+                # Clean up potentially residual source file (if shutil.move created a copy)
                 if source_file.exists():
                     try:
                         source_file.unlink()
-                        logger.debug(f"清理残留源文件: {source_file}")
+                        logger.debug(f"Cleaned residual source file: {source_file}")
                     except:
                         pass
 
                 return True
             else:
-                logger.debug(f"文件移动失败: 目标文件不存在或大小异常")
+                logger.debug(f"File move failed: target file does not exist or size abnormal")
                 return False
 
         except Exception as move_error:
-            logger.debug(f"文件移动异常: {move_error}")
+            logger.debug(f"File move exception: {move_error}")
             return False
 
     def _check_target_file_exists(self, save_path: str) -> bool:
         """
-        检查目标文件是否已存在
+        Check if target file already exists
 
         Args:
-            save_path: 目标路径
+            save_path: Target path
 
         Returns:
-            bool: 文件是否存在
+            bool: Whether file exists
         """
         logger.debug(f"save_path type: {type(save_path)}, value: {save_path}")
         if os.path.exists(save_path) and os.path.getsize(save_path) > FileSizeThreshold.MIN_VALID_PDF:
-            logger.info(f"文件已下载: {save_path}")
+            logger.info(f"File already downloaded: {save_path}")
             return True
         return False
 
     def _log_download_progress(self, start_time: float):
         """
-        记录下载进度信息
+        Log download progress info
 
         Args:
-            start_time: 开始时间
+            start_time: Start time
         """
-        # 检查临时文件（递归检查所有目录）
+        # Check temp files (recursively check all directories)
         temp_files = []
         if self.download_dir and os.path.exists(self.download_dir):
             for root, dirs, files in os.walk(self.download_dir):
@@ -953,52 +951,52 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     if file.endswith('.crdownload') or file.endswith('.tmp'):
                         temp_files.append(os.path.join(root, file))
 
-        # 输出进度信息
+        # Output progress info
         elapsed = time.time() - start_time
-        if elapsed > 10 and elapsed % 10 < 1:  # 每10秒输出一次状态
-            logger.info(f"下载状态: 已等待 {elapsed:.1f}s, 临时文件数: {len(temp_files)}")
+        if elapsed > 10 and elapsed % 10 < 1:  # Output status every 10 seconds
+            logger.info(f"Download status: Waited {elapsed:.1f}s, Temp files: {len(temp_files)}")
             if self.download_dir and os.path.exists(self.download_dir):
-                current_files = list(Path(self.download_dir).rglob("*"))
-                logger.info(f"当前下载目录文件数: {len(current_files)}")
+                current_files = list(Path(self.download_dir).rglob("*\*"))
+                logger.info(f"Current files in download dir: {len(current_files)}")
 
     def _handle_timeout(self, save_path: str, start_time: float) -> bool:
         """
-        处理下载超时
+        Handle download timeout
 
         Args:
-            save_path: 目标保存路径
-            start_time: 开始时间
+            save_path: Target save path
+            start_time: Start time
 
         Returns:
-            bool: 始终返回False
+            bool: Always returns False
         """
         elapsed = time.time() - start_time
-        logger.error(f"文件下载超时 ({elapsed:.1f}s): {save_path}")
+        logger.error(f"File download timeout ({elapsed:.1f}s): {save_path}")
 
-        # 检查是否有部分下载的文件
+        # Check if partial file exists
         if os.path.exists(save_path):
             file_size = os.path.getsize(save_path)
-            logger.error(f"文件已存在但大小异常: {file_size} bytes")
+            logger.error(f"File exists but size abnormal: {file_size} bytes")
 
-        # 检查下载目录状态
+        # Check download directory status
         if self.download_dir and os.path.exists(self.download_dir):
-            all_files = list(Path(self.download_dir).rglob("*"))
-            logger.error(f"下载目录文件列表: {[str(f) for f in all_files]}")
+            all_files = list(Path(self.download_dir).rglob("*\*"))
+            logger.error(f"Files in download directory: {[str(f) for f in all_files]}")
 
         return False
 
     def go_to_next_page(self, timeout: int = 10) -> bool:
         """
-        跳转到下一页
+        Go to next page
 
         Args:
-            timeout: 超时时间（秒）
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successfully went to next page
         """
         if not self.driver:
-            logger.error("浏览器未初始化，无法翻页")
+            logger.error("Browser not initialized, cannot go to next page")
             return False
 
         try:
@@ -1010,7 +1008,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             # DEBUG MARKER: Start pagination attempt
             marker = DebugMarker("pagination")
-            marker.add_step("pagination_start", "开始翻页操作", {
+            marker.add_step("pagination_start", "Start pagination operation", {
                 "current_url": self.driver.current_url if self.driver else "no_driver"
             })
 
@@ -1028,18 +1026,18 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 "a[aria-label='下一页']:not(.disabled)"
             ]
 
-            marker.add_step("selectors_defined", "选择器列表已定义", {
+            marker.add_step("selectors_defined", "Selector list defined", {
                 "selectors_count": len(next_selectors)
             })
 
             for idx, selector in enumerate(next_selectors):
                 try:
-                    marker.add_step(f"try_selector_{idx}", f"尝试选择器 {idx}", {
+                    marker.add_step(f"try_selector_{idx}", f"Try selector {idx}", {
                         "selector": selector
                     })
 
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    marker.add_step(f"found_element_{idx}", f"找到元素 {idx}", {
+                    marker.add_step(f"found_element_{idx}", f"Found element {idx}", {
                         "selector": selector,
                         "enabled": next_button.is_enabled() if next_button else None,
                         "displayed": next_button.is_displayed() if next_button else None,
@@ -1047,41 +1045,41 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     })
 
                     if next_button and next_button.is_enabled() and next_button.is_displayed():
-                        # 滚动到元素位置
+                        # Scroll to element
                         self.driver.execute_script("arguments[0].scrollIntoView();", next_button)
                         time.sleep(TimeoutConfig.SCROLL_DELAY)
 
-                        marker.add_step(f"clicking_{idx}", f"点击下一页按钮 {idx}", {
+                        marker.add_step(f"clicking_{idx}", f"Clicking next page button {idx}", {
                             "selector": selector,
                             "button_text": next_button.text
                         })
 
-                        # 点击下一页
+                        # Click next page
                         next_button.click()
 
-                        marker.add_step(f"clicked_{idx}", f"已点击 {idx}", {
+                        marker.add_step(f"clicked_{idx}", f"Clicked {idx}", {
                             "selector": selector,
                             "url_before_click": self.driver.current_url
                         })
 
-                        # 等待页面加载（独立try-catch，不影响整体成功）
+                        # Wait for page load (independent try-catch, does not affect overall success)
                         try:
                             WebDriverWait(self.driver, timeout).until(
                                 EC.staleness_of(next_button)
                             )
-                            marker.add_step(f"page_loaded_{idx}", f"页面已加载 {idx}", {
+                            marker.add_step(f"page_loaded_{idx}", f"Page loaded {idx}", {
                                 "selector": selector
                             })
                         except TimeoutException:
-                            marker.add_step(f"page_load_timeout_{idx}", f"页面加载超时 {idx} (但点击成功)", {
+                            marker.add_step(f"page_load_timeout_{idx}", f"Page load timeout {idx} (but click successful)", {
                                 "selector": selector
                             })
-                            # 点击已成功，即使等待超时也返回True
+                            # Click successful, return True even if wait timeout
 
                         # CRITICAL: Add extra wait and URL verification
                         time.sleep(TimeoutConfig.CLICK_STABILIZATION)  # Additional wait for page stabilization
                         url_after_click = self.driver.current_url
-                        marker.add_step(f"url_after_click_{idx}", f"点击后URL状态", {
+                        marker.add_step(f"url_after_click_{idx}", f"URL status after click", {
                             "selector": selector,
                             "url_after_click": url_after_click,
                             "url_changed": url_after_click != self.driver.current_url if hasattr(self, '_last_url') else "unknown"
@@ -1090,7 +1088,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         # Store current URL for next comparison
                         self._last_url = url_after_click
 
-                        marker.add_step("pagination_success", "翻页成功", {
+                        marker.add_step("pagination_success", "Pagination successful", {
                             "selector_used": selector,
                             "final_url": url_after_click
                         })
@@ -1098,44 +1096,44 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         return True
 
                 except (NoSuchElementException, TimeoutException) as e:
-                    marker.add_step(f"selector_failed_{idx}", f"选择器 {idx} 失败", {
+                    marker.add_step(f"selector_failed_{idx}", f"Selector {idx} failed", {
                         "selector": selector,
                         "error": str(e)
                     })
                     continue
                 except Exception as e:
-                    marker.add_step(f"unexpected_error_{idx}", f"选择器 {idx} 异常", {
+                    marker.add_step(f"unexpected_error_{idx}", f"Selector {idx} exception", {
                         "selector": selector,
                         "error": str(e)
                     })
                     continue
 
-            marker.add_step("pagination_failed", "未找到下一页按钮或已到达最后一页", {})
+            marker.add_step("pagination_failed", "Next page button not found or reached last page", {})
             marker.save()
-            logger.info("没有找到下一页按钮或已到达最后一页")
+            logger.info("Next page button not found or reached last page")
             return False
 
         except Exception as e:
-            marker.add_step("pagination_exception", "翻页操作异常", {
+            marker.add_step("pagination_exception", "Pagination operation exception", {
                 "error": str(e)
             })
             marker.save()
-            logger.error(f"跳转到下一页失败: {e}")
+            logger.error(f"Failed to go to next page: {e}")
             return False
 
     def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
         """
-        跳转到指定页码
+        Go to specified page number
 
         Args:
-            page_number: 目标页码
-            timeout: 超时时间（秒）
+            page_number: Target page number
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successfully jumped to page
         """
         if not self.driver:
-            logger.error("浏览器未初始化，无法翻页")
+            logger.error("Browser not initialized, cannot go to page")
             return False
 
         try:
@@ -1144,7 +1142,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             from selenium.webdriver.common.by import By
             from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-            # 方法1: 查找页码输入框和跳转按钮
+            # Method 1: Find page input box and go button
             page_input_selectors = [
                 "input.el-pagination__editor",
                 "input.page-input",
@@ -1161,35 +1159,35 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             for input_selector, button_selector in zip(page_input_selectors, go_button_selectors):
                 try:
-                    # 查找页码输入框
+                    # Find page input box
                     page_input = self.driver.find_element(By.CSS_SELECTOR, input_selector)
                     if not page_input.is_enabled() or not page_input.is_displayed():
                         continue
 
-                    # 查找跳转按钮
+                    # Find go button
                     go_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
                     if not go_button.is_enabled() or not go_button.is_displayed():
                         continue
 
-                    # 清空输入框并输入页码
+                    # Clear input box and enter page number
                     page_input.clear()
                     page_input.send_keys(str(page_number))
 
-                    # 点击跳转按钮
+                    # Click go button
                     go_button.click()
 
-                    # 等待页面加载
+                    # Wait for page load
                     WebDriverWait(self.driver, timeout).until(
                         EC.staleness_of(page_input)
                     )
 
-                    logger.info(f"成功跳转到第{page_number}页")
+                    logger.info(f"Successfully jumped to page {page_number}")
                     return True
 
                 except (NoSuchElementException, TimeoutException):
                     continue
 
-            # 方法2: 直接点击页码按钮
+            # Method 2: Click page number button directly
             page_button_selectors = [
                 f".el-pager li.number:not(.active)",
                 f".pagination li:not(.active)",
@@ -1204,40 +1202,40 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         if page_button.is_enabled() and page_button.is_displayed():
                             button_text = page_button.text.strip()
                             if button_text == str(page_number):
-                                # 滚动到元素位置
+                                # Scroll to element
                                 self.driver.execute_script("arguments[0].scrollIntoView();", page_button)
                                 time.sleep(TimeoutConfig.SCROLL_DELAY)
 
-                                # 点击页码按钮
+                                # Click page button
                                 page_button.click()
 
-                                # 等待页面加载
+                                # Wait for page load
                                 time.sleep(TimeoutConfig.LONG_WAIT)
-                                logger.info(f"成功跳转到第{page_number}页")
+                                logger.info(f"Successfully jumped to page {page_number}")
                                 return True
 
                 except (NoSuchElementException, TimeoutException):
                     continue
 
-            logger.warning(f"无法跳转到第{page_number}页")
+            logger.warning(f"Failed to jump to page {page_number}")
             return False
 
         except Exception as e:
-            logger.error(f"跳转到指定页码失败: {e}")
+            logger.error(f"Failed to jump to specified page: {e}")
             return False
 
     def has_next_page(self, timeout: int = 5) -> bool:
         """
-        检查是否有下一页
+        Check if there is a next page
 
         Args:
-            timeout: 超时时间（秒）
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否有下一页
+            bool: Whether there is a next page
         """
         if not self.driver:
-            logger.error("浏览器未初始化，无法检查翻页")
+            logger.error("Browser not initialized, cannot check for next page")
             return False
 
         try:
@@ -1251,14 +1249,14 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             # DEBUG MARKER: Start has_next_page check
             marker = DebugMarker("has_next_page")
             current_url = self.driver.current_url if self.driver else "no_driver"
-            marker.add_step("check_start", "开始检查下一页", {
+            marker.add_step("check_start", "Start checking next page", {
                 "current_url": current_url,
                 "timestamp": time.time()
             })
 
             # CRITICAL FIX: Add wait mechanism to ensure DOM is ready after previous pagination
             # This is the key difference from go_to_next_page() that was causing validation failures
-            marker.add_step("wait_for_stability", "等待页面稳定", {})
+            marker.add_step("wait_for_stability", "Wait for page stability", {})
             time.sleep(TimeoutConfig.MEDIUM_WAIT)  # Wait for DOM to stabilize
 
             # Also wait for any pending network requests or DOM updates
@@ -1266,18 +1264,18 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 WebDriverWait(self.driver, 2).until(
                     lambda d: d.execute_script("return document.readyState") == "complete"
                 )
-                marker.add_step("dom_ready", "DOM已就绪", {
+                marker.add_step("dom_ready", "DOM ready", {
                     "current_url_after_wait": self.driver.current_url if self.driver else "no_driver"
                 })
             except TimeoutException:
-                marker.add_step("dom_wait_timeout", "DOM等待超时，继续尝试", {
+                marker.add_step("dom_wait_timeout", "DOM wait timeout, continuing anyway", {
                     "current_url_after_timeout": self.driver.current_url if self.driver else "no_driver"
                 })
 
             # DEBUG: Check page content before selector search
             try:
                 page_source_preview = self.driver.page_source[:500] if self.driver else ""
-                marker.add_step("page_source_check", "页面源码预览", {
+                marker.add_step("page_source_check", "Page source preview", {
                     "length": len(page_source_preview),
                     "has_pagination": "el-pager" in page_source_preview or "pagination" in page_source_preview,
                     "current_url_final": self.driver.current_url if self.driver else "no_driver"
@@ -1299,7 +1297,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 "a[aria-label='下一页']:not(.disabled)"
             ]
 
-            marker.add_step("selectors_defined", "选择器列表已定义", {
+            marker.add_step("selectors_defined", "Selector list defined", {
                 "selectors_count": len(next_selectors)
             })
 
@@ -1310,7 +1308,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         time.sleep(TimeoutConfig.SELECTOR_RETRY)
 
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    marker.add_step(f"check_selector_{idx}", f"检查选择器 {idx}", {
+                    marker.add_step(f"check_selector_{idx}", f"Check selector {idx}", {
                         "selector": selector,
                         "found": next_button is not None,
                         "enabled": next_button.is_enabled() if next_button else None,
@@ -1318,31 +1316,31 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     })
 
                     if next_button and next_button.is_enabled() and next_button.is_displayed():
-                        marker.add_step("has_next_page_true", "检测到下一页按钮", {
+                        marker.add_step("has_next_page_true", "Detected next page button", {
                             "selector": selector
                         })
                         marker.save()
                         return True
                 except (NoSuchElementException, TimeoutException):
-                    marker.add_step(f"selector_not_found_{idx}", f"选择器 {idx} 未找到", {
+                    marker.add_step(f"selector_not_found_{idx}", f"Selector {idx} not found", {
                         "selector": selector
                     })
                     continue
                 except Exception as e:
-                    marker.add_step(f"selector_error_{idx}", f"选择器 {idx} 异常", {
+                    marker.add_step(f"selector_error_{idx}", f"Selector {idx} error", {
                         "selector": selector,
                         "error": str(e)
                     })
                     continue
 
-            marker.add_step("has_next_page_false", "未找到下一页按钮", {})
+            marker.add_step("has_next_page_false", "Next page button not found", {})
             marker.save()
             return False
 
         except Exception as e:
-            marker.add_step("check_exception", "检查下一页异常", {
+            marker.add_step("check_exception", "Exception checking next page", {
                 "error": str(e)
             })
             marker.save()
-            logger.warning(f"检查下一页失败: {e}")
+            logger.warning(f"Failed to check next page: {e}")
             return False

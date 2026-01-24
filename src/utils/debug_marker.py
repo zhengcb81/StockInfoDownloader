@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-调试标记工具 - 用于记录详细的调试信息
+Debug Marker Tool - Records detailed debug information
 """
 
 import json
@@ -13,15 +13,48 @@ from typing import Dict, Any, List
 from pathlib import Path
 
 
+def _sanitize_for_json(obj: Any) -> Any:
+    """
+    Convert object to JSON serializable format
+
+    Args:
+        obj: Object to convert
+
+    Returns:
+        JSON serializable object
+    """
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+
+    if isinstance(obj, dict):
+        return {str(k): _sanitize_for_json(v) for k, v in obj.items()}
+
+    # For objects that cannot be serialized, return their string representation
+    try:
+        # Try calling __dict__ or related attributes
+        if hasattr(obj, '__dict__'):
+            return {
+                '__class__': obj.__class__.__name__,
+                '__module__': obj.__class__.__module__,
+                'repr': repr(obj)[:200]  # Limit length
+            }
+        return str(obj)[:200]
+    except:
+        return f"<Unserializable: {obj.__class__.__name__}>"
+
+
 class DebugMarker:
-    """调试标记 - 记录详细的执行步骤和状态"""
+    """Debug Marker - Records detailed execution steps and status"""
 
     def __init__(self, marker_type: str):
         """
-        初始化调试标记
+        Initialize debug marker
 
         Args:
-            marker_type: 标记类型 (如: "pagination", "download", "url_generation")
+            marker_type: Marker type (e.g. "pagination", "download", "url_generation")
         """
         self.marker_type = marker_type
         self.steps: List[Dict[str, Any]] = []
@@ -30,12 +63,12 @@ class DebugMarker:
 
     def add_step(self, step_id: str, description: str, details: Dict[str, Any] = None):
         """
-        添加步骤记录
+        Add step record
 
         Args:
-            step_id: 步骤ID
-            description: 步骤描述
-            details: 详细信息
+            step_id: Step ID
+            description: Step description
+            details: Detailed info
         """
         step = {
             "step_id": step_id,
@@ -48,37 +81,41 @@ class DebugMarker:
 
     def save(self, log_dir: str = "logs/debug_markers"):
         """
-        保存调试标记到文件
+        Save debug marker to file
 
         Args:
-            log_dir: 日志目录
+            log_dir: Log directory
         """
         try:
-            # 确保目录存在
+            # Ensure directory exists
             Path(log_dir).mkdir(parents=True, exist_ok=True)
 
-            # 构建完整的标记数据
+            # Build complete marker data (use sanitize to handle non-serializable objects)
             marker_data = {
                 "marker_id": self.marker_id,
                 "marker_type": self.marker_type,
                 "start_time": datetime.now().isoformat(),
                 "total_elapsed_ms": int((time.time() - self.start_time) * 1000),
-                "steps": self.steps,
+                "steps": _sanitize_for_json(self.steps),
                 "step_count": len(self.steps)
             }
 
-            # 保存到文件
+            # Save to file
             filename = f"markers_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
             filepath = Path(log_dir) / filename
 
-            # 追加模式写入（每行一个完整的JSON对象）
+            # Append mode (each line is a complete JSON object)
             with open(filepath, 'a', encoding='utf-8') as f:
                 f.write(json.dumps(marker_data, ensure_ascii=False) + '\n')
 
         except Exception as e:
-            # 如果保存失败，至少打印到控制台
-            print(f"[DEBUG_MARKER] 保存失败: {e}")
-            print(f"[DEBUG_MARKER] 数据: {json.dumps(marker_data, ensure_ascii=False)}")
+            # If save fails, at least print to console
+            try:
+                sanitized_data = _sanitize_for_json(marker_data) if 'marker_data' in locals() else "data unavailable"
+                print(f"[DEBUG_MARKER] Save failed: {e}")
+                print(f"[DEBUG_MARKER] Data: {json.dumps(sanitized_data, ensure_ascii=False)}")
+            except:
+                print(f"[DEBUG_MARKER] Save failed and unable to print data: {e}")
 
     def __repr__(self):
         return f"DebugMarker(type={self.marker_type}, steps={len(self.steps)})"

@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-测试清理工具模块
-提供智能的测试目录清理功能
+Test Cleanup Tool Module
+Provides intelligent test directory cleanup functionality
 """
 
 import os
@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 def get_test_directory_status(test_dir: str) -> Dict[str, Any]:
-    """获取测试目录状态（包含根目录文件）"""
+    """Get test directory status (including root files)"""
     test_path = Path(test_dir)
 
     if not test_path.exists():
@@ -30,7 +30,7 @@ def get_test_directory_status(test_dir: str) -> Dict[str, Any]:
     total_files = 0
     root_files = []
 
-    # 首先检查根目录的PDF文件
+    # First check PDF files in root directory
     for file_path in test_path.iterdir():
         if file_path.is_file() and file_path.suffix.lower() == '.pdf':
             root_files.append({
@@ -40,7 +40,7 @@ def get_test_directory_status(test_dir: str) -> Dict[str, Any]:
             })
             total_files += 1
 
-    # 然后检查公司子目录
+    # Then check company subdirectories
     for company_dir in test_path.iterdir():
         if company_dir.is_dir():
             company_files = []
@@ -70,16 +70,28 @@ def get_test_directory_status(test_dir: str) -> Dict[str, Any]:
 
 def clean_test_files(test_dir: str, preserve_cases: List[Dict[str, Any]] = None, dry_run: bool = False) -> Dict[str, Any]:
     """
-    清理测试文件（包含根目录文件清理）
+    Clean test files (including root files cleanup)
 
-    参数:
-        test_dir: 测试目录路径
-        preserve_cases: 需要保留的测试用例列表
-        dry_run: 是否只预览不实际执行
+    Args:
+        test_dir: Test directory path
+        preserve_cases: List of test cases to preserve
+        dry_run: Whether to only preview without executing
 
-    返回:
-        清理结果统计
+    Returns:
+        Cleanup result statistics
     """
+    import traceback
+    print(f"\n[DEBUG] clean_test_files called")
+    print(f"[DEBUG]   test_dir: {test_dir}")
+    print(f"[DEBUG]   preserve_cases: {preserve_cases}")
+    print(f"[DEBUG]   dry_run: {dry_run}")
+    if preserve_cases is None:
+        print(f"[DEBUG]   preserve_cases is None, using empty list")
+        preserve_cases = []
+    else:
+        print(f"[DEBUG]   preserve_cases length: {len(preserve_cases)}")
+    print(f"[DEBUG]   Call stack: {''.join(traceback.format_stack()[-5:])}")
+
     test_path = Path(test_dir)
     cleaned_files = 0
     cleaned_dirs = 0
@@ -99,27 +111,28 @@ def clean_test_files(test_dir: str, preserve_cases: List[Dict[str, Any]] = None,
             "dry_run": dry_run
         }
 
-    # 获取需要保留的公司名称和对应的股票代码
+    # Get company names and stock codes to preserve
     preserve_companies = set()
     preserve_stock_codes = set()
-    if preserve_cases:
+    if preserve_cases is not None and len(preserve_cases) > 0:
+        # Only build preservation list when preserve_cases is not empty
         for case in preserve_cases:
             stock_code = case.get("stock_code")
             if stock_code:
                 preserve_stock_codes.add(stock_code)
-                # 获取真实的公司名称
+                # Get real company name
                 try:
                     from get_stock_name import get_stock_name
                     company_name = get_stock_name(stock_code)
                     if company_name and not company_name.startswith('错误') and not company_name.startswith('网络'):
                         preserve_companies.add(company_name)
                 except:
-                    preserve_companies.add(f"股票{stock_code}")
+                    preserve_companies.add(f"Stock{stock_code}")
 
-    # 1. 清理根目录的PDF文件
+    # 1. Clean PDF files in root directory
     for file_path in test_path.iterdir():
         if file_path.is_file() and file_path.suffix.lower() == '.pdf':
-            # 检查文件名是否包含需要保留的股票代码
+            # Check if filename contains stock code to preserve
             should_preserve_root = False
             for stock_code in preserve_stock_codes:
                 if stock_code in file_path.name:
@@ -127,63 +140,69 @@ def clean_test_files(test_dir: str, preserve_cases: List[Dict[str, Any]] = None,
                     break
 
             if should_preserve_root:
+                print(f"[DEBUG] Preserving root file: {file_path.name}")
                 preserved_root_files += 1
                 continue
 
-            # 清理根目录文件
+            # Clean root file
+            print(f"[DEBUG] Deleting root file: {file_path.name}")
             if not dry_run:
                 try:
                     file_path.unlink()
                     cleaned_root_files += 1
                 except Exception as e:
-                    print(f"清理根目录文件 {file_path} 失败: {e}")
+                    print(f"Failed to delete root file {file_path}: {e}")
             else:
                 cleaned_root_files += 1
 
-    # 2. 清理公司子目录
+    # 2. Clean company subdirectories
     for company_dir in test_path.iterdir():
         if company_dir.is_dir():
             company_name = company_dir.name
 
-            # 检查是否需要保留
+            # Check if preservation is needed
             should_preserve = company_name in preserve_companies
+            print(f"[DEBUG] Checking directory: {company_name}, preserve_companies={preserve_companies}, should_preserve={should_preserve}")
 
             if should_preserve:
+                print(f"[DEBUG] Preserving directory: {company_name}")
                 preserved_dirs += 1
-                # 计算保留的文件数
+                # Count preserved files
                 file_count = sum(1 for _ in company_dir.iterdir() if _.is_file())
                 preserved_files += file_count
                 continue
 
-            # 清理目录
+            # Clean directory
+            if not should_preserve:
+                print(f"[DEBUG] Will delete directory: {company_name}")
             if not dry_run:
                 try:
-                    # 检查文件锁
+                    # Check file lock
                     lock_file = company_dir / ".lock"
                     if lock_file.exists():
-                        print(f"警告: 目录 {company_dir} 有锁文件，跳过清理")
-                        continue  # 跳过这个目录的清理
+                        print(f"Warning: Directory {company_dir} has lock file, skipping cleanup")
+                        continue  # Skip cleanup for this directory
 
-                    # 先计算文件数
+                    # Count files first
                     file_count = sum(1 for _ in company_dir.iterdir() if _.is_file())
                     cleaned_files += file_count
 
-                    # 删除目录，支持重试
+                    # Delete directory, support retry
                     max_retries = 3
                     for attempt in range(max_retries):
                         try:
                             shutil.rmtree(company_dir)
                             cleaned_dirs += 1
-                            break  # 成功则退出重试循环
+                            break  # Exit loop on success
                         except Exception as e:
                             if attempt < max_retries - 1:
-                                time.sleep(0.1 * (attempt + 1))  # 指数退避
+                                time.sleep(0.1 * (attempt + 1))  # Exponential backoff
                             else:
-                                raise  # 最后一次失败则重新抛出异常
+                                raise  # Re-raise exception on last failure
                 except Exception as e:
-                    print(f"清理目录 {company_dir} 失败: {e}")
+                    print(f"Failed to clean directory {company_dir}: {e}")
             else:
-                # 干运行时只计数
+                # Only count in dry run
                 file_count = sum(1 for _ in company_dir.iterdir() if _.is_file())
                 cleaned_files += file_count
                 cleaned_dirs += 1
@@ -199,60 +218,60 @@ def clean_test_files(test_dir: str, preserve_cases: List[Dict[str, Any]] = None,
     }
 
 def main():
-    """命令行入口"""
+    """Command line entry point"""
     import argparse
 
-    parser = argparse.ArgumentParser(description='测试清理工具')
-    parser.add_argument('--test-dir', default='end2end_test/test_results', help='测试目录路径')
-    parser.add_argument('--dry-run', action='store_true', help='只预览不实际执行')
-    parser.add_argument('--preserve-config', help='配置文件路径，包含需要保留的测试用例')
-    parser.add_argument('--status', action='store_true', help='只显示目录状态')
+    parser = argparse.ArgumentParser(description='Test Cleanup Tool')
+    parser.add_argument('--test-dir', default='end2end_test/test_results', help='Test directory path')
+    parser.add_argument('--dry-run', action='store_true', help='Preview only, do not execute')
+    parser.add_argument('--preserve-config', help='Config file path containing test cases to preserve')
+    parser.add_argument('--status', action='store_true', help='Only show directory status')
 
     args = parser.parse_args()
 
     if args.status:
-        # 显示目录状态
+        # Show directory status
         status = get_test_directory_status(args.test_dir)
-        print(f"目录状态: {args.test_dir}")
-        print(f"存在: {status['exists']}")
-        print(f"公司目录数: {status['total_dirs']}")
-        print(f"文件总数: {status['total_files']}")
-        print(f"根目录文件数: {status.get('root_file_count', 0)}")
+        print(f"Directory Status: {args.test_dir}")
+        print(f"Exists: {status['exists']}")
+        print(f"Company Dirs: {status['total_dirs']}")
+        print(f"Total Files: {status['total_files']}")
+        print(f"Root Files: {status.get('root_file_count', 0)}")
 
         if status.get('root_files'):
-            print(f"\n根目录文件:")
+            print(f"\nRoot Files:")
             for file in status['root_files']:
                 print(f"  - {file['name']} ({file['size']} bytes)")
 
         if status['companies']:
-            print(f"\n公司目录:")
+            print(f"\nCompany Directories:")
             for company in status['companies']:
-                print(f"  - {company['name']}: {company['file_count']} 个文件")
+                print(f"  - {company['name']}: {company['file_count']} files")
         return
 
-    # 加载需要保留的测试用例
+    # Load test cases to preserve
     preserve_cases = []
     if args.preserve_config and os.path.exists(args.preserve_config):
         try:
             with open(args.preserve_config, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 preserve_cases = config.get('test_cases', [])
-                # 只保留 delete_later=False 的用例
+                # Only preserve cases with delete_later=False
                 preserve_cases = [case for case in preserve_cases if not case.get('delete_later', True)]
         except Exception as e:
-            print(f"加载配置文件失败: {e}")
+            print(f"Failed to load config file: {e}")
 
-    # 执行清理
+    # Execute cleanup
     result = clean_test_files(args.test_dir, preserve_cases, args.dry_run)
 
-    print(f"清理结果:")
-    print(f"  清理公司文件: {result['cleaned_files']} 个")
-    print(f"  清理公司目录: {result['cleaned_dirs']} 个")
-    print(f"  清理根目录文件: {result['cleaned_root_files']} 个")
-    print(f"  保留公司文件: {result['preserved_files']} 个")
-    print(f"  保留公司目录: {result['preserved_dirs']} 个")
-    print(f"  保留根目录文件: {result['preserved_root_files']} 个")
-    print(f"  干运行模式: {result['dry_run']}")
+    print(f"Cleanup Result:")
+    print(f"  Cleaned Company Files: {result['cleaned_files']}")
+    print(f"  Cleaned Company Dirs: {result['cleaned_dirs']}")
+    print(f"  Cleaned Root Files: {result['cleaned_root_files']}")
+    print(f"  Preserved Company Files: {result['preserved_files']}")
+    print(f"  Preserved Company Dirs: {result['preserved_dirs']}")
+    print(f"  Preserved Root Files: {result['preserved_root_files']}")
+    print(f"  Dry Run: {result['dry_run']}")
 
 if __name__ == "__main__":
     main()
