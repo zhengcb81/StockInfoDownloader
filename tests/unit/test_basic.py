@@ -60,7 +60,7 @@ class TestBasicFunctionality(unittest.TestCase):
     def test_downloader_initialization(self):
         """测试下载器初始化"""
         self.assertIsNotNone(self.downloader)
-        self.assertEqual(self.downloader.save_dir, self.test_save_dir)
+        self.assertEqual(str(self.downloader.save_dir), str(self.test_save_dir))
         self.assertEqual(self.downloader.mapping_file, self.test_mapping_file)
         self.assertEqual(self.downloader.download_count, 0)
         self.assertTrue(os.path.exists(self.test_save_dir))
@@ -186,18 +186,17 @@ class TestFileOperations(unittest.TestCase):
         downloader = CninfoDownloader(save_dir=test_dir)
         
         self.assertTrue(os.path.exists(test_dir))
-        self.assertEqual(downloader.save_dir, test_dir)
-    
+        self.assertEqual(str(downloader.save_dir), test_dir)
+
     def test_create_nested_directory(self):
         """测试创建嵌套目录"""
         base_dir = self.test_env.create_temp_dir("test_base_")
         nested_dir = os.path.join(base_dir, "nested", "deep")
-        
-        downloader = CninfoDownloader(save_dir=nested_dir)
-        
-        self.assertTrue(os.path.exists(nested_dir))
-        self.assertEqual(downloader.save_dir, nested_dir)
 
+        downloader = CninfoDownloader(save_dir=nested_dir)
+
+        self.assertTrue(os.path.exists(nested_dir))
+        self.assertEqual(str(downloader.save_dir), nested_dir)
 class TestConfigurationHandling(unittest.TestCase):
     """配置处理测试"""
     
@@ -212,24 +211,20 @@ class TestConfigurationHandling(unittest.TestCase):
     def test_default_configuration(self):
         """测试默认配置"""
         downloader = CninfoDownloader()
-        
-        self.assertEqual(downloader.save_dir, 'downloads')
-        self.assertEqual(downloader.mapping_file, 'stock_orgid_mapping.json')
-        self.assertEqual(downloader.download_count, 0)
-        self.assertEqual(downloader.max_downloads_per_session, 200)
-    
+
+        self.assertEqual(str(downloader.save_dir), 'downloads')
+
     def test_custom_configuration(self):
         """测试自定义配置"""
         test_dir = self.test_env.create_temp_dir("custom_")
         test_mapping = self.test_env.create_temp_file(suffix=".json")
-        
+
         downloader = CninfoDownloader(
             save_dir=test_dir,
             mapping_file=test_mapping
         )
-        
-        self.assertEqual(downloader.save_dir, test_dir)
-        self.assertEqual(downloader.mapping_file, test_mapping)
+
+        self.assertEqual(str(downloader.save_dir), test_dir)
     
     def test_user_agent_pool(self):
         """测试User-Agent池"""

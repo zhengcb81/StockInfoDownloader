@@ -16,6 +16,35 @@ from ..core.logger import get_logger
 logger = get_logger(__name__)
 
 
+class JsonStorage:
+    """JSON 文件存储实现"""
+    
+    def __init__(self, file_path: str):
+        self.file_path = Path(file_path)
+        
+    def load(self) -> Optional[Dict[str, Any]]:
+        """从文件加载数据。解析失败返回 None。"""
+        if not self.file_path.exists():
+            return {}
+        try:
+            with open(self.file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"加载 JSON 失败 {self.file_path}: {e}")
+            return None
+            
+    def save(self, data: Dict[str, Any]) -> bool:
+        """保存数据到文件"""
+        try:
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            return True
+        except Exception as e:
+            logger.error(f"保存 JSON 失败 {self.file_path}: {e}")
+            return False
+
+
 class StorageManager:
     """数据存储管理器"""
     

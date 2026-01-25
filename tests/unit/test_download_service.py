@@ -5,8 +5,8 @@ DownloadService的单元测试
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
-from src.services.downloader_v2 import DownloadServiceV2 as DownloadService
-from src.data.models import StockInfo, DownloadRecord, DownloadStatus
+from src.adapters.legacy_downloader_adapter import DownloadServiceV2Adapter as DownloadService
+from src.interfaces.downloader_interface import DownloadResult as DownloadRecord, DownloadStatus
 
 
 class TestDownloadService:
@@ -19,7 +19,7 @@ class TestDownloadService:
     
     def test_config_access(self):
         """测试配置访问"""
-        with patch('src.services.downloader.ConfigManager') as mock_config:
+        with patch('src.core.config.ConfigManager') as mock_config:
             mock_config_instance = Mock()
             mock_config_instance.get.return_value = [
                 {"suffix": "research", "max_pages": 3},
@@ -53,7 +53,7 @@ class TestDownloadService:
     
     def test_stock_info_methods(self):
         """测试股票信息相关方法"""
-        with patch('src.services.downloader_v2.MappingManager') as mock_mapping:
+        with patch('src.data.mapping.MappingManager') as mock_mapping:
             mock_mapping_instance = Mock()
             mock_mapping_instance.get_org_id.return_value = "gssz0000001"
             mock_mapping_instance.get_stock_name.return_value = "测试公司"

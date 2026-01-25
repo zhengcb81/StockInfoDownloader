@@ -1,6 +1,6 @@
 """
-异常处理最佳实践模块
-提供统一的异常处理模式和工具
+Exception Handling Best Practices Module
+Provides unified exception handling patterns and tools
 """
 
 import sys
@@ -8,18 +8,17 @@ import traceback
 from typing import Dict, Any, Optional, Callable, Type
 from functools import wraps
 from .logger import get_logger
-# from .exceptions import StockDownloaderError  # Not used in this module
 
 
 class ErrorHandler:
-    """错误处理器"""
+    """Error Handler"""
 
     def __init__(self, logger=None):
         """
-        初始化错误处理器
+        Initialize ErrorHandler
 
         Args:
-            logger: 日志记录器
+            logger: Logger instance
         """
         self.logger = logger or get_logger(__name__)
 
@@ -29,42 +28,42 @@ class ErrorHandler:
                         reraise: bool = True,
                         default_return: Any = None) -> Any:
         """
-        统一异常处理
+        Unified exception handling
 
         Args:
-            exception: 异常对象
-            context: 上下文信息
-            reraise: 是否重新抛出异常
-            default_return: 默认返回值
+            exception: Exception object
+            context: Context information
+            reraise: Whether to re-raise exception
+            default_return: Default return value
 
         Returns:
-            Any: 如果不重新抛出异常，返回默认值
+            Any: Default value if not re-raising
         """
-        # 构建错误信息
+        # Build error info
         error_info = self._build_error_info(exception, context)
 
-        # 记录错误日志
+        # Log error
         self._log_error(error_info)
 
-        # 如果不重新抛出异常，返回默认值
+        # Return default value if not re-raising
         if not reraise:
             return default_return
 
-        # 重新抛出异常
+        # Re-raise exception
         raise exception
 
     def _build_error_info(self,
                           exception: Exception,
                           context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        构建错误信息
+        Build error info dictionary
 
         Args:
-            exception: 异常对象
-            context: 上下文信息
+            exception: Exception object
+            context: Context information
 
         Returns:
-            Dict[str, Any]: 错误信息
+            Dict[str, Any]: Error information
         """
         error_info = {
             'exception_type': type(exception).__name__,
@@ -73,7 +72,7 @@ class ErrorHandler:
             'context': context or {}
         }
 
-        # 添加系统信息
+        # Add system info
         error_info.update({
             'python_version': sys.version,
             'platform': sys.platform
@@ -83,21 +82,21 @@ class ErrorHandler:
 
     def _log_error(self, error_info: Dict[str, Any]) -> None:
         """
-        记录错误日志
+        Log error information
 
         Args:
-            error_info: 错误信息
+            error_info: Error information
         """
         error_msg = (
-            f"异常类型: {error_info['exception_type']}\n"
-            f"异常消息: {error_info['exception_message']}\n"
-            f"上下文: {error_info['context']}"
+            f"Exception Type: {error_info['exception_type']}\n"
+            f"Exception Message: {error_info['exception_message']}\n"
+            f"Context: {error_info['context']}"
         )
 
         if error_info['exception_type'] in ['TimeoutError', 'ConnectionError']:
             self.logger.warning(error_msg)
         else:
-            self.logger.error(error_msg + f"\n堆栈跟踪:\n{error_info['traceback']}")
+            self.logger.error(error_msg + f"\nTraceback:\n{error_info['traceback']}")
 
 
 def with_error_handling(error_types: Optional[Type] = None,
@@ -106,17 +105,17 @@ def with_error_handling(error_types: Optional[Type] = None,
                        default_return: Any = None,
                        log_level: str = 'error'):
     """
-    错误处理装饰器
+    Error handling decorator
 
     Args:
-        error_types: 要捕获的异常类型
-        context: 上下文信息
-        reraise: 是否重新抛出异常
-        default_return: 默认返回值
-        log_level: 日志级别
+        error_types: Exception types to catch
+        context: Context information
+        reraise: Whether to re-raise
+        default_return: Default return value
+        log_level: Log level
 
     Returns:
-        Callable: 装饰器函数
+        Callable: Decorator function
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -124,13 +123,13 @@ def with_error_handling(error_types: Optional[Type] = None,
             error_handler = ErrorHandler()
             error_context = context or {}
             error_context['function'] = func.__name__
-            error_context['args'] = str(args)[:100]  # 限制参数长度
+            error_context['args'] = str(args)[:100]  # Limit arg length
             error_context['kwargs'] = str(kwargs)[:100]
 
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                # 检查是否在指定的异常类型中
+                # Check if in specified exception types
                 if error_types and not isinstance(e, error_types):
                     raise
 
@@ -146,7 +145,7 @@ def with_error_handling(error_types: Optional[Type] = None,
 
 
 class RetryHandler:
-    """重试处理器"""
+    """Retry Handler"""
 
     def __init__(self,
                  max_attempts: int = 3,
@@ -154,13 +153,13 @@ class RetryHandler:
                  backoff_factor: float = 2.0,
                  exceptions: tuple = (Exception,)):
         """
-        初始化重试处理器
+        Initialize RetryHandler
 
         Args:
-            max_attempts: 最大尝试次数
-            delay: 初始延迟时间（秒）
-            backoff_factor: 退避因子
-            exceptions: 要重试的异常类型
+            max_attempts: Max attempts
+            delay: Initial delay (s)
+            backoff_factor: Backoff factor
+            exceptions: Exception types to retry
         """
         self.max_attempts = max_attempts
         self.delay = delay
@@ -170,13 +169,13 @@ class RetryHandler:
 
     def retry(self, func: Callable) -> Callable:
         """
-        重试装饰器
+        Retry decorator
 
         Args:
-            func: 要重试的函数
+            func: Function to retry
 
         Returns:
-            Callable: 装饰器函数
+            Callable: Decorator function
         """
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -190,62 +189,62 @@ class RetryHandler:
 
                     if attempt == self.max_attempts:
                         self.logger.error(
-                            f"函数 {func.__name__} 在 {self.max_attempts} 次尝试后仍然失败"
+                            f"Function {func.__name__} still failed after {self.max_attempts} attempts"
                         )
                         raise
 
-                    # 计算延迟时间
+                    # Calculate delay
                     current_delay = self.delay * (self.backoff_factor ** (attempt - 1))
                     self.logger.warning(
-                        f"函数 {func.__name__} 第 {attempt} 次尝试失败，"
-                        f"{current_delay:.2f} 秒后重试。错误: {e}"
+                        f"Function {func.__name__} attempt {attempt} failed, "
+                        f"retrying in {current_delay:.2f}s. Error: {e}"
                     )
 
                     import time
                     time.sleep(current_delay)
 
-            # 如果所有尝试都失败，抛出最后一个异常
+            # Raise last exception if all attempts fail
             raise last_exception
 
         return wrapper
 
 
 class ResourceGuard:
-    """资源守卫，确保资源正确释放"""
+    """Resource Guard ensures resources are properly released"""
 
     def __init__(self):
-        """初始化资源守卫"""
+        """Initialize ResourceGuard"""
         self.resources = []
         self.logger = get_logger(__name__)
 
     def add_resource(self, resource: Any, cleanup_func: Callable) -> None:
         """
-        添加需要清理的资源
+        Add resource to be cleaned up
 
         Args:
-            resource: 资源对象
-            cleanup_func: 清理函数
+            resource: Resource object
+            cleanup_func: Cleanup function
         """
         self.resources.append((resource, cleanup_func))
-        self.logger.debug(f"添加资源到守卫: {type(resource).__name__}")
+        self.logger.debug(f"Added resource to guard: {type(resource).__name__}")
 
     def cleanup(self) -> None:
-        """清理所有资源"""
+        """Cleanup all resources"""
         for resource, cleanup_func in reversed(self.resources):
             try:
                 cleanup_func(resource)
-                self.logger.debug(f"成功清理资源: {type(resource).__name__}")
+                self.logger.debug(f"Successfully cleaned up resource: {type(resource).__name__}")
             except Exception as e:
-                self.logger.error(f"清理资源失败: {type(resource).__name__}, 错误: {e}")
+                self.logger.error(f"Failed to cleanup resource: {type(resource).__name__}, Error: {e}")
 
         self.resources.clear()
 
     def __enter__(self):
-        """上下文管理器入口"""
+        """Context manager entry"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口"""
+        """Context manager exit"""
         self.cleanup()
 
 
@@ -254,50 +253,50 @@ def safe_execute(func: Callable,
                  default_return: Any = None,
                  **kwargs) -> Any:
     """
-    安全执行函数
+    Safely execute a function
 
     Args:
-        func: 要执行的函数
-        *args: 函数参数
-        default_return: 默认返回值
-        **kwargs: 函数关键字参数
+        func: Function to execute
+        *args: Positional arguments
+        default_return: Default return value
+        **kwargs: Keyword arguments
 
     Returns:
-        Any: 函数执行结果或默认值
+        Any: Function result or default value
     """
     try:
         return func(*args, **kwargs)
     except Exception as e:
         logger = get_logger(__name__)
-        logger.warning(f"安全执行函数 {func.__name__} 失败: {e}")
+        logger.warning(f"Safe execute function {func.__name__} failed: {e}")
         return default_return
 
 
 def validate_params(**param_validators):
     """
-    参数验证装饰器
+    Parameter validation decorator
 
     Args:
-        **param_validators: 参数验证器字典
+        **param_validators: Parameter validator dictionary
 
     Returns:
-        Callable: 装饰器函数
+        Callable: Decorator function
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # 获取函数参数
+            # Get function parameters
             import inspect
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
 
-            # 验证参数
+            # Validate parameters
             for param_name, validator in param_validators.items():
                 if param_name in bound_args.arguments:
                     param_value = bound_args.arguments[param_name]
                     if not validator(param_value):
-                        raise ValueError(f"参数 {param_name} 验证失败: {param_value}")
+                        raise ValueError(f"Parameter {param_name} validation failed: {param_value}")
 
             return func(*args, **kwargs)
 
@@ -305,25 +304,25 @@ def validate_params(**param_validators):
     return decorator
 
 
-# 常用的验证器函数
+# Common validator functions
 def validate_non_empty(value: str) -> bool:
-    """验证非空字符串"""
+    """Validate non-empty string"""
     return isinstance(value, str) and value.strip() != ""
 
 
 def validate_positive_number(value: (int, float)) -> bool:
-    """验证正数"""
+    """Validate positive number"""
     return isinstance(value, (int, float)) and value > 0
 
 
 def validate_file_exists(file_path: str) -> bool:
-    """验证文件存在"""
+    """Validate file existence"""
     import os
     return os.path.exists(file_path)
 
 
 def validate_url(url: str) -> bool:
-    """验证URL格式"""
+    """Validate URL format"""
     import re
     url_pattern = re.compile(
         r'^https?://'  # http:// or https://
@@ -331,5 +330,5 @@ def validate_url(url: str) -> bool:
         r'localhost|'  # localhost...
         r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
         r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        r'(?:/?|[/?]\S+)', re.IGNORECASE)
     return isinstance(url, str) and url_pattern.match(url) is not None

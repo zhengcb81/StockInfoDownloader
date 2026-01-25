@@ -14,19 +14,22 @@ from datetime import datetime
 
 
 class SafeStreamHandler(logging.StreamHandler):
-    """安全的流处理器，处理中文编码问题"""
+    """Safe stream handler that handles encoding issues robustly"""
     
     def emit(self, record):
         try:
             msg = self.format(record)
-            # 处理中文编码问题
-            if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding:
+            # Standardize on UTF-8 for internal consistency, but adapt to stream if needed
+            stream = self.stream
+            if hasattr(stream, 'encoding') and stream.encoding:
                 try:
-                    msg = msg.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding)
-                except (UnicodeEncodeError, UnicodeDecodeError):
-                    # 如果编码失败，使用UTF-8
-                    msg = msg.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
-            self.stream.write(msg + self.terminator)
+                    # Attempt to encode/decode to ensure compatibility with the current terminal
+                    msg.encode(stream.encoding, errors='replace').decode(stream.encoding)
+                except Exception:
+                    # Fallback to UTF-8 if current encoding is broken
+                    pass
+            
+            stream.write(msg + self.terminator)
             self.flush()
         except Exception:
             self.handleError(record)

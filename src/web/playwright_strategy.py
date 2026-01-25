@@ -1,5 +1,5 @@
 """
-Playwright浏览器自动化策略实现
+Playwright Browser Automation Strategy Implementation
 """
 
 import os
@@ -8,7 +8,7 @@ import time
 from typing import Optional, List, Any, Dict
 from pathlib import Path
 
-# Playwright导入（用于测试mock）
+# Playwright import (for testing mock)
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
@@ -42,28 +42,28 @@ logger = get_logger(__name__)
 
 
 class PlaywrightStrategy(BrowserAutomationStrategy):
-    """Playwright浏览器自动化策略"""
+    """Playwright Browser Automation Strategy"""
     
     def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
                  config: Optional[Dict[str, Any]] = None):
-        """初始化Playwright策略"""
+        """Initialize Playwright strategy"""
         self.headless = headless
         self.download_dir = download_dir
         self.config = config or {}
         self.browser = None
         self.page = None
-        self.user_data_dir = None  # 用于存储临时用户数据目录路径
+        self.user_data_dir = None  # Temp user data directory path
         self.context = None
         self.playwright = None
         self.download_count = 0
 
-        # 初始化配置管理器
+        # Initialize config manager
         self.config_manager = ConfigManager()
 
-        # 使用常量配置
+        # Use constant config
         self.window_size = self.config.get('window_size', BrowserConfig.DEFAULT_WINDOW_SIZE_DICT)
 
-        # 使用统一的timeout处理
+        # Use standardized timeout handling
         timeout_value = self.config.get('timeout', TimeoutConfig.INITIALIZATION)
         self.timeout = validate_and_normalize_timeout(timeout_value)
 
@@ -81,38 +81,47 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         max_retries=3
     )
     def create_driver(self) -> Any:
-        """创建Playwright浏览器实例"""
-        # 确保之前的实例完全关闭
+        """Create Playwright browser instance"""
+        # Ensure previous instances are completely closed
         if self.browser:
             self.close()
-            time.sleep(1)  # 等待浏览器完全关闭
+            time.sleep(1)  # Wait for browser to fully close
 
-        logger.info("正在初始化Playwright浏览器...")
+        logger.info("Initializing Playwright browser...")
 
         try:
-            # 检查Playwright是否可用
+            # Check if Playwright is available
             if sync_playwright is None:
                 raise ImportError("Playwright not available")
 
-            # 创建Playwright实例
+            # Force cleanup of asyncio event loop to prevent Sync API conflicts
+            import asyncio
+            try:
+                # If current thread has an event loop, try to clear it
+                # Note: this only works if the loop is not running
+                asyncio.set_event_loop(None)
+            except Exception:
+                pass
+
+            # Create Playwright instance
             self.playwright = sync_playwright().start()
 
-            # 构建启动选项
+            # Build launch options
             launch_options = self._build_launch_options()
 
-            # 如果指定了下载目录，使用持久化上下文（persistent context）
-            # 注意：不设置downloads_path，让download.save_as()完全控制文件保存位置
+            # If download directory is specified, use persistent context
+            # Note: Do not set downloads_path, let download.save_as() control locations
             if self.download_dir:
                 abs_download_dir = os.path.abspath(self.download_dir)
                 os.makedirs(abs_download_dir, exist_ok=True)
 
-                # 创建临时用户数据目录
+                # Create temporary user data directory
                 import tempfile
                 self.user_data_dir = tempfile.mkdtemp(prefix="playwright_user_")
 
-                # 使用持久化上下文启动
+                # Launch with persistent context
                 context_options = self._build_context_options()
-                # 不要设置 downloads_path，否则文件会被保存两次（一次到downloads_path，一次到save_as指定的位置）
+                # Do not set downloads_path to avoid double saving
 
                 self.context = self.playwright.chromium.launch_persistent_context(
                     self.user_data_dir,
@@ -120,45 +129,45 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                     **context_options
                 )
                 self.page = self.context.pages[0] if self.context.pages else self.context.new_page()
-                logger.info(f"使用持久化上下文启动，下载目录将通过save_as控制")
+                logger.info(f"Started with persistent context, downloads controlled via save_as")
             else:
-                # 启动浏览器
+                # Launch browser
                 self.browser = self.playwright.chromium.launch(**launch_options)
 
-                # 创建浏览器上下文
+                # Create browser context
                 context_options = self._build_context_options()
                 self.context = self.browser.new_context(**context_options)
 
-                # 创建页面
+                # Create page
                 self.page = self.context.new_page()
 
-            # 设置超时
+            # Set timeout
             self.page.set_default_timeout(self.timeout)
 
-            # 执行反检测脚本
+            # Execute anti-detection scripts
             self.page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {get: () => undefined})
                 Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})
                 Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']})
             """)
 
-            # 测试页面
+            # Test page
             self.page.goto('about:blank', wait_until='domcontentloaded')
 
-            logger.info("Playwright浏览器初始化成功")
-            # 返回浏览器或持久化上下文（作为浏览器句柄）
+            logger.info("Playwright browser initialized successfully")
+            # Return browser or persistent context (as browser handle)
             return self.browser if self.browser else self.context
 
         except ImportError:
             raise WebDriverInitError(
-                "Playwright未安装，请运行: pip install playwright && playwright install chromium",
+                "Playwright not installed, please run: pip install playwright && playwright install chromium",
                 context={"phase": "initialization", "error_type": "missing_dependency"}
             )
         except Exception as e:
-            error_msg = f"Playwright浏览器创建失败: {e}"
+            error_msg = f"Failed to create Playwright browser: {e}"
             logger.error(error_msg)
 
-            # 清理失败的实例
+            # Cleanup failed instances
             self.close()
 
             if "timeout" in str(e).lower():
@@ -175,7 +184,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                 )
     
     def _build_launch_options(self) -> Dict[str, Any]:
-        """构建浏览器启动选项"""
+        """Build browser launch options"""
         launch_options = {
             'headless': self.headless,
             'args': [
@@ -205,18 +214,18 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             ]
         }
         
-        # 添加窗口大小
+        # Add window size
         if isinstance(self.window_size, dict):
             launch_options['args'].append(f'--window-size={self.window_size["width"]},{self.window_size["height"]}')
         
-        # 随机User-Agent
+        # Random User-Agent
         user_agent = random.choice(self._user_agents)
         launch_options['args'].append(f'--user-agent={user_agent}')
         
         return launch_options
     
     def _build_context_options(self) -> Dict[str, Any]:
-        """构建浏览器上下文选项"""
+        """Build browser context options"""
         context_options = {
             'viewport': self.window_size if isinstance(self.window_size, dict) else {'width': 1920, 'height': 1080},
             'user_agent': random.choice(self._user_agents),
@@ -224,86 +233,86 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             'ignore_https_errors': False,
         }
         
-        # 设置下载目录
+        # Set download directory
         if self.download_dir:
             abs_download_dir = os.path.abspath(self.download_dir)
             os.makedirs(abs_download_dir, exist_ok=True)
             
             context_options['accept_downloads'] = True
-            logger.info(f"设置下载目录: {abs_download_dir}")
+            logger.info(f"Set download directory: {abs_download_dir}")
         
         return context_options
     
     def get_driver(self) -> Any:
-        """获取当前浏览器实例"""
+        """Get current browser instance"""
         return self.browser
 
     def cleanup(self) -> None:
         """
-        清理浏览器资源（实现接口）
+        Cleanup browser resources (implement interface)
         """
         try:
             self.close()
         except Exception as e:
-            logger.error(f"Playwright清理失败: {e}")
+            logger.error(f"Playwright cleanup failed: {e}")
 
     def initialize(self) -> bool:
         """
-        初始化浏览器（实现接口）
+        Initialize browser (implement interface)
 
         Returns:
-            bool: 初始化是否成功
+            bool: Whether initialization was successful
         """
         try:
             self.create_driver()
             return True
         except Exception as e:
-            logger.error(f"Playwright初始化失败: {e}")
+            logger.error(f"Playwright initialization failed: {e}")
             return False
 
     def navigate_to_page(self, url: str) -> bool:
         """
-        导航到指定页面（实现接口）
+        Navigate to specified page (implement interface)
 
         Args:
-            url: 目标URL
+            url: Target URL
 
         Returns:
-            bool: 导航是否成功
+            bool: Whether navigation was successful
         """
         return self.navigate(url)
 
     def navigate(self, url: str) -> bool:
-        """导航到指定URL"""
+        """Navigate to specified URL"""
         if not self.page:
             return False
 
         try:
-            # 使用配置的超时时间（毫秒）
+            # Use configured timeout (ms)
             timeout_ms = self.timeout
             self.page.goto(url, wait_until='domcontentloaded', timeout=timeout_ms)
             return True
         except Exception as e:
-            logger.error(f"导航到 {url} 失败: {e}")
+            logger.error(f"Navigate to {url} failed: {e}")
             return False
     
     def find_elements(self, selector: str, by: str = "css") -> List[Any]:
-        """查找元素"""
+        """Find elements"""
         if not self.page:
             return []
         
         try:
-            # Playwright主要使用CSS选择器，也支持XPath
+            # Playwright mainly uses CSS selectors, also supports XPath
             if by.lower() == "xpath":
                 return self.page.query_selector_all(f'xpath={selector}')
             else:
                 return self.page.query_selector_all(selector)
         except Exception as e:
-            logger.error(f"查找元素失败: {e}")
+            logger.error(f"Find elements failed: {e}")
             return []
     
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
-        """查找单个元素"""
+        """Find single element"""
         if not self.page:
             return None
         
@@ -313,11 +322,11 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             else:
                 return self.page.query_selector(selector)
         except Exception as e:
-            logger.error(f"查找元素失败: {e}")
+            logger.error(f"Find element failed: {e}")
             return None
     
     def click(self, element: Any) -> bool:
-        """点击元素"""
+        """Click element"""
         if not element:
             return False
         
@@ -325,55 +334,55 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             element.click()
             return True
         except Exception as e:
-            logger.error(f"点击元素失败: {e}")
+            logger.error(f"Click element failed: {e}")
             return False
     
     def get_text(self, element: Any) -> str:
-        """获取元素文本"""
+        """Get element text"""
         if not element:
             return ""
         
         try:
-            # 使用JavaScript获取文本，确保能获取到动态加载的内容
+            # Use JavaScript to get text, ensuring dynamic content is captured
             if hasattr(element, 'evaluate'):
                 text = element.evaluate('element => element.textContent?.trim() || ""')
                 return text or ""
             else:
                 return element.text_content() or ""
         except Exception as e:
-            logger.error(f"获取元素文本失败: {e}")
+            logger.error(f"Get element text failed: {e}")
             return ""
     
     def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
-        """获取元素属性"""
+        """Get element attribute"""
         if not element:
             return None
         
         try:
             return element.get_attribute(attribute)
         except Exception as e:
-            logger.error(f"获取元素属性失败: {e}")
+            logger.error(f"Get element attribute failed: {e}")
             return None
     
     def execute_script(self, script: str, *args) -> Any:
-        """执行JavaScript脚本"""
+        """Execute JavaScript script"""
         if not self.page:
             return None
         
         try:
             return self.page.evaluate(script, *args)
         except Exception as e:
-            logger.error(f"执行脚本失败: {e}")
+            logger.error(f"Execute script failed: {e}")
             return None
     
     def wait_for_element(self, selector: str, timeout: int = 10, 
                         by: str = "css", condition: str = "visible") -> bool:
-        """等待元素出现"""
+        """Wait for element to appear"""
         if not self.page:
             return False
         
         try:
-            timeout_ms = timeout * 1000  # 转换为毫秒
+            timeout_ms = timeout * 1000  # Convert to milliseconds
             
             if condition == "visible":
                 self.page.wait_for_selector(selector, state='visible', timeout=timeout_ms)
@@ -388,60 +397,60 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return False
     
     def get_page_source(self) -> str:
-        """获取页面源代码"""
+        """Get page source code"""
         if not self.page:
             return ""
         
         try:
             return self.page.content()
         except Exception as e:
-            logger.error(f"获取页面源代码失败: {e}")
+            logger.error(f"Get page source failed: {e}")
             return ""
     
     def get_current_url(self) -> str:
-        """获取当前URL"""
+        """Get current URL"""
         if not self.page:
             return ""
         
         try:
             return self.page.url
         except Exception as e:
-            logger.error(f"获取当前URL失败: {e}")
+            logger.error(f"Get current URL failed: {e}")
             return ""
 
     def get_page_title(self) -> str:
-        """获取页面标题"""
+        """Get page title"""
         if not self.page:
             return ""
         
         try:
             return self.page.title()
         except Exception as e:
-            logger.error(f"获取页面标题失败: {e}")
+            logger.error(f"Get page title failed: {e}")
             return ""
     
     def close(self) -> None:
-        """关闭浏览器（优化版）"""
-        # 按顺序清理资源
+        """Close browser (optimized version)"""
+        # Orderly resource cleanup
         if self.page:
-            safe_cleanup(self.page.close, "关闭页面失败")
+            safe_cleanup(self.page.close, "Failed to close page")
 
         if self.context:
-            safe_cleanup(self.context.close, "关闭上下文失败")
+            safe_cleanup(self.context.close, "Failed to close context")
 
         if self.browser:
-            safe_cleanup(self.browser.close, "关闭浏览器失败")
+            safe_cleanup(self.browser.close, "Failed to close browser")
 
         if hasattr(self, 'playwright') and self.playwright:
             def _stop():
                 self.playwright.stop()
                 time.sleep(0.5)
-            safe_cleanup(_stop, "停止Playwright失败")
+            safe_cleanup(_stop, "Failed to stop Playwright")
 
-        # 清理临时目录
+        # Cleanup temporary directory
         cleanup_directory(self.user_data_dir)
 
-        # 重置状态
+        # Reset state
         self.page = None
         self.context = None
         self.browser = None
@@ -450,48 +459,48 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         self.download_count = 0
 
         time.sleep(0.5)
-        logger.info("Playwright浏览器已关闭")
+        logger.info("Playwright browser closed")
     
     def is_healthy(self) -> bool:
-        """检查浏览器是否健康"""
+        """Check if browser is healthy"""
         if not self.page:
             return False
 
         try:
-            # 尝试获取页面URL来测试是否响应
+            # Try to get page URL to test responsiveness
             _ = self.page.url
             return True
         except Exception:
             return False
     
     def restart(self) -> bool:
-        """重启浏览器"""
-        logger.info("正在重启Playwright浏览器...")
+        """Restart browser"""
+        logger.info("Restarting Playwright browser...")
         
         self.close()
         
-        # 增强重试机制
+        # Enhanced retry mechanism
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                logger.info(f"尝试重启浏览器 (第 {attempt + 1}/{max_attempts} 次)...")
+                logger.info(f"Attempting to restart browser (attempt {attempt + 1}/{max_attempts})...")
                 self.create_driver()
-                logger.info("浏览器重启成功")
+                logger.info("Browser restarted successfully")
                 return True
                 
             except Exception as e:
-                logger.error(f"浏览器重启尝试 {attempt + 1} 异常: {e}")
+                logger.error(f"Browser restart attempt {attempt + 1} failed: {e}")
                 
                 if attempt < max_attempts - 1:
                     retry_wait = random.uniform(2, 4)
-                    logger.info(f"等待 {retry_wait:.2f} 秒后重试...")
+                    logger.info(f"Waiting {retry_wait:.2f} seconds before retry...")
                     time.sleep(retry_wait)
         
-        logger.error("浏览器重启失败，已尝试所有重试次数")
+        logger.error("Browser restart failed after all attempts")
         return False
     
     def take_screenshot(self, save_path: Optional[str] = None) -> Optional[bytes]:
-        """截取屏幕截图"""
+        """Take screenshot"""
         if not self.page:
             return None
         
@@ -504,12 +513,12 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             
             return screenshot_data
         except Exception as e:
-            logger.error(f"截取屏幕截图失败: {e}")
+            logger.error(f"Failed to take screenshot: {e}")
             return None
     
-    # Playwright特有方法
+    # Playwright specific methods
     def wait_for_download(self, timeout: int = 30) -> Optional[Any]:
-        """等待下载完成（Playwright特有）"""
+        """Wait for download to complete (Playwright specific)"""
         if not self.page:
             return None
         
@@ -517,11 +526,11 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             download = self.page.wait_for_event('download', timeout=timeout * 1000)
             return download
         except Exception as e:
-            logger.error(f"等待下载失败: {e}")
+            logger.error(f"Wait for download failed: {e}")
             return None
     
     def wait_for_navigation(self, timeout: int = 30) -> bool:
-        """等待导航完成（Playwright特有）"""
+        """Wait for navigation to complete (Playwright specific)"""
         if not self.page:
             return False
         
@@ -529,68 +538,68 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             self.page.wait_for_load_state('domcontentloaded', timeout=timeout * 1000)
             return True
         except Exception as e:
-            logger.error(f"等待导航失败: {e}")
+            logger.error(f"Wait for navigation failed: {e}")
             return False
 
     def go_to_next_page(self, timeout: int = 10) -> bool:
         """
-        跳转到下一页
+        Jump to next page
 
         Args:
-            timeout: 超时时间（秒）
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successfully jumped
         """
         if not self.page:
-            logger.error("页面未初始化，无法翻页")
+            logger.error("Page not initialized, cannot jump")
             return False
 
         try:
-            # 使用常量配置的选择器
+            # Use constant config selectors
             next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             for selector in next_selectors:
                 try:
                     next_button = self.page.query_selector(selector)
                     if next_button and next_button.is_enabled():
-                        # 点击下一页
+                        # Click next page
                         next_button.click()
 
-                        # 等待页面加载
+                        # Wait for page load
                         self.page.wait_for_load_state('domcontentloaded', timeout=timeout * 1000)
-                        time.sleep(PaginationConfig.DOM_STABILITY_WAIT)  # 额外等待确保内容加载
+                        time.sleep(PaginationConfig.DOM_STABILITY_WAIT)  # Extra wait for content stability
 
-                        logger.info("成功跳转到下一页")
+                        logger.info("Successfully jumped to next page")
                         return True
 
                 except Exception:
                     continue
 
-            logger.info("没有找到下一页按钮或已到达最后一页")
+            logger.info("No next page button found or reached last page")
             return False
 
         except Exception as e:
-            logger.error(f"跳转到下一页失败: {e}")
+            logger.error(f"Jump to next page failed: {e}")
             return False
 
     def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
         """
-        跳转到指定页码
+        Jump to specified page number
 
         Args:
-            page_number: 目标页码
-            timeout: 超时时间（秒）
+            page_number: Target page number
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successfully jumped
         """
         if not self.page:
-            logger.error("页面未初始化，无法翻页")
+            logger.error("Page not initialized, cannot jump")
             return False
 
         try:
-            # 方法1: 查找页码输入框和跳转按钮
+            # Method 1: Find page input and jump button
             page_input_selectors = [
                 "input.el-pagination__editor",
                 "input.page-input",
@@ -607,34 +616,34 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
 
             for input_selector, button_selector in zip(page_input_selectors, go_button_selectors):
                 try:
-                    # 查找页码输入框
+                    # Find page input
                     page_input = self.page.query_selector(input_selector)
                     if not page_input or not page_input.is_enabled():
                         continue
 
-                    # 查找跳转按钮
+                    # Find go button
                     go_button = self.page.query_selector(button_selector)
                     if not go_button or not go_button.is_enabled():
                         continue
 
-                    # 清空输入框并输入页码
+                    # Clear and type page number
                     page_input.fill("")
                     page_input.type(str(page_number))
 
-                    # 点击跳转按钮
+                    # Click go button
                     go_button.click()
 
-                    # 等待页面加载
+                    # Wait for page load
                     self.page.wait_for_load_state('domcontentloaded', timeout=timeout * 1000)
                     time.sleep(1)
 
-                    logger.info(f"成功跳转到第{page_number}页")
+                    logger.info(f"Successfully jumped to page {page_number}")
                     return True
 
                 except Exception:
                     continue
 
-            # 方法2: 直接点击页码按钮
+            # Method 2: Click page number button directly
             page_button_selectors = [
                 f".el-pager li.number:not(.active)",
                 f".pagination li:not(.active)",
@@ -649,38 +658,38 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                         if page_button and page_button.is_enabled():
                             button_text = page_button.text_content().strip()
                             if button_text == str(page_number):
-                                # 点击页码按钮
+                                # Click page button
                                 page_button.click()
 
-                                # 等待页面加载
+                                # Wait for page load
                                 self.page.wait_for_load_state('domcontentloaded', timeout=timeout * 1000)
                                 time.sleep(1)
 
-                                logger.info(f"成功跳转到第{page_number}页")
+                                logger.info(f"Successfully jumped to page {page_number}")
                                 return True
 
                 except Exception:
                     continue
 
-            logger.warning(f"无法跳转到第{page_number}页")
+            logger.warning(f"Failed to jump to page {page_number}")
             return False
 
         except Exception as e:
-            logger.error(f"跳转到指定页码失败: {e}")
+            logger.error(f"Jump to specified page failed: {e}")
             return False
 
     def has_next_page(self, timeout: int = 5) -> bool:
         """
-        检查是否有下一页
+        Check if next page exists
 
         Args:
-            timeout: 超时时间（秒）
+            timeout: Timeout in seconds
 
         Returns:
-            bool: 是否有下一页
+            bool: Whether next page exists
         """
         if not self.page:
-            logger.error("页面未初始化，无法检查翻页")
+            logger.error("Page not initialized, cannot check pagination")
             return False
 
         try:
@@ -703,59 +712,87 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return False
 
         except Exception as e:
-            logger.warning(f"检查下一页失败: {e}")
+            logger.warning(f"Check next page failed: {e}")
             return False
 
     def download_file(self, url: str, save_path: str, timeout: int = 30) -> bool:
         """
-        下载文件到指定路径
+        Download file to specified path
         
         Args:
-            url: 要下载的URL
-            save_path: 文件保存路径
-            timeout: 超时时间（秒）
+            url: URL to download
+            save_path: File save path
+            timeout: Timeout in seconds
              
         Returns:
-            bool: 下载是否成功
+            bool: Whether download was successful
         """
         if not self.page:
-            logger.error("页面未初始化，无法下载文件")
+            logger.error("Page not initialized, cannot download file")
             return False
         
         try:
+            # 1. Attempt navigation to detail page, prepare for potential direct download
+            # Some URLs trigger direct download, causing page.goto to throw "Download is starting"
+            logger.info(f"Attempting download: {url}")
             
-            # 导航到详情页
-            if not self.navigate(url):
-                logger.error(f"无法导航到详情页: {url}")
-                return False
-            
-            # 等待页面加载
-            self.page.wait_for_load_state('domcontentloaded')
+            try:
+                with self.page.expect_download(timeout=10000) as download_info:
+                    # Do not use self.navigate(url) directly to avoid error logging on goto throw
+                    self.page.goto(url, wait_until='domcontentloaded', timeout=self.timeout)
+                
+                # If code reaches here and success, direct download triggered
+                download = download_info.value
+                download.save_as(save_path)
+                logger.info(f"Direct download successful: {save_path}")
+                return True
+            except Exception as e:
+                error_msg = str(e)
+                if "Download is starting" in error_msg:
+                    # Expect download should have caught this, but if not, try waiting for event
+                    try:
+                        download = self.page.wait_for_event("download", timeout=5000)
+                        download.save_as(save_path)
+                        logger.info(f"Captured started download: {save_path}")
+                        return True
+                    except:
+                        pass
+                
+                # Continue to button search if no direct download
+                logger.debug(f"Direct download not triggered, searching for button: {error_msg}")
+
+            # 2. Search for download button if direct download failed
+            try:
+                self.page.wait_for_load_state('domcontentloaded', timeout=5000)
+            except:
+                pass
+                
             time.sleep(2)
             
-            # 查找下载按钮（公告下载）
-            download_button = self.find_element("button:has-text('公告下载')")
+            # Find download button
+            download_button = self.find_element("button:has-text('公告下载'), a:has-text('下载'), .download-link")
             if not download_button:
-                logger.error("未找到下载按钮")
+                logger.error("Download button not found, and direct download not triggered")
+                logger.debug(f"Current page title: {self.get_page_title()}")
                 return False
             
-            # 设置下载事件监听
+            # Setup download event listener
             with self.page.expect_download(timeout=timeout * 1000) as download_info:
-                # 点击下载按钮
+                # Click download button
                 if not self.click(download_button):
-                    logger.error("点击下载按钮失败")
+                    logger.error("Click download button failed")
                     return False
                 
-                logger.info("已点击下载按钮，等待文件下载...")
+                logger.info("Clicked download button, waiting for file...")
             
-            # 获取下载对象
+            # Get download object
             download = download_info.value
             
-            # 保存文件到指定路径
+            # Save file
             download.save_as(save_path)
-            logger.info(f"文件下载成功: {save_path}")
+            logger.info(f"Download via button successful: {save_path}")
             return True
             
         except Exception as e:
-            logger.error(f"文件下载失败: {e}")
+            logger.error(f"File download ultimately failed: {e}")
             return False

@@ -17,6 +17,7 @@ class DownloadRequest:
     """下载请求配置"""
     stock_code: str
     stock_name: Optional[str] = None
+    org_id: Optional[str] = None
     suffix: Optional[str] = None
     allowed_keywords: Optional[List[str]] = None
     max_pages: int = 5

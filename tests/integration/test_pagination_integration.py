@@ -8,7 +8,7 @@ import shutil
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
-from src.services.downloader import DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV1Adapter as DownloadService
 from src.utils.keyword_matcher import KeywordMatcher, KeywordConfig
 from src.web.scraper import WebScraper
 

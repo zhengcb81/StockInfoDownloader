@@ -38,7 +38,19 @@ class FileService:
         Returns:
             str: 清理后的文件名
         """
-        invalid_chars = self.config_manager.use_constants('INVALID_FILENAME_CHARS')
+        # 默认非法字符正则表达式
+        default_pattern = r'[\\/:*?"<>|]'
+        
+        try:
+            if hasattr(self.config_manager, 'use_constants'):
+                invalid_chars = self.config_manager.use_constants('INVALID_FILENAME_CHARS')
+            elif isinstance(self.config_manager, dict):
+                invalid_chars = self.config_manager.get('INVALID_FILENAME_CHARS', default_pattern)
+            else:
+                invalid_chars = default_pattern
+        except:
+            invalid_chars = default_pattern
+            
         return re.sub(invalid_chars, '_', filename)
 
     def get_stock_directory(self, stock_code: str, stock_name: str) -> Path:

@@ -1,6 +1,6 @@
 """
-通用网页抓取器
-提供通用的网页数据抓取功能
+Universal Web Scraper
+Provides general web data scraping functionality
 """
 
 import re
@@ -18,27 +18,27 @@ logger = get_logger(__name__)
 
 
 class WebScraper:
-    """通用网页抓取器"""
+    """Universal Web Scraper"""
     
     def __init__(self, driver):
         """
-        初始化网页抓取器
+        Initialize WebScraper
         
         Args:
-            driver: WebDriver实例
+            driver: WebDriver instance
         """
         self.driver = driver
     
     def find_elements_by_css(self, css_selector: str, timeout: int = 10) -> List:
         """
-        通过CSS选择器查找元素
+        Find elements by CSS selector
         
         Args:
-            css_selector: CSS选择器
-            timeout: 超时时间
+            css_selector: CSS selector
+            timeout: Timeout in seconds
             
         Returns:
-            List: 元素列表
+            List: List of elements
         """
         try:
             elements = WebDriverWait(self.driver, timeout).until(
@@ -46,19 +46,19 @@ class WebScraper:
             )
             return elements
         except TimeoutException:
-            logger.warning(f"未找到元素: {css_selector}")
+            logger.warning(f"Element not found: {css_selector}")
             return []
     
     def find_element_by_css(self, css_selector: str, timeout: int = 10) -> Optional[Any]:
         """
-        通过CSS选择器查找单个元素
+        Find single element by CSS selector
         
         Args:
-            css_selector: CSS选择器
-            timeout: 超时时间
+            css_selector: CSS selector
+            timeout: Timeout in seconds
             
         Returns:
-            Optional: 元素或None
+            Optional: Element or None
         """
         try:
             element = WebDriverWait(self.driver, timeout).until(
@@ -66,19 +66,19 @@ class WebScraper:
             )
             return element
         except TimeoutException:
-            logger.warning(f"未找到元素: {css_selector}")
+            logger.warning(f"Element not found: {css_selector}")
             return None
     
     def find_elements_by_xpath(self, xpath: str, timeout: int = 10) -> List:
         """
-        通过XPath查找元素
+        Find elements by XPath
         
         Args:
-            xpath: XPath表达式
-            timeout: 超时时间
+            xpath: XPath expression
+            timeout: Timeout in seconds
             
         Returns:
-            List: 元素列表
+            List: List of elements
         """
         try:
             elements = WebDriverWait(self.driver, timeout).until(
@@ -86,48 +86,48 @@ class WebScraper:
             )
             return elements
         except TimeoutException:
-            logger.warning(f"未找到元素: {xpath}")
+            logger.warning(f"Element not found: {xpath}")
             return []
     
     def get_text_by_css(self, css_selector: str, timeout: int = 10) -> Optional[str]:
         """
-        通过CSS选择器获取文本内容
+        Get text content by CSS selector
         
         Args:
-            css_selector: CSS选择器
-            timeout: 超时时间
+            css_selector: CSS selector
+            timeout: Timeout in seconds
             
         Returns:
-            Optional[str]: 文本内容
+            Optional[str]: Text content
         """
         element = self.find_element_by_css(css_selector, timeout)
         return element.text if element else None
     
     def get_attribute_by_css(self, css_selector: str, attribute: str, timeout: int = 10) -> Optional[str]:
         """
-        通过CSS选择器获取属性值
+        Get attribute value by CSS selector
         
         Args:
-            css_selector: CSS选择器
-            attribute: 属性名
-            timeout: 超时时间
+            css_selector: CSS selector
+            attribute: Attribute name
+            timeout: Timeout in seconds
             
         Returns:
-            Optional[str]: 属性值
+            Optional[str]: Attribute value
         """
         element = self.find_element_by_css(css_selector, timeout)
         return element.get_attribute(attribute) if element else None
     
     def extract_links(self, css_selector: str = "a", base_url: str = None) -> List[Dict[str, str]]:
         """
-        提取页面中的链接
+        Extract links from page
         
         Args:
-            css_selector: CSS选择器，默认为所有链接
-            base_url: 基础URL，用于处理相对路径
+            css_selector: CSS selector, default is all links
+            base_url: Base URL for relative paths
             
         Returns:
-            List[Dict[str, str]]: 链接列表，包含text和href
+            List[Dict[str, str]]: List of links with text and href
         """
         links = []
         
@@ -139,7 +139,7 @@ class WebScraper:
                 href = element.get_attribute("href")
                 
                 if href:
-                    # 处理相对路径
+                    # Handle relative paths
                     if base_url and not href.startswith("http"):
                         href = urljoin(base_url, href)
                     
@@ -149,19 +149,19 @@ class WebScraper:
                     })
             
         except Exception as e:
-            logger.error(f"提取链接失败: {e}")
+            logger.error(f"Failed to extract links: {e}")
         
         return links
     
     def extract_table_data(self, table_selector: str = "table") -> List[List[str]]:
         """
-        提取表格数据
+        Extract table data
         
         Args:
-            table_selector: 表格CSS选择器
+            table_selector: Table CSS selector
             
         Returns:
-            List[List[str]]: 表格数据
+            List[List[str]]: Table data
         """
         try:
             table = self.find_element_by_css(table_selector)
@@ -174,24 +174,24 @@ class WebScraper:
             for row in rows:
                 cells = row.find_elements(By.CSS_SELECTOR, "td, th")
                 row_data = [cell.text.strip() for cell in cells]
-                if row_data:  # 跳过空行
+                if row_data:  # Skip empty rows
                     table_data.append(row_data)
             
             return table_data
             
         except Exception as e:
-            logger.error(f"提取表格数据失败: {e}")
+            logger.error(f"Failed to extract table data: {e}")
             return []
     
     def extract_form_data(self, form_selector: str = "form") -> Dict[str, str]:
         """
-        提取表单数据
+        Extract form data
         
         Args:
-            form_selector: 表单CSS选择器
+            form_selector: Form CSS selector
             
         Returns:
-            Dict[str, str]: 表单数据
+            Dict[str, str]: Form data
         """
         try:
             form = self.find_element_by_css(form_selector)
@@ -211,19 +211,19 @@ class WebScraper:
             return form_data
             
         except Exception as e:
-            logger.error(f"提取表单数据失败: {e}")
+            logger.error(f"Failed to extract form data: {e}")
             return {}
     
     def wait_for_element_clickable(self, css_selector: str, timeout: int = 10) -> bool:
         """
-        等待元素可点击
+        Wait for element to be clickable
         
         Args:
-            css_selector: CSS选择器
-            timeout: 超时时间
+            css_selector: CSS selector
+            timeout: Timeout in seconds
             
         Returns:
-            bool: 是否可点击
+            bool: Whether clickable
         """
         try:
             WebDriverWait(self.driver, timeout).until(
@@ -231,18 +231,18 @@ class WebScraper:
             )
             return True
         except TimeoutException:
-            logger.warning(f"元素不可点击: {css_selector}")
+            logger.warning(f"Element not clickable: {css_selector}")
             return False
     
     def scroll_to_element(self, css_selector: str) -> bool:
         """
-        滚动到指定元素
+        Scroll to specified element
         
         Args:
-            css_selector: CSS选择器
+            css_selector: CSS selector
             
         Returns:
-            bool: 是否成功
+            bool: Whether successful
         """
         try:
             element = self.find_element_by_css(css_selector)
@@ -251,34 +251,34 @@ class WebScraper:
                 return True
             return False
         except Exception as e:
-            logger.error(f"滚动到元素失败: {e}")
+            logger.error(f"Failed to scroll to element: {e}")
             return False
     
     def get_page_source(self) -> str:
         """
-        获取页面源码
+        Get page source
         
         Returns:
-            str: 页面源码
+            str: Page source
         """
         try:
             return self.driver.page_source
         except Exception as e:
-            logger.error(f"获取页面源码失败: {e}")
+            logger.error(f"Failed to get page source: {e}")
             return ""
     
     def has_next_page(self, timeout: int = 5) -> bool:
         """
-        检查是否存在下一页
+        Check if next page exists
         
         Args:
-            timeout: 超时时间
+            timeout: Timeout in seconds
             
         Returns:
-            bool: 是否存在下一页
+            bool: Whether next page exists
         """
         try:
-            # CNINFO网站的分页控件选择器
+            # CNINFO pagination selectors
             next_selectors = [
                 "button.el-pagination__next:not(.is-disabled)",
                 ".pagination .next:not(.disabled)",
@@ -298,18 +298,18 @@ class WebScraper:
             return False
             
         except Exception as e:
-            logger.warning(f"检查下一页失败: {e}")
+            logger.warning(f"Failed to check next page: {e}")
             return False
     
     def go_to_next_page(self, timeout: int = 10) -> bool:
         """
-        跳转到下一页
+        Go to next page
         
         Args:
-            timeout: 超时时间
+            timeout: Timeout in seconds
             
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successful
         """
         try:
             next_selectors = [
@@ -324,14 +324,14 @@ class WebScraper:
                 try:
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
                     if next_button and next_button.is_enabled() and next_button.is_displayed():
-                        # 滚动到元素位置
+                        # Scroll to element
                         self.driver.execute_script("arguments[0].scrollIntoView();", next_button)
-                        time.sleep(0.5)  # 短暂等待动画完成
+                        time.sleep(0.5)  # Wait for animation
                         
-                        # 点击下一页
+                        # Click next page
                         next_button.click()
                         
-                        # 等待页面加载
+                        # Wait for page load
                         WebDriverWait(self.driver, timeout).until(
                             EC.staleness_of(next_button)
                         )
@@ -340,19 +340,19 @@ class WebScraper:
                 except (NoSuchElementException, TimeoutException):
                     continue
             
-            logger.info("没有找到下一页按钮或已到达最后一页")
+            logger.info("No next page button found or reached last page")
             return False
             
         except Exception as e:
-            logger.error(f"跳转到下一页失败: {e}")
+            logger.error(f"Failed to go to next page: {e}")
             return False
     
     def get_current_page_info(self) -> Dict[str, Any]:
         """
-        获取当前页面信息
+        Get current page info
         
         Returns:
-            Dict: 包含当前页码、总页数等信息
+            Dict: Info containing current page, total pages, etc.
         """
         try:
             page_info = {
@@ -362,7 +362,7 @@ class WebScraper:
                 "has_previous": False
             }
             
-            # CNINFO分页信息选择器
+            # CNINFO pagination info selectors
             info_selectors = [
                 ".el-pagination__total",
                 ".pagination-info",
@@ -374,7 +374,7 @@ class WebScraper:
                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     text = element.text
                     
-                    # 解析类似 "共 10 页" 或 "1/10" 的格式
+                    # Parse formats like "1/10" or "Total 10 pages"
                     match = re.search(r'(\d+)\s*/\s*(\d+)', text)
                     if match:
                         page_info["current_page"] = int(match.group(1))
@@ -393,22 +393,22 @@ class WebScraper:
             return page_info
             
         except Exception as e:
-            logger.warning(f"获取页面信息失败: {e}")
+            logger.warning(f"Failed to get page info: {e}")
             return {"current_page": 1, "total_pages": 1, "has_next": False, "has_previous": False}
 
     def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
         """
-        跳转到指定页码
+        Go to specified page number
         
         Args:
-            page_number: 目标页码
-            timeout: 超时时间
+            page_number: Target page number
+            timeout: Timeout in seconds
             
         Returns:
-            bool: 是否成功跳转
+            bool: Whether successful
         """
         try:
-            # 方法1: 查找页码输入框和跳转按钮
+            # Method 1: Find page input and go button
             page_input_selectors = [
                 "input.el-pagination__editor",
                 "input.page-input",
@@ -425,35 +425,35 @@ class WebScraper:
             
             for input_selector, button_selector in zip(page_input_selectors, go_button_selectors):
                 try:
-                    # 查找页码输入框
+                    # Find page input
                     page_input = self.driver.find_element(By.CSS_SELECTOR, input_selector)
                     if not page_input.is_enabled() or not page_input.is_displayed():
                         continue
                     
-                    # 查找跳转按钮
+                    # Find go button
                     go_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
                     if not go_button.is_enabled() or not go_button.is_displayed():
                         continue
                     
-                    # 清空输入框并输入页码
+                    # Clear and type page number
                     page_input.clear()
                     page_input.send_keys(str(page_number))
                     
-                    # 点击跳转按钮
+                    # Click go button
                     go_button.click()
                     
-                    # 等待页面加载
+                    # Wait for page load
                     WebDriverWait(self.driver, timeout).until(
                         EC.staleness_of(page_input)
                     )
                     
-                    logger.info(f"成功跳转到第{page_number}页")
+                    logger.info(f"Successfully jumped to page {page_number}")
                     return True
                     
                 except (NoSuchElementException, TimeoutException):
                     continue
             
-            # 方法2: 直接点击页码按钮
+            # Method 2: Click page number button directly
             page_button_selectors = [
                 f".el-pager li.number:not(.active)",
                 f".pagination li:not(.active)",
@@ -468,30 +468,30 @@ class WebScraper:
                         if page_button.is_enabled() and page_button.is_displayed():
                             button_text = page_button.text.strip()
                             if button_text == str(page_number):
-                                # 滚动到元素位置
+                                # Scroll to element
                                 self.driver.execute_script("arguments[0].scrollIntoView();", page_button)
                                 time.sleep(0.5)
                                 
-                                # 点击页码按钮
+                                # Click page button
                                 page_button.click()
                                 
-                                # 等待页面加载 - 增强版AJAX等待机制
-                                logger.info(f"等待第{page_number}页内容加载...")
+                                # Wait for page load - enhanced AJAX mechanism
+                                logger.info(f"Waiting for page {page_number} content...")
                                 
-                                # 步骤1: 基础等待让AJAX开始
+                                # Step 1: Base wait
                                 time.sleep(3)
                                 
-                                # 步骤2: 等待网络请求完成
+                                # Step 2: Wait for ready state
                                 try:
                                     WebDriverWait(self.driver, timeout).until(
                                         lambda driver: driver.execute_script("return document.readyState") == "complete"
                                     )
                                 except TimeoutException:
-                                    logger.warning("document.readyState未完成，继续执行")
+                                    logger.warning("document.readyState timeout, continuing")
                                 
-                                # 步骤3: 等待表格内容更新
+                                # Step 3: Wait for content change
                                 try:
-                                    # 记录当前表格内容
+                                    # Record initial content
                                     initial_table_content = ""
                                     try:
                                         table = self.driver.find_element(By.CSS_SELECTOR, ".el-table__body, .table-body, tbody")
@@ -499,68 +499,63 @@ class WebScraper:
                                     except:
                                         initial_table_content = self.driver.find_element(By.TAG_NAME, "body").text[:300]
                                     
-                                    logger.info(f"初始内容长度: {len(initial_table_content)}")
+                                    logger.info(f"Initial content length: {len(initial_table_content)}")
                                     
-                                    # 等待内容变化
+                                    # Wait for change
                                     WebDriverWait(self.driver, timeout).until(
                                         lambda driver: self._has_table_content_changed(initial_table_content)
                                     )
-                                    logger.info("检测到表格内容变化")
+                                    logger.info("Table content changed detected")
                                     
                                 except TimeoutException:
-                                    logger.warning(f"表格内容在{timeout}秒内未明显变化")
-                                    # 额外等待并重试一次
+                                    logger.warning(f"No content change detected in {timeout}s")
                                     time.sleep(2)
                                     
-                                # 步骤4: 最终稳定等待
+                                # Step 4: Final stabilization
                                 time.sleep(2)
-                                logger.info(f"第{page_number}页内容加载完成")
+                                logger.info(f"Page {page_number} loaded")
                                 
-                                logger.info(f"通过页码按钮跳转到第{page_number}页")
                                 return True
                         
                 except (NoSuchElementException, TimeoutException):
                     continue
             
-            logger.warning(f"无法跳转到第{page_number}页")
+            logger.warning(f"Failed to jump to page {page_number}")
             return False
             
         except Exception as e:
-            logger.error(f"跳转到指定页码失败: {e}")
+            logger.error(f"Failed to jump to specified page: {e}")
             return False
     
     def _has_table_content_changed(self, initial_content: str) -> bool:
-        """检查表格内容是否发生变化"""
+        """Check if table content changed"""
         try:
-            # 尝试获取表格内容
             try:
                 table = self.driver.find_element(By.CSS_SELECTOR, ".el-table__body, .table-body, tbody")
                 current_content = table.text[:300]
             except:
-                # 如果找不到表格，获取body内容
                 current_content = self.driver.find_element(By.TAG_NAME, "body").text[:300]
             
-            # 内容长度变化超过10%认为有变化
+            # Change > 10% or just different
             length_change = abs(len(current_content) - len(initial_content))
             if length_change > len(initial_content) * 0.1:
                 return True
             
-            # 或者直接内容不同
             return current_content != initial_content
             
         except Exception as e:
-            logger.debug(f"检查内容变化失败: {e}")
+            logger.debug(f"Check content change failed: {e}")
             return False
     
     def wait_for_page_load(self, timeout: int = 10) -> bool:
         """
-        等待页面加载完成
+        Wait for page load completion
         
         Args:
-            timeout: 超时时间
+            timeout: Timeout in seconds
             
         Returns:
-            bool: 是否加载成功
+            bool: Whether successful
         """
         try:
             WebDriverWait(self.driver, timeout).until(
@@ -568,5 +563,5 @@ class WebScraper:
             )
             return True
         except TimeoutException:
-            logger.warning(f"页面加载超时: {timeout}秒")
+            logger.warning(f"Page load timeout: {timeout}s")
             return False

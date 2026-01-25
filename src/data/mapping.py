@@ -6,529 +6,200 @@
 import os
 import json
 import time
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from pathlib import Path
 from datetime import datetime, timedelta
 
 from .models import OrgIdMapping
 from ..core.exceptions import OrgIdError
 from ..core.logger import get_logger
+from .storage import JsonStorage
 from ..utils.string_optimizer import standardize_stock_code
 
 logger = get_logger(__name__)
 
-
 class MappingManager:
     """映射管理器，管理股票代码与组织ID的映射"""
     
-    def __init__(self, mapping_file: str = "stock_orgid_mapping.json"):
+    def __init__(self, mapping_file: Optional[str] = None):
         """
         初始化映射管理器
         
         Args:
-            mapping_file: 映射文件路径
+            mapping_file: 映射文件路径，如果为 None 则使用默认路径
         """
-        self.mapping_file = Path(mapping_file)
+        self.logger = logger
         self._mappings: Dict[str, OrgIdMapping] = {}
         
-        self._load_mappings()
+        # 智能路径解析
+        if mapping_file:
+            self.mapping_file = Path(mapping_file)
+        else:
+            # 默认路径优先级：1. src/data/ 2. 根目录
+            default_internal = Path(__file__).parent / "stock_orgid_mapping.json"
+            default_root = Path("stock_orgid_mapping.json")
+            
+            if default_internal.exists():
+                self.mapping_file = default_internal
+            elif default_root.exists():
+                self.mapping_file = default_root
+            else:
+                self.mapping_file = default_internal
+                
+        self.storage = JsonStorage(str(self.mapping_file))
+        self._load_mapping()
     
     @property
     def mapping_data(self) -> Dict[str, OrgIdMapping]:
-        """
-        获取映射数据属性
-        
-        Returns:
-            Dict[str, OrgIdMapping]: 映射数据字典
-        """
+        """获取映射数据副本"""
         return self._mappings.copy()
     
     def reload_mapping(self) -> bool:
-        """
-        重新加载映射数据
-
-        Returns:
-            bool: 重新加载是否成功
-        """
-        # 备份当前映射数据
-        original_mappings = self._mappings.copy()
-
+        """重新加载映射数据。如果解析失败则返回 False。"""
         try:
-            self._mappings.clear()
-            self._load_mappings()
-            logger.info("映射数据重新加载成功")
+            # 在加载前先尝试 load，如果抛出异常（JSON损坏），直接返回 False
+            data = self.storage.load()
+            if data is None: # 表示解析失败 (取决于 JsonStorage 实现)
+                return False
+            self._load_mapping_from_data(data)
             return True
         except Exception as e:
-            # 恢复原始映射数据
-            self._mappings = original_mappings
-            logger.error(f"重新加载映射数据失败: {e}")
+            self.logger.error(f"重新加载映射数据失败: {e}")
             return False
     
-    def _load_mappings(self) -> None:
-        """加载映射文件"""
-        if not self.mapping_file.exists():
-            logger.info("映射文件不存在，创建空映射")
+    def _load_mapping(self) -> None:
+        """从存储加载映射逻辑"""
+        try:
+            data = self.storage.load()
+            self._load_mapping_from_data(data)
+        except Exception as e:
+            self.logger.error(f"初始化加载映射失败: {e}")
+            self._mappings = {}
+
+    def _load_mapping_from_data(self, data: Optional[Dict[str, Any]]) -> None:
+        """从字典对象加载映射数据"""
+        self._mappings = {}
+        if not data:
             return
 
-        try:
-            with open(self.mapping_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            for stock_code, mapping_data in data.items():
-                org_id = mapping_data.get('orgId')
-                stock_name = mapping_data.get('name', 'Unknown')
-
+        for stock_code, item in data.items():
+            try:
+                # 兼容不同格式 (orgId vs org_id, name vs stock_name)
+                org_id = item.get('orgId') or item.get('org_id')
+                stock_name = item.get('name') or item.get('stock_name') or "Unknown"
+                
                 if org_id:
                     mapping = OrgIdMapping(
                         stock_code=stock_code,
                         org_id=org_id,
                         stock_name=stock_name,
-                        source=mapping_data.get('source', 'auto'),
-                        confidence=mapping_data.get('confidence', 0.8)
+                        source=item.get('source', 'auto'),
+                        confidence=float(item.get('confidence', 0.8))
                     )
+                    # 处理时间戳兼容性
+                    if 'timestamp' in item:
+                        mapping.last_updated = datetime.fromtimestamp(item['timestamp'])
+                    elif 'last_updated' in item:
+                        try:
+                            mapping.last_updated = datetime.fromisoformat(item['last_updated'])
+                        except:
+                            pass
+                            
                     self._mappings[stock_code] = mapping
+            except Exception as e:
+                self.logger.warning(f"跳过无效映射项 {stock_code}: {e}")
 
-            logger.info(f"已加载 {len(self._mappings)} 个映射")
+        self.logger.info(f"已加载 {len(self._mappings)} 个映射")
 
-        except Exception as e:
-            logger.error(f"加载映射文件失败: {e}")
-            self._mappings = {}
-            raise  # 重新抛出异常，让reload_mapping能够捕获
-    
     def _save_mappings(self) -> None:
         """保存映射到文件"""
-        try:
-            self.mapping_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            data = {}
-            for stock_code, mapping in self._mappings.items():
-                data[stock_code] = {
-                    'orgId': mapping.org_id,
-                    'name': mapping.stock_name,
-                    'source': mapping.source,
-                    'timestamp': mapping.last_updated.timestamp(),
-                    'confidence': mapping.confidence
-                }
-            
-            with open(self.mapping_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            logger.info(f"已保存 {len(self._mappings)} 个映射")
-            
-        except Exception as e:
-            logger.error(f"保存映射文件失败: {e}")
-            raise OrgIdError(f"保存映射文件失败: {e}")
-    
+        data = {}
+        for stock_code, m in self._mappings.items():
+            data[stock_code] = {
+                'orgId': m.org_id,
+                'name': m.stock_name,
+                'source': m.source,
+                'timestamp': m.last_updated.timestamp(),
+                'confidence': m.confidence
+            }
+        if not self.storage.save(data):
+            raise OrgIdError("无法保存映射数据到存储")
+
     def get_org_id(self, stock_code: str, force_refresh: bool = False) -> Optional[str]:
-        """
-        获取组织ID
-
-        Args:
-            stock_code: 股票代码
-            force_refresh: 是否强制刷新
-
-        Returns:
-            Optional[str]: 组织ID，不存在返回None
-        """
+        """获取组织ID"""
         stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            return None
+        if not stock_code: return None
         
         if not force_refresh and stock_code in self._mappings:
-            mapping = self._mappings[stock_code]
-            
-            # 检查映射是否过期（30天）
-            if datetime.now() - mapping.last_updated > timedelta(days=30):
-                logger.info(f"映射已过期: {stock_code}")
-                return None
-            
-            return mapping.org_id
-        
-        # 如果映射中不存在，尝试直接从JSON文件中查找（兼容旧版本）
-        if self.mapping_file.exists():
-            try:
-                with open(self.mapping_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                
-                if stock_code in data:
-                    mapping_data = data[stock_code]
-                    org_id = mapping_data.get('orgId')
-                    stock_name = mapping_data.get('name', 'Unknown')
-                    
-                    if org_id:
-                        # 将找到的映射添加到内存中
-                        mapping = OrgIdMapping(
-                            stock_code=stock_code,
-                            org_id=org_id,
-                            stock_name=stock_name,
-                            source=mapping_data.get('source', 'file'),
-                            confidence=mapping_data.get('confidence', 0.8)
-                        )
-                        self._mappings[stock_code] = mapping
-                        logger.info(f"从文件加载映射: {stock_code} -> {org_id}")
-                        return org_id
-                        
-            except Exception as e:
-                logger.error(f"从文件加载映射失败: {e}")
-        
+            return self._mappings[stock_code].org_id
         return None
-    
-    def add_mapping(self,
-                   stock_code: str,
-                   org_id: str,
-                   stock_name: str,
-                   source: str = "auto",
-                   confidence: float = 0.8) -> bool:
-        """
-        添加映射
 
-        Args:
-            stock_code: 股票代码
-            org_id: 组织ID
-            stock_name: 股票名称
-            source: 来源
-            confidence: 置信度
-
-        Returns:
-            bool: 添加是否成功
-        """
-        try:
-            stock_code = standardize_stock_code(stock_code)
-            if not stock_code:
-                logger.warning(f"无效的股票代码格式: {stock_code}")
-                return False
-
-            # 检查是否已存在
-            if stock_code in self._mappings:
-                logger.warning(f"尝试添加重复映射: {stock_code} -> {org_id}")
-                return False
-
-            mapping = OrgIdMapping(
-                stock_code=stock_code,
-                org_id=org_id,
-                stock_name=stock_name,
-                source=source,
-                confidence=confidence
-            )
-
-            self._mappings[stock_code] = mapping
-            self._save_mappings()
-
-            logger.info(f"添加映射: {stock_code} -> {org_id} ({stock_name})")
-            return True
-        except Exception as e:
-            logger.error(f"添加映射失败: {e}")
-            return False
-    
-    def remove_mapping(self, stock_code: str) -> bool:
-        """
-        移除映射
-
-        Args:
-            stock_code: 股票代码
-
-        Returns:
-            bool: 是否成功移除
-        """
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            logger.warning(f"无效的股票代码格式: {stock_code}")
-            return False
-        
-        if stock_code in self._mappings:
-            del self._mappings[stock_code]
-            self._save_mappings()
-            logger.info(f"移除映射: {stock_code}")
-            return True
-        
-        return False
-    
-    def update_mapping(self,
-                      stock_code: str,
-                      org_id: str = None,
-                      stock_name: str = None,
-                      confidence: float = None) -> bool:
-        """
-        更新映射
-
-        Args:
-            stock_code: 股票代码
-            org_id: 新的组织ID
-            stock_name: 新的股票名称
-            confidence: 新的置信度
-
-        Returns:
-            bool: 是否成功更新
-        """
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            logger.warning(f"无效的股票代码格式: {stock_code}")
-            return False
-        
-        if stock_code not in self._mappings:
-            return False
-        
-        mapping = self._mappings[stock_code]
-        
-        if org_id is not None:
-            mapping.org_id = org_id
-        if stock_name is not None:
-            mapping.stock_name = stock_name
-        if confidence is not None:
-            mapping.confidence = confidence
-        
-        mapping.last_updated = datetime.now()
-        self._save_mappings()
-        
-        logger.info(f"更新映射: {stock_code}")
-        return True
-    
-    def add_duplicate_mapping(self,
-                            stock_code: str,
-                            org_id: str,
-                            stock_name: str,
-                            source: str = "auto",
-                            confidence: float = 0.8) -> bool:
-        """
-        添加重复映射（应该失败）
-
-        Args:
-            stock_code: 股票代码
-            org_id: 组织ID
-            stock_name: 股票名称
-            source: 来源
-            confidence: 置信度
-
-        Returns:
-            bool: 添加是否成功（应该总是返回False）
-        """
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            logger.warning(f"无效的股票代码格式: {stock_code}")
-            return False
-        
-        # 检查是否已存在
-        if stock_code in self._mappings:
-            logger.warning(f"尝试添加重复映射: {stock_code} -> {org_id}")
-            return False
-        
-        # 如果不存在，正常添加
-        return self.add_mapping(stock_code, org_id, stock_name, source, confidence)
-    
-    def get_all_mappings(self) -> Dict[str, OrgIdMapping]:
-        """获取所有映射"""
-        return self._mappings.copy()
-    
-    def get_mappings_by_source(self, source: str) -> List[OrgIdMapping]:
-        """
-        根据来源获取映射
-        
-        Args:
-            source: 来源
-            
-        Returns:
-            List[OrgIdMapping]: 映射列表
-        """
-        return [m for m in self._mappings.values() if m.source == source]
-    
-    def get_expired_mappings(self, days: int = 30) -> List[str]:
-        """
-        获取过期映射的股票代码
-        
-        Args:
-            days: 过期天数
-            
-        Returns:
-            List[str]: 过期映射的股票代码列表
-        """
-        cutoff_date = datetime.now() - timedelta(days=days)
-        expired_codes = []
-        
-        for stock_code, mapping in self._mappings.items():
-            if mapping.last_updated < cutoff_date:
-                expired_codes.append(stock_code)
-        
-        return expired_codes
-    
-    def validate_org_id(self, org_id: str) -> bool:
-        """
-        验证组织ID格式
-        
-        Args:
-            org_id: 组织ID
-            
-        Returns:
-            bool: 是否有效
-        """
-        if not org_id:
-            return False
-        
-        # 检查是否为数字字符串
-        return org_id.isdigit() and len(org_id) >= 6
-    
-    def get_statistics(self) -> Dict[str, int]:
-        """获取映射统计信息"""
-        stats = {
-            'total': len(self._mappings),
-            'auto': len([m for m in self._mappings.values() if m.source == 'auto']),
-            'preset': len([m for m in self._mappings.values() if m.source == 'preset']),
-            'manual': len([m for m in self._mappings.values() if m.source == 'manual'])
-        }
-        return stats
-    
-    def clear_expired_mappings(self, days: int = 90) -> int:
-        """
-        清除过期映射
-        
-        Args:
-            days: 过期天数
-            
-        Returns:
-            int: 清除的映射数量
-        """
-        expired_codes = self.get_expired_mappings(days)
-        
-        for code in expired_codes:
-            if code in self._mappings:
-                del self._mappings[code]
-        
-        if expired_codes:
-            self._save_mappings()
-            logger.info(f"清除 {len(expired_codes)} 个过期映射")
-        
-        return len(expired_codes)
-    
     def get_stock_name(self, stock_code: str) -> Optional[str]:
-        """
-        获取股票名称
-
-        Args:
-            stock_code: 股票代码
-
-        Returns:
-            Optional[str]: 股票名称，不存在返回None
-        """
+        """获取股票名称"""
         stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            logger.warning(f"无效的股票代码格式: {stock_code}")
-            return None
-        
-        # 首先从内存中的映射查找
+        if not stock_code: return None
         if stock_code in self._mappings:
             return self._mappings[stock_code].stock_name
-        
-        # 如果内存中不存在，尝试直接从JSON文件中查找（兼容旧版本）
-        if self.mapping_file.exists():
-            try:
-                with open(self.mapping_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                
-                if stock_code in data:
-                    stock_name = data[stock_code].get('name')
-                    if stock_name:
-                        logger.info(f"从文件获取股票名称: {stock_code} -> {stock_name}")
-                        return stock_name
-                        
-            except Exception as e:
-                logger.error(f"从文件获取股票名称失败: {e}")
-        
         return None
-    
-    def get_all_stock_codes(self) -> List[str]:
-        """
-        获取所有股票代码
-        
-        Returns:
-            List[str]: 股票代码列表
-        """
-        # 从内存中的映射获取
-        stock_codes = list(self._mappings.keys())
-        
-        # 如果内存中没有，尝试从JSON文件中获取（兼容旧版本）
-        if not stock_codes and self.mapping_file.exists():
-            try:
-                with open(self.mapping_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                stock_codes = list(data.keys())
-                logger.info(f"从文件获取 {len(stock_codes)} 个股票代码")
-            except Exception as e:
-                logger.error(f"从文件获取股票代码失败: {e}")
-        
-        return stock_codes
-    
-    def get_org_info(self, stock_code: str) -> Optional[Dict[str, str]]:
-        """
-        获取组织信息
 
-        Args:
-            stock_code: 股票代码
-
-        Returns:
-            Optional[Dict[str, str]]: 组织信息，不存在返回None
-        """
+    def add_mapping(self, stock_code: str, org_id: str, stock_name: str, 
+                    source: str = "auto", confidence: float = 0.8) -> bool:
+        """添加新映射。如果已存在或保存失败则返回 False。"""
         stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
-            logger.warning(f"无效的股票代码格式: {stock_code}")
-            return None
-        
-        # 首先从内存中的映射查找
-        if stock_code in self._mappings:
-            mapping = self._mappings[stock_code]
-            return {
-                'org_id': mapping.org_id,
-                'stock_name': mapping.stock_name,
-                'source': mapping.source,
-                'confidence': str(mapping.confidence),
-                'last_updated': mapping.last_updated.isoformat()
-            }
-        
-        # 如果内存中不存在，尝试直接从JSON文件中查找（兼容旧版本）
-        if self.mapping_file.exists():
-            try:
-                with open(self.mapping_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                
-                if stock_code in data:
-                    mapping_data = data[stock_code]
-                    return {
-                        'org_id': mapping_data.get('orgId'),
-                        'stock_name': mapping_data.get('name'),
-                        'source': mapping_data.get('source', 'file'),
-                        'confidence': str(mapping_data.get('confidence', 0.8)),
-                        'last_updated': datetime.fromtimestamp(mapping_data.get('timestamp', time.time())).isoformat()
-                    }
-                        
-            except Exception as e:
-                logger.error(f"从文件获取组织信息失败: {e}")
-        
-        return None
-    
-    def _validate_mapping_data(self, data: dict) -> bool:
-        """
-        验证映射数据格式
-        
-        Args:
-            data: 要验证的数据
-            
-        Returns:
-            bool: 数据是否有效
-        """
-        if not isinstance(data, dict):
+        if not stock_code or stock_code in self._mappings:
             return False
-        
-        for stock_code, mapping in data.items():
-            if not isinstance(mapping, dict):
-                return False
             
-            # 检查必需字段
-            if 'org_id' not in mapping or 'name' not in mapping:
+        self._mappings[stock_code] = OrgIdMapping(
+            stock_code=stock_code,
+            org_id=org_id,
+            stock_name=stock_name,
+            source=source,
+            confidence=confidence
+        )
+        try:
+            self._save_mappings()
+            return True
+        except:
+            return False
+
+    def remove_mapping(self, stock_code: str) -> bool:
+        """移除映射"""
+        stock_code = standardize_stock_code(stock_code)
+        if stock_code in self._mappings:
+            del self._mappings[stock_code]
+            try:
+                self._save_mappings()
+                return True
+            except:
                 return False
-            
-            # 检查字段值不为空且不是明显的无效值
-            if (not mapping['org_id'] or 
-                not mapping['name'] or 
-                mapping['org_id'] == 'invalid' or 
-                mapping['name'] == 'invalid'):
-                return False
-        
+        return False
+
+    def get_all_stock_codes(self) -> List[str]:
+        """获取所有股票代码"""
+        return list(self._mappings.keys())
+
+    def get_org_info(self, stock_code: str) -> Optional[Dict[str, Any]]:
+        """获取组织信息字典"""
+        stock_code = standardize_stock_code(stock_code)
+        if stock_code in self._mappings:
+            m = self._mappings[stock_code]
+            return {
+                'org_id': m.org_id,
+                'stock_name': m.stock_name,
+                'source': m.source,
+                'confidence': m.confidence,
+                'last_updated': m.last_updated.isoformat()
+            }
+        return None
+
+    def _validate_mapping_data(self, data: Any) -> bool:
+        """验证数据格式"""
+        if not isinstance(data, dict): return False
+        for v in data.values():
+            if not isinstance(v, dict): return False
+            # 严格校验键名
+            org_id = v.get('org_id') or v.get('orgId')
+            name = v.get('name') or v.get('stock_name')
+            if not org_id or not name: return False
+            if org_id == 'invalid' or name == 'invalid': return False
         return True

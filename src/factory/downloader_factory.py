@@ -49,6 +49,7 @@ class EnhancedDownloaderFactory:
             'download_service': DownloadServiceV1Adapter,
             'download_service_v2': DownloadServiceV2Adapter,
             'refactored': RefactoredDownloaderAdapter,
+            'improved': DownloadServiceV2Adapter,
         }
 
         # 默认配置
@@ -78,6 +79,10 @@ class EnhancedDownloaderFactory:
             ValueError: 不支持的下载器类型
         """
         try:
+            # 自动检测是否需要使用遗留适配器
+            if downloader_type in self._legacy_adapters and downloader_type != 'unified':
+                use_legacy_adapter = True
+
             # 决定使用哪种实现
             if self.legacy_mode or use_legacy_adapter:
                 # 使用适配器
@@ -177,38 +182,12 @@ class EnhancedDownloaderFactory:
 
         self.logger.info(f"注册下载器类型: {downloader_type} (遗留适配器: {is_legacy})")
 
-    def list_available_downloaders(self) -> Dict[str, Dict[str, Any]]:
+    def list_available_downloaders(self) -> Union[List[str], Dict[str, Dict[str, Any]]]:
         """
         列出所有可用的下载器类型
-
-        Returns:
-            Dict[str, Dict[str, Any]]: 可用的下载器类型信息
+        为保持兼容性，返回一个包含所有可用类型名称的列表
         """
-        all_downloaders = {}
-
-        # 统一下载器
-        for dtype in self._downloaders:
-            all_downloaders[f"unified:{dtype}"] = {
-                'type': dtype,
-                'class_name': self._downloaders[dtype].__name__,
-                'module': self._downloaders[dtype].__module__,
-                'description': '统一下载器',
-                'is_legacy': False,
-                'is_recommended': True
-            }
-
-        # 遗留适配器
-        for dtype in self._legacy_adapters:
-            all_downloaders[f"legacy:{dtype}"] = {
-                'type': dtype,
-                'class_name': self._legacy_adapters[dtype].__name__,
-                'module': self._legacy_adapters[dtype].__module__,
-                'description': '遗留适配器',
-                'is_legacy': True,
-                'is_recommended': False
-            }
-
-        return all_downloaders
+        return list(self._downloaders.keys()) + list(self._legacy_adapters.keys())
 
     def get_downloader_info(self, downloader_type: str) -> Dict[str, Any]:
         """
@@ -221,8 +200,7 @@ class EnhancedDownloaderFactory:
             Dict[str, Any]: 下载器信息
         """
         # 检查统一下载器
-        unified_key = f"unified:{downloader_type}"
-        if unified_key in self._downloaders:
+        if downloader_type in self._downloaders:
             downloader_class = self._downloaders[downloader_type]
             return {
                 'type': downloader_type,
@@ -231,12 +209,12 @@ class EnhancedDownloaderFactory:
                 'description': '统一下载器',
                 'is_legacy': False,
                 'is_recommended': True,
+                'is_default': downloader_type == self.default_downloader_type,
                 'features': self._get_downloader_features(downloader_class)
             }
 
         # 检查遗留适配器
-        legacy_key = f"legacy:{downloader_type}"
-        if legacy_key in self._legacy_adapters:
+        if downloader_type in self._legacy_adapters:
             adapter_class = self._legacy_adapters[downloader_type]
             return {
                 'type': downloader_type,
@@ -245,6 +223,7 @@ class EnhancedDownloaderFactory:
                 'description': '遗留适配器',
                 'is_legacy': True,
                 'is_recommended': False,
+                'is_default': downloader_type == self.default_downloader_type,
                 'original_class': adapter_class.__name__.replace('Adapter', '')
             }
 
@@ -307,6 +286,21 @@ class EnhancedDownloaderFactory:
             **kwargs
         )
 
+    def compare_downloaders(self) -> Dict[str, Any]:
+        """
+        比较不同下载器的特性
+
+        Returns:
+            Dict[str, Any]: 下载器比较信息
+        """
+        comparison = {}
+        available_types = list(self._downloaders.keys()) + list(self._legacy_adapters.keys())
+        for downloader_type in available_types:
+            info = self.get_downloader_info(downloader_type)
+            comparison[downloader_type] = info
+
+        return comparison
+
     def create_recommended_downloader(self, **kwargs) -> IDownloader:
         """
         创建推荐的下载器
@@ -319,6 +313,12 @@ class EnhancedDownloaderFactory:
         """
         recommended_type = self.get_recommended_downloader()
         return self.create_downloader(recommended_type, **kwargs)
+
+    def create_unified_downloader(self, **kwargs) -> IDownloader:
+        """
+        创建统一下载器（向后兼容接口）
+        """
+        return self._create_unified_downloader('unified', **kwargs)
 
     def create_downloader_for_scenario(
         self,
@@ -433,11 +433,15 @@ class EnhancedDownloaderFactory:
 
             # 注册自定义下载器
             if 'downloaders' in config_data:
-                for downloader_info in config_data['downloaders'].values():
-                    if 'is_legacy' in downloader_info and downloader_info['is_legacy']:
-                        # 注册为遗留适配器
-                        continue  # 遗留适配器不需要重新注册
-                    # TODO: 实现动态类注册逻辑
+                import importlib
+                for downloader_type, info in config_data['downloaders'].items():
+                    if isinstance(info, dict) and 'module' in info and 'class_name' in info:
+                        try:
+                            module = importlib.import_module(info['module'])
+                            cls = getattr(module, info['class_name'])
+                            self.register_downloader(downloader_type, cls, info.get('is_legacy', False))
+                        except Exception as reg_err:
+                            self.logger.warning(f"无法注册动态下载器 {downloader_type}: {reg_err}")
 
             self.logger.info(f"工厂配置已从 {import_path} 导入")
 

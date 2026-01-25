@@ -17,7 +17,7 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.services.downloader_v2 import DownloadServiceV2 as DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV2Adapter as DownloadService
 from src.data.mapping import MappingManager
 from src.core.config import ConfigManager
 from src.web.browser_strategy import BrowserStrategyFactory

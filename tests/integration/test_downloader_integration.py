@@ -17,7 +17,7 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.services.downloader_v2 import DownloadServiceV2 as DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV2Adapter as DownloadService
 from src.data.mapping import MappingManager
 
 
@@ -54,7 +54,7 @@ class TestDownloaderIntegration:
         except FileNotFoundError:
             # 如果配置文件不存在，使用最小测试数据
             test_mapping = {
-                "test_stock": {"orgId": "test_org_id", "name": "测试公司"}
+                "300470": {"orgId": "9900023856", "name": "中密控股"}
             }
 
         with open(self.mapping_file, 'w', encoding='utf-8') as f:

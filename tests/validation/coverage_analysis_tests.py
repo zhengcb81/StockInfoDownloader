@@ -178,7 +178,7 @@ class CodeAnalyzer:
         return complexity
 
 
-class CoverageAnalyzer:
+class TestAnalyzer:
     """测试分析器"""
     
     def __init__(self):
@@ -235,7 +235,7 @@ class CoverageAnalysisTool:
 
     def __init__(self):
         self.code_analyzer = CodeAnalyzer()
-        self.test_analyzer = CoverageAnalyzer()
+        self.test_analyzer = TestAnalyzer()
     
     def analyze_coverage(self) -> CoverageAnalysisResult:
         """分析测试覆盖率"""

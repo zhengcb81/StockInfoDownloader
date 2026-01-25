@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
-下载器抽象基类
-提供下载器的通用实现和共享功能
+Downloader Abstract Base Class
+Provides general implementation and shared functionality for downloaders
 """
 
 import time
@@ -26,8 +23,8 @@ from src.core.logger import get_logger
 
 class BaseDownloader(IDownloader):
     """
-    下载器抽象基类
-    提供通用的下载功能和状态管理
+    Downloader Abstract Base Class
+    Provides general download functionality and status management
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -36,7 +33,7 @@ class BaseDownloader(IDownloader):
         self.browser_strategy: Optional[IBrowserStrategy] = None
         self.anti_crawler_strategy: Optional[IAntiCrawlerStrategy] = None
 
-        # 默认配置
+        # Default configuration
         self.default_config = {
             'browser_strategy': 'playwright',
             'timeout': 180,
@@ -47,22 +44,22 @@ class BaseDownloader(IDownloader):
             'user_agent': None
         }
 
-        # 合并配置
+        # Merge configuration
         self.config = {**self.default_config, **(config or {})}
         self._initialize_components()
 
     def _initialize_components(self) -> None:
-        """初始化组件"""
+        """Initialize components"""
         try:
             self._init_browser_strategy()
             self._init_anti_crawler_strategy()
-            self.logger.info("组件初始化完成")
+            self.logger.info("Components initialized successfully")
         except Exception as e:
-            self.logger.error(f"组件初始化失败: {e}")
+            self.logger.error(f"Component initialization failed: {e}")
             raise
 
     def _init_browser_strategy(self) -> None:
-        """初始化浏览器策略"""
+        """Initialize browser strategy"""
         strategy_name = self.config.get('browser_strategy', 'playwright')
         try:
             if strategy_name == 'playwright':
@@ -72,73 +69,73 @@ class BaseDownloader(IDownloader):
                 from src.web.selenium_strategy import SeleniumStrategy
                 self.browser_strategy = SeleniumStrategy(self.config)
             else:
-                raise ValueError(f"不支持的浏览器策略: {strategy_name}")
+                raise ValueError(f"Unsupported browser strategy: {strategy_name}")
 
-            self.logger.info(f"浏览器策略初始化成功: {strategy_name}")
+            self.logger.info(f"Browser strategy initialized: {strategy_name}")
         except Exception as e:
-            self.logger.error(f"浏览器策略初始化失败: {e}")
+            self.logger.error(f"Browser strategy initialization failed: {e}")
             raise
 
     def _init_anti_crawler_strategy(self) -> None:
-        """初始化反爬虫策略"""
+        """Initialize anti-crawler strategy"""
         if not self.config.get('anti_crawler_enabled', True):
-            self.logger.info("反爬虫策略已禁用")
+            self.logger.info("Anti-crawler strategy disabled")
             return
 
         try:
             from src.web.anti_crawler import AntiCrawlerStrategy
             self.anti_crawler_strategy = AntiCrawlerStrategy()
-            self.logger.info("反爬虫策略初始化成功")
+            self.logger.info("Anti-crawler strategy initialized successfully")
         except Exception as e:
-            self.logger.error(f"反爬虫策略初始化失败: {e}")
-            # 反爬虫策略失败不应该阻止下载器启动
+            self.logger.error(f"Anti-crawler strategy initialization failed: {e}")
+            # Do not block downloader if anti-crawler fails
             self.anti_crawler_strategy = None
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """配置下载器"""
+        """Configure downloader"""
         self.config.update(config)
-        self.logger.info("下载器配置已更新")
+        self.logger.info("Downloader configuration updated")
 
-        # 重新初始化组件
+        # Re-initialize components
         self._initialize_components()
 
     def get_supported_browsers(self) -> List[str]:
-        """获取支持的浏览器列表"""
+        """Get supported browsers list"""
         return ['playwright', 'selenium']
 
     def _update_status(self, **kwargs) -> None:
-        """更新状态"""
+        """Update status"""
         for key, value in kwargs.items():
             if hasattr(self._status, key):
                 setattr(self._status, key, value)
 
     def _validate_and_prepare_request(self, request: DownloadRequest) -> None:
-        """验证并准备请求"""
-        # 验证请求
+        """Validate and prepare request"""
+        # Validate request
         errors = self.validate_request(request)
         if errors:
             error_msg = "; ".join(errors)
-            self.logger.error(f"请求验证失败: {error_msg}")
+            self.logger.error(f"Request validation failed: {error_msg}")
             raise ValueError(error_msg)
 
-        # 设置默认值
+        # Set defaults
         if not request.save_dir:
             request.save_dir = Path("downloads")
 
-        # 确保保存目录存在
+        # Ensure directory exists
         save_path = Path(request.save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
 
     def _execute_download_with_retry(
         self, request: DownloadRequest
     ) -> DownloadResult:
-        """带重试的下载执行"""
+        """Execute download with retry logic"""
         retry_count = self.config.get('retry_count', 3)
         retry_delay = self.config.get('retry_delay', 1.0)
 
         for attempt in range(retry_count + 1):
             try:
-                # 反爬虫请求前处理
+                # Pre-request processing
                 if self.anti_crawler_strategy:
                     self.anti_crawler_strategy.before_request({
                         'stock_code': request.stock_code,
@@ -146,10 +143,10 @@ class BaseDownloader(IDownloader):
                         'timestamp': datetime.now().isoformat()
                     })
 
-                # 执行实际下载
+                # Perform download
                 result = self._perform_download(request)
 
-                # 反爬虫请求后处理
+                # Post-request processing
                 if self.anti_crawler_strategy:
                     self.anti_crawler_strategy.after_request({
                         'success': result.success,
@@ -161,9 +158,9 @@ class BaseDownloader(IDownloader):
                 return result
 
             except Exception as e:
-                self.logger.warning(f"下载尝试 {attempt + 1}/{retry_count + 1} 失败: {e}")
+                self.logger.warning(f"Download attempt {attempt + 1}/{retry_count + 1} failed: {e}")
 
-                # 检查是否应该重试
+                # Check if should retry
                 should_retry = (
                     attempt < retry_count and
                     (not self.anti_crawler_strategy or
@@ -171,9 +168,9 @@ class BaseDownloader(IDownloader):
                 )
 
                 if should_retry:
-                    time.sleep(retry_delay * (attempt + 1))  # 递增延迟
+                    time.sleep(retry_delay * (attempt + 1))  # Incremental delay
                 else:
-                    # 返回失败结果
+                    # Return failure result
                     return DownloadResult(
                         success=False,
                         downloaded_files=[],
@@ -189,31 +186,31 @@ class BaseDownloader(IDownloader):
     @abstractmethod
     def _perform_download(self, request: DownloadRequest) -> DownloadResult:
         """
-        执行实际的下载逻辑
-        子类必须实现此方法
+        Perform actual download logic
+        Subclasses must implement this method
         """
         pass
 
     def get_download_history(self) -> List[Dict[str, Any]]:
         """
-        获取下载历史记录
+        Get download history records
 
         Returns:
-            List[Dict[str, Any]]: 下载历史记录
+            List[Dict[str, Any]]: Download history records
         """
-        # 默认实现返回空列表
+        # Default implementation returns empty list
         return []
 
     def export_download_log(self, file_path: Union[str, Path]) -> None:
         """
-        导出下载日志
+        Export download log
 
         Args:
-            file_path: 日志文件路径
+            file_path: Log file path
         """
         history = self.get_download_history()
         if not history:
-            self.logger.warning("没有下载历史记录可导出")
+            self.logger.warning("No download history to export")
             return
 
         try:
@@ -228,21 +225,21 @@ class BaseDownloader(IDownloader):
                     'records': history
                 }, f, ensure_ascii=False, indent=2)
 
-            self.logger.info(f"下载日志已导出到: {log_path}")
+            self.logger.info(f"Download log exported to: {log_path}")
 
         except Exception as e:
-            self.logger.error(f"导出下载日志失败: {e}")
+            self.logger.error(f"Failed to export download log: {e}")
 
     def __enter__(self):
-        """上下文管理器入口"""
+        """Context manager entry"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口"""
+        """Context manager exit"""
         try:
             self.cleanup()
         except Exception as e:
-            self.logger.error(f"清理资源失败: {e}")
+            self.logger.error(f"Failed to cleanup resources: {e}")
 
 
 class BaseBrowserStrategy(IBrowserStrategy):

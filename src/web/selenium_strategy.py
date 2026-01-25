@@ -506,24 +506,40 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
     def _prepare_download(self) -> bool:
         """
-        Prepare download: record file status before download
+        Prepare download: clean root PDFs and record status
 
         Returns:
             bool: Whether preparation was successful
         """
-        # Record file list before download - check root directory and all subdirectories
-        logger.debug(f"download_dir type: {type(self.download_dir)}, value: {self.download_dir}")
+        if not self.download_dir or not os.path.exists(self.download_dir):
+            return True
+
+        # Aggressively clean up ANY PDF files in the download root directory 
+        # to prevent orphans from previous attempts being detected as new
+        download_root = Path(self.download_dir)
+        try:
+            for f in download_root.glob("*.pdf"):
+                try:
+                    f.unlink()
+                    logger.info(f"Cleaned pre-existing orphan PDF in root: {f}")
+                except:
+                    pass
+        except Exception as e:
+            logger.debug(f"Error during pre-download cleanup: {e}")
+
+        # Record file list before download - ONLY in subdirectories
+        # (root should be empty now)
         self._before_files = set()
+        for root, dirs, files in os.walk(self.download_dir):
+            # Skip root directory itself
+            if Path(root).resolve() == download_root.resolve():
+                continue
+            for file in files:
+                if file.lower().endswith('.pdf'):
+                    file_path = Path(os.path.join(root, file))
+                    self._before_files.add(file_path)
 
-        if self.download_dir and os.path.exists(self.download_dir):
-            # Recursively check all directories, including subdirectories
-            for root, dirs, files in os.walk(self.download_dir):
-                for file in files:
-                    if file.lower().endswith('.pdf'):
-                        file_path = Path(os.path.join(root, file))
-                        self._before_files.add(file_path)
-
-        logger.debug(f"before_files (all directories): {self._before_files}")
+        logger.debug(f"before_files (subdirectories): {len(self._before_files)} items")
         return True
 
     def _navigate_to_detail_page(self, url: str) -> bool:
@@ -537,33 +553,29 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             bool: Whether navigation was successful
         """
         # Navigate to detail page
+        logger.info(f"Navigating to detail page: {url}")
         if not self.navigate(url):
-            logger.error(f"Failed to navigate to detail page: {url}")
             return False
 
-        # Wait for page load
-        if not self._wait_for_page_ready():
-            return False
-
-        # Check current URL, handle SPA application
+        # Handle SPA: sometimes URL changes but page doesn't reload, 
+        # or URL is still the list page URL.
+        # Force a direct GET if we suspect we are stuck.
+        time.sleep(2) # Initial SPA wait
         current_url = self.get_current_url()
-        logger.info(f"Current URL: {current_url}")
-        logger.info(f"Target URL: {url}")
-
-        # If URL mismatch, might be SPA application, try accessing detail page directly
-        if current_url != url and "/new/disclosure/detail" in url:
-            logger.info("Detected SPA navigation issue, trying to access detail page directly")
+        
+        # If still on list page or URL mismatch for detail, force reload
+        if "/new/disclosure/stock" in current_url and "/new/disclosure/detail" in url:
+            logger.info("SPA detected: forcing direct GET for detail page")
             self.driver.get(url)
+            time.sleep(3)
 
-            # Add fixed wait time to ensure page fully loaded (reference passed tests)
-            time.sleep(5)
-
+        # Wait for page load indicators
+        if not self._wait_for_page_ready():
+            # Second attempt if indicators missing
+            logger.info("Retrying navigation for detail page...")
+            self.driver.get(url)
             if not self._wait_for_page_ready():
                 return False
-
-            # Check URL again
-            current_url = self.get_current_url()
-            logger.info(f"URL after direct access: {current_url}")
 
         return True
 
@@ -574,75 +586,66 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         Returns:
             bool: Whether page is ready
         """
-        # Try waiting for download button to appear, timeout 5 seconds
-        if self.wait_for_element("//button[contains(., '公告下载')]", timeout=5, by="xpath", condition="visible"):
+        # 1. 优先等待下载按钮出现（最可靠的就绪标志）
+        if self.wait_for_element("//button[contains(., '公告下载')]", timeout=10, by="xpath", condition="visible"):
+            logger.info("Download button detected, page ready")
             return True
 
-        # If download button not appeared immediately, wait for page title to contain "巨潮资讯网"
-        logger.info("Download button not appeared immediately, waiting for page load")
+        # 2. 如果按钮没出现，等待页面标题包含特定内容（表示基本导航完成）
+        logger.info("Download button not appeared immediately, waiting for page indicators")
         start_time = time.time()
-        while time.time() - start_time < 5:
-            if "巨潮资讯网" in self.get_page_title():
+        while time.time() - start_time < 10:
+            title = self.get_page_title()
+            if "巨潮资讯网" in title:
+                # 即使标题对，也可能内容没加载完，给一点额外时间
+                time.sleep(2)
                 return True
             time.sleep(TimeoutConfig.SHORT_WAIT)
 
-        logger.warning("Page load timeout, but continuing anyway")
-        return True  # Continue even if timeout, let subsequent logic handle it
+        # 3. 检查是否有常见的 SPA 加载指示器（可选，目前通过 sleep 简化）
+        time.sleep(3)
+
+        logger.warning("Page load wait finished, but indicators might be missing")
+        return True  # 继续执行，让后续重试逻辑处理
 
     def _click_download_button(self) -> bool:
         """
-        Find and click download button (use WebDriverWait to ensure button clickable)
+        Find and click download button
 
         Returns:
             bool: Whether click was successful
         """
         try:
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from selenium.webdriver.common.by import By
-            from selenium.common.exceptions import TimeoutException
+            # 1. Wait for button to be present
+            main_selector = "//button[contains(., '公告下载') or contains(., '下载')]"
+            if not self.wait_for_element(main_selector, timeout=30, by="xpath", condition="presence"):
+                logger.error("Wait for download button timeout (30s), trying alternative selectors")
+                # Fallback to _find_download_button directly which tries alternatives
+            
+            # 2. Find the actual button element
+            download_btn = self._find_download_button()
+            if not download_btn:
+                logger.error("No clickable download button found with any selector")
+                return False
 
-            # Use WebDriverWait to wait for button to be clickable (30s timeout, consistent with passed tests)
-            download_btn = WebDriverWait(self.driver, 30).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(., '公告下载')]" ))
-            )
-
-            # Click download button
-            download_btn.click()
+            # 3. Ensure element is in view and visible
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", download_btn)
+            time.sleep(1)
+            
+            # 4. Click download button
+            if not self.click(download_btn):
+                logger.info("Normal click failed, trying JavaScript click")
+                try:
+                    self.driver.execute_script("arguments[0].click();", download_btn)
+                except Exception as je:
+                    logger.error(f"JavaScript click also failed: {je}")
+                    return False
+                
             logger.info("Clicked download button, waiting for file download...")
             return True
 
-        except TimeoutException:
-            logger.error("Wait for download button timeout (30s), trying alternative selectors")
-
-            # Try other selectors
-            alternative_selectors = [
-                "//button[contains(., '下载')]",
-                "//a[contains(., '公告下载')]",
-                "//a[contains(., '下载')]",
-                "//button[contains(., 'PDF')]",
-                "//a[contains(., 'PDF')]",
-                ".download-btn",
-                ".pdf-download"
-            ]
-
-            for selector in alternative_selectors:
-                try:
-                    by_method = By.XPATH if "//" in selector else By.CSS_SELECTOR
-                    download_btn = WebDriverWait(self.driver, 10).until(
-                        EC.element_to_be_clickable((by_method, selector))
-                    )
-                    download_btn.click()
-                    logger.info(f"Found and clicked download button using alternative selector: {selector}")
-                    return True
-                except TimeoutException:
-                    continue
-
-            logger.error("No clickable download button found with any selector")
-            return False
-
         except Exception as e:
-            logger.error(f"Failed to click download button: {e}")
+            logger.error(f"Error in _click_download_button: {e}")
             return False
 
     def _wait_and_move_file(self, save_path: str, timeout: int) -> bool:
@@ -693,8 +696,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         # Recursively check all directories, including subdirectories
         for root, dirs, files in os.walk(self.download_dir):
             for file in files:
-                # Check PDF files and temp files
-                if file.lower().endswith('.pdf') or file.endswith('.tmp'):
+                # Check PDF files and temp files (.tmp or .crdownload)
+                if file.lower().endswith('.pdf') or file.lower().endswith('.tmp') or file.lower().endswith('.crdownload'):
                     file_path = Path(os.path.join(root, file))
                     after_files.add(file_path)
 
@@ -735,32 +738,39 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if not downloaded_file or not downloaded_file.exists():
             return False
 
-        file_size = downloaded_file.stat().st_size
+        # Handle temp files (.tmp or .crdownload)
+        actual_file = downloaded_file
+        if downloaded_file.suffix in ('.tmp', '.crdownload'):
+            # This method renames the file to .pdf internally
+            if self._wait_for_temp_file_completion(downloaded_file):
+                actual_file = downloaded_file.with_suffix('.pdf')
+                if not actual_file.exists():
+                    logger.error(f"Renamed PDF file not found: {actual_file}")
+                    return False
+            else:
+                return False
+
+        file_size = actual_file.stat().st_size
         if file_size <= FileSizeThreshold.MIN_VALID_PDF:
             logger.debug(f"File size too small: {file_size} bytes")
             return False
 
-        # Handle temp file
-        if downloaded_file.suffix == '.tmp':
-            if not self._wait_for_temp_file_completion(downloaded_file):
-                return False
-
         # Move file to target location
-        success = self._move_file_to_target(downloaded_file, save_path)
+        success = self._move_file_to_target(actual_file, save_path)
 
         # If move successful, clean up potentially residual source file in root directory
         if success:
-            self._cleanup_downloaded_file(downloaded_file, save_path)
+            self._cleanup_downloaded_file(actual_file, save_path)
 
         return success
 
     def _cleanup_downloaded_file(self, downloaded_file: Path, save_path: str):
         """
         Cleanup potentially residual source file after download.
-        Delete all files in root directory with same content as target file.
+        Delete all files in root and subdirectories with same content or name as target file.
         """
         try:
-            download_path = Path(self.download_dir)
+            download_root = Path(self.download_dir)
             target_path = Path(save_path)
 
             if not target_path.exists():
@@ -768,35 +778,25 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             target_size = target_path.stat().st_size
             target_name = target_path.name
-            logger.debug(f"[CLEANUP] Target file: {target_path}, Size: {target_size}")
             
-            # DEBUG: Check directory and files
-            logger.info(f"[CLEANUP_DEBUG] self.download_dir: {self.download_dir}")
-            logger.info(f"[CLEANUP_DEBUG] download_path: {download_path}")
+            # Use rglob to find all PDFs recursively for cleanup
+            all_pdfs = list(download_root.rglob("*.pdf"))
+            logger.debug(f"[CLEANUP] Scanning for residual files: {len(all_pdfs)} PDFs found")
 
-            # Check all PDF files in download directory
-            root_pdfs = list(download_path.glob("*.pdf"))
-            logger.debug(f"[CLEANUP] Scanning download directory PDFs: {len(root_pdfs)} files")
-            logger.info(f"[CLEANUP_DEBUG] root_pdfs: {[str(f) for f in root_pdfs]}")
-
-            for root_file in root_pdfs:
-                # NEVER delete target file itself!
-                if root_file.resolve() == target_path.resolve():
-                    continue
-                
-                # Do not delete other files in the same target directory
-                if root_file.parent.resolve() == target_path.parent.resolve():
-                    continue
-
+            for f in all_pdfs:
                 try:
-                    # If filename is same (but in different directory, e.g. root), or file size same and filename similar
-                    if root_file.name == target_name or (root_file.stat().st_size == target_size and target_size > FileSizeThreshold.MIN_VALID_PDF):
-                        root_file.unlink()
-                        logger.info(f"[CLEANUP] Cleaned residual source file: {root_file}")
-                except (OSError, PermissionError) as e:
-                    logger.debug(f"Failed to clean file {root_file}: {e}")
+                    # NEVER delete target file itself!
+                    if f.resolve() == target_path.resolve():
+                        continue
+                    
+                    # If filename is same, or file size same (high probability of same content)
+                    if f.name == target_name or (f.stat().st_size == target_size and target_size > FileSizeThreshold.MIN_VALID_PDF):
+                        f.unlink()
+                        logger.info(f"[CLEANUP] Cleaned residual file: {f}")
+                except Exception as e:
+                    logger.debug(f"Failed to clean file {f}: {e}")
         except Exception as e:
-            logger.debug(f"Error cleaning downloaded file: {e}")
+            logger.debug(f"Error in _cleanup_downloaded_file: {e}")
 
     def _find_download_button(self):
         """Find download button"""
@@ -838,24 +838,47 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         Returns:
             bool: Whether completed
         """
-        # Check if temp file is stable (size not increasing)
-        time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
-        current_size = temp_file.stat().st_size
-        time.sleep(FileSizeThreshold.DOWNLOAD_STABILITY_WAIT)
-        new_size = temp_file.stat().st_size
+        logger.info(f"Waiting for temp file download to complete: {temp_file}")
+        
+        max_wait = 60 # Max wait 60s for a single file
+        start_time = time.time()
+        last_size = -1
 
-        if current_size == new_size and current_size > FileSizeThreshold.MIN_VALID_PDF:
-            # Temp file download complete, rename to PDF
-            pdf_file = temp_file.with_suffix('.pdf')
-            try:
-                temp_file.rename(pdf_file)
-                return True
-            except Exception as e:
-                logger.warning(f"Failed to rename temp file: {e}")
+        while time.time() - start_time < max_wait:
+            if not temp_file.exists():
+                # Might have been renamed by browser automatically
+                pdf_file = temp_file.with_suffix('.pdf')
+                if pdf_file.exists():
+                    logger.info("Temp file vanished but PDF found (auto-renamed by browser)")
+                    return True
                 return False
-        else:
-            # File still downloading
-            return False
+
+            try:
+                current_size = temp_file.stat().st_size
+                if current_size == last_size and current_size > FileSizeThreshold.MIN_VALID_PDF:
+                    # Stability reached
+                    pdf_file = temp_file.with_suffix('.pdf')
+                    try:
+                        # If target PDF already exists, remove it first
+                        if pdf_file.exists():
+                            pdf_file.unlink()
+                        temp_file.rename(pdf_file)
+                        logger.info(f"Temp file stabilized and renamed to PDF: {pdf_file}")
+                        return True
+                    except Exception as e:
+                        logger.warning(f"Failed to rename temp file: {e}")
+                        # If rename failed because PDF now exists (concurrency), check it
+                        if pdf_file.exists(): return True
+                        return False
+                
+                last_size = current_size
+            except Exception as e:
+                logger.debug(f"Error checking temp file status: {e}")
+                
+            time.sleep(2)
+
+        logger.error(f"Temp file did not stabilize after {max_wait}s")
+        return False
 
     def _move_file_to_target(self, source_file: Path, save_path: str) -> bool:
         """
@@ -956,7 +979,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if elapsed > 10 and elapsed % 10 < 1:  # Output status every 10 seconds
             logger.info(f"Download status: Waited {elapsed:.1f}s, Temp files: {len(temp_files)}")
             if self.download_dir and os.path.exists(self.download_dir):
-                current_files = list(Path(self.download_dir).rglob("*\*"))
+                current_files = list(Path(self.download_dir).rglob(r"*\*"))
                 logger.info(f"Current files in download dir: {len(current_files)}")
 
     def _handle_timeout(self, save_path: str, start_time: float) -> bool:
@@ -973,15 +996,30 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         elapsed = time.time() - start_time
         logger.error(f"File download timeout ({elapsed:.1f}s): {save_path}")
 
-        # Check if partial file exists
+        # Check if partial file exists at target
         if os.path.exists(save_path):
             file_size = os.path.getsize(save_path)
-            logger.error(f"File exists but size abnormal: {file_size} bytes")
+            logger.error(f"Partial file exists but timed out: {file_size} bytes")
+            try:
+                os.remove(save_path)
+                logger.info(f"Removed partial file: {save_path}")
+            except:
+                pass
 
-        # Check download directory status
+        # Check download root for potentially orphan files
         if self.download_dir and os.path.exists(self.download_dir):
-            all_files = list(Path(self.download_dir).rglob("*\*"))
-            logger.error(f"Files in download directory: {[str(f) for f in all_files]}")
+            try:
+                download_root = Path(self.download_dir)
+                orphan_pdfs = list(download_root.glob("*.pdf"))
+                # If we find PDFs in root during a timeout, they are likely orphans from this failed attempt
+                for orphan in orphan_pdfs:
+                    try:
+                        orphan.unlink()
+                        logger.info(f"Cleaned orphan PDF during timeout: {orphan}")
+                    except:
+                        pass
+            except:
+                pass
 
         return False
 

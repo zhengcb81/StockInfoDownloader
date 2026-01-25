@@ -149,7 +149,7 @@ class TestPlaywrightStrategyComprehensive:
         with pytest.raises(WebDriverInitError) as exc_info:
             strategy.create_driver()
 
-        assert "Playwright未安装" in str(exc_info.value)
+        assert "Playwright not installed" in str(exc_info.value)
         assert exc_info.value.error_code == ErrorCode.WEBDRIVER_INIT_ERROR
 
     @patch('src.web.playwright_strategy.sync_playwright')
@@ -679,7 +679,10 @@ class TestPlaywrightStrategyComprehensive:
         strategy = PlaywrightStrategy()
         strategy.page = MagicMock()
 
-        with patch.object(strategy, 'navigate', return_value=False):
+        # 模拟goto抛出异常（非下载触发）
+        strategy.page.goto.side_effect = Exception("Navigation failed")
+        # 模拟find_element也失败
+        with patch.object(strategy, 'find_element', return_value=None):
             result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
             assert result is False
 
@@ -688,10 +691,14 @@ class TestPlaywrightStrategyComprehensive:
         strategy = PlaywrightStrategy()
         strategy.page = MagicMock()
 
-        with patch.object(strategy, 'navigate', return_value=True):
-            with patch.object(strategy, 'find_element', return_value=None):
-                result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
-                assert result is False
+        # 模拟goto正常但未触发下载
+        strategy.page.goto.return_value = None
+        # 模拟expect_download超时
+        strategy.page.expect_download.side_effect = Exception("Timeout")
+        
+        with patch.object(strategy, 'find_element', return_value=None):
+            result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
+            assert result is False
 
     # ==================== 翻页功能测试 ====================
 

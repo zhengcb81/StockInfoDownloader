@@ -377,7 +377,7 @@ class TestValidateParams:
         def test_func(name):
             return name
 
-        with pytest.raises(ValueError, match="参数 name 验证失败"):
+        with pytest.raises(ValueError, match="Parameter name validation failed"):
             test_func("")  # 空字符串
 
     def test_validate_params_with_defaults(self):

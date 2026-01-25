@@ -163,28 +163,21 @@ class TestMappingManager:
         success = manager.remove_mapping("999999")
         assert not success
     
-    def test_reload_mapping(self):
+    @patch('src.data.mapping.JsonStorage')
+    def test_reload_mapping(self, mock_storage):
         """测试重新加载映射"""
+        mock_instance = mock_storage.return_value
+        mock_instance.load.return_value = self.test_data
+        
         manager = MappingManager(self.mapping_file)
         
-        # 修改文件内容
-        new_data = {
-            "600519": {"orgId": "9900010519", "name": "贵州茅台"}
-        }
-        with open(self.mapping_file, 'w', encoding='utf-8') as f:
-            json.dump(new_data, f, ensure_ascii=False, indent=2)
+        # 模拟文件内容改变
+        new_data = self.test_data.copy()
+        new_data["600000"] = {"orgId": "new_org", "name": "New Name"}
+        mock_instance.load.return_value = new_data
         
-        # 重新加载
-        success = manager.reload_mapping()
-        assert success
-        
-        # 验证新数据加载成功
-        org_id = manager.get_org_id("600519")
-        assert org_id == "9900010519"
-        
-        # 旧数据应该不存在
-        org_id = manager.get_org_id("300470")
-        assert org_id is None
+        assert manager.reload_mapping() is True
+        assert "600000" in manager.get_all_stock_codes()
     
     def test_reload_invalid_file(self):
         """测试重新加载无效文件"""

@@ -1,7 +1,0 @@
-C:\Users\֣����\Projects\StockInfoDownloader\e2e_test.py:19: DeprecationWarning: There is no current event loop
-  loop = asyncio.get_event_loop()
-usage: e2e_test.py [-h] [--test-old-downloader]
-                   [--browser-strategy {selenium,playwright,both}]
-e2e_test.py: error: unrecognized arguments: --verbose
-[22:41:42] 开始端到端测试（最终版本）
-[22:41:42] 严格按照测试说明.md实现

@@ -15,9 +15,10 @@ from unittest.mock import patch, MagicMock
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from validate_org_id import validate_org_id_url, validate_and_refresh_org_id
-from validate_all_cached import validate_all_cached_org_ids
+from typing import List, Dict, Any, Optional
 from src.core.config import ConfigManager
+from src.tools.legacy.validate_org_id import validate_org_id_url, validate_and_refresh_org_id
+from src.tools.legacy.validate_all_cached import validate_all_cached_org_ids
 
 class TestOrgIdValidation(unittest.TestCase):
     """Org ID验证单元测试类"""
@@ -68,7 +69,7 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_org_id_url_with_mock(self):
         """测试org ID URL验证功能"""
-        with patch('validate_org_id.requests.head') as mock_head:
+        with patch('src.tools.legacy.validate_org_id.requests.head') as mock_head:
             # 模拟有效响应
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -80,7 +81,7 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_org_id_url_invalid(self):
         """测试无效的org ID验证"""
-        with patch('validate_org_id.requests.head') as mock_head:
+        with patch('src.tools.legacy.validate_org_id.requests.head') as mock_head:
             # 模拟无效响应（404状态码）
             mock_response = MagicMock()
             mock_response.status_code = 404
@@ -92,8 +93,8 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_and_refresh_org_id_valid(self):
         """测试验证并刷新有效org ID"""
-        with patch('validate_org_id.validate_org_id_url') as mock_validate, \
-             patch('validate_org_id.invalidate_cache') as mock_invalidate:
+        with patch('src.tools.legacy.validate_org_id.validate_org_id_url') as mock_validate, \
+             patch('src.tools.legacy.validate_org_id.invalidate_cache') as mock_invalidate:
             
             mock_validate.return_value = True
             
@@ -103,8 +104,8 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_and_refresh_org_id_invalid(self):
         """测试验证并刷新无效org ID"""
-        with patch('validate_org_id.validate_org_id_url') as mock_validate, \
-             patch('validate_org_id.invalidate_cache') as mock_invalidate:
+        with patch('src.tools.legacy.validate_org_id.validate_org_id_url') as mock_validate, \
+             patch('src.tools.legacy.validate_org_id.invalidate_cache') as mock_invalidate:
             
             mock_validate.return_value = False
             mock_invalidate.return_value = "9900023856"
@@ -115,8 +116,8 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_all_cached_org_ids(self):
         """测试批量验证所有缓存org ID"""
-        with patch('validate_all_cached.validate_org_id_url') as mock_validate, \
-             patch('validate_all_cached.invalidate_cache') as mock_invalidate:
+        with patch('src.tools.legacy.validate_all_cached.validate_org_id_url') as mock_validate, \
+             patch('src.tools.legacy.validate_all_cached.invalidate_cache') as mock_invalidate:
             
             mock_validate.side_effect = [True, True]  # 两个都有效
             
@@ -129,8 +130,8 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_validate_all_cached_org_ids_with_fix(self):
         """测试批量验证并修正无效org ID"""
-        with patch('validate_all_cached.validate_org_id_url') as mock_validate, \
-             patch('validate_all_cached.invalidate_cache') as mock_invalidate:
+        with patch('src.tools.legacy.validate_all_cached.validate_org_id_url') as mock_validate, \
+             patch('src.tools.legacy.validate_all_cached.invalidate_cache') as mock_invalidate:
             
             mock_validate.side_effect = [False, True]  # 第一个无效，第二个有效
             mock_invalidate.return_value = "new_correct_id"
@@ -151,7 +152,7 @@ class TestOrgIdValidation(unittest.TestCase):
     
     def test_error_handling(self):
         """测试错误处理"""
-        with patch('validate_org_id.validate_org_id_url') as mock_validate:
+        with patch('src.tools.legacy.validate_org_id.validate_org_id_url') as mock_validate:
             mock_validate.side_effect = Exception("网络错误")
             
             result = validate_and_refresh_org_id("300470", self.test_mapping_file)
@@ -184,7 +185,7 @@ class TestOrgIdRegression(unittest.TestCase):
     
     def test_regression_known_valid_ids(self):
         """回归测试：已知有效ID应保持有效"""
-        with patch('validate_org_id.validate_org_id_url') as mock_validate:
+        with patch('src.tools.legacy.validate_org_id.validate_org_id_url') as mock_validate:
             mock_validate.return_value = True
             
             for stock_code, org_id in self.historical_data["known_valid"].items():
@@ -203,7 +204,7 @@ class TestOrgIdRegression(unittest.TestCase):
             "headers": {"User-Agent": "test-agent"}
         }
         
-        with patch('validate_org_id.requests.head') as mock_head:
+        with patch('src.tools.legacy.validate_org_id.requests.head') as mock_head:
             # 模拟无效响应（404状态码）
             mock_response = MagicMock()
             mock_response.status_code = 404
@@ -227,7 +228,7 @@ class TestOrgIdRegression(unittest.TestCase):
         with open(test_file, 'w', encoding='utf-8') as f:
             json.dump(test_mapping, f, ensure_ascii=False, indent=2)
         
-        with patch('validate_all_cached.validate_org_id_url') as mock_validate:
+        with patch('src.tools.legacy.validate_all_cached.validate_org_id_url') as mock_validate:
             mock_validate.return_value = True
             
             report = validate_all_cached_org_ids(test_file, fix_invalid=False)
@@ -251,7 +252,7 @@ class TestOrgIdRegression(unittest.TestCase):
                     # 确保配置能被正确加载
                     from validate_org_id import load_validation_config, load_cache_config
                     
-                    with patch('validate_org_id.ConfigManager') as mock_config:
+                    with patch('src.tools.legacy.validate_org_id.ConfigManager') as mock_config:
                         mock_instance = MagicMock()
                         mock_instance.get.side_effect = [
                             config.get('org_id_validation', {}),

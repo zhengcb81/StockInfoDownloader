@@ -2,177 +2,166 @@
 # -*- coding: utf-8 -*-
 
 """
-股票信息下载器主程序
-使用重构后的模块化架构
+Stock Information Downloader - Unified Entry Point
+Supports single company, multiple companies, parallel and sequential modes.
 """
 
 import sys
-import locale
-
-# 设置控制台编码为UTF-8
-if sys.platform == 'win32':
-    try:
-        # Windows下设置控制台编码为UTF-8
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except:
-        # 如果设置失败，忽略错误
-        pass
-
-import sys
-import json
 import os
+import json
 import argparse
+import time
+import concurrent.futures
 from pathlib import Path
+from typing import List, Dict, Any, Optional
+from datetime import datetime
 
-# 添加src目录到Python路径
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add src directory to Python path
+sys.path.insert(0, str(Path(__file__).parent))
 
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
-from src.core.performance_monitor import log_performance_stats, get_performance_stats
+from src.core.performance_monitor import log_performance_stats
 from src.factory.downloader_factory import downloader_factory
 from src.data.mapping import MappingManager
 
-# 导入股票名称获取函数
-try:
-    from get_stock_name import get_stock_name
-except ImportError:
-    # 如果导入失败，使用备选方案
-    def get_stock_name(stock_code, mapping_file='stock_orgid_mapping.json'):
-        mapping_manager = MappingManager(mapping_file)
-        return mapping_manager.get_stock_name(stock_code) or f"股票{stock_code}"
+# Set console encoding to UTF-8
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        pass
 
+def get_real_stock_name(stock_code, mapping_file='stock_orgid_mapping.json'):
+    """Get stock name from mapping or external tool"""
+    try:
+        from get_stock_name import get_stock_name
+        return get_stock_name(stock_code, mapping_file)
+    except ImportError:
+        mapping_manager = MappingManager(mapping_file)
+        return mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
+
+class UnifiedRunner:
+    """Manager for executing download tasks"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.logger = get_logger('UnifiedRunner')
+        self.save_dir = config.get('save_dir', 'downloads')
+        self.strategy = config.get('browser', {}).get('strategy', 'playwright')
+        
+    def _prepare_task(self, stock_code: str, company_name: Optional[str] = None) -> Dict[str, Any]:
+        """Prepare configuration for a single stock download task"""
+        name = company_name or get_real_stock_name(stock_code)
+        return {
+            'stock_code': stock_code,
+            'stock_name': name,
+            'save_dir': self.save_dir,
+            'max_retries': self.config.get('max_retries', 3),
+            'pages': self.config.get('pages', [
+                {'name': 'Research', 'suffix': 'research', 'max_pages': 5},
+                {'name': 'Periodic Reports', 'suffix': 'periodicReports', 'max_pages': 5}
+            ])
+        }
+
+    def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
+        """Run download for a single stock code"""
+        task = self._prepare_task(stock_code, company_name)
+        self.logger.info(f"Starting task for {task['stock_code']} ({task['stock_name']})")
+        
+        # Create the modern unified downloader
+        downloader = downloader_factory.create_downloader(
+            downloader_type='unified',
+            browser_strategy=self.strategy,
+            save_dir=self.save_dir
+        )
+        
+        success = True
+        try:
+            for page in task['pages']:
+                self.logger.info(f"Downloading {page['name']} for {stock_code}")
+                # UnifiedDownloader.download_activity_records is the best compat entry point
+                res = downloader.download_activity_records(
+                    stock_code=stock_code,
+                    suffix=page.get('suffix', 'research'),
+                    allowed_keywords=page.get('allowed_keywords'),
+                    max_pages=page.get('max_pages', 5),
+                    headless=True
+                )
+                if not res:
+                    self.logger.warning(f"Failed to download {page['name']} for {stock_code}")
+                    success = False
+        except Exception as e:
+            self.logger.error(f"Task failed for {stock_code}: {e}")
+            success = False
+        finally:
+            downloader.cleanup()
+            
+        return success
+
+    def run_multi(self, companies: List[Dict[str, Any]], parallel: bool = False, workers: int = 3):
+        """Run downloads for multiple companies"""
+        if not companies:
+            self.logger.error("No companies provided for download")
+            return
+
+        if parallel and len(companies) > 1:
+            self.logger.info(f"Starting parallel download with {workers} workers")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {
+                    executor.submit(self.run_single, c['stock_code'], c.get('company_name')): c 
+                    for c in companies
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    c = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        self.logger.error(f"Parallel task for {c['stock_code']} failed: {e}")
+        else:
+            self.logger.info("Starting sequential download")
+            for c in companies:
+                self.run_single(c['stock_code'], c.get('company_name'))
+                if c != companies[-1]:
+                    time.sleep(2) # Anti-crawler delay
 
 def main():
-    """主函数"""
-    # 解析命令行参数
-    parser = argparse.ArgumentParser(description='股票信息下载器')
-    parser.add_argument('--config', default='config.json', help='配置文件路径 (默认: config.json)')
+    parser = argparse.ArgumentParser(description='Stock Information Downloader (Unified)')
+    parser.add_argument('stock_code', nargs='?', help='Stock code to download (optional if provided in config)')
+    parser.add_argument('--config', default='config.json', help='Path to config file')
+    parser.add_argument('--parallel', action='store_true', help='Enable parallel downloading')
+    parser.add_argument('--workers', type=int, default=3, help='Number of parallel workers')
     args = parser.parse_args()
+
+    logger = get_logger('main')
     
-    # 初始化日志
-    logger = get_logger(__name__)
-    
-    try:
-        logger.info("启动股票信息下载器...")
-        
-        # 加载配置
-        config_manager = ConfigManager()
+    # Load Config
+    config_manager = ConfigManager()
+    config = {}
+    if os.path.exists(args.config):
         try:
             config = config_manager.load_config(args.config)
         except Exception as e:
-            logger.error(f"配置文件加载失败: {e}")
-            return 1
-        
-        # 获取股票代码 - 必须提供
-        stock_code = config.get('stock_code')
-        if not stock_code:
-            logger.error("配置文件缺少必需的stock_code参数")
-            return 1
-        
-        logger.info(f"开始处理股票代码: {stock_code}")
-        
-        # 初始化服务
-        mapping_manager = MappingManager()
-        save_dir = config.get('save_dir', 'downloads')
+            logger.error(f"Failed to load config: {e}")
+    
+    runner = UnifiedRunner(config)
+    
+    # Priority 1: Command line stock code
+    if args.stock_code:
+        runner.run_single(args.stock_code)
+    # Priority 2: List of companies in config
+    elif 'companies' in config:
+        runner.run_multi(config['companies'], parallel=args.parallel, workers=args.workers)
+    # Priority 3: Single stock_code in config
+    elif 'stock_code' in config:
+        runner.run_single(config['stock_code'])
+    else:
+        logger.error("No stock code or companies provided. Usage: python main.py <stock_code> or provide config.json")
+        sys.exit(1)
 
-        # 使用统一下载器工厂创建下载器（向后兼容）
-        download_service = downloader_factory.create_legacy_adapter(
-            'download_service',
-            save_dir=save_dir
-        )
-        
-        # 验证股票代码
-        if not stock_code.isdigit() or len(stock_code) != 6:
-            logger.error(f"无效的股票代码: {stock_code}")
-            return 1
-        
-        # 获取组织ID
-        org_id = mapping_manager.get_org_id(stock_code)
-        if not org_id:
-            logger.error(f"无法获取股票 {stock_code} 的组织ID")
-            return 1
-        
-        # 获取股票名称
-        stock_name = get_stock_name(stock_code)
-        if not stock_name or stock_name.startswith('错误') or stock_name.startswith('网络'):
-            # 使用预设名称作为备选
-            preset_names = config.get('preset_stock_names', {})
-            stock_name = preset_names.get(stock_code, f"股票{stock_code}")
-            logger.warning(f"使用预设股票名称: {stock_name}")
-        
-        logger.info(f"股票信息: {stock_code} - {stock_name}")
-        logger.info(f"组织ID: {org_id}")
-        
-        # 获取页面配置
-        pages = config.get('pages', [
-            {'name': '调研', 'suffix': 'research', 'allowed_keywords': None},
-            {'name': '定期公告', 'suffix': 'periodicReports', 'allowed_keywords': None},
-            {'name': '最新公告', 'suffix': 'latestAnnouncement', 'allowed_keywords': ["招股说明书"]}
-        ])
-        
-        # 执行下载
-        success = False
-        for page_config in pages:
-            page_name = page_config.get('name', '未知页面')
-            suffix = page_config.get('suffix', '')
-            allowed_keywords = page_config.get('allowed_keywords')
-            
-            logger.info(f"开始下载页面: {page_name}")
-            
-            try:
-                # 构建目标页面列表（新下载器需要字典格式）
-                if suffix:
-                    target_pages = [{'suffix': suffix, 'allowed_keywords': allowed_keywords}]
-                else:
-                    target_pages = [{'suffix': 'research', 'allowed_keywords': None}]
-                
-                # 设置过滤关键词
-                if allowed_keywords:
-                    logger.info(f"关键词过滤: {allowed_keywords}")
-                
-                result = download_service.download_stock_pdfs(
-                    stock_code=stock_code,
-                    target_pages=target_pages,
-                    max_retries=config.get('max_retries', 3)
-                )
-                
-                if result and len(result) > 0:
-                    success = True
-                    logger.info(f"页面 {page_name} 下载完成，下载了 {len(result)} 个文件")
-                else:
-                    logger.warning(f"页面 {page_name} 下载失败或没有新文件")
-                    
-            except Exception as e:
-                logger.error(f"下载页面 {page_name} 时发生错误: {e}")
-                logger.error(f"错误详情: {str(e)}", exc_info=True)
-            
-            # 页面间延迟 - 优化为0.5秒
-            import time
-            time.sleep(0.5)
-        
-        if success:
-            logger.info("所有下载任务完成")
-            # 输出性能报告
-            logger.info("=== 性能统计报告 ===")
-            log_performance_stats()
-            return 0
-        else:
-            logger.warning("没有下载任何新文件，但程序运行正常")
-            # 输出性能报告
-            logger.info("=== 性能统计报告 ===")
-            log_performance_stats()
-            return 0  # 没有下载新文件不算失败
-            
-    except KeyboardInterrupt:
-        logger.info("用户中断程序")
-        return 0
-    except Exception as e:
-        logger.error(f"程序运行失败: {e}")
-        return 1
-
+    logger.info("All tasks completed")
+    log_performance_stats()
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    main()

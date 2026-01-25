@@ -1,0 +1,21 @@
+{
+  "stocks": {
+    "300470": {
+      "name": "中密控股",
+      "org_id": "9900023856",
+      "market": "sz"
+    },
+    "000001": {
+      "name": "平安银行",
+      "org_id": "gssz0000001",
+      "market": "sz"
+    },
+    "600000": {
+      "name": "浦发银行",
+      "org_id": "9900000114",
+      "market": "sh"
+    }
+  },
+  "search_keywords": ["投资者关系活动记录表", "调研", "路演"],
+  "suffixes": ["research", "periodicReports", "latestAnnouncement"]
+}

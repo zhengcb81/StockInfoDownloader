@@ -20,7 +20,7 @@ from typing import Dict, List, Any
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.services.downloader import DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV1Adapter as DownloadService
 from src.core.config import ConfigManager
 
 # 网络环境感知装饰器
@@ -243,7 +243,7 @@ class TestRealWorldEndToEnd:
 
         # 验证服务初始化正常
         assert download_service is not None
-        assert download_service.save_dir == str(self.temp_dir)
+        assert str(download_service.save_dir) == str(self.temp_dir)
 
         # 验证配置加载正常
         config = download_service.config

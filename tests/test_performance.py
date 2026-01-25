@@ -83,7 +83,7 @@ class TestCninfoDownloaderPerformance(PerformanceTestCase):
         # 创建多个下载器实例
         downloaders = []
         for _ in range(50):
-            downloader = CninfoDownloader(save_dir=save_dir, mapping_file=mapping_file)
+            downloader = CninfoDownloader(save_dir=save_dir, mapping_file=mapping_file, skip_browser_init=True)
             downloaders.append(downloader)
         
         stats = self.end_performance_monitoring("创建50个下载器实例")
@@ -121,13 +121,13 @@ class TestCninfoDownloaderPerformance(PerformanceTestCase):
         # 性能断言
         self.assertLess(stats["elapsed_time"], 1.0, "清理10000个文件名应在1秒内完成")
     
-    @patch('cninfo_activity_downloader.webdriver.Chrome')
-    def test_webdriver_setup_performance(self, mock_chrome):
+    @patch('src.web.browser_strategy.BrowserStrategyFactory.create_strategy')
+    def test_webdriver_setup_performance(self, mock_create):
         """测试WebDriver设置性能"""
-        mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        
-        downloader = CninfoDownloader(save_dir=self.test_env.create_temp_dir())
+        mock_strategy = MagicMock()
+        mock_create.return_value = mock_strategy
+
+        downloader = CninfoDownloader(save_dir=self.test_env.create_temp_dir(), skip_browser_init=True)
         
         self.start_performance_monitoring()
         

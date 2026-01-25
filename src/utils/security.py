@@ -1,9 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
-安全工具模块
-提供路径净化、输入验证和其他安全功能
+Security Utility Module
+Provides path sanitization, input validation, and other security features
 """
 
 import os
@@ -17,23 +14,23 @@ from src.utils.string_optimizer import get_string_optimizer
 
 def sanitize_filename(filename: str) -> str:
     """
-    净化文件名，移除危险字符
+    Sanitize filename by removing dangerous characters
 
     Args:
-        filename: 原始文件名
+        filename: Original filename
 
     Returns:
-        str: 安全的文件名
+        str: Safe filename
     """
-    # 使用优化后的字符串处理
+    # Use optimized string processing
     optimizer = get_string_optimizer()
     sanitized = optimizer.sanitize_filename(filename)
 
-    # 确保文件名不为空
+    # Ensure filename is not empty
     if not sanitized.strip():
         sanitized = "unnamed_file"
 
-    # 限制长度
+    # Limit length
     if len(sanitized) > 255:
         name, ext = os.path.splitext(sanitized)
         sanitized = name[:255-len(ext)] + ext
@@ -42,32 +39,32 @@ def sanitize_filename(filename: str) -> str:
 
 def safe_join_path(base_path: str, *path_parts: str) -> str:
     """
-    安全地连接路径，防止目录遍历攻击
+    Safely join paths to prevent directory traversal attacks
     
     Args:
-        base_path: 基础路径
-        path_parts: 要连接的路径部分
+        base_path: Base path
+        path_parts: Path parts to join
         
     Returns:
-        str: 安全的完整路径
+        str: Safe full path
     """
-    # 确保基础路径是绝对路径
+    # Ensure base path is absolute
     base_path = os.path.abspath(base_path)
     
-    # 净化每个路径部分
+    # Sanitize each path part
     safe_parts = []
     for part in path_parts:
-        # 移除危险字符
+        # Remove dangerous characters
         safe_part = sanitize_filename(part)
         safe_parts.append(safe_part)
     
-    # 构建完整路径
+    # Build full path
     full_path = os.path.join(base_path, *safe_parts)
     
-    # 规范化路径并检查是否仍在基础路径内
+    # Normalize path and check if still within base path
     full_path = os.path.abspath(full_path)
     
-    # 检查路径遍历攻击
+    # Check for path traversal attacks
     if not full_path.startswith(os.path.abspath(base_path)):
         raise ValueError(f"Path traversal attempt detected: {full_path}")
     
@@ -75,59 +72,59 @@ def safe_join_path(base_path: str, *path_parts: str) -> str:
 
 def validate_stock_code(stock_code: str) -> bool:
     """
-    验证股票代码格式
+    Validate stock code format
 
     Args:
-        stock_code: 股票代码
+        stock_code: Stock code
 
     Returns:
-        bool: 是否为有效的股票代码格式
+        bool: Whether valid stock code format
     """
-    # 使用优化后的验证函数
+    # Use optimized validation function
     return get_string_optimizer().validate_stock_code(stock_code)
 
 def validate_org_id(org_id: str) -> bool:
     """
-    验证组织ID格式
+    Validate org ID format
 
     Args:
-        org_id: 组织ID
+        org_id: Organization ID
 
     Returns:
-        bool: 是否为有效的组织ID格式
+        bool: Whether valid org ID format
     """
-    # 使用优化后的验证函数
+    # Use optimized validation function
     return get_string_optimizer().validate_org_id(org_id)
 
 def sanitize_url(url: str) -> str:
     """
-    净化URL，移除危险参数
+    Sanitize URL by removing dangerous parameters
     
     Args:
-        url: 原始URL
+        url: Original URL
         
     Returns:
-        str: 安全的URL
+        str: Safe URL
     """
     try:
         parsed = urlparse(url)
         
-        # 只允许http和https协议
+        # Only allow http and https
         if parsed.scheme not in ['http', 'https']:
             raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
         
-        # 移除潜在的敏感参数
+        # Remove potentially sensitive parameters
         safe_query = []
         if parsed.query:
             for param in parsed.query.split('&'):
                 if '=' in param:
                     key, value = param.split('=', 1)
-                    # 跳过可能敏感的参数
+                    # Skip potentially sensitive parameters
                     if key.lower() in ['password', 'token', 'secret', 'key']:
                         continue
                     safe_query.append(f"{key}={value}")
         
-        # 重建URL
+        # Reconstruct URL
         safe_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
         if safe_query:
             safe_url += "?" + "&".join(safe_query)
@@ -141,26 +138,26 @@ def sanitize_url(url: str) -> str:
 
 def is_safe_file_content(content: bytes, max_size: int = 10 * 1024 * 1024) -> bool:
     """
-    检查文件内容是否安全
+    Check if file content is safe
     
     Args:
-        content: 文件内容
-        max_size: 最大允许大小（字节）
+        content: File content
+        max_size: Maximum allowed size (bytes)
         
     Returns:
-        bool: 文件内容是否安全
+        bool: Whether file content is safe
     """
-    # 检查文件大小
+    # Check file size
     if len(content) > max_size:
         return False
     
-    # 检查文件签名（魔法数字）
+    # Check file signature (magic numbers)
     if len(content) >= 4:
-        # 检查常见的危险文件类型
+        # Check common dangerous file types
         dangerous_signatures = [
-            b'\x4D\x5A',  # PE文件 (EXE/DLL)
-            b'\x7F\x45\x4C\x46',  # ELF文件
-            b'\x25\x50\x44\x46',  # PDF文件头（可能包含恶意代码）
+            b'\x4D\x5A',  # PE file (EXE/DLL)
+            b'\x7F\x45\x4C\x46',  # ELF file
+            b'\x25\x50\x44\x46',  # PDF file header (potentially malicious code)
         ]
         
         for signature in dangerous_signatures:
@@ -171,18 +168,18 @@ def is_safe_file_content(content: bytes, max_size: int = 10 * 1024 * 1024) -> bo
 
 def sanitize_log_message(message: str) -> str:
     """
-    净化日志消息，移除敏感信息
+    Sanitize log message by removing sensitive information
 
     Args:
-        message: 原始日志消息
+        message: Original log message
 
     Returns:
-        str: 安全的日志消息
+        str: Safe log message
     """
-    # 使用优化后的路径脱敏函数
+    # Use optimized path redaction function
     message = get_string_optimizer().redact_sensitive_paths(message)
 
-    # 移除潜在的敏感信息
+    # Remove potentially sensitive information
     sensitive_patterns = [
         (r'password=[^&\s]+', 'password=***'),
         (r'token=[^&\s]+', 'token=***'),
@@ -198,31 +195,31 @@ def sanitize_log_message(message: str) -> str:
 
 def validate_directory_path(path: str, must_exist: bool = True) -> bool:
     """
-    验证目录路径是否安全
+    Validate if directory path is safe
     
     Args:
-        path: 目录路径
-        must_exist: 目录是否必须存在
+        path: Directory path
+        must_exist: Whether directory must exist
         
     Returns:
-        bool: 路径是否安全有效
+        bool: Whether path is safe and valid
     """
     try:
         path_obj = Path(path)
         
-        # 检查路径遍历
+        # Check for path traversal
         if '..' in str(path_obj):
             return False
         
-        # 检查是否为绝对路径
+        # Check if absolute path
         if not path_obj.is_absolute():
             return False
         
-        # 检查目录是否存在（如果要求）
+        # Check existence if required
         if must_exist and not path_obj.exists():
             return False
         
-        # 检查是否为目录
+        # Check if directory
         if must_exist and not path_obj.is_dir():
             return False
         
@@ -232,7 +229,7 @@ def validate_directory_path(path: str, must_exist: bool = True) -> bool:
         return False
 
 class SecurityValidator:
-    """安全验证器类"""
+    """Security Validator Class"""
     
     def __init__(self):
         self.sensitive_fields = {
@@ -242,14 +239,14 @@ class SecurityValidator:
     
     def sanitize_dict(self, data: dict, sensitive_keys: Optional[set] = None) -> dict:
         """
-        净化字典，移除敏感字段
+        Sanitize dictionary by removing sensitive fields
         
         Args:
-            data: 原始字典
-            sensitive_keys: 敏感字段集合
+            data: Original dictionary
+            sensitive_keys: Set of sensitive fields
             
         Returns:
-            dict: 净化后的字典
+            dict: Sanitized dictionary
         """
         if sensitive_keys is None:
             sensitive_keys = self.sensitive_fields
@@ -265,14 +262,14 @@ class SecurityValidator:
     
     def validate_input(self, input_data: str, input_type: str = 'general') -> bool:
         """
-        验证输入数据
+        Validate input data
         
         Args:
-            input_data: 输入数据
-            input_type: 输入类型 ('general', 'stock_code', 'org_id', 'filename')
+            input_data: Input data
+            input_type: Input type ('general', 'stock_code', 'org_id', 'filename')
             
         Returns:
-            bool: 输入是否有效
+            bool: Whether input is valid
         """
         if not input_data or not isinstance(input_data, str):
             return False
@@ -286,35 +283,41 @@ class SecurityValidator:
         elif input_type == 'filename':
             return len(input_data) > 0 and len(input_data) <= 255
         else:  # general
-            # 基本的安全检查
+            # Basic security checks
             dangerous_chars = ['<', '>', '"', "'", '&', 'script', 'javascript']
             return not any(danger in input_data.lower() for danger in dangerous_chars)
     
     def is_safe_path_operation(self, path: str, operation: str = 'read') -> bool:
         """
-        检查路径操作是否安全
+        Check if path operation is safe
         
         Args:
-            path: 文件路径
-            operation: 操作类型 ('read', 'write', 'delete')
+            path: File path
+            operation: Operation type ('read', 'write', 'delete')
             
         Returns:
-            bool: 操作是否安全
+            bool: Whether operation is safe
         """
         try:
             path_obj = Path(path)
             
-            # 检查路径遍历
+            # Check for path traversal
             if '..' in str(path_obj):
                 return False
             
-            # 检查危险扩展名
+            # Check for dangerous extensions
             dangerous_extensions = ['.exe', '.bat', '.cmd', '.scr', '.pif']
             if operation == 'write' and path_obj.suffix.lower() in dangerous_extensions:
                 return False
             
-            # 检查系统目录
-            system_dirs = ['C:\\Windows', 'C:\\System', '/etc', '/bin', '/usr/bin']
+            # Check for system directories
+            import platform
+            system = platform.system().lower()
+            if system == 'windows':
+                system_dirs = ['C:\\Windows', 'C:\\System', os.environ.get('SystemRoot', 'C:\\Windows')]
+            else:
+                system_dirs = ['/etc', '/bin', '/usr/bin', '/sbin', '/usr/sbin']
+                
             if any(str(path_obj).startswith(sys_dir) for sys_dir in system_dirs):
                 return False
             

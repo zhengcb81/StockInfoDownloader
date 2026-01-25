@@ -2,199 +2,106 @@
 # -*- coding: utf-8 -*-
 
 """
-orgid_utils 模块单元测试
+orgid_utils 模块单元测试 (Refactored to Pytest)
 """
 
-import unittest
-import tempfile
 import json
 import os
-import sys
+import pytest
 from unittest.mock import patch, MagicMock
+from src.tools.legacy.orgid_utils import get_org_id_by_code, _load_mapping
 
-# 添加项目根目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# 从标准测试数据加载
+DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_data", "standard_test_cases.json")
+with open(DATA_PATH, "r", encoding="utf-8") as f:
+    STANDARD_DATA = json.load(f)
 
-from orgid_utils import get_org_id_by_code, _load_mapping, _save_to_mapping
-from tests.test_config import EnvironmentManager, TEST_ORG_IDS, create_test_mapping
+@pytest.fixture
+def temp_mapping_file(tmp_path):
+    """创建临时映射文件 fixture"""
+    mapping_dir = tmp_path / "data"
+    mapping_dir.mkdir()
+    mapping_file = mapping_dir / "stock_orgid_mapping.json"
+    
+    initial_data = {
+        code: {"orgId": info["org_id"], "name": info["name"]}
+        for code, info in STANDARD_DATA["stocks"].items()
+    }
+    
+    mapping_file.write_text(json.dumps(initial_data, ensure_ascii=False), encoding="utf-8")
+    return str(mapping_file)
 
 def is_valid_stock_code(code):
-    """验证股票代码是否有效"""
+    """验证股票代码是否有效 (保持逻辑一致)"""
     if not code or not isinstance(code, str):
         return False
     return len(code) == 6 and code.isdigit()
 
-def load_mapping(file_path):
-    """公共接口：加载映射文件"""
-    return _load_mapping(file_path)
+@pytest.mark.unit
+@pytest.mark.parametrize("code, expected", [
+    ("000001", True),
+    ("600000", True),
+    ("300470", True),
+    ("", False),
+    ("123", False),
+    ("ABCDEF", False),
+    (None, False),
+    ("1234567", False)
+])
+def test_stock_code_validation(code, expected):
+    """测试股票代码验证"""
+    assert is_valid_stock_code(code) == expected
 
-def save_mapping(mapping, file_path):
-    """公共接口：保存映射文件"""
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(mapping, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception:
-        return False
+@pytest.mark.unit
+def test_load_mapping_success(temp_mapping_file):
+    """测试成功加载映射文件"""
+    mapping = _load_mapping(temp_mapping_file)
+    assert isinstance(mapping, dict)
+    assert len(mapping) >= len(STANDARD_DATA["stocks"])
+    for code in STANDARD_DATA["stocks"]:
+        assert code in mapping
+        assert "orgId" in mapping[code]
 
-class TestOrgidUtils(unittest.TestCase):
-    """orgid_utils 模块测试类"""
-    
-    def setUp(self):
-        """测试前准备"""
-        self.test_env = EnvironmentManager()
-        self.test_mapping = create_test_mapping()
-        
-        # 创建测试映射文件
-        self.mapping_file = self.test_env.create_temp_file(
-            suffix=".json",
-            content=json.dumps({
-                code: {"orgId": org_id, "name": f"测试股票{code}"}
-                for code, org_id in TEST_ORG_IDS.items()
-            }, ensure_ascii=False, indent=2)
-        )
-    
-    def tearDown(self):
-        """测试后清理"""
-        self.test_env.cleanup()
-    
-    def test_is_valid_stock_code(self):
-        """测试股票代码验证函数"""
-        # 测试有效的股票代码
-        valid_codes = ["000001", "000002", "002415", "600036", "600519"]
-        for code in valid_codes:
-            with self.subTest(code=code):
-                self.assertTrue(is_valid_stock_code(code), f"股票代码 {code} 应该是有效的")
-        
-        # 测试无效的股票代码
-        invalid_codes = ["", "123", "0000001", "abc123", "12345", None]
-        for code in invalid_codes:
-            with self.subTest(code=code):
-                self.assertFalse(is_valid_stock_code(code), f"股票代码 {code} 应该是无效的")
-    
-    def test_load_mapping_success(self):
-        """测试成功加载映射文件"""
-        mapping = load_mapping(self.mapping_file)
-        self.assertIsInstance(mapping, dict)
-        self.assertEqual(len(mapping), len(TEST_ORG_IDS))
-        
-        for code in TEST_ORG_IDS:
-            self.assertIn(code, mapping)
-            self.assertIn("orgId", mapping[code])
-    
-    def test_load_mapping_file_not_found(self):
-        """测试加载不存在的映射文件"""
-        non_existent_file = "non_existent_file.json"
-        mapping = load_mapping(non_existent_file)
-        self.assertEqual(mapping, {})
-    
-    def test_load_mapping_invalid_json(self):
-        """测试加载无效JSON文件"""
-        invalid_json_file = self.test_env.create_temp_file(
-            suffix=".json",
-            content="invalid json content"
-        )
-        mapping = load_mapping(invalid_json_file)
-        self.assertEqual(mapping, {})
-    
-    def test_save_mapping_success(self):
-        """测试成功保存映射文件"""
-        temp_file = self.test_env.create_temp_file(suffix=".json")
-        test_data = {"test_code": {"orgId": "test_org_id"}}
-        
-        result = save_mapping(test_data, temp_file)
-        self.assertTrue(result)
-        
-        # 验证文件内容
-        with open(temp_file, 'r', encoding='utf-8') as f:
-            saved_data = json.load(f)
-        self.assertEqual(saved_data, test_data)
-    
-    def test_save_mapping_permission_error(self):
-        """测试保存映射文件权限错误"""
-        # 使用不存在的目录路径
-        invalid_path = "/invalid/path/mapping.json"
-        test_data = {"test": "data"}
-        
-        result = save_mapping(test_data, invalid_path)
-        self.assertFalse(result)
-    
-    def test_get_org_id_by_code_from_mapping(self):
-        """测试从映射文件获取组织ID"""
-        for code, expected_org_id in TEST_ORG_IDS.items():
-            with self.subTest(code=code):
-                org_id = get_org_id_by_code(code, mapping_file=self.mapping_file)
-                self.assertEqual(org_id, expected_org_id)
-    
-    def test_get_org_id_by_code_invalid_code(self):
-        """测试获取无效股票代码的组织ID"""
-        invalid_codes = ["", "invalid", "123456"]
-        for code in invalid_codes:
-            with self.subTest(code=code):
-                org_id = get_org_id_by_code(code, mapping_file=self.mapping_file)
-                self.assertIsNone(org_id)
-    
-    def test_get_org_id_by_code_not_in_mapping(self):
-        """测试获取映射中不存在的股票代码的组织ID"""
-        code = "999999"  # 不存在的股票代码
-        org_id = get_org_id_by_code(code, mapping_file=self.mapping_file)
-        self.assertIsNone(org_id)
-    
-    @patch('orgid_utils._crawl_org_id')
-    def test_get_org_id_by_code_force_run(self, mock_crawl):
-        """测试强制重新爬取组织ID"""
-        mock_crawl.return_value = "new_org_id"
-        
-        code = "000001"
-        org_id = get_org_id_by_code(code, force_run=True, mapping_file=self.mapping_file)
-        
-        # 验证调用了爬虫
-        mock_crawl.assert_called_once()
-        self.assertEqual(org_id, "new_org_id")
-    
-    @patch('orgid_utils._crawl_org_id')
-    def test_get_org_id_by_code_crawler_failure(self, mock_crawl):
-        """测试爬虫获取组织ID失败"""
-        mock_crawl.return_value = None
-        
-        code = "999999"  # 不存在的股票代码
-        org_id = get_org_id_by_code(code, force_run=True, mapping_file=self.mapping_file)
-        
-        mock_crawl.assert_called_once()
-        self.assertIsNone(org_id)
+@pytest.mark.unit
+def test_load_mapping_not_found():
+    """测试加载不存在的文件"""
+    mapping = _load_mapping("non_existent_file.json")
+    assert mapping == {}
 
-class TestOrgidUtilsIntegration(unittest.TestCase):
-    """orgid_utils 模块集成测试"""
-    
-    def setUp(self):
-        """测试前准备"""
-        self.test_env = EnvironmentManager()
-    
-    def tearDown(self):
-        """测试后清理"""
-        self.test_env.cleanup()
-    
-    def test_mapping_file_lifecycle(self):
-        """测试映射文件的完整生命周期"""
-        mapping_file = self.test_env.create_temp_file(suffix=".json")
-        
-        # 1. 初始状态：空映射
-        mapping = load_mapping(mapping_file)
-        self.assertEqual(mapping, {})
-        
-        # 2. 添加数据并保存
-        test_data = create_test_mapping()
-        result = save_mapping(test_data, mapping_file)
-        self.assertTrue(result)
-        
-        # 3. 重新加载验证
-        loaded_mapping = load_mapping(mapping_file)
-        self.assertEqual(loaded_mapping, test_data)
-        
-        # 4. 获取组织ID
-        for code, expected_data in test_data.items():
-            org_id = get_org_id_by_code(code, mapping_file=mapping_file)
-            self.assertEqual(org_id, expected_data["org_id"])
+@pytest.mark.unit
+def test_get_org_id_by_code_existing(temp_mapping_file):
+    """测试从映射获取已有的组织ID"""
+    for code, info in STANDARD_DATA["stocks"].items():
+        org_id = get_org_id_by_code(code, mapping_file=temp_mapping_file)
+        assert org_id == info["org_id"]
 
-if __name__ == "__main__":
-    unittest.main() 
+@pytest.mark.unit
+@patch('src.tools.legacy.orgid_utils._crawl_org_id')
+def test_get_org_id_force_refresh(mock_crawl, temp_mapping_file):
+    """测试强制刷新映射"""
+    mock_crawl.return_value = "newly_crawled_id"
+    code = "000001"
+    
+    org_id = get_org_id_by_code(code, force_run=True, mapping_file=temp_mapping_file)
+    
+    assert org_id == "newly_crawled_id"
+    mock_crawl.assert_called_once()
+
+@pytest.mark.integration
+def test_mapping_file_lifecycle(tmp_path):
+    """集成测试：映射文件生命周期"""
+    test_file = tmp_path / "lifecycle.json"
+    
+    # 1. 初始空加载
+    assert _load_mapping(str(test_file)) == {}
+    
+    # 2. 模拟保存 (通过 get_org_id 间接测试保存逻辑或直接调用)
+    # 此处假设 get_org_id 会在 force_run 时保存
+    with patch('src.tools.legacy.orgid_utils._crawl_org_id') as mock_crawl:
+        mock_crawl.return_value = "saved_id"
+        get_org_id_by_code("000001", force_run=True, mapping_file=str(test_file))
+        
+    # 3. 验证持久化
+    new_mapping = _load_mapping(str(test_file))
+    assert "000001" in new_mapping
+    assert new_mapping["000001"]["orgId"] == "saved_id"

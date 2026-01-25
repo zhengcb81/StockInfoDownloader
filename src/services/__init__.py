@@ -3,12 +3,8 @@
 提供核心业务逻辑服务
 """
 
-from .downloader import DownloadService
-from .orgid_service import OrgIdService
-from .stock_service import StockService
+from .unified_downloader import UnifiedDownloader
 
 __all__ = [
-    'DownloadService',
-    'OrgIdService', 
-    'StockService'
+    'UnifiedDownloader'
 ]

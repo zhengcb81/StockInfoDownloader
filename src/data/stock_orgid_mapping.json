@@ -1,0 +1,10 @@
+{
+    "000001": {"orgId": "9900000062", "name": "平安银行", "source": "preset"},
+    "000002": {"orgId": "gssz0000002", "name": "万科A", "source": "preset"},
+    "002415": {"orgId": "9900012228", "name": "海康威视", "source": "preset"},
+    "002853": {"orgId": "9900030711", "name": "铖昌科技", "source": "preset"},
+    "300470": {"orgId": "9900023856", "name": "中密控股", "source": "preset"},
+    "301589": {"orgId": "9900051111", "name": "诺瓦星云", "source": "preset"},
+    "301611": {"orgId": "9900056250", "name": "珂玛科技", "source": "preset"},
+    "000858": {"orgId": "gssz0000858", "name": "五粮液", "source": "preset"}
+}

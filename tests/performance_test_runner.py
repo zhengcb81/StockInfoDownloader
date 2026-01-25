@@ -11,6 +11,7 @@ import sys
 import json
 import psutil
 import os
+import platform
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any
@@ -18,7 +19,7 @@ from typing import Dict, List, Any
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.services.downloader import DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV1Adapter as DownloadService
 from src.utils.keyword_matcher import KeywordMatcher, KeywordConfig
 from tests.performance.assertion_utils import PerformanceAssertions
 
@@ -58,9 +59,9 @@ class PerformanceTestRunner:
             try:
                 test_result = test_method()
                 results["tests"].append(test_result)
-                print(f"✅ {test_method.__name__} 完成")
+                print(f"[OK] {test_method.__name__} 完成")
             except Exception as e:
-                print(f"❌ {test_method.__name__} 失败: {e}")
+                print(f"[FAIL] {test_method.__name__} 失败: {e}")
                 results["tests"].append({
                     "test_name": test_method.__name__,
                     "success": False,

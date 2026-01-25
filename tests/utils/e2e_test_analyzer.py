@@ -28,7 +28,7 @@ class FailureType(Enum):
     UNKNOWN = "unknown"  # 未知原因
 
 
-class TestResultCategory:
+class E2EResultCategory:
     """测试结果分类"""
 
     def __init__(self, test_name: str, success: bool, duration: float, error: Optional[str] = None):
@@ -55,6 +55,32 @@ class E2ETestAnalyzer:
         self.failure_patterns = self._initialize_failure_patterns()
         self.website_change_indicators = self._initialize_website_patterns()
         self.network_error_patterns = self._initialize_network_patterns()
+        self.results = []
+
+    def generate_report(self) -> str:
+        """生成并保存报告，返回报告路径"""
+        analysis = self.analyze_batch(self.results)
+        report_path = f"e2e_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        self.export_report(analysis, report_path)
+        return report_path
+
+    def get_summary(self) -> Dict[str, Any]:
+        """获取分析摘要"""
+        analysis = self.analyze_batch(self.results)
+        return analysis.get("summary", {
+            "total_tests": 0,
+            "successful_tests": 0,
+            "failed_tests": 0
+        })
+
+    def add_result(self, test_name: str, success: bool, duration: float, error: Optional[str] = None):
+        """添加测试结果"""
+        self.results.append({
+            "test_name": test_name,
+            "success": success,
+            "duration": duration,
+            "error": error
+        })
 
     def _initialize_failure_patterns(self) -> Dict[str, FailureType]:
         """初始化失败模式识别规则"""
@@ -135,16 +161,16 @@ class E2ETestAnalyzer:
 
     def analyze_result(self, test_name: str, success: bool, duration: float,
                        error_message: Optional[str] = None,
-                       stack_trace: Optional[str] = None) -> TestResultCategory:
+                       stack_trace: Optional[str] = None) -> E2EResultCategory:
         """分析单个测试结果"""
-        result = TestResultCategory(test_name, success, duration, error_message)
+        result = E2EResultCategory(test_name, success, duration, error_message)
 
         if not success and error_message:
             self._classify_failure(result, error_message, stack_trace)
 
         return result
 
-    def _classify_failure(self, result: TestResultCategory,
+    def _classify_failure(self, result: E2EResultCategory,
                          error_message: str,
                          stack_trace: Optional[str] = None):
         """分类失败原因"""
@@ -172,7 +198,7 @@ class E2ETestAnalyzer:
         # 生成修复建议
         result.suggested_fix = self._generate_fix_suggestion(result)
 
-    def _generate_fix_suggestion(self, result: TestResultCategory) -> Optional[str]:
+    def _generate_fix_suggestion(self, result: E2EResultCategory) -> Optional[str]:
         """生成修复建议"""
         suggestions = {
             FailureType.NETWORK_ERROR: "检查网络连接，考虑使用重试机制或代理",
@@ -208,7 +234,7 @@ class E2ETestAnalyzer:
             "summary": self._generate_summary(analyzed_results, failure_stats),
         }
 
-    def _generate_summary(self, results: List[TestResultCategory],
+    def _generate_summary(self, results: List[E2EResultCategory],
                          failure_stats: Dict[FailureType, int]) -> Dict[str, Any]:
         """生成分析摘要"""
         total = len(results)
@@ -247,6 +273,7 @@ class E2ETestAnalyzer:
         return {
             "total_tests": total,
             "passed_tests": passed,
+            "successful_tests": passed,
             "failed_tests": failed,
             "success_rate": round(success_rate, 2),
             "failure_by_type": failure_by_type,
@@ -303,7 +330,7 @@ class E2ETestAnalyzer:
 
     def export_report(self, analysis_results: Dict[str, Any], output_file: str):
         """导出分析报告"""
-        # 转换TestResultCategory对象为可序列化的字典
+        # 转换E2EResultCategory对象为可序列化的字典
         results_data = []
         for result in analysis_results["analyzed_results"]:
             results_data.append({

@@ -20,6 +20,12 @@ tmp/
 
 # Test artifacts
 *.tmp
+.coverage
+logs/debug_markers/*.jsonl
+logs/debug_page_*.png
+performance_reports/
+test_reports/
+nul
 
 # Claude files
 .claude/

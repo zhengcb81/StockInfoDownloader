@@ -10,7 +10,7 @@ import os
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from src.services.downloader import DownloadService
+from src.adapters.legacy_downloader_adapter import DownloadServiceV1Adapter as DownloadService
 from src.core.config import ConfigManager
 from src.data.mapping import MappingManager
 

@@ -61,8 +61,7 @@ class TestMultiCompanyDownloader:
             mock_mapping.return_value.get_org_id.return_value = '9900012345'
             mock_mapping.return_value.get_stock_name.return_value = '测试公司'
 
-            # 关键修复：必须拦截工厂方法，而不是直接拦截适配器类
-            # 因为 main_parallel.py 使用 downloader_factory.create_legacy_adapter()
+            # 关键修复：拦截 main_parallel 中的 downloader_factory 实例方法
             with patch('main_parallel.downloader_factory.create_legacy_adapter') as mock_factory:
                 mock_adapter_instance = Mock()
 
@@ -79,7 +78,7 @@ class TestMultiCompanyDownloader:
                 mock_adapter_instance.download_stock_pdfs.return_value = mock_result
                 mock_factory.return_value = mock_adapter_instance
 
-                return MultiCompanyDownloader(downloader_config)
+                yield MultiCompanyDownloader(downloader_config)
 
     def test_get_company_configs(self, downloader):
         """测试获取公司配置"""
@@ -176,12 +175,13 @@ class TestMultiCompanyDownloader:
                 mock_adapter_instance.download_stock_pdfs.return_value = mock_result
                 mock_factory.return_value = mock_adapter_instance
 
-                # 测试主程序
+                # 娴嬭瘯涓荤▼搴
                 from main_parallel import main
-                with patch('sys.argv', ['main_parallel.py', '--config', str(Path(__file__).parent / 'test_config.json')]):
-                    with patch('src.core.config.ConfigManager.load_config') as mock_load:
-                        mock_load.return_value = downloader_config
-                        exit_code = main()
+                with patch('sys.argv', ['main_parallel.py', '--config', 'test_config.json']):
+                    with patch('os.path.exists', return_value=True):
+                        with patch('src.core.config.ConfigManager.load_config') as mock_load:
+                            mock_load.return_value = downloader_config
+                            exit_code = main()
 
         assert exit_code == 0
 
