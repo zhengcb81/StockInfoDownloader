@@ -17,7 +17,7 @@ from datetime import datetime
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from .test_cleaner_module import CleanerTool, clean_test_files, get_test_directory_status
+from tests.utils.cleaner_tool import CleanerTool, clean_test_files, get_test_directory_status
 from ..test_config_manager import ConfigManagerTool
 
 # 初始化测试配置管理器

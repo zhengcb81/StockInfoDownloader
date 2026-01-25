@@ -335,9 +335,15 @@ def main():
         log("Tests may fail due to missing expected files.")
 
     save_dir = Path(config["save_dir"])
+    
+    # Use CleanerTool to prepare directory (preserving specific files)
+    from tests.utils.cleaner_tool import CleanerTool
+    log(f"Preparing test directory: {save_dir}")
     if save_dir.exists():
-        shutil.rmtree(save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
+        cleaner = CleanerTool(str(save_dir))
+        cleaner.clean_test_directory(config.get("test_cases", []))
+    else:
+        save_dir.mkdir(parents=True, exist_ok=True)
 
     results = []
     for test_case in config.get("test_cases", []):
