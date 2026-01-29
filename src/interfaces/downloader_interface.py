@@ -7,14 +7,15 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Union
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 
 @dataclass
 class DownloadRequest:
     """下载请求配置"""
+
     stock_code: str
     stock_name: Optional[str] = None
     org_id: Optional[str] = None
@@ -29,6 +30,7 @@ class DownloadRequest:
 @dataclass
 class DownloadResult:
     """下载结果"""
+
     success: bool
     downloaded_files: List[str]
     total_files: int
@@ -40,6 +42,7 @@ class DownloadResult:
 @dataclass
 class DownloadStatus:
     """下载状态"""
+
     is_running: bool
     current_page: int
     total_pages: int
@@ -67,14 +70,11 @@ class IDownloader(ABC):
             current_page=0,
             total_pages=0,
             downloaded_count=0,
-            error_count=0
+            error_count=0,
         )
 
     @abstractmethod
-    def download_stock_pdfs(
-        self,
-        request: DownloadRequest
-    ) -> DownloadResult:
+    def download_stock_pdfs(self, request: DownloadRequest) -> DownloadResult:
         """
         下载股票PDF文件
 
@@ -84,7 +84,6 @@ class IDownloader(ABC):
         Returns:
             DownloadResult: 下载结果
         """
-        pass
 
     @abstractmethod
     def configure(self, config: Dict[str, Any]) -> None:
@@ -94,7 +93,6 @@ class IDownloader(ABC):
         Args:
             config: 配置字典
         """
-        pass
 
     def get_status(self) -> DownloadStatus:
         """
@@ -110,7 +108,6 @@ class IDownloader(ABC):
         """
         清理资源
         """
-        pass
 
     @abstractmethod
     def get_supported_browsers(self) -> List[str]:
@@ -120,7 +117,6 @@ class IDownloader(ABC):
         Returns:
             List[str]: 支持的浏览器名称
         """
-        pass
 
     def validate_request(self, request: DownloadRequest) -> List[str]:
         """
@@ -160,17 +156,21 @@ class IBrowserStrategy(ABC):
         Returns:
             bool: 初始化是否成功
         """
-        pass
 
     @abstractmethod
     def cleanup(self) -> None:
         """
         清理浏览器资源
         """
-        pass
+
+    def close(self) -> None:
+        """
+        关闭浏览器（cleanup 的别名）
+        """
+        self.cleanup()
 
     @abstractmethod
-    def navigate_to_page(self, url: str) -> bool:
+    def navigate(self, url: str) -> bool:
         """
         导航到指定页面
 
@@ -180,20 +180,27 @@ class IBrowserStrategy(ABC):
         Returns:
             bool: 导航是否成功
         """
-        pass
+
+    def navigate_to_page(self, url: str) -> bool:
+        """兼容旧接口"""
+        return self.navigate(url)
 
     @abstractmethod
-    def find_elements(self, selector: str) -> List[Any]:
+    def restart(self) -> bool:
+        """重启浏览器"""
+
+    @abstractmethod
+    def find_elements(self, selector: str, by: str = "css") -> List[Any]:
         """
         查找页面元素
 
         Args:
-            selector: CSS选择器
+            selector: 选择器字符串
+            by: 选择策略 ('css' or 'xpath')
 
         Returns:
             List[Any]: 元素列表
         """
-        pass
 
     @abstractmethod
     def wait_for_element(self, selector: str, timeout: int = 10) -> bool:
@@ -207,7 +214,31 @@ class IBrowserStrategy(ABC):
         Returns:
             bool: 是否找到元素
         """
-        pass
+
+    @abstractmethod
+    def execute_script(self, script: str) -> Any:
+        """执行JavaScript脚本"""
+
+    @abstractmethod
+    def take_screenshot(self, path: str) -> bool:
+        """截图"""
+
+    @abstractmethod
+    def download_file(self, url: str, save_path: str) -> bool:
+        """下载文件"""
+
+    @abstractmethod
+    def go_to_next_page(self) -> bool:
+        """翻到下一页"""
+
+    @abstractmethod
+    def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
+        """获取元素属性"""
+
+    @abstractmethod
+    def get_text(self, element: Any) -> str:
+        """获取元素文本"""
+
 
 
 class IAntiCrawlerStrategy(ABC):
@@ -220,14 +251,12 @@ class IAntiCrawlerStrategy(ABC):
         """
         请求前的反爬虫处理
         """
-        pass
 
     @abstractmethod
     def after_request(self, response_info: Dict[str, Any]) -> None:
         """
         请求后的反爬虫处理
         """
-        pass
 
     @abstractmethod
     def should_retry(self, error: Exception) -> bool:
@@ -240,4 +269,3 @@ class IAntiCrawlerStrategy(ABC):
         Returns:
             bool: 是否应该重试
         """
-        pass

@@ -6,25 +6,19 @@ Selenium策略全面测试
 测试SeleniumStrategy的所有公共方法和核心私有方法
 """
 
-import pytest
-import tempfile
 import os
-import time
-import random
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
-from typing import Dict, List, Any
-
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.web.selenium_strategy import SeleniumStrategy, is_test_environment
-from src.web.browser_strategy import BrowserAutomationStrategy
-from src.core.exceptions import (
-    WebDriverInitError, WebDriverTimeoutError, WebDriverCrashError,
-    ErrorCode, ErrorSeverity, RecoveryStrategy
-)
 from src.core.config import ConfigManager
+from src.web.browser_strategy import BrowserAutomationStrategy
+from src.web.selenium_strategy import SeleniumStrategy, is_test_environment
 
 
 class TestSeleniumStrategyComprehensive:
@@ -33,12 +27,13 @@ class TestSeleniumStrategyComprehensive:
     def setup_method(self):
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.download_dir = os.path.join(self.temp_dir, 'downloads')
+        self.download_dir = os.path.join(self.temp_dir, "downloads")
         os.makedirs(self.download_dir, exist_ok=True)
 
     def teardown_method(self):
         """测试清理"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     # ==================== 初始化测试 ====================
@@ -57,38 +52,32 @@ class TestSeleniumStrategyComprehensive:
     def test_initialization_with_parameters(self):
         """测试带参数初始化"""
         config = {
-            'window_size': '1280,720',
-            'page_load_timeout': 30000,
-            'max_downloads_per_session': 5,
-            'user_agents': ['Test-Agent/1.0']
+            "window_size": "1280,720",
+            "page_load_timeout": 30000,
+            "max_downloads_per_session": 5,
+            "user_agents": ["Test-Agent/1.0"],
         }
 
         strategy = SeleniumStrategy(
-            headless=False,
-            download_dir=self.download_dir,
-            config=config
+            headless=False, download_dir=self.download_dir, config=config
         )
 
         assert strategy.headless is False
         assert strategy.download_dir == self.download_dir
         assert strategy.config == config
-        assert strategy.window_size == '1280,720'
+        assert strategy.window_size == "1280,720"
         assert strategy.page_load_timeout == 30000
         assert strategy.max_downloads_per_session == 5
-        assert strategy._user_agents == ['Test-Agent/1.0']
+        assert strategy._user_agents == ["Test-Agent/1.0"]
 
     def test_initialization_with_config_manager(self):
         """测试配置管理器加载"""
         # 创建临时配置文件
-        config_file = os.path.join(self.temp_dir, 'test_config.json')
-        test_config = {
-            "browser": {
-                "window_size": "1366,768",
-                "timeout": 15000
-            }
-        }
+        config_file = os.path.join(self.temp_dir, "test_config.json")
+        test_config = {"browser": {"window_size": "1366,768", "timeout": 15000}}
         import json
-        with open(config_file, 'w', encoding='utf-8') as f:
+
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(test_config, f, ensure_ascii=False, indent=2)
 
         # ConfigManager会从文件中加载配置
@@ -101,7 +90,7 @@ class TestSeleniumStrategyComprehensive:
 
     # ==================== 浏览器创建测试 ====================
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_create_driver_success(self, mock_chrome):
         """测试成功创建浏览器驱动"""
         # 设置mock
@@ -124,7 +113,7 @@ class TestSeleniumStrategyComprehensive:
         mock_driver.implicitly_wait.assert_called_once_with(3)
         mock_driver.get.assert_called_once_with("about:blank")
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_create_driver_close_existing(self, mock_chrome):
         """测试创建前关闭现有浏览器"""
         # 设置mock
@@ -135,11 +124,11 @@ class TestSeleniumStrategyComprehensive:
         strategy.driver = MagicMock()
 
         # 验证close会被调用
-        with patch.object(strategy, 'close') as mock_close:
+        with patch.object(strategy, "close") as mock_close:
             strategy.create_driver()
             mock_close.assert_called_once()
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_create_driver_chrome_creation_failure(self, mock_chrome):
         """测试ChromeDriver创建失败"""
         # 模拟首次创建失败，第二次成功
@@ -317,17 +306,17 @@ class TestSeleniumStrategyComprehensive:
 
     # ==================== 等待元素测试 ====================
 
-    @patch('src.web.selenium_strategy.WebDriverWait')
-    @patch('selenium.webdriver.common.by')
-    @patch('selenium.webdriver.support.expected_conditions')
+    @patch("src.web.selenium_strategy.WebDriverWait")
+    @patch("selenium.webdriver.common.by")
+    @patch("selenium.webdriver.support.expected_conditions")
     def test_wait_for_element_visible(self, mock_ec, mock_by, mock_webdriver_wait):
         """测试等待元素可见"""
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
 
         # 模拟By模块
-        mock_by.CSS_SELECTOR = 'css selector'
-        mock_by.XPATH = 'xpath'
+        mock_by.CSS_SELECTOR = "css selector"
+        mock_by.XPATH = "xpath"
 
         # 模拟EC模块
         mock_ec.visibility_of_element_located = MagicMock(return_value=MagicMock())
@@ -346,7 +335,7 @@ class TestSeleniumStrategyComprehensive:
         # 验证wait.until被调用（具体条件在内部，我们只关心被调用）
         mock_wait.until.assert_called_once()
 
-    @patch('src.web.selenium_strategy.WebDriverWait')
+    @patch("src.web.selenium_strategy.WebDriverWait")
     def test_wait_for_element_no_driver(self, mock_webdriver_wait):
         """测试无driver时等待元素"""
         strategy = SeleniumStrategy()
@@ -457,13 +446,15 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
         # 使用PropertyMock模拟current_url属性抛出异常
-        type(strategy.driver).current_url = PropertyMock(side_effect=Exception("Driver crashed"))
+        type(strategy.driver).current_url = PropertyMock(
+            side_effect=Exception("Driver crashed")
+        )
 
         result = strategy.is_healthy()
         # 根据实现，异常会被捕获并返回False
         assert result is False
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_restart_success(self, mock_chrome):
         """测试重启成功"""
         # 设置mock
@@ -473,14 +464,14 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
 
         # 验证close会被调用
-        with patch.object(strategy, 'close') as mock_close:
+        with patch.object(strategy, "close") as mock_close:
             result = strategy.restart()
             assert result is True
             mock_close.assert_called_once()
             # create_driver会被调用，因为我们在mock中
             # 实际测试中，由于mock了webdriver.Chrome，create_driver会成功
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_restart_failure(self, mock_chrome):
         """测试重启失败"""
         mock_chrome.side_effect = Exception("WebDriver creation failed")
@@ -514,7 +505,7 @@ class TestSeleniumStrategyComprehensive:
         save_path = os.path.join(self.temp_dir, "screenshot.png")
 
         # Mock open函数
-        with patch('builtins.open', create=True) as mock_open:
+        with patch("builtins.open", create=True) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
 
@@ -522,7 +513,7 @@ class TestSeleniumStrategyComprehensive:
 
             assert result == screenshot_data
             strategy.driver.get_screenshot_as_png.assert_called_once()
-            mock_open.assert_called_once_with(save_path, 'wb')
+            mock_open.assert_called_once_with(save_path, "wb")
             mock_file.write.assert_called_once_with(screenshot_data)
 
     def test_take_screenshot_no_driver(self):
@@ -541,22 +532,27 @@ class TestSeleniumStrategyComprehensive:
         strategy.driver = MagicMock()
 
         # Mock导航
-        with patch.object(strategy, 'navigate', return_value=True):
+        with patch.object(strategy, "navigate", return_value=True):
             # Mock查找元素
             mock_button = MagicMock()
-            with patch.object(strategy, 'find_element', return_value=mock_button):
+            with patch.object(strategy, "find_element", return_value=mock_button):
                 # Mock点击
-                with patch.object(strategy, 'click', return_value=True):
+                with patch.object(strategy, "click", return_value=True):
                     # 设置文件检查逻辑
-                    with patch('os.path.exists') as mock_exists, \
-                         patch('shutil.move') as mock_move:
+                    with patch("os.path.exists") as mock_exists, patch(
+                        "shutil.move"
+                    ) as mock_move:
                         mock_exists.return_value = True
 
                         save_path = os.path.join(self.download_dir, "test.pdf")
-                        result = strategy.download_file("https://example.com/file.pdf", save_path)
+                        result = strategy.download_file(
+                            "https://example.com/file.pdf", save_path
+                        )
 
                         # 在mock环境中无法实际完成下载，但应该执行到相关逻辑
-                        strategy.navigate.assert_called_once_with("https://example.com/file.pdf")
+                        strategy.navigate.assert_called_once_with(
+                            "https://example.com/file.pdf"
+                        )
                         strategy.find_element.assert_called_once()
                         strategy.click.assert_called_once()
 
@@ -573,15 +569,16 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
 
-        with patch.object(strategy, 'navigate', return_value=False):
-            result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
+        with patch.object(strategy, "navigate", return_value=False):
+            result = strategy.download_file(
+                "https://example.com/file.pdf", "/tmp/test.pdf"
+            )
             assert result is False
 
     # ==================== 翻页功能测试 ====================
 
     def test_go_to_next_page_success(self):
         """测试跳转到下一页成功"""
-        from selenium.webdriver.common.by import By
 
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
@@ -598,10 +595,13 @@ class TestSeleniumStrategyComprehensive:
         strategy.driver.execute_script = MagicMock()
 
         # 模拟time.sleep
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             # 模拟WebDriverWait和EC
-            with patch('src.web.selenium_strategy.WebDriverWait') as mock_wait_class, \
-                 patch('selenium.webdriver.support.expected_conditions') as mock_ec:
+            with patch(
+                "src.web.selenium_strategy.WebDriverWait"
+            ) as mock_wait_class, patch(
+                "selenium.webdriver.support.expected_conditions"
+            ) as mock_ec:
 
                 mock_wait = MagicMock()
                 mock_wait_class.return_value = mock_wait
@@ -615,9 +615,13 @@ class TestSeleniumStrategyComprehensive:
 
                 # 验证find_element被调用
                 print(f"find_element called: {strategy.driver.find_element.called}")
-                print(f"find_element call count: {strategy.driver.find_element.call_count}")
+                print(
+                    f"find_element call count: {strategy.driver.find_element.call_count}"
+                )
                 if strategy.driver.find_element.called:
-                    print(f"find_element call args: {strategy.driver.find_element.call_args}")
+                    print(
+                        f"find_element call args: {strategy.driver.find_element.call_args}"
+                    )
 
                 assert strategy.driver.find_element.called
                 # 验证返回True
@@ -636,7 +640,7 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
 
-        with patch.object(strategy.driver, 'find_element') as mock_find_element:
+        with patch.object(strategy.driver, "find_element") as mock_find_element:
             mock_find_element.side_effect = Exception("No such element")
 
             result = strategy.go_to_next_page()
@@ -647,7 +651,7 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
 
-        with patch.object(strategy.driver, 'find_element') as mock_find_element:
+        with patch.object(strategy.driver, "find_element") as mock_find_element:
             mock_button = MagicMock()
             mock_button.is_enabled.return_value = True
             mock_button.is_displayed.return_value = True
@@ -661,7 +665,7 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy()
         strategy.driver = MagicMock()
 
-        with patch.object(strategy.driver, 'find_element') as mock_find_element:
+        with patch.object(strategy.driver, "find_element") as mock_find_element:
             mock_find_element.side_effect = Exception("No such element")
 
             result = strategy.has_next_page()
@@ -669,7 +673,7 @@ class TestSeleniumStrategyComprehensive:
 
     # ==================== 私有方法测试 ====================
 
-    @patch('src.web.selenium_strategy.Options')
+    @patch("src.web.selenium_strategy.Options")
     def test_build_chrome_options(self, mock_options):
         """测试构建Chrome选项"""
         mock_chrome_options = MagicMock()
@@ -678,20 +682,19 @@ class TestSeleniumStrategyComprehensive:
         strategy = SeleniumStrategy(
             headless=False,
             download_dir=self.download_dir,
-            config={
-                'window_size': '1280,720',
-                'user_agents': ['Test-Agent/1.0']
-            }
+            config={"window_size": "1280,720", "user_agents": ["Test-Agent/1.0"]},
         )
 
         options = strategy._build_chrome_options()
 
         assert options == mock_chrome_options
         # 验证Chrome选项配置
-        mock_chrome_options.add_argument.assert_any_call('--window-size=1280,720')
-        mock_chrome_options.add_argument.assert_any_call('--no-sandbox')
-        mock_chrome_options.add_argument.assert_any_call(f'--user-agent=Test-Agent/1.0')
-        mock_chrome_options.add_experimental_option.assert_any_call("excludeSwitches", ["enable-automation"])
+        mock_chrome_options.add_argument.assert_any_call("--window-size=1280,720")
+        mock_chrome_options.add_argument.assert_any_call("--no-sandbox")
+        mock_chrome_options.add_argument.assert_any_call(f"--user-agent=Test-Agent/1.0")
+        mock_chrome_options.add_experimental_option.assert_any_call(
+            "excludeSwitches", ["enable-automation"]
+        )
 
     # ==================== 环境检测测试 ====================
 
@@ -703,29 +706,29 @@ class TestSeleniumStrategyComprehensive:
 
         try:
             # 测试正常环境
-            sys.argv = ['normal_script.py']
-            os.environ.pop('TEST_ENV', None)
-            os.environ.pop('PYTEST_CURRENT_TEST', None)
+            sys.argv = ["normal_script.py"]
+            os.environ.pop("TEST_ENV", None)
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
             assert is_test_environment() is False
 
             # 测试TEST_ENV环境变量
-            os.environ['TEST_ENV'] = 'true'
+            os.environ["TEST_ENV"] = "true"
             assert is_test_environment() is True
 
             # 清理
-            os.environ.pop('TEST_ENV', None)
+            os.environ.pop("TEST_ENV", None)
 
             # 测试包含test的脚本名
-            sys.argv = ['test_script.py']
+            sys.argv = ["test_script.py"]
             assert is_test_environment() is True
 
             # 测试包含pytest的脚本名
-            sys.argv = ['pytest_runner.py']
+            sys.argv = ["pytest_runner.py"]
             assert is_test_environment() is True
 
             # 测试PYTEST_CURRENT_TEST环境变量
-            sys.argv = ['normal_script.py']
-            os.environ['PYTEST_CURRENT_TEST'] = 'test_function'
+            sys.argv = ["normal_script.py"]
+            os.environ["PYTEST_CURRENT_TEST"] = "test_function"
             assert is_test_environment() is True
 
         finally:
@@ -756,7 +759,7 @@ class TestSeleniumStrategyComprehensive:
 
     # ==================== 集成测试 ====================
 
-    @patch('src.web.selenium_strategy.webdriver.Chrome')
+    @patch("src.web.selenium_strategy.webdriver.Chrome")
     def test_full_workflow(self, mock_chrome):
         """测试完整工作流程"""
         # 设置mock
@@ -796,6 +799,7 @@ class TestSeleniumStrategyComprehensive:
     def test_performance_initialization(self):
         """测试初始化性能"""
         import time
+
         start_time = time.time()
         strategy = SeleniumStrategy()
         end_time = time.time()
@@ -810,6 +814,7 @@ class TestSeleniumStrategyComprehensive:
         strategy.driver = MagicMock()
 
         import time
+
         iterations = 100
 
         # 测试简单方法调用性能

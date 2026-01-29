@@ -3,15 +3,16 @@
 
 """清理工具测试"""
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
 import sys
+import tempfile
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.utils.cleanup_utils import safe_cleanup, cleanup_directory, cleanup_file
+from src.utils.cleanup_utils import cleanup_directory, cleanup_file, safe_cleanup
 
 
 class TestCleanupUtils:
@@ -24,6 +25,7 @@ class TestCleanupUtils:
     def teardown_method(self):
         """清理临时目录"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_safe_cleanup_success(self):
@@ -50,6 +52,7 @@ class TestCleanupUtils:
 
     def test_safe_cleanup_failure(self):
         """测试安全清理失败"""
+
         def cleanup_func():
             raise ValueError("清理失败")
 
@@ -67,7 +70,7 @@ class TestCleanupUtils:
         test_dir = os.path.join(self.temp_dir, "test_subdir")
         os.makedirs(test_dir)
         test_file = os.path.join(test_dir, "test.txt")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("test")
 
         assert os.path.exists(test_dir)
@@ -94,7 +97,7 @@ class TestCleanupUtils:
         nested_dir = os.path.join(self.temp_dir, "level1", "level2", "level3")
         os.makedirs(nested_dir)
         test_file = os.path.join(nested_dir, "test.txt")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("test")
 
         assert os.path.exists(test_file)
@@ -106,7 +109,7 @@ class TestCleanupUtils:
     def test_cleanup_file_success(self):
         """测试文件清理成功"""
         test_file = os.path.join(self.temp_dir, "test.txt")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("test")
 
         assert os.path.exists(test_file)
@@ -129,7 +132,7 @@ class TestCleanupUtils:
     def test_cleanup_file_permission_error(self):
         """测试文件清理权限错误（模拟）"""
         test_file = os.path.join(self.temp_dir, "test.txt")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("test")
 
         # 模拟权限错误
@@ -138,20 +141,20 @@ class TestCleanupUtils:
 
         # 使用mock来测试异常处理
         from unittest.mock import patch
-        with patch('os.remove', side_effect=failing_cleanup):
+
+        with patch("os.remove", side_effect=failing_cleanup):
             result = cleanup_file(test_file)
             assert result is False
 
     def test_safe_cleanup_preserves_exception_details(self):
         """测试安全清理保留异常信息"""
-        import logging
         from unittest.mock import patch
 
         def cleanup_func():
             raise RuntimeError("测试异常")
 
         # 捕获日志输出
-        with patch('src.utils.cleanup_utils.logger') as mock_logger:
+        with patch("src.utils.cleanup_utils.logger") as mock_logger:
             result = safe_cleanup(cleanup_func, "清理失败")
 
             # 验证返回False

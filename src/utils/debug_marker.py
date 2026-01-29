@@ -7,10 +7,9 @@ Debug Marker Tool - Records detailed debug information
 
 import json
 import time
-import os
 from datetime import datetime
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Any, Dict, List
 
 
 def _sanitize_for_json(obj: Any) -> Any:
@@ -35,11 +34,11 @@ def _sanitize_for_json(obj: Any) -> Any:
     # For objects that cannot be serialized, return their string representation
     try:
         # Try calling __dict__ or related attributes
-        if hasattr(obj, '__dict__'):
+        if hasattr(obj, "__dict__"):
             return {
-                '__class__': obj.__class__.__name__,
-                '__module__': obj.__class__.__module__,
-                'repr': repr(obj)[:200]  # Limit length
+                "__class__": obj.__class__.__name__,
+                "__module__": obj.__class__.__module__,
+                "repr": repr(obj)[:200],  # Limit length
             }
         return str(obj)[:200]
     except:
@@ -75,7 +74,7 @@ class DebugMarker:
             "description": description,
             "details": details or {},
             "timestamp": time.time(),
-            "elapsed_ms": int((time.time() - self.start_time) * 1000)
+            "elapsed_ms": int((time.time() - self.start_time) * 1000),
         }
         self.steps.append(step)
 
@@ -97,23 +96,31 @@ class DebugMarker:
                 "start_time": datetime.now().isoformat(),
                 "total_elapsed_ms": int((time.time() - self.start_time) * 1000),
                 "steps": _sanitize_for_json(self.steps),
-                "step_count": len(self.steps)
+                "step_count": len(self.steps),
             }
 
             # Save to file
-            filename = f"markers_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+            filename = (
+                f"markers_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+            )
             filepath = Path(log_dir) / filename
 
             # Append mode (each line is a complete JSON object)
-            with open(filepath, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(marker_data, ensure_ascii=False) + '\n')
+            with open(filepath, "a", encoding="utf-8") as f:
+                f.write(json.dumps(marker_data, ensure_ascii=False) + "\n")
 
         except Exception as e:
             # If save fails, at least print to console
             try:
-                sanitized_data = _sanitize_for_json(marker_data) if 'marker_data' in locals() else "data unavailable"
+                sanitized_data = (
+                    _sanitize_for_json(marker_data)
+                    if "marker_data" in locals()
+                    else "data unavailable"
+                )
                 print(f"[DEBUG_MARKER] Save failed: {e}")
-                print(f"[DEBUG_MARKER] Data: {json.dumps(sanitized_data, ensure_ascii=False)}")
+                print(
+                    f"[DEBUG_MARKER] Data: {json.dumps(sanitized_data, ensure_ascii=False)}"
+                )
             except:
                 print(f"[DEBUG_MARKER] Save failed and unable to print data: {e}")
 

@@ -6,12 +6,10 @@
 快速检查基本测试质量
 """
 
-import os
-import sys
-import json
 import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
@@ -28,7 +26,7 @@ def run_basic_tests() -> Dict[str, Any]:
         "tests/integration/multi_company/test_config_manager.py",
         "tests/integration/multi_company/test_parallel_download_manager.py",
         "tests/integration/multi_company/test_proxy_manager.py",
-        "tests/integration/multi_company/test_enhanced_anti_crawler.py"
+        "tests/integration/multi_company/test_enhanced_anti_crawler.py",
     ]
 
     results = {}
@@ -36,31 +34,34 @@ def run_basic_tests() -> Dict[str, Any]:
     for test_path in test_paths:
         try:
             print(f"测试 {test_path}...")
-            result = subprocess.run([
-                'python', '-m', 'pytest', test_path, '--tb=short', '-v'
-            ], capture_output=True, text=True, timeout=120)
+            result = subprocess.run(
+                ["python", "-m", "pytest", test_path, "--tb=short", "-v"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
 
             # 解析输出结果
-            lines = result.stdout.split('\n')
+            lines = result.stdout.split("\n")
             for line in lines:
-                if 'passed' in line and 'failed' in line:
+                if "passed" in line and "failed" in line:
                     # 解析类似 "21 passed, 0 failed in 15.46s" 的行
                     parts = line.split()
                     passed = int(parts[0]) if parts[0].isdigit() else 0
                     failed = int(parts[2]) if parts[2].isdigit() else 0
 
                     if test_path not in results:
-                        results[test_path] = {'passed': 0, 'failed': 0}
+                        results[test_path] = {"passed": 0, "failed": 0}
 
-                    results[test_path]['passed'] += passed
-                    results[test_path]['failed'] += failed
+                    results[test_path]["passed"] += passed
+                    results[test_path]["failed"] += failed
 
         except subprocess.TimeoutExpired:
             print(f"测试 {test_path} 超时")
-            results[test_path] = {'passed': 0, 'failed': 0, 'timeout': True}
+            results[test_path] = {"passed": 0, "failed": 0, "timeout": True}
         except Exception as e:
             print(f"测试 {test_path} 出错: {e}")
-            results[test_path] = {'passed': 0, 'failed': 0, 'error': str(e)}
+            results[test_path] = {"passed": 0, "failed": 0, "error": str(e)}
 
     return results
 
@@ -75,11 +76,11 @@ def check_test_quality(results: Dict[str, Any]) -> Dict[str, Any]:
     total_error = 0
 
     for test_path, result in results.items():
-        total_passed += result.get('passed', 0)
-        total_failed += result.get('failed', 0)
-        if result.get('timeout'):
+        total_passed += result.get("passed", 0)
+        total_failed += result.get("failed", 0)
+        if result.get("timeout"):
             total_timeout += 1
-        if result.get('error'):
+        if result.get("error"):
             total_error += 1
 
     total_tests = total_passed + total_failed
@@ -91,29 +92,33 @@ def check_test_quality(results: Dict[str, Any]) -> Dict[str, Any]:
 
     # 质量标准
     quality_standards = {
-        'min_pass_rate': 90.0,
-        'max_timeout_tests': 2,
-        'max_error_tests': 0
+        "min_pass_rate": 90.0,
+        "max_timeout_tests": 2,
+        "max_error_tests": 0,
     }
 
-    meets_pass_rate = pass_rate >= quality_standards['min_pass_rate']
-    meets_timeout_standard = total_timeout <= quality_standards['max_timeout_tests']
-    meets_error_standard = total_error <= quality_standards['max_error_tests']
+    meets_pass_rate = pass_rate >= quality_standards["min_pass_rate"]
+    meets_timeout_standard = total_timeout <= quality_standards["max_timeout_tests"]
+    meets_error_standard = total_error <= quality_standards["max_error_tests"]
 
-    overall_status = 'PASS' if (meets_pass_rate and meets_timeout_standard and meets_error_standard) else 'FAIL'
+    overall_status = (
+        "PASS"
+        if (meets_pass_rate and meets_timeout_standard and meets_error_standard)
+        else "FAIL"
+    )
 
     return {
-        'total_tests': total_tests,
-        'passed': total_passed,
-        'failed': total_failed,
-        'timeout': total_timeout,
-        'errors': total_error,
-        'pass_rate': pass_rate,
-        'meets_pass_rate': meets_pass_rate,
-        'meets_timeout_standard': meets_timeout_standard,
-        'meets_error_standard': meets_error_standard,
-        'overall_status': overall_status,
-        'quality_standards': quality_standards
+        "total_tests": total_tests,
+        "passed": total_passed,
+        "failed": total_failed,
+        "timeout": total_timeout,
+        "errors": total_error,
+        "pass_rate": pass_rate,
+        "meets_pass_rate": meets_pass_rate,
+        "meets_timeout_standard": meets_timeout_standard,
+        "meets_error_standard": meets_error_standard,
+        "overall_status": overall_status,
+        "quality_standards": quality_standards,
     }
 
 
@@ -142,7 +147,7 @@ def generate_report(quality_check: Dict[str, Any]) -> str:
         f"  - 最大错误测试数: {quality_check['quality_standards']['max_error_tests']}",
     ]
 
-    return '\n'.join(report_lines)
+    return "\n".join(report_lines)
 
 
 def main():
@@ -160,7 +165,7 @@ def main():
     print(report)
 
     # 根据检查结果退出
-    if quality_check['overall_status'] == 'PASS':
+    if quality_check["overall_status"] == "PASS":
         print("\n✅ 测试质量门禁检查通过！")
         sys.exit(0)
     else:

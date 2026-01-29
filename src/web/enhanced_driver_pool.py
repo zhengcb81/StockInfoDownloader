@@ -3,29 +3,27 @@
 提供智能调度、健康监控、动态扩容等高级功能
 """
 
+import asyncio
+import queue
+import statistics
 import threading
 import time
-import queue
-import asyncio
-import psutil
-import statistics
-from typing import Optional, Dict, Any, List, Tuple, Callable
-from dataclasses import dataclass
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
+
+import psutil
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
-from src.core.logger import get_logger
 from src.core.config import ConfigManager
-from src.web.driver_pool import WebDriverPool
+from src.core.logger import get_logger
 
 
 class DriverHealth(Enum):
     """驱动健康状态"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -34,6 +32,7 @@ class DriverHealth(Enum):
 
 class DriverPriority(Enum):
     """驱动优先级"""
+
     HIGH = 1
     NORMAL = 2
     LOW = 3
@@ -42,6 +41,7 @@ class DriverPriority(Enum):
 @dataclass
 class DriverMetrics:
     """驱动性能指标"""
+
     response_time: float
     memory_usage: float
     success_rate: float
@@ -54,6 +54,7 @@ class DriverMetrics:
 @dataclass
 class PoolConfig:
     """连接池配置"""
+
     min_pool_size: int = 3
     max_pool_size: int = 10
     max_session_downloads: int = 20
@@ -86,13 +87,13 @@ class EnhancedWebDriverPool:
 
         # 性能监控
         self.performance_stats = {
-            'total_requests': 0,
-            'successful_requests': 0,
-            'failed_requests': 0,
-            'average_response_time': 0.0,
-            'pool_hits': 0,
-            'pool_misses': 0,
-            'scaling_events': 0
+            "total_requests": 0,
+            "successful_requests": 0,
+            "failed_requests": 0,
+            "average_response_time": 0.0,
+            "pool_hits": 0,
+            "pool_misses": 0,
+            "scaling_events": 0,
         }
 
         # 健康监控
@@ -108,9 +109,11 @@ class EnhancedWebDriverPool:
         self._initialize_pool()
         self._start_health_monitor()
 
-        self.logger.info(f"增强版WebDriver连接池初始化完成: "
-                       f"最小池大小={self.config.min_pool_size}, "
-                       f"最大池大小={self.config.max_pool_size}")
+        self.logger.info(
+            f"增强版WebDriver连接池初始化完成: "
+            f"最小池大小={self.config.min_pool_size}, "
+            f"最大池大小={self.config.max_pool_size}"
+        )
 
     def _initialize_pool(self):
         """初始化连接池"""
@@ -122,34 +125,38 @@ class EnhancedWebDriverPool:
         """创建新的WebDriver实例"""
         try:
             # 获取配置
-            headless = self.config_manager.get('headless', True)
-            window_size = self.config_manager.get('browser.window_size', '1920,1080')
-            page_load_timeout = self.config_manager.get('timeout.page_load', 30)
-            element_wait_timeout = self.config_manager.get('timeout.element_wait', 10)
+            headless = self.config_manager.get("headless", True)
+            window_size = self.config_manager.get("browser.window_size", "1920,1080")
+            page_load_timeout = self.config_manager.get("timeout.page_load", 30)
+            element_wait_timeout = self.config_manager.get("timeout.element_wait", 10)
 
             # 配置Chrome选项
             chrome_options = Options()
 
             if headless:
-                chrome_options.add_argument('--headless')
+                chrome_options.add_argument("--headless")
 
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-web-security')
-            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-            chrome_options.add_argument('--window-size=' + window_size)
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+            chrome_options.add_argument("--window-size=" + window_size)
 
             # 性能优化选项
-            chrome_options.add_argument('--disable-extensions')
-            chrome_options.add_argument('--disable-plugins')
-            chrome_options.add_argument('--disable-images')  # 禁用图片加载
-            chrome_options.add_argument('--disable-javascript-har-promises')  # 禁用某些JS特性
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-images")  # 禁用图片加载
+            chrome_options.add_argument(
+                "--disable-javascript-har-promises"
+            )  # 禁用某些JS特性
 
             # 添加反检测设置
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option(
+                "excludeSwitches", ["enable-automation"]
+            )
+            chrome_options.add_experimental_option("useAutomationExtension", False)
 
             # 创建WebDriver实例
             driver = webdriver.Chrome(options=chrome_options)
@@ -158,14 +165,18 @@ class EnhancedWebDriverPool:
             # 设置隐式等待
             driver.implicitly_wait(element_wait_timeout)
 
-            self.logger.debug(f"创建新的WebDriver实例，当前池大小: {len(self.active_drivers) + 1}")
+            self.logger.debug(
+                f"创建新的WebDriver实例，当前池大小: {len(self.active_drivers) + 1}"
+            )
             return driver
 
         except Exception as e:
             self.logger.error(f"创建WebDriver失败: {e}")
             raise
 
-    def _add_driver_to_pool(self, driver: webdriver.Chrome, priority: DriverPriority = DriverPriority.NORMAL):
+    def _add_driver_to_pool(
+        self, driver: webdriver.Chrome, priority: DriverPriority = DriverPriority.NORMAL
+    ):
         """添加驱动到连接池"""
         with self.lock:
             metrics = DriverMetrics(
@@ -175,13 +186,15 @@ class EnhancedWebDriverPool:
                 error_count=0,
                 total_requests=0,
                 last_health_check=time.time(),
-                consecutive_failures=0
+                consecutive_failures=0,
             )
             self.active_drivers[driver] = metrics
             self.priority_queue[priority].put((time.time(), driver))
             self.pool.put((priority.value, time.time(), driver))
 
-    def get_driver(self, priority: DriverPriority = DriverPriority.NORMAL) -> webdriver.Chrome:
+    def get_driver(
+        self, priority: DriverPriority = DriverPriority.NORMAL
+    ) -> webdriver.Chrome:
         """
         获取可用的WebDriver实例
 
@@ -192,46 +205,50 @@ class EnhancedWebDriverPool:
             webdriver.Chrome: 可用的WebDriver实例
         """
         start_time = time.time()
-        self.performance_stats['total_requests'] += 1
+        self.performance_stats["total_requests"] += 1
 
         try:
             # 尝试从优先级队列获取
             if not self.priority_queue[priority].empty():
                 _, driver = self.priority_queue[priority].get_nowait()
-                self.performance_stats['pool_hits'] += 1
+                self.performance_stats["pool_hits"] += 1
                 self.logger.debug(f"从优先级队列获取WebDriver: {priority.name}")
                 return self._validate_and_return_driver(driver)
 
             # 尝试从普通池获取
             try:
                 priority_val, _, driver = self.pool.get_nowait()
-                self.performance_stats['pool_hits'] += 1
+                self.performance_stats["pool_hits"] += 1
                 self.logger.debug(f"从连接池获取WebDriver，剩余: {self.pool.qsize()}")
                 return self._validate_and_return_driver(driver)
             except queue.Empty:
-                self.performance_stats['pool_misses'] += 1
-                pass
+                self.performance_stats["pool_misses"] += 1
 
             # 池为空，尝试扩容
-            if self.config.scaling_enabled and len(self.active_drivers) < self.config.max_pool_size:
+            if (
+                self.config.scaling_enabled
+                and len(self.active_drivers) < self.config.max_pool_size
+            ):
                 driver = self._scale_up()
-                self.performance_stats['scaling_events'] += 1
+                self.performance_stats["scaling_events"] += 1
                 return driver
 
             # 等待可用驱动
             self.logger.debug("连接池已满，等待可用WebDriver...")
-            priority_val, _, driver = self.pool.get(timeout=self.config.response_timeout)
+            priority_val, _, driver = self.pool.get(
+                timeout=self.config.response_timeout
+            )
             return self._validate_and_return_driver(driver)
 
         except Exception as e:
             self.logger.error(f"获取WebDriver失败: {e}")
-            self.performance_stats['failed_requests'] += 1
+            self.performance_stats["failed_requests"] += 1
             raise
 
     def _validate_and_return_driver(self, driver: webdriver.Chrome) -> webdriver.Chrome:
         """验证并返回驱动"""
         if self._is_driver_healthy(driver):
-            self.performance_stats['successful_requests'] += 1
+            self.performance_stats["successful_requests"] += 1
             return driver
         else:
             # 驱动不健康，创建新的
@@ -302,24 +319,34 @@ class EnhancedWebDriverPool:
                 metrics.total_requests += 1
 
                 if success:
-                    metrics.success_rate = (metrics.total_requests - metrics.error_count) / metrics.total_requests
+                    metrics.success_rate = (
+                        metrics.total_requests - metrics.error_count
+                    ) / metrics.total_requests
                     metrics.consecutive_failures = 0
                 else:
                     metrics.error_count += 1
-                    metrics.success_rate = (metrics.total_requests - metrics.error_count) / metrics.total_requests
+                    metrics.success_rate = (
+                        metrics.total_requests - metrics.error_count
+                    ) / metrics.total_requests
                     metrics.consecutive_failures += 1
 
                 # 检查是否需要重启
-                runtime = time.time() - (metrics.last_health_check - metrics.response_time)
-                if (metrics.total_requests >= self.config.max_session_downloads or
-                    runtime > 1800 or  # 30分钟
-                    metrics.success_rate < 0.5 or  # 成功率低于50%
-                    metrics.consecutive_failures > 0):
+                runtime = time.time() - (
+                    metrics.last_health_check - metrics.response_time
+                )
+                if (
+                    metrics.total_requests >= self.config.max_session_downloads
+                    or runtime > 1800  # 30分钟
+                    or metrics.success_rate < 0.5  # 成功率低于50%
+                    or metrics.consecutive_failures > 0
+                ):
 
-                    self.logger.info(f"WebDriver达到重启条件，重新创建: "
-                                   f"请求次数={metrics.total_requests}, "
-                                   f"成功率={metrics.success_rate:.2%}, "
-                                   f"连续失败={metrics.consecutive_failures}")
+                    self.logger.info(
+                        f"WebDriver达到重启条件，重新创建: "
+                        f"请求次数={metrics.total_requests}, "
+                        f"成功率={metrics.success_rate:.2%}, "
+                        f"连续失败={metrics.consecutive_failures}"
+                    )
                     self._cleanup_driver(driver)
                     new_driver = self._create_driver()
                     self._add_driver_to_pool(new_driver)
@@ -329,7 +356,9 @@ class EnhancedWebDriverPool:
                         priority = self._calculate_driver_priority(metrics)
                         self.priority_queue[priority].put((time.time(), driver))
                         self.pool.put((priority.value, time.time(), driver))
-                        self.logger.debug(f"WebDriver归还到池中，剩余: {self.pool.qsize()}")
+                        self.logger.debug(
+                            f"WebDriver归还到池中，剩余: {self.pool.qsize()}"
+                        )
                     else:
                         self._cleanup_driver(driver)
                         new_driver = self._create_driver()
@@ -355,7 +384,9 @@ class EnhancedWebDriverPool:
 
         driver = self._create_driver()
         self._add_driver_to_pool(driver, DriverPriority.NORMAL)
-        self.logger.info(f"连接池扩容: 当前大小={len(self.active_drivers)}/{self.config.max_pool_size}")
+        self.logger.info(
+            f"连接池扩容: 当前大小={len(self.active_drivers)}/{self.config.max_pool_size}"
+        )
         return driver
 
     def _scale_down(self):
@@ -368,13 +399,18 @@ class EnhancedWebDriverPool:
         worst_metrics = None
 
         for driver, metrics in self.active_drivers.items():
-            if worst_metrics is None or metrics.success_rate < worst_metrics.success_rate:
+            if (
+                worst_metrics is None
+                or metrics.success_rate < worst_metrics.success_rate
+            ):
                 worst_driver = driver
                 worst_metrics = metrics
 
         if worst_driver:
             self._cleanup_driver(worst_driver)
-            self.logger.info(f"连接池缩容: 当前大小={len(self.active_drivers)}/{self.config.max_pool_size}")
+            self.logger.info(
+                f"连接池缩容: 当前大小={len(self.active_drivers)}/{self.config.max_pool_size}"
+            )
 
     def _cleanup_driver(self, driver: webdriver.Chrome):
         """清理WebDriver实例"""
@@ -393,6 +429,7 @@ class EnhancedWebDriverPool:
 
     def _start_health_monitor(self):
         """启动健康监控线程"""
+
         def health_monitor():
             while self.health_monitor_running:
                 try:
@@ -403,7 +440,9 @@ class EnhancedWebDriverPool:
                     time.sleep(10)  # 错误后等待10秒再重试
 
         self.health_monitor_running = True
-        self.health_monitor_thread = threading.Thread(target=health_monitor, daemon=True)
+        self.health_monitor_thread = threading.Thread(
+            target=health_monitor, daemon=True
+        )
         self.health_monitor_thread.start()
         self.logger.info("健康监控线程已启动")
 
@@ -416,7 +455,10 @@ class EnhancedWebDriverPool:
 
                 # 检查所有驱动的健康状态
                 for driver, metrics in self.active_drivers.items():
-                    if current_time - metrics.last_health_check > self.config.health_check_interval:
+                    if (
+                        current_time - metrics.last_health_check
+                        > self.config.health_check_interval
+                    ):
                         if not self._is_driver_healthy(driver):
                             drivers_to_remove.append(driver)
 
@@ -427,11 +469,19 @@ class EnhancedWebDriverPool:
 
                 # 动态扩缩容
                 if self.config.scaling_enabled:
-                    utilization_rate = self.performance_stats['pool_hits'] / max(self.performance_stats['total_requests'], 1)
+                    utilization_rate = self.performance_stats["pool_hits"] / max(
+                        self.performance_stats["total_requests"], 1
+                    )
 
-                    if utilization_rate > self.config.scaling_threshold and len(self.active_drivers) < self.config.max_pool_size:
+                    if (
+                        utilization_rate > self.config.scaling_threshold
+                        and len(self.active_drivers) < self.config.max_pool_size
+                    ):
                         self._scale_up()
-                    elif utilization_rate < self.config.shrink_threshold and len(self.active_drivers) > self.config.min_pool_size:
+                    elif (
+                        utilization_rate < self.config.shrink_threshold
+                        and len(self.active_drivers) > self.config.min_pool_size
+                    ):
                         self._scale_down()
 
                 # 更新性能统计
@@ -443,9 +493,15 @@ class EnhancedWebDriverPool:
     def _update_performance_stats(self):
         """更新性能统计"""
         if self.active_drivers:
-            response_times = [m.response_time for m in self.active_drivers.values() if m.response_time > 0]
+            response_times = [
+                m.response_time
+                for m in self.active_drivers.values()
+                if m.response_time > 0
+            ]
             if response_times:
-                self.performance_stats['average_response_time'] = statistics.mean(response_times)
+                self.performance_stats["average_response_time"] = statistics.mean(
+                    response_times
+                )
 
     def get_pool_status(self) -> Dict[str, Any]:
         """获取连接池状态"""
@@ -453,23 +509,29 @@ class EnhancedWebDriverPool:
             health_distribution = {}
             for driver, metrics in self.active_drivers.items():
                 if metrics.success_rate >= 0.9:
-                    health_distribution['healthy'] = health_distribution.get('healthy', 0) + 1
+                    health_distribution["healthy"] = (
+                        health_distribution.get("healthy", 0) + 1
+                    )
                 elif metrics.success_rate >= 0.7:
-                    health_distribution['degraded'] = health_distribution.get('degraded', 0) + 1
+                    health_distribution["degraded"] = (
+                        health_distribution.get("degraded", 0) + 1
+                    )
                 else:
-                    health_distribution['unhealthy'] = health_distribution.get('unhealthy', 0) + 1
+                    health_distribution["unhealthy"] = (
+                        health_distribution.get("unhealthy", 0) + 1
+                    )
 
             return {
-                'pool_size': self.pool.qsize(),
-                'active_drivers': len(self.active_drivers),
-                'min_pool_size': self.config.min_pool_size,
-                'max_pool_size': self.config.max_pool_size,
-                'health_distribution': health_distribution,
-                'performance_stats': self.performance_stats.copy(),
-                'priority_queues': {
+                "pool_size": self.pool.qsize(),
+                "active_drivers": len(self.active_drivers),
+                "min_pool_size": self.config.min_pool_size,
+                "max_pool_size": self.config.max_pool_size,
+                "health_distribution": health_distribution,
+                "performance_stats": self.performance_stats.copy(),
+                "priority_queues": {
                     priority.name: queue.qsize()
                     for priority, queue in self.priority_queue.items()
-                }
+                },
             }
 
     def get_detailed_metrics(self) -> Dict[str, Any]:
@@ -477,38 +539,50 @@ class EnhancedWebDriverPool:
         with self.lock:
             driver_metrics = []
             for driver, metrics in self.active_drivers.items():
-                driver_metrics.append({
-                    'driver_id': id(driver),
-                    'response_time': metrics.response_time,
-                    'memory_usage': metrics.memory_usage,
-                    'success_rate': metrics.success_rate,
-                    'error_count': metrics.error_count,
-                    'total_requests': metrics.total_requests,
-                    'consecutive_failures': metrics.consecutive_failures,
-                    'last_health_check': metrics.last_health_check
-                })
+                driver_metrics.append(
+                    {
+                        "driver_id": id(driver),
+                        "response_time": metrics.response_time,
+                        "memory_usage": metrics.memory_usage,
+                        "success_rate": metrics.success_rate,
+                        "error_count": metrics.error_count,
+                        "total_requests": metrics.total_requests,
+                        "consecutive_failures": metrics.consecutive_failures,
+                        "last_health_check": metrics.last_health_check,
+                    }
+                )
 
             return {
-                'pool_status': self.get_pool_status(),
-                'driver_metrics': driver_metrics,
-                'system_resources': {
-                    'memory_percent': psutil.virtual_memory().percent,
-                    'cpu_percent': psutil.cpu_percent(),
-                    'load_average': psutil.getloadavg() if hasattr(psutil, 'getloadavg') else [0, 0, 0]
-                }
+                "pool_status": self.get_pool_status(),
+                "driver_metrics": driver_metrics,
+                "system_resources": {
+                    "memory_percent": psutil.virtual_memory().percent,
+                    "cpu_percent": psutil.cpu_percent(),
+                    "load_average": (
+                        psutil.getloadavg()
+                        if hasattr(psutil, "getloadavg")
+                        else [0, 0, 0]
+                    ),
+                },
             }
 
     def optimize_pool(self):
         """优化连接池配置"""
         with self.lock:
             # 基于历史性能数据调整配置
-            hit_rate = self.performance_stats['pool_hits'] / max(self.performance_stats['total_requests'], 1)
+            hit_rate = self.performance_stats["pool_hits"] / max(
+                self.performance_stats["total_requests"], 1
+            )
 
             if hit_rate < 0.5 and self.config.min_pool_size < self.config.max_pool_size:
                 # 提高最小池大小
                 old_min = self.config.min_pool_size
-                self.config.min_pool_size = min(self.config.min_pool_size + 1, self.config.max_pool_size)
-                self.logger.info(f"优化连接池: 最小池大小 {old_min} -> {self.config.min_pool_size}")
+                self.config.min_pool_size = min(
+                    self.config.min_pool_size + 1, self.config.max_pool_size
+                )
+                self.logger.info(
+                    f"优化连接池: 最小池大小 {old_min} -> {self.config.min_pool_size}"
+                )
 
                 # 扩容到新的最小大小
                 while len(self.active_drivers) < self.config.min_pool_size:
@@ -564,7 +638,9 @@ class EnhancedWebDriverPool:
 
 
 # 工厂函数
-def create_enhanced_driver_pool(config: Optional[PoolConfig] = None) -> EnhancedWebDriverPool:
+def create_enhanced_driver_pool(
+    config: Optional[PoolConfig] = None,
+) -> EnhancedWebDriverPool:
     """
     创建增强版WebDriver连接池的工厂函数
 
@@ -592,7 +668,9 @@ class EnhancedWebDriverManager:
         self.current_driver = None
         self.logger = get_logger(__name__)
 
-    def get_driver(self, priority: DriverPriority = DriverPriority.NORMAL) -> webdriver.Chrome:
+    def get_driver(
+        self, priority: DriverPriority = DriverPriority.NORMAL
+    ) -> webdriver.Chrome:
         """获取WebDriver实例"""
         if self.current_driver is None:
             self.current_driver = self.driver_pool.get_driver(priority)

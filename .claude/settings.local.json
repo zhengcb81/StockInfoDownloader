@@ -78,7 +78,12 @@
       "Bash(git check-ignore:*)",
       "Bash(for:*)",
       "Bash(.git/hooks/pre-commit)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Skill(planning-with-files:planning-with-files)",
+      "Bash(pip show mypy)",
+      "Bash(mypy src/:*)",
+      "Bash(mypy src/core/config.py src/interfaces/downloader_interface.py 2>&1:*)",
+      "Bash(mypy src/interfaces/downloader_interface.py --ignore-missing-imports 2>&1:*)"
     ],
     "deny": [],
     "ask": [],

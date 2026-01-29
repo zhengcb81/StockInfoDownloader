@@ -1,90 +1,107 @@
 "Selenium Browser Automation Strategy Implementation"
 
 import os
-import random
-import time
-import subprocess
 import platform
+import random
 import shutil
+import subprocess
+import time
 from pathlib import Path
-from typing import Optional, List, Any, Dict
+from typing import Any, Dict, List, Optional
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-from .browser_strategy import BrowserAutomationStrategy
+from ..core.config import ConfigManager
+from ..core.config_constants import ConfigConstants
+from ..core.constants import (
+    USER_AGENTS,
+    BrowserConfig,
+    FileSizeThreshold,
+    SelectorConfig,
+    TimeoutConfig,
+)
 from ..core.exceptions import (
-    WebDriverError, WebDriverInitError, WebDriverTimeoutError, WebDriverCrashError,
-    ErrorCode, ErrorSeverity, RecoveryStrategy, with_error_handling
+    ErrorCode,
+    ErrorSeverity,
+    RecoveryStrategy,
+    WebDriverCrashError,
+    WebDriverInitError,
+    WebDriverTimeoutError,
+    with_error_handling,
 )
 from ..core.logger import get_logger
-from ..core.config import ConfigManager
 from ..utils.browser_utils import (
-    is_test_environment,
-    get_default_user_agents,
     get_common_chrome_args,
-    get_default_window_size_string
+    is_test_environment,
 )
 from ..utils.cleanup_utils import safe_cleanup
-from ..core.constants import (
-    TimeoutConfig, BrowserConfig, USER_AGENTS, FileSizeThreshold, SelectorConfig
-)
+from .browser_strategy import BrowserAutomationStrategy
 
 logger = get_logger(__name__)
 
 
 class SeleniumStrategy(BrowserAutomationStrategy):
     """Selenium Browser Automation Strategy"""
-    
-    def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
-                 config: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        headless: bool = True,
+        download_dir: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ):
         """Initialize Selenium Strategy"""
         self.headless = headless
         self.download_dir = download_dir
         self.config = config or {}
-        self.driver = None
+        self.driver: Optional[webdriver.Chrome] = None
         self.download_count = 0
 
         # Initialize config manager
         self.config_manager = ConfigManager()
 
         # Use constant config
-        self.window_size = self.config.get('window_size', BrowserConfig.DEFAULT_WINDOW_SIZE)
+        self.window_size = self.config.get(
+            "window_size", BrowserConfig.DEFAULT_WINDOW_SIZE
+        )
 
         # BaseDownloader timeout is in seconds, convert to seconds (Selenium uses seconds)
-        timeout_seconds = self.config.get('timeout', TimeoutConfig.PAGE_LOAD)
-        self.page_load_timeout = self.config.get('page_load_timeout', timeout_seconds)
-        self.implicit_wait = self.config.get('implicit_wait', BrowserConfig.IMPLICIT_WAIT)
-        self.max_downloads_per_session = self.config.get('max_downloads_per_session', BrowserConfig.MAX_DOWNLOADS_PER_SESSION)
+        timeout_seconds = self.config.get("timeout", TimeoutConfig.PAGE_LOAD)
+        self.page_load_timeout = self.config.get("page_load_timeout", timeout_seconds)
+        self.implicit_wait = self.config.get(
+            "implicit_wait", BrowserConfig.IMPLICIT_WAIT
+        )
+        self.max_downloads_per_session = self.config.get(
+            "max_downloads_per_session", BrowserConfig.MAX_DOWNLOADS_PER_SESSION
+        )
 
         # Use constant user agents
-        self._user_agents = self.config.get('user_agents', USER_AGENTS)
-    
+        self._user_agents = self.config.get("user_agents", USER_AGENTS)
+
     @with_error_handling(
         error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
         severity=ErrorSeverity.CRITICAL,
         recovery_strategy=RecoveryStrategy.RETRY,
-        max_retries=3
+        max_retries=3,
     )
     def create_driver(self) -> Any:
         """Create WebDriver instance"""
         # Ensure previous driver is completely closed
         if self.driver:
             self.close()
-        
+
         logger.info("Initializing Selenium WebDriver...")
-        
+
         # Only cleanup processes in non-test environment
         if not is_test_environment():
             self._cleanup_chrome_processes()
-        
+
         try:
             chrome_options = self._build_chrome_options()
-            
+
             # Create driver
             try:
                 self.driver = webdriver.Chrome(options=chrome_options)
@@ -94,17 +111,17 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 self._cleanup_chrome_processes()
                 time.sleep(TimeoutConfig.RETRY_DELAY)
                 self.driver = webdriver.Chrome(options=chrome_options)
-            
+
             # Configure driver
             self.driver.set_page_load_timeout(self.page_load_timeout)
             self.driver.implicitly_wait(self.implicit_wait)
-            
+
             # Execute anti-detection script
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
+            self.driver.execute_script(ConfigConstants.ANTI_DETECTION_SCRIPT)
+
             # Test if driver is working
-            self.driver.get("about:blank")
-            
+            self.driver.get(ConfigConstants.BLANK_PAGE_URL)
+
             logger.info("Selenium WebDriver initialized successfully")
             return self.driver
 
@@ -125,19 +142,22 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 raise WebDriverCrashError(
                     error_msg,
                     context={"phase": "initialization", "crash_type": "tab_crashed"},
-                    original_exception=e
+                    original_exception=e,
                 )
             elif "timeout" in str(e).lower():
                 raise WebDriverTimeoutError(
                     error_msg,
-                    context={"phase": "initialization", "timeout_type": "creation_timeout"},
-                    original_exception=e
+                    context={
+                        "phase": "initialization",
+                        "timeout_type": "creation_timeout",
+                    },
+                    original_exception=e,
                 )
             else:
                 raise WebDriverInitError(
                     error_msg,
                     context={"phase": "initialization", "error_details": str(e)},
-                    original_exception=e
+                    original_exception=e,
                 )
 
     def initialize(self) -> bool:
@@ -163,15 +183,15 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 self.driver = None
 
             return False
-    
+
     def _build_chrome_options(self) -> Options:
         """Build Chrome options"""
         chrome_options = Options()
 
         # Basic settings
         if self.headless:
-            chrome_options.add_argument('--headless=new')
-        chrome_options.add_argument(f'--window-size={self.window_size}')
+            chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument(f"--window-size={self.window_size}")
 
         # Use common tools to get generic Chrome args
         for arg in get_common_chrome_args():
@@ -179,7 +199,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         # Anti-automation detection
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
+        chrome_options.add_experimental_option("useAutomationExtension", False)
 
         # Set download directory
         if self.download_dir:
@@ -200,37 +220,45 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
                 "download_restrictions": 0,  # Allow all downloads
                 "credentials_enable_service": False,
-                "password_manager_enabled": False
+                "password_manager_enabled": False,
             }
             chrome_options.add_experimental_option("prefs", prefs)
             logger.info(f"Set download directory: {abs_download_dir}")
 
         # Random User-Agent
         user_agent = random.choice(self._user_agents)
-        chrome_options.add_argument(f'--user-agent={user_agent}')
+        chrome_options.add_argument(f"--user-agent={user_agent}")
 
         return chrome_options
-    
+
     def _cleanup_chrome_processes(self):
         """Cleanup Chrome processes"""
         try:
             if is_test_environment():
                 return
-                
-            timeout_value = 5
-            
+
+            timeout_value = ConfigConstants.get_timeout("process_cleanup")
+
             if platform.system() == "Windows":
-                subprocess.run(['taskkill', '/f', '/im', 'chromedriver.exe'], 
-                             capture_output=True, timeout=timeout_value, check=False)
+                subprocess.run(
+                    ["taskkill", "/f", "/im", "chromedriver.exe"],
+                    capture_output=True,
+                    timeout=timeout_value,
+                    check=False,
+                )
             else:
-                subprocess.run(['pkill', '-f', 'chromedriver'],
-                             capture_output=True, timeout=timeout_value, check=False)
+                subprocess.run(
+                    ["pkill", "-f", "chromedriver"],
+                    capture_output=True,
+                    timeout=timeout_value,
+                    check=False,
+                )
 
             time.sleep(TimeoutConfig.BROWSER_CLOSE)
 
         except Exception as e:
             logger.debug(f"Error cleaning up Chrome processes: {e}")
-    
+
     def get_driver(self) -> Any:
         """Get current driver instance"""
         return self.driver
@@ -272,102 +300,107 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         """Find elements"""
         if not self.driver:
             return []
-        
+
         try:
             by_method = getattr(By, by.upper(), By.CSS_SELECTOR)
             return self.driver.find_elements(by_method, selector)
         except Exception as e:
             logger.error(f"Failed to find elements: {e}")
             return []
-    
+
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
         """Find single element"""
         elements = self.find_elements(selector, by)
         return elements[0] if elements else None
-    
+
     def click(self, element: Any) -> bool:
         """Click element"""
         if not element:
             return False
-        
+
         try:
             element.click()
             return True
         except Exception as e:
             logger.error(f"Failed to click element: {e}")
             return False
-    
+
     def get_text(self, element: Any) -> str:
         """Get element text"""
         if not element:
             return ""
-        
+
         try:
             return element.text
         except Exception as e:
             logger.error(f"Failed to get element text: {e}")
             return ""
-    
+
     def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
         """Get element attribute"""
         if not element:
             return None
-        
+
         try:
             return element.get_attribute(attribute)
         except Exception as e:
             logger.error(f"Failed to get element attribute: {e}")
             return None
-    
+
     def execute_script(self, script: str, *args) -> Any:
         """Execute JavaScript script"""
         if not self.driver:
             return None
-        
+
         try:
             return self.driver.execute_script(script, *args)
         except Exception as e:
             logger.error(f"Failed to execute script: {e}")
             return None
-    
-    def wait_for_element(self, selector: str, timeout: int = 10, 
-                        by: str = "css", condition: str = "visible") -> bool:
+
+    def wait_for_element(
+        self,
+        selector: str,
+        timeout: int = 10,
+        by: str = "css",
+        condition: str = "visible",
+    ) -> bool:
         """Wait for element to appear"""
         if not self.driver:
             return False
-        
+
         try:
             by_method = getattr(By, by.upper(), By.CSS_SELECTOR)
             wait = WebDriverWait(self.driver, timeout)
-            
+
             if condition == "presence":
                 wait.until(EC.presence_of_element_located((by_method, selector)))
             elif condition == "visible":
                 wait.until(EC.visibility_of_element_located((by_method, selector)))
             elif condition == "clickable":
                 wait.until(EC.element_to_be_clickable((by_method, selector)))
-            
+
             return True
-            
+
         except Exception:
             return False
-    
+
     def get_page_source(self) -> str:
         """Get page source code"""
         if not self.driver:
             return ""
-        
+
         try:
             return self.driver.page_source
         except Exception as e:
             logger.error(f"Failed to get page source: {e}")
             return ""
-    
+
     def get_current_url(self) -> str:
         """Get current URL"""
         if not self.driver:
             return ""
-        
+
         try:
             return self.driver.current_url
         except Exception as e:
@@ -378,13 +411,13 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         """Get page title"""
         if not self.driver:
             return ""
-        
+
         try:
             return self.driver.title
         except Exception as e:
             logger.error(f"Failed to get page title: {e}")
             return ""
-    
+
     def close(self) -> None:
         """Close browser (optimized version)"""
         if self.driver:
@@ -393,13 +426,19 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         # Enhanced cleanup logic: clean up residual files in download root directory
         try:
             if self.download_dir and os.path.exists(self.download_dir):
-                logger.info(f"Cleaning up residual files in download root directory: {self.download_dir}")
+                logger.info(
+                    f"Cleaning up residual files in download root directory: {self.download_dir}"
+                )
                 for item in os.listdir(self.download_dir):
                     item_path = os.path.join(self.download_dir, item)
                     # Only clean files, not subdirectories
                     if os.path.isfile(item_path):
                         # Clean temp files and pdf.txt (do not clean PDF files to prevent accidental deletion)
-                        if item.lower() == 'pdf.txt' or item.endswith('.tmp') or item.endswith('.crdownload'):
+                        if (
+                            item.lower() == "pdf.txt"
+                            or item.endswith(".tmp")
+                            or item.endswith(".crdownload")
+                        ):
                             try:
                                 os.remove(item_path)
                                 logger.info(f"Cleaned residual file: {item}")
@@ -413,56 +452,58 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         self.download_count = 0
 
         logger.info("Selenium WebDriver closed")
-    
+
     def is_healthy(self) -> bool:
         """Check if browser is healthy"""
         if not self.driver:
             return False
-        
+
         try:
             self.driver.current_url
             return True
         except Exception:
             return False
-    
+
     def restart(self) -> bool:
         """Restart browser"""
         logger.info("Restarting Selenium WebDriver...")
-        
+
         self.close()
-        
+
         # Enhanced retry mechanism
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                logger.info(f"Attempting to restart WebDriver ({attempt + 1}/{max_attempts})...")
+                logger.info(
+                    f"Attempting to restart WebDriver ({attempt + 1}/{max_attempts})..."
+                )
                 self.create_driver()
                 logger.info("WebDriver restarted successfully")
                 return True
-                
+
             except Exception as e:
                 logger.error(f"WebDriver restart attempt {attempt + 1} failed: {e}")
-                
+
                 if attempt < max_attempts - 1:
                     retry_wait = random.uniform(2, 4)
                     logger.info(f"Waiting {retry_wait:.2f} seconds before retry...")
                     time.sleep(retry_wait)
-        
+
         logger.error("WebDriver restart failed after all attempts")
         return False
-    
+
     def take_screenshot(self, save_path: Optional[str] = None) -> Optional[bytes]:
         """Take screenshot"""
         if not self.driver:
             return None
-        
+
         try:
             screenshot_data = self.driver.get_screenshot_as_png()
-            
+
             if save_path:
-                with open(save_path, 'wb') as f:
+                with open(save_path, "wb") as f:
                     f.write(screenshot_data)
-            
+
             return screenshot_data
         except Exception as e:
             logger.error(f"Failed to take screenshot: {e}")
@@ -514,7 +555,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if not self.download_dir or not os.path.exists(self.download_dir):
             return True
 
-        # Aggressively clean up ANY PDF files in the download root directory 
+        # Aggressively clean up ANY PDF files in the download root directory
         # to prevent orphans from previous attempts being detected as new
         download_root = Path(self.download_dir)
         try:
@@ -535,7 +576,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             if Path(root).resolve() == download_root.resolve():
                 continue
             for file in files:
-                if file.lower().endswith('.pdf'):
+                if file.lower().endswith(".pdf"):
                     file_path = Path(os.path.join(root, file))
                     self._before_files.add(file_path)
 
@@ -557,12 +598,12 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if not self.navigate(url):
             return False
 
-        # Handle SPA: sometimes URL changes but page doesn't reload, 
+        # Handle SPA: sometimes URL changes but page doesn't reload,
         # or URL is still the list page URL.
         # Force a direct GET if we suspect we are stuck.
-        time.sleep(2) # Initial SPA wait
+        time.sleep(2)  # Initial SPA wait
         current_url = self.get_current_url()
-        
+
         # If still on list page or URL mismatch for detail, force reload
         if "/new/disclosure/stock" in current_url and "/new/disclosure/detail" in url:
             logger.info("SPA detected: forcing direct GET for detail page")
@@ -587,18 +628,26 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             bool: Whether page is ready
         """
         # 1. 优先等待下载按钮出现（最可靠的就绪标志）
-        if self.wait_for_element("//button[contains(., '公告下载')]", timeout=10, by="xpath", condition="visible"):
+        if self.wait_for_element(
+            "//button[contains(., '公告下载')]",
+            timeout=ConfigConstants.get_timeout("element_wait"),
+            by="xpath",
+            condition="visible",
+        ):
             logger.info("Download button detected, page ready")
             return True
 
         # 2. 如果按钮没出现，等待页面标题包含特定内容（表示基本导航完成）
-        logger.info("Download button not appeared immediately, waiting for page indicators")
+        logger.info(
+            "Download button not appeared immediately, waiting for page indicators"
+        )
         start_time = time.time()
-        while time.time() - start_time < 10:
+        max_wait = ConfigConstants.get_timeout("page_load_max_attempts") * ConfigConstants.get_timeout("page_load_check_interval")
+        while time.time() - start_time < max_wait:
             title = self.get_page_title()
             if "巨潮资讯网" in title:
                 # 即使标题对，也可能内容没加载完，给一点额外时间
-                time.sleep(2)
+                time.sleep(ConfigConstants.get_timeout("page_load_check_interval"))
                 return True
             time.sleep(TimeoutConfig.SHORT_WAIT)
 
@@ -618,10 +667,14 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         try:
             # 1. Wait for button to be present
             main_selector = "//button[contains(., '公告下载') or contains(., '下载')]"
-            if not self.wait_for_element(main_selector, timeout=30, by="xpath", condition="presence"):
-                logger.error("Wait for download button timeout (30s), trying alternative selectors")
+            if not self.wait_for_element(
+                main_selector, timeout=30, by="xpath", condition="presence"
+            ):
+                logger.error(
+                    "Wait for download button timeout (30s), trying alternative selectors"
+                )
                 # Fallback to _find_download_button directly which tries alternatives
-            
+
             # 2. Find the actual button element
             download_btn = self._find_download_button()
             if not download_btn:
@@ -629,9 +682,11 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 return False
 
             # 3. Ensure element is in view and visible
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", download_btn)
+            self.driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", download_btn
+            )
             time.sleep(1)
-            
+
             # 4. Click download button
             if not self.click(download_btn):
                 logger.info("Normal click failed, trying JavaScript click")
@@ -640,7 +695,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 except Exception as je:
                     logger.error(f"JavaScript click also failed: {je}")
                     return False
-                
+
             logger.info("Clicked download button, waiting for file download...")
             return True
 
@@ -697,12 +752,16 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         for root, dirs, files in os.walk(self.download_dir):
             for file in files:
                 # Check PDF files and temp files (.tmp or .crdownload)
-                if file.lower().endswith('.pdf') or file.lower().endswith('.tmp') or file.lower().endswith('.crdownload'):
+                if (
+                    file.lower().endswith(".pdf")
+                    or file.lower().endswith(".tmp")
+                    or file.lower().endswith(".crdownload")
+                ):
                     file_path = Path(os.path.join(root, file))
                     after_files.add(file_path)
 
         logger.debug(f"after_files count: {len(after_files)}")
-        
+
         new_files = after_files - self._before_files
         logger.debug(f"new_files found: {[str(f) for f in new_files]}")
 
@@ -740,10 +799,10 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         # Handle temp files (.tmp or .crdownload)
         actual_file = downloaded_file
-        if downloaded_file.suffix in ('.tmp', '.crdownload'):
+        if downloaded_file.suffix in (".tmp", ".crdownload"):
             # This method renames the file to .pdf internally
             if self._wait_for_temp_file_completion(downloaded_file):
-                actual_file = downloaded_file.with_suffix('.pdf')
+                actual_file = downloaded_file.with_suffix(".pdf")
                 if not actual_file.exists():
                     logger.error(f"Renamed PDF file not found: {actual_file}")
                     return False
@@ -778,19 +837,24 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             target_size = target_path.stat().st_size
             target_name = target_path.name
-            
+
             # Use rglob to find all PDFs recursively for cleanup
             all_pdfs = list(download_root.rglob("*.pdf"))
-            logger.debug(f"[CLEANUP] Scanning for residual files: {len(all_pdfs)} PDFs found")
+            logger.debug(
+                f"[CLEANUP] Scanning for residual files: {len(all_pdfs)} PDFs found"
+            )
 
             for f in all_pdfs:
                 try:
                     # NEVER delete target file itself!
                     if f.resolve() == target_path.resolve():
                         continue
-                    
+
                     # If filename is same, or file size same (high probability of same content)
-                    if f.name == target_name or (f.stat().st_size == target_size and target_size > FileSizeThreshold.MIN_VALID_PDF):
+                    if f.name == target_name or (
+                        f.stat().st_size == target_size
+                        and target_size > FileSizeThreshold.MIN_VALID_PDF
+                    ):
                         f.unlink()
                         logger.info(f"[CLEANUP] Cleaned residual file: {f}")
                 except Exception as e:
@@ -801,15 +865,21 @@ class SeleniumStrategy(BrowserAutomationStrategy):
     def _find_download_button(self):
         """Find download button"""
         # Main selector
-        download_button = self.find_element("//button[contains(., '公告下载')]", by="xpath")
+        download_button = self.find_element(
+            "//button[contains(., '公告下载')]", by="xpath"
+        )
         if download_button:
             return download_button
 
         # Alternative selectors
         for selector in SelectorConfig.DOWNLOAD_BUTTON_ALTERNATIVES:
-            download_button = self.find_element(selector, by="xpath" if "//" in selector else "css")
+            download_button = self.find_element(
+                selector, by="xpath" if "//" in selector else "css"
+            )
             if download_button:
-                logger.info(f"Found download button using alternative selector: {selector}")
+                logger.info(
+                    f"Found download button using alternative selector: {selector}"
+                )
                 return download_button
 
         return None
@@ -824,7 +894,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         for root, dirs, file_list in os.walk(self.download_dir):
             for file in file_list:
                 file_path = os.path.join(root, file)
-                if os.path.isfile(file_path) and file.lower().endswith('.pdf'):
+                if os.path.isfile(file_path) and file.lower().endswith(".pdf"):
                     files.add(file_path)
         return files
 
@@ -839,43 +909,51 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             bool: Whether completed
         """
         logger.info(f"Waiting for temp file download to complete: {temp_file}")
-        
-        max_wait = 60 # Max wait 60s for a single file
+
+        max_wait = ConfigConstants.get_timeout("temp_file_stabilize_timeout")
         start_time = time.time()
         last_size = -1
 
         while time.time() - start_time < max_wait:
             if not temp_file.exists():
                 # Might have been renamed by browser automatically
-                pdf_file = temp_file.with_suffix('.pdf')
+                pdf_file = temp_file.with_suffix(".pdf")
                 if pdf_file.exists():
-                    logger.info("Temp file vanished but PDF found (auto-renamed by browser)")
+                    logger.info(
+                        "Temp file vanished but PDF found (auto-renamed by browser)"
+                    )
                     return True
                 return False
 
             try:
                 current_size = temp_file.stat().st_size
-                if current_size == last_size and current_size > FileSizeThreshold.MIN_VALID_PDF:
+                if (
+                    current_size == last_size
+                    and current_size > FileSizeThreshold.MIN_VALID_PDF
+                ):
                     # Stability reached
-                    pdf_file = temp_file.with_suffix('.pdf')
+                    pdf_file = temp_file.with_suffix(".pdf")
                     try:
                         # If target PDF already exists, remove it first
                         if pdf_file.exists():
                             pdf_file.unlink()
                         temp_file.rename(pdf_file)
-                        logger.info(f"Temp file stabilized and renamed to PDF: {pdf_file}")
+                        logger.info(
+                            f"Temp file stabilized and renamed to PDF: {pdf_file}"
+                        )
                         return True
                     except Exception as e:
                         logger.warning(f"Failed to rename temp file: {e}")
                         # If rename failed because PDF now exists (concurrency), check it
-                        if pdf_file.exists(): return True
+                        if pdf_file.exists():
+                            return True
                         return False
-                
+
                 last_size = current_size
             except Exception as e:
                 logger.debug(f"Error checking temp file status: {e}")
-                
-            time.sleep(2)
+
+            time.sleep(ConfigConstants.get_timeout("temp_file_check_interval"))
 
         logger.error(f"Temp file did not stabilize after {max_wait}s")
         return False
@@ -901,7 +979,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         # Check if source and target files are the same
         target_path = Path(save_path)
         if source_file.resolve() == target_path.resolve():
-            logger.debug(f"Source and target files are the same, no need to move: {source_file}")
+            logger.debug(
+                f"Source and target files are the same, no need to move: {source_file}"
+            )
             # Still need to verify file size
             if source_file.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
                 logger.info(f"File in place: {save_path}")
@@ -912,7 +992,10 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         try:
             # Check if source file exists and is accessible
-            if not source_file.exists() or source_file.stat().st_size <= FileSizeThreshold.MIN_VALID_PDF:
+            if (
+                not source_file.exists()
+                or source_file.stat().st_size <= FileSizeThreshold.MIN_VALID_PDF
+            ):
                 logger.debug(f"Invalid source file: does not exist or size too small")
                 return False
 
@@ -922,7 +1005,10 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             shutil.move(str(source_file), save_path)
 
             # Verify if move was successful
-            if target_path.exists() and target_path.stat().st_size > FileSizeThreshold.MIN_VALID_PDF:
+            if (
+                target_path.exists()
+                and target_path.stat().st_size > FileSizeThreshold.MIN_VALID_PDF
+            ):
                 logger.debug(f"File moved successfully: {save_path}")
                 logger.info(f"File download successful: {save_path}")
 
@@ -936,7 +1022,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
                 return True
             else:
-                logger.debug(f"File move failed: target file does not exist or size abnormal")
+                logger.debug(
+                    f"File move failed: target file does not exist or size abnormal"
+                )
                 return False
 
         except Exception as move_error:
@@ -954,7 +1042,10 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             bool: Whether file exists
         """
         logger.debug(f"save_path type: {type(save_path)}, value: {save_path}")
-        if os.path.exists(save_path) and os.path.getsize(save_path) > FileSizeThreshold.MIN_VALID_PDF:
+        if (
+            os.path.exists(save_path)
+            and os.path.getsize(save_path) > FileSizeThreshold.MIN_VALID_PDF
+        ):
             logger.info(f"File already downloaded: {save_path}")
             return True
         return False
@@ -971,13 +1062,15 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         if self.download_dir and os.path.exists(self.download_dir):
             for root, dirs, files in os.walk(self.download_dir):
                 for file in files:
-                    if file.endswith('.crdownload') or file.endswith('.tmp'):
+                    if file.endswith(".crdownload") or file.endswith(".tmp"):
                         temp_files.append(os.path.join(root, file))
 
         # Output progress info
         elapsed = time.time() - start_time
         if elapsed > 10 and elapsed % 10 < 1:  # Output status every 10 seconds
-            logger.info(f"Download status: Waited {elapsed:.1f}s, Temp files: {len(temp_files)}")
+            logger.info(
+                f"Download status: Waited {elapsed:.1f}s, Temp files: {len(temp_files)}"
+            )
             if self.download_dir and os.path.exists(self.download_dir):
                 current_files = list(Path(self.download_dir).rglob(r"*\*"))
                 logger.info(f"Current files in download dir: {len(current_files)}")
@@ -1038,17 +1131,27 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.common.exceptions import (
+                NoSuchElementException,
+                TimeoutException,
+            )
             from selenium.webdriver.common.by import By
-            from selenium.common.exceptions import TimeoutException, NoSuchElementException
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.webdriver.support.ui import WebDriverWait
+
             from ..utils.debug_marker import DebugMarker
 
             # DEBUG MARKER: Start pagination attempt
             marker = DebugMarker("pagination")
-            marker.add_step("pagination_start", "Start pagination operation", {
-                "current_url": self.driver.current_url if self.driver else "no_driver"
-            })
+            marker.add_step(
+                "pagination_start",
+                "Start pagination operation",
+                {
+                    "current_url": (
+                        self.driver.current_url if self.driver else "no_driver"
+                    )
+                },
+            )
 
             next_selectors = [
                 # Primary selector - verified by diagnostic results
@@ -1061,100 +1164,146 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 # Backup selectors
                 "button.el-pagination__next:not([disabled])",
                 ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)"
+                "a[aria-label='下一页']:not(.disabled)",
             ]
 
-            marker.add_step("selectors_defined", "Selector list defined", {
-                "selectors_count": len(next_selectors)
-            })
+            marker.add_step(
+                "selectors_defined",
+                "Selector list defined",
+                {"selectors_count": len(next_selectors)},
+            )
 
             for idx, selector in enumerate(next_selectors):
                 try:
-                    marker.add_step(f"try_selector_{idx}", f"Try selector {idx}", {
-                        "selector": selector
-                    })
+                    marker.add_step(
+                        f"try_selector_{idx}",
+                        f"Try selector {idx}",
+                        {"selector": selector},
+                    )
 
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    marker.add_step(f"found_element_{idx}", f"Found element {idx}", {
-                        "selector": selector,
-                        "enabled": next_button.is_enabled() if next_button else None,
-                        "displayed": next_button.is_displayed() if next_button else None,
-                        "text": next_button.text if next_button else None
-                    })
+                    marker.add_step(
+                        f"found_element_{idx}",
+                        f"Found element {idx}",
+                        {
+                            "selector": selector,
+                            "enabled": (
+                                next_button.is_enabled() if next_button else None
+                            ),
+                            "displayed": (
+                                next_button.is_displayed() if next_button else None
+                            ),
+                            "text": next_button.text if next_button else None,
+                        },
+                    )
 
-                    if next_button and next_button.is_enabled() and next_button.is_displayed():
+                    if (
+                        next_button
+                        and next_button.is_enabled()
+                        and next_button.is_displayed()
+                    ):
                         # Scroll to element
-                        self.driver.execute_script("arguments[0].scrollIntoView();", next_button)
+                        self.driver.execute_script(
+                            "arguments[0].scrollIntoView();", next_button
+                        )
                         time.sleep(TimeoutConfig.SCROLL_DELAY)
 
-                        marker.add_step(f"clicking_{idx}", f"Clicking next page button {idx}", {
-                            "selector": selector,
-                            "button_text": next_button.text
-                        })
+                        marker.add_step(
+                            f"clicking_{idx}",
+                            f"Clicking next page button {idx}",
+                            {"selector": selector, "button_text": next_button.text},
+                        )
 
                         # Click next page
                         next_button.click()
 
-                        marker.add_step(f"clicked_{idx}", f"Clicked {idx}", {
-                            "selector": selector,
-                            "url_before_click": self.driver.current_url
-                        })
+                        marker.add_step(
+                            f"clicked_{idx}",
+                            f"Clicked {idx}",
+                            {
+                                "selector": selector,
+                                "url_before_click": self.driver.current_url,
+                            },
+                        )
 
                         # Wait for page load (independent try-catch, does not affect overall success)
                         try:
                             WebDriverWait(self.driver, timeout).until(
                                 EC.staleness_of(next_button)
                             )
-                            marker.add_step(f"page_loaded_{idx}", f"Page loaded {idx}", {
-                                "selector": selector
-                            })
+                            marker.add_step(
+                                f"page_loaded_{idx}",
+                                f"Page loaded {idx}",
+                                {"selector": selector},
+                            )
                         except TimeoutException:
-                            marker.add_step(f"page_load_timeout_{idx}", f"Page load timeout {idx} (but click successful)", {
-                                "selector": selector
-                            })
+                            marker.add_step(
+                                f"page_load_timeout_{idx}",
+                                f"Page load timeout {idx} (but click successful)",
+                                {"selector": selector},
+                            )
                             # Click successful, return True even if wait timeout
 
                         # CRITICAL: Add extra wait and URL verification
-                        time.sleep(TimeoutConfig.CLICK_STABILIZATION)  # Additional wait for page stabilization
+                        time.sleep(
+                            TimeoutConfig.CLICK_STABILIZATION
+                        )  # Additional wait for page stabilization
                         url_after_click = self.driver.current_url
-                        marker.add_step(f"url_after_click_{idx}", f"URL status after click", {
-                            "selector": selector,
-                            "url_after_click": url_after_click,
-                            "url_changed": url_after_click != self.driver.current_url if hasattr(self, '_last_url') else "unknown"
-                        })
+                        marker.add_step(
+                            f"url_after_click_{idx}",
+                            f"URL status after click",
+                            {
+                                "selector": selector,
+                                "url_after_click": url_after_click,
+                                "url_changed": (
+                                    url_after_click != self.driver.current_url
+                                    if hasattr(self, "_last_url")
+                                    else "unknown"
+                                ),
+                            },
+                        )
 
                         # Store current URL for next comparison
                         self._last_url = url_after_click
 
-                        marker.add_step("pagination_success", "Pagination successful", {
-                            "selector_used": selector,
-                            "final_url": url_after_click
-                        })
+                        marker.add_step(
+                            "pagination_success",
+                            "Pagination successful",
+                            {"selector_used": selector, "final_url": url_after_click},
+                        )
                         marker.save()
                         return True
 
                 except (NoSuchElementException, TimeoutException) as e:
-                    marker.add_step(f"selector_failed_{idx}", f"Selector {idx} failed", {
-                        "selector": selector,
-                        "error": str(e)
-                    })
+                    marker.add_step(
+                        f"selector_failed_{idx}",
+                        f"Selector {idx} failed",
+                        {"selector": selector, "error": str(e)},
+                    )
                     continue
                 except Exception as e:
-                    marker.add_step(f"unexpected_error_{idx}", f"Selector {idx} exception", {
-                        "selector": selector,
-                        "error": str(e)
-                    })
+                    marker.add_step(
+                        f"unexpected_error_{idx}",
+                        f"Selector {idx} exception",
+                        {"selector": selector, "error": str(e)},
+                    )
                     continue
 
-            marker.add_step("pagination_failed", "Next page button not found or reached last page", {})
+            marker.add_step(
+                "pagination_failed",
+                "Next page button not found or reached last page",
+                {},
+            )
             marker.save()
             logger.info("Next page button not found or reached last page")
             return False
 
         except Exception as e:
-            marker.add_step("pagination_exception", "Pagination operation exception", {
-                "error": str(e)
-            })
+            marker.add_step(
+                "pagination_exception",
+                "Pagination operation exception",
+                {"error": str(e)},
+            )
             marker.save()
             logger.error(f"Failed to go to next page: {e}")
             return False
@@ -1175,35 +1324,44 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.common.exceptions import (
+                NoSuchElementException,
+                TimeoutException,
+            )
             from selenium.webdriver.common.by import By
-            from selenium.common.exceptions import TimeoutException, NoSuchElementException
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.webdriver.support.ui import WebDriverWait
 
             # Method 1: Find page input box and go button
             page_input_selectors = [
                 "input.el-pagination__editor",
                 "input.page-input",
                 "input[type='number']",
-                "input.pagination-input"
+                "input.pagination-input",
             ]
 
             go_button_selectors = [
                 "button.el-pagination__jump",
                 "button.page-go",
                 "button:contains('跳转')",
-                "button:contains('Go')"
+                "button:contains('Go')",
             ]
 
-            for input_selector, button_selector in zip(page_input_selectors, go_button_selectors):
+            for input_selector, button_selector in zip(
+                page_input_selectors, go_button_selectors
+            ):
                 try:
                     # Find page input box
-                    page_input = self.driver.find_element(By.CSS_SELECTOR, input_selector)
+                    page_input = self.driver.find_element(
+                        By.CSS_SELECTOR, input_selector
+                    )
                     if not page_input.is_enabled() or not page_input.is_displayed():
                         continue
 
                     # Find go button
-                    go_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
+                    go_button = self.driver.find_element(
+                        By.CSS_SELECTOR, button_selector
+                    )
                     if not go_button.is_enabled() or not go_button.is_displayed():
                         continue
 
@@ -1230,7 +1388,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 f".el-pager li.number:not(.active)",
                 f".pagination li:not(.active)",
                 f"a:not(.active)",
-                f"button:not([disabled])"
+                f"button:not([disabled])",
             ]
 
             for selector in page_button_selectors:
@@ -1241,7 +1399,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                             button_text = page_button.text.strip()
                             if button_text == str(page_number):
                                 # Scroll to element
-                                self.driver.execute_script("arguments[0].scrollIntoView();", page_button)
+                                self.driver.execute_script(
+                                    "arguments[0].scrollIntoView();", page_button
+                                )
                                 time.sleep(TimeoutConfig.SCROLL_DELAY)
 
                                 # Click page button
@@ -1249,7 +1409,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
                                 # Wait for page load
                                 time.sleep(TimeoutConfig.LONG_WAIT)
-                                logger.info(f"Successfully jumped to page {page_number}")
+                                logger.info(
+                                    f"Successfully jumped to page {page_number}"
+                                )
                                 return True
 
                 except (NoSuchElementException, TimeoutException):
@@ -1277,20 +1439,25 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            from selenium.webdriver.common.by import By
-            from selenium.common.exceptions import TimeoutException, NoSuchElementException
-            from ..utils.debug_marker import DebugMarker
             import time
+
+            from selenium.common.exceptions import (
+                NoSuchElementException,
+                TimeoutException,
+            )
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+
+            from ..utils.debug_marker import DebugMarker
 
             # DEBUG MARKER: Start has_next_page check
             marker = DebugMarker("has_next_page")
             current_url = self.driver.current_url if self.driver else "no_driver"
-            marker.add_step("check_start", "Start checking next page", {
-                "current_url": current_url,
-                "timestamp": time.time()
-            })
+            marker.add_step(
+                "check_start",
+                "Start checking next page",
+                {"current_url": current_url, "timestamp": time.time()},
+            )
 
             # CRITICAL FIX: Add wait mechanism to ensure DOM is ready after previous pagination
             # This is the key difference from go_to_next_page() that was causing validation failures
@@ -1300,24 +1467,46 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             # Also wait for any pending network requests or DOM updates
             try:
                 WebDriverWait(self.driver, 2).until(
-                    lambda d: d.execute_script("return document.readyState") == "complete"
+                    lambda d: d.execute_script("return document.readyState")
+                    == "complete"
                 )
-                marker.add_step("dom_ready", "DOM ready", {
-                    "current_url_after_wait": self.driver.current_url if self.driver else "no_driver"
-                })
+                marker.add_step(
+                    "dom_ready",
+                    "DOM ready",
+                    {
+                        "current_url_after_wait": (
+                            self.driver.current_url if self.driver else "no_driver"
+                        )
+                    },
+                )
             except TimeoutException:
-                marker.add_step("dom_wait_timeout", "DOM wait timeout, continuing anyway", {
-                    "current_url_after_timeout": self.driver.current_url if self.driver else "no_driver"
-                })
+                marker.add_step(
+                    "dom_wait_timeout",
+                    "DOM wait timeout, continuing anyway",
+                    {
+                        "current_url_after_timeout": (
+                            self.driver.current_url if self.driver else "no_driver"
+                        )
+                    },
+                )
 
             # DEBUG: Check page content before selector search
             try:
-                page_source_preview = self.driver.page_source[:500] if self.driver else ""
-                marker.add_step("page_source_check", "Page source preview", {
-                    "length": len(page_source_preview),
-                    "has_pagination": "el-pager" in page_source_preview or "pagination" in page_source_preview,
-                    "current_url_final": self.driver.current_url if self.driver else "no_driver"
-                })
+                page_source_preview = (
+                    self.driver.page_source[:500] if self.driver else ""
+                )
+                marker.add_step(
+                    "page_source_check",
+                    "Page source preview",
+                    {
+                        "length": len(page_source_preview),
+                        "has_pagination": "el-pager" in page_source_preview
+                        or "pagination" in page_source_preview,
+                        "current_url_final": (
+                            self.driver.current_url if self.driver else "no_driver"
+                        ),
+                    },
+                )
             except:
                 pass
 
@@ -1332,12 +1521,14 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 # Backup selectors
                 "button.el-pagination__next:not([disabled])",
                 ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)"
+                "a[aria-label='下一页']:not(.disabled)",
             ]
 
-            marker.add_step("selectors_defined", "Selector list defined", {
-                "selectors_count": len(next_selectors)
-            })
+            marker.add_step(
+                "selectors_defined",
+                "Selector list defined",
+                {"selectors_count": len(next_selectors)},
+            )
 
             for idx, selector in enumerate(next_selectors):
                 try:
@@ -1346,29 +1537,46 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         time.sleep(TimeoutConfig.SELECTOR_RETRY)
 
                     next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    marker.add_step(f"check_selector_{idx}", f"Check selector {idx}", {
-                        "selector": selector,
-                        "found": next_button is not None,
-                        "enabled": next_button.is_enabled() if next_button else None,
-                        "displayed": next_button.is_displayed() if next_button else None
-                    })
+                    marker.add_step(
+                        f"check_selector_{idx}",
+                        f"Check selector {idx}",
+                        {
+                            "selector": selector,
+                            "found": next_button is not None,
+                            "enabled": (
+                                next_button.is_enabled() if next_button else None
+                            ),
+                            "displayed": (
+                                next_button.is_displayed() if next_button else None
+                            ),
+                        },
+                    )
 
-                    if next_button and next_button.is_enabled() and next_button.is_displayed():
-                        marker.add_step("has_next_page_true", "Detected next page button", {
-                            "selector": selector
-                        })
+                    if (
+                        next_button
+                        and next_button.is_enabled()
+                        and next_button.is_displayed()
+                    ):
+                        marker.add_step(
+                            "has_next_page_true",
+                            "Detected next page button",
+                            {"selector": selector},
+                        )
                         marker.save()
                         return True
                 except (NoSuchElementException, TimeoutException):
-                    marker.add_step(f"selector_not_found_{idx}", f"Selector {idx} not found", {
-                        "selector": selector
-                    })
+                    marker.add_step(
+                        f"selector_not_found_{idx}",
+                        f"Selector {idx} not found",
+                        {"selector": selector},
+                    )
                     continue
                 except Exception as e:
-                    marker.add_step(f"selector_error_{idx}", f"Selector {idx} error", {
-                        "selector": selector,
-                        "error": str(e)
-                    })
+                    marker.add_step(
+                        f"selector_error_{idx}",
+                        f"Selector {idx} error",
+                        {"selector": selector, "error": str(e)},
+                    )
                     continue
 
             marker.add_step("has_next_page_false", "Next page button not found", {})
@@ -1376,9 +1584,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return False
 
         except Exception as e:
-            marker.add_step("check_exception", "Exception checking next page", {
-                "error": str(e)
-            })
+            marker.add_step(
+                "check_exception", "Exception checking next page", {"error": str(e)}
+            )
             marker.save()
             logger.warning(f"Failed to check next page: {e}")
             return False

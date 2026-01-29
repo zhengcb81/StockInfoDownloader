@@ -6,6 +6,7 @@
 提供统一的常量管理，消除硬编码，提高配置的可维护性和可扩展性
 """
 
+
 # =============================================================================
 # 超时时间配置（秒）
 # =============================================================================
@@ -103,8 +104,8 @@ class FileConfig:
     """文件相关配置"""
 
     MIN_FILE_SIZE = 10 * 1024  # 最小文件大小：10KB
-    TEMP_EXTENSIONS = ['.tmp', '.crdownload', '.partial', '.download']  # 临时文件扩展名
-    PDF_EXTENSION = '.pdf'  # PDF文件扩展名
+    TEMP_EXTENSIONS = [".tmp", ".crdownload", ".partial", ".download"]  # 临时文件扩展名
+    PDF_EXTENSION = ".pdf"  # PDF文件扩展名
     MAX_FILE_AGE = 300  # 最大文件年龄（秒）
     DOWNLOAD_CHECK_INTERVAL = 0.5  # 下载检查间隔（秒）
     DOWNLOAD_STABILITY_WAIT = 1  # 文件稳定性等待时间（秒）
@@ -134,15 +135,15 @@ class SelectorConfig:
         "//button[contains(., '下载')]",
         "//a[contains(., '公告下载')]",
         "//a[contains(., '下载')]",
-        "//span[contains(., '公告下载')]/..", # Element UI button with span
+        "//span[contains(., '公告下载')]/..",  # Element UI button with span
         "//span[contains(., '下载')]/..",
         "//button[contains(., 'PDF')]",
         "//a[contains(., 'PDF')]",
-        "button i.el-icon-download", # Element UI download icon
+        "button i.el-icon-download",  # Element UI download icon
         ".download-btn",
         ".pdf-download",
         "button.download",
-        "a.download"
+        "a.download",
     ]
 
     # 下一页选择器（按优先级排序）
@@ -162,14 +163,14 @@ class SelectorConfig:
         "input.el-pagination__editor",
         "input.page-input",
         "input[type='number']",
-        "input.pagination-input"
+        "input.pagination-input",
     ]
 
     GO_BUTTON_SELECTORS = [
         "button.el-pagination__jump",
         "button.page-go",
         "button:contains('跳转')",
-        "button:contains('Go')"
+        "button:contains('Go')",
     ]
 
     # 页码按钮
@@ -177,7 +178,7 @@ class SelectorConfig:
         ".el-pager li.number:not(.active)",
         ".pagination li:not(.active)",
         "a:not(.active)",
-        "button:not([disabled])"
+        "button:not([disabled])",
     ]
 
 
@@ -185,11 +186,11 @@ class SelectorConfig:
 # 用户代理列表
 # =============================================================================
 USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 ]
 
 
@@ -198,45 +199,37 @@ USER_AGENTS = [
 # =============================================================================
 CHROME_LAUNCH_ARGS = [
     # 沙箱和共享内存
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
     # 硬件加速
-    '--disable-gpu',
-
+    "--disable-gpu",
     # 扩展和自动化检测
-    '--disable-extensions',
-    '--disable-blink-features=AutomationControlled',
-
+    "--disable-extensions",
+    "--disable-blink-features=AutomationControlled",
     # 调试和端口
-    '--remote-debugging-port=0',
-
+    "--remote-debugging-port=0",
     # 首次运行检查
-    '--no-first-run',
-    '--no-default-browser-check',
-
+    "--no-first-run",
+    "--no-default-browser-check",
     # 性能优化
-    '--disable-background-timer-throttling',
-    '--disable-backgrounding-occluded-windows',
-    '--disable-renderer-backgrounding',
-
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
     # 功能禁用
-    '--disable-sync',
-    '--disable-translate',
-    '--disable-default-apps',
-    '--disable-notifications',
-    '--disable-popup-blocking',
-
+    "--disable-sync",
+    "--disable-translate",
+    "--disable-default-apps",
+    "--disable-notifications",
+    "--disable-popup-blocking",
     # 日志级别
-    '--log-level=3',
-
+    "--log-level=3",
     # 特性开关
-    '--disable-features=TranslateUI',
-    '--disable-component-extensions-with-background-pages',
-    '--disable-domain-reliability',
-    '--disable-setuid-sandbox',
-    '--disable-features=VizDisplayCompositor',
-    '--disable-ipc-flooding-protection',
+    "--disable-features=TranslateUI",
+    "--disable-component-extensions-with-background-pages",
+    "--disable-domain-reliability",
+    "--disable-setuid-sandbox",
+    "--disable-features=VizDisplayCompositor",
+    "--disable-ipc-flooding-protection",
 ]
 
 
@@ -248,10 +241,10 @@ class PlaywrightConfig:
 
     # 上下文选项
     CONTEXT_OPTIONS = {
-        'viewport': {'width': 1920, 'height': 1080},
-        'java_script_enabled': True,
-        'ignore_https_errors': False,
-        'accept_downloads': True,
+        "viewport": {"width": 1920, "height": 1080},
+        "java_script_enabled": True,
+        "ignore_https_errors": False,
+        "accept_downloads": True,
     }
 
     # 反检测脚本
@@ -262,7 +255,7 @@ class PlaywrightConfig:
     """
 
     # 等待状态
-    WAIT_STATE = 'domcontentloaded'
+    WAIT_STATE = "domcontentloaded"
 
     # 下载事件超时（毫秒）
     DOWNLOAD_TIMEOUT = 30000
@@ -275,12 +268,14 @@ class SeleniumConfig:
     """Selenium浏览器配置"""
 
     # 反检测脚本
-    ANTI_DETECTION_SCRIPT = "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    ANTI_DETECTION_SCRIPT = (
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    )
 
     # 实验选项
     EXPERIMENTAL_OPTIONS = {
         "excludeSwitches": ["enable-automation"],
-        "useAutomationExtension": False
+        "useAutomationExtension": False,
     }
 
     # 下载偏好设置
@@ -294,7 +289,7 @@ class SeleniumConfig:
         "profile.content_settings.exceptions.automatic_downloads.*.setting": 1,
         "download_restrictions": 0,
         "credentials_enable_service": False,
-        "password_manager_enabled": False
+        "password_manager_enabled": False,
     }
 
 
@@ -305,19 +300,14 @@ class EnvironmentConfig:
     """环境相关配置"""
 
     # 测试环境检测
-    TEST_ENVIRONMENT_INDICATORS = [
-        'TEST_ENV',
-        'PYTEST_CURRENT_TEST',
-        'pytest',
-        'test'
-    ]
+    TEST_ENVIRONMENT_INDICATORS = ["TEST_ENV", "PYTEST_CURRENT_TEST", "pytest", "test"]
 
     # 日志级别
-    LOG_LEVEL_DEBUG = 'DEBUG'
-    LOG_LEVEL_INFO = 'INFO'
-    LOG_LEVEL_WARNING = 'WARNING'
-    LOG_LEVEL_ERROR = 'ERROR'
-    LOG_LEVEL_CRITICAL = 'CRITICAL'
+    LOG_LEVEL_DEBUG = "DEBUG"
+    LOG_LEVEL_INFO = "INFO"
+    LOG_LEVEL_WARNING = "WARNING"
+    LOG_LEVEL_ERROR = "ERROR"
+    LOG_LEVEL_CRITICAL = "CRITICAL"
 
 
 # =============================================================================
@@ -331,22 +321,22 @@ class ErrorConfig:
 
     # 错误恢复策略
     RECOVERY_STRATEGIES = {
-        'NONE': '无恢复',
-        'RETRY': '重试',
-        'FALLBACK': '降级',
-        'SKIP': '跳过',
-        'TERMINATE': '终止',
-        'MANUAL': '手动处理'
+        "NONE": "无恢复",
+        "RETRY": "重试",
+        "FALLBACK": "降级",
+        "SKIP": "跳过",
+        "TERMINATE": "终止",
+        "MANUAL": "手动处理",
     }
 
     # 严重级别
     SEVERITY_LEVELS = {
-        'DEBUG': '调试',
-        'INFO': '信息',
-        'WARNING': '警告',
-        'ERROR': '错误',
-        'CRITICAL': '严重',
-        'FATAL': '致命'
+        "DEBUG": "调试",
+        "INFO": "信息",
+        "WARNING": "警告",
+        "ERROR": "错误",
+        "CRITICAL": "严重",
+        "FATAL": "致命",
     }
 
 
@@ -361,10 +351,10 @@ class PerformanceConfig:
 
     # 性能阈值
     THRESHOLDS = {
-        'initialization_time': 2.0,  # 秒
-        'config_loading_time': 0.5,  # 秒
-        'constant_access_time': 0.1,  # 1000次访问秒
-        'method_execution_time': 5.0,  # 秒
+        "initialization_time": 2.0,  # 秒
+        "config_loading_time": 0.5,  # 秒
+        "constant_access_time": 0.1,  # 1000次访问秒
+        "method_execution_time": 5.0,  # 秒
     }
 
     # 监控间隔
@@ -448,11 +438,7 @@ class BusinessConfig:
     FILENAME_PATTERN = "{stock_code}_{company_name}_{date}_{doc_type}.pdf"
 
     # 支持的文档类型
-    SUPPORTED_DOC_TYPES = ['公告', '报告', '摘要']
+    SUPPORTED_DOC_TYPES = ["公告", "报告", "摘要"]
 
     # 默认查询参数
-    DEFAULT_SEARCH_PARAMS = {
-        'pageNum': 1,
-        'pageSize': 30,
-        'category': 'announcement'
-    }
+    DEFAULT_SEARCH_PARAMS = {"pageNum": 1, "pageSize": 30, "category": "announcement"}

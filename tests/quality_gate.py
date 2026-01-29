@@ -6,12 +6,13 @@
 定义测试质量标准和门禁规则
 """
 
+import json
 import os
 import sys
-import json
-import pytest
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict
+
+import pytest
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
@@ -27,13 +28,11 @@ class TestQualityGate:
 
     def __init__(self):
         self.quality_standards = {
-            'coverage_threshold': 80.0,  # 覆盖率阈值
-            'test_pass_rate': 95.0,      # 测试通过率阈值
-            'max_execution_time': 300,   # 最大执行时间（秒）
-            'min_test_count': 100,       # 最小测试数量
-            'required_test_categories': [
-                'unit', 'integration', 'e2e'
-            ]
+            "coverage_threshold": 80.0,  # 覆盖率阈值
+            "test_pass_rate": 95.0,  # 测试通过率阈值
+            "max_execution_time": 300,  # 最大执行时间（秒）
+            "min_test_count": 100,  # 最小测试数量
+            "required_test_categories": ["unit", "integration", "e2e"],
         }
 
         self.test_results = {}
@@ -46,19 +45,27 @@ class TestQualityGate:
         # 运行测试并收集结果
         try:
             import subprocess
-            result = subprocess.run([
-                'python', '-m', 'pytest',
-                'tests/',
-                '--tb=short',
-                '--json-report',
-                '--json-report-file=test_results.json'
-            ], capture_output=True, text=True, timeout=600)
+
+            result = subprocess.run(
+                [
+                    "python",
+                    "-m",
+                    "pytest",
+                    "tests/",
+                    "--tb=short",
+                    "--json-report",
+                    "--json-report-file=test_results.json",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
 
             # 读取测试结果文件
-            if os.path.exists('test_results.json'):
-                with open('test_results.json', 'r', encoding='utf-8') as f:
+            if os.path.exists("test_results.json"):
+                with open("test_results.json", "r", encoding="utf-8") as f:
                     self.test_results = json.load(f)
-                os.remove('test_results.json')
+                os.remove("test_results.json")
 
             return self.test_results
 
@@ -78,7 +85,7 @@ class TestQualityGate:
             cov.start()
 
             # 运行测试
-            pytest.main(['tests/', '--tb=short'])
+            pytest.main(["tests/", "--tb=short"])
 
             cov.stop()
             cov.save()
@@ -90,18 +97,21 @@ class TestQualityGate:
             total_statements = cov.get_data().measured_files()
             covered_statements = cov.get_data().executed_files()
 
-            coverage_percentage = (len(covered_statements) / len(total_statements)) * 100
+            coverage_percentage = (
+                len(covered_statements) / len(total_statements)
+            ) * 100
 
             return {
-                'coverage_percentage': coverage_percentage,
-                'total_files': len(total_statements),
-                'covered_files': len(covered_statements),
-                'meets_standard': coverage_percentage >= self.quality_standards['coverage_threshold']
+                "coverage_percentage": coverage_percentage,
+                "total_files": len(total_statements),
+                "covered_files": len(covered_statements),
+                "meets_standard": coverage_percentage
+                >= self.quality_standards["coverage_threshold"],
             }
 
         except Exception as e:
             logger.error(f"检查覆盖率失败: {e}")
-            return {'coverage_percentage': 0, 'meets_standard': False}
+            return {"coverage_percentage": 0, "meets_standard": False}
 
     def check_test_pass_rate(self) -> Dict[str, Any]:
         """检查测试通过率"""
@@ -110,10 +120,10 @@ class TestQualityGate:
         if not self.test_results:
             self.collect_test_results()
 
-        if 'summary' in self.test_results:
-            summary = self.test_results['summary']
-            total = summary.get('total', 0)
-            passed = summary.get('passed', 0)
+        if "summary" in self.test_results:
+            summary = self.test_results["summary"]
+            total = summary.get("total", 0)
+            passed = summary.get("passed", 0)
 
             if total > 0:
                 pass_rate = (passed / total) * 100
@@ -121,13 +131,13 @@ class TestQualityGate:
                 pass_rate = 0
 
             return {
-                'pass_rate': pass_rate,
-                'total_tests': total,
-                'passed_tests': passed,
-                'meets_standard': pass_rate >= self.quality_standards['test_pass_rate']
+                "pass_rate": pass_rate,
+                "total_tests": total,
+                "passed_tests": passed,
+                "meets_standard": pass_rate >= self.quality_standards["test_pass_rate"],
             }
 
-        return {'pass_rate': 0, 'meets_standard': False}
+        return {"pass_rate": 0, "meets_standard": False}
 
     def check_test_categories(self) -> Dict[str, Any]:
         """检查测试分类覆盖"""
@@ -136,7 +146,7 @@ class TestQualityGate:
         test_categories = {}
 
         # 统计不同分类的测试数量
-        for category in self.quality_standards['required_test_categories']:
+        for category in self.quality_standards["required_test_categories"]:
             category_path = f"tests/{category}"
             if os.path.exists(category_path):
                 # 计算该分类下的测试文件数量
@@ -148,13 +158,13 @@ class TestQualityGate:
         # 检查是否所有必需分类都有测试
         all_categories_covered = all(
             test_categories.get(cat, 0) > 0
-            for cat in self.quality_standards['required_test_categories']
+            for cat in self.quality_standards["required_test_categories"]
         )
 
         return {
-            'test_categories': test_categories,
-            'all_categories_covered': all_categories_covered,
-            'meets_standard': all_categories_covered
+            "test_categories": test_categories,
+            "all_categories_covered": all_categories_covered,
+            "meets_standard": all_categories_covered,
         }
 
     def check_execution_time(self) -> Dict[str, Any]:
@@ -164,42 +174,42 @@ class TestQualityGate:
         if not self.test_results:
             self.collect_test_results()
 
-        if 'summary' in self.test_results:
-            duration = self.test_results['summary'].get('duration', 0)
-            meets_standard = duration <= self.quality_standards['max_execution_time']
+        if "summary" in self.test_results:
+            duration = self.test_results["summary"].get("duration", 0)
+            meets_standard = duration <= self.quality_standards["max_execution_time"]
 
             return {
-                'execution_time': duration,
-                'max_allowed_time': self.quality_standards['max_execution_time'],
-                'meets_standard': meets_standard
+                "execution_time": duration,
+                "max_allowed_time": self.quality_standards["max_execution_time"],
+                "meets_standard": meets_standard,
             }
 
-        return {'execution_time': 0, 'meets_standard': False}
+        return {"execution_time": 0, "meets_standard": False}
 
     def run_quality_check(self) -> Dict[str, Any]:
         """运行完整的质量检查"""
         logger.info("开始运行测试质量检查...")
 
         self.quality_report = {
-            'coverage': self.check_coverage(),
-            'pass_rate': self.check_test_pass_rate(),
-            'test_categories': self.check_test_categories(),
-            'execution_time': self.check_execution_time(),
-            'overall_status': 'PASS'
+            "coverage": self.check_coverage(),
+            "pass_rate": self.check_test_pass_rate(),
+            "test_categories": self.check_test_categories(),
+            "execution_time": self.check_execution_time(),
+            "overall_status": "PASS",
         }
 
         # 检查总体状态
         all_checks_passed = all(
-            check['meets_standard']
+            check["meets_standard"]
             for check in [
-                self.quality_report['coverage'],
-                self.quality_report['pass_rate'],
-                self.quality_report['test_categories'],
-                self.quality_report['execution_time']
+                self.quality_report["coverage"],
+                self.quality_report["pass_rate"],
+                self.quality_report["test_categories"],
+                self.quality_report["execution_time"],
             ]
         )
 
-        self.quality_report['overall_status'] = 'PASS' if all_checks_passed else 'FAIL'
+        self.quality_report["overall_status"] = "PASS" if all_checks_passed else "FAIL"
 
         return self.quality_report
 
@@ -229,7 +239,7 @@ class TestQualityGate:
             f"   - 必需测试分类: {self.quality_standards['required_test_categories']}",
         ]
 
-        return '\n'.join(report_lines)
+        return "\n".join(report_lines)
 
     def enforce_quality_gate(self) -> bool:
         """强制执行质量门禁"""
@@ -237,7 +247,7 @@ class TestQualityGate:
 
         self.run_quality_check()
 
-        if self.quality_report['overall_status'] == 'FAIL':
+        if self.quality_report["overall_status"] == "FAIL":
             logger.error("测试质量门禁检查失败！")
             print(self.generate_report())
             return False

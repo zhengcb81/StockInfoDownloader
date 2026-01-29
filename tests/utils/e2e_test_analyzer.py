@@ -6,20 +6,19 @@
 分析真实环境下的测试结果，区分网络问题、网站变更和代码缺陷
 """
 
-import re
 import json
-import time
 import logging
-from enum import Enum
-from typing import Dict, List, Any, Optional, Tuple
-from pathlib import Path
+import re
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class FailureType(Enum):
     """失败类型枚举"""
+
     NETWORK_ERROR = "network_error"  # 网络问题
     WEBSITE_CHANGE = "website_change"  # 网站变更
     CODE_DEFECT = "code_defect"  # 代码缺陷
@@ -31,7 +30,13 @@ class FailureType(Enum):
 class E2EResultCategory:
     """测试结果分类"""
 
-    def __init__(self, test_name: str, success: bool, duration: float, error: Optional[str] = None):
+    def __init__(
+        self,
+        test_name: str,
+        success: bool,
+        duration: float,
+        error: Optional[str] = None,
+    ):
         self.test_name = test_name
         self.success = success
         self.duration = duration
@@ -44,7 +49,7 @@ class E2EResultCategory:
 
     def _extract_stock_code(self, test_name: str) -> Optional[str]:
         """从测试名称中提取股票代码"""
-        match = re.search(r'(\d{6})', test_name)
+        match = re.search(r"(\d{6})", test_name)
         return match.group(1) if match else None
 
 
@@ -60,72 +65,76 @@ class E2ETestAnalyzer:
     def generate_report(self) -> str:
         """生成并保存报告，返回报告路径"""
         analysis = self.analyze_batch(self.results)
-        report_path = f"e2e_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        report_path = (
+            f"e2e_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         self.export_report(analysis, report_path)
         return report_path
 
     def get_summary(self) -> Dict[str, Any]:
         """获取分析摘要"""
         analysis = self.analyze_batch(self.results)
-        return analysis.get("summary", {
-            "total_tests": 0,
-            "successful_tests": 0,
-            "failed_tests": 0
-        })
+        return analysis.get(
+            "summary", {"total_tests": 0, "successful_tests": 0, "failed_tests": 0}
+        )
 
-    def add_result(self, test_name: str, success: bool, duration: float, error: Optional[str] = None):
+    def add_result(
+        self,
+        test_name: str,
+        success: bool,
+        duration: float,
+        error: Optional[str] = None,
+    ):
         """添加测试结果"""
-        self.results.append({
-            "test_name": test_name,
-            "success": success,
-            "duration": duration,
-            "error": error
-        })
+        self.results.append(
+            {
+                "test_name": test_name,
+                "success": success,
+                "duration": duration,
+                "error": error,
+            }
+        )
 
     def _initialize_failure_patterns(self) -> Dict[str, FailureType]:
         """初始化失败模式识别规则"""
         return {
             # 网络相关错误
-            r'.*timeout.*': FailureType.TIMEOUT,
-            r'.*connection.*refused.*': FailureType.NETWORK_ERROR,
-            r'.*connection.*reset.*': FailureType.NETWORK_ERROR,
-            r'.*network.*unreachable.*': FailureType.NETWORK_ERROR,
-            r'.*dns.*': FailureType.NETWORK_ERROR,
-            r'.*ssl.*error.*': FailureType.NETWORK_ERROR,
-            r'.*certificate.*': FailureType.NETWORK_ERROR,
-            r'.*proxy.*error.*': FailureType.NETWORK_ERROR,
-
+            r".*timeout.*": FailureType.TIMEOUT,
+            r".*connection.*refused.*": FailureType.NETWORK_ERROR,
+            r".*connection.*reset.*": FailureType.NETWORK_ERROR,
+            r".*network.*unreachable.*": FailureType.NETWORK_ERROR,
+            r".*dns.*": FailureType.NETWORK_ERROR,
+            r".*ssl.*error.*": FailureType.NETWORK_ERROR,
+            r".*certificate.*": FailureType.NETWORK_ERROR,
+            r".*proxy.*error.*": FailureType.NETWORK_ERROR,
             # 网站变更相关错误
-            r'.*element.*not.*found.*': FailureType.WEBSITE_CHANGE,
-            r'.*no.*such.*element.*': FailureType.WEBSITE_CHANGE,
-            r'.*xpath.*not.*found.*': FailureType.WEBSITE_CHANGE,
-            r'.*selector.*not.*found.*': FailureType.WEBSITE_CHANGE,
-            r'.*stale.*element.*reference.*': FailureType.WEBSITE_CHANGE,
-            r'.*unable.*to.*locate.*': FailureType.WEBSITE_CHANGE,
-            r'.*page.*structure.*': FailureType.WEBSITE_CHANGE,
-            r'.*404.*not.*found.*': FailureType.WEBSITE_CHANGE,
-            r'.*503.*service.*unavailable.*': FailureType.WEBSITE_CHANGE,
-            r'.*url.*not.*found.*': FailureType.WEBSITE_CHANGE,
-
+            r".*element.*not.*found.*": FailureType.WEBSITE_CHANGE,
+            r".*no.*such.*element.*": FailureType.WEBSITE_CHANGE,
+            r".*xpath.*not.*found.*": FailureType.WEBSITE_CHANGE,
+            r".*selector.*not.*found.*": FailureType.WEBSITE_CHANGE,
+            r".*stale.*element.*reference.*": FailureType.WEBSITE_CHANGE,
+            r".*unable.*to.*locate.*": FailureType.WEBSITE_CHANGE,
+            r".*page.*structure.*": FailureType.WEBSITE_CHANGE,
+            r".*404.*not.*found.*": FailureType.WEBSITE_CHANGE,
+            r".*503.*service.*unavailable.*": FailureType.WEBSITE_CHANGE,
+            r".*url.*not.*found.*": FailureType.WEBSITE_CHANGE,
             # 代码缺陷相关错误
-            r'.*index.*out.*of.*range.*': FailureType.CODE_DEFECT,
-            r'.*key.*error.*': FailureType.CODE_DEFECT,
-            r'.*attribute.*error.*': FailureType.CODE_DEFECT,
-            r'.*type.*error.*': FailureType.CODE_DEFECT,
-            r'.*value.*error.*': FailureType.CODE_DEFECT,
-            r'.*none.*type.*': FailureType.CODE_DEFECT,
-            r'.*assertion.*error.*': FailureType.CODE_DEFECT,
-            r'.*logic.*error.*': FailureType.CODE_DEFECT,
-
+            r".*index.*out.*of.*range.*": FailureType.CODE_DEFECT,
+            r".*key.*error.*": FailureType.CODE_DEFECT,
+            r".*attribute.*error.*": FailureType.CODE_DEFECT,
+            r".*type.*error.*": FailureType.CODE_DEFECT,
+            r".*value.*error.*": FailureType.CODE_DEFECT,
+            r".*none.*type.*": FailureType.CODE_DEFECT,
+            r".*assertion.*error.*": FailureType.CODE_DEFECT,
+            r".*logic.*error.*": FailureType.CODE_DEFECT,
             # 超时
-            r'.*time.*out.*': FailureType.TIMEOUT,
-            r'.*exceeded.*max.*time.*': FailureType.TIMEOUT,
-            r'.*wait.*timeout.*': FailureType.TIMEOUT,
-
+            r".*time.*out.*": FailureType.TIMEOUT,
+            r".*exceeded.*max.*time.*": FailureType.TIMEOUT,
+            r".*wait.*timeout.*": FailureType.TIMEOUT,
             # 外部服务
-            r'.*external.*service.*': FailureType.EXTERNAL_SERVICE,
-            r'.*third.*party.*': FailureType.EXTERNAL_SERVICE,
-            r'.*api.*error.*': FailureType.EXTERNAL_SERVICE,
+            r".*external.*service.*": FailureType.EXTERNAL_SERVICE,
+            r".*third.*party.*": FailureType.EXTERNAL_SERVICE,
+            r".*api.*error.*": FailureType.EXTERNAL_SERVICE,
         }
 
     def _initialize_website_patterns(self) -> List[str]:
@@ -159,9 +168,14 @@ class E2ETestAnalyzer:
             "connection error",
         ]
 
-    def analyze_result(self, test_name: str, success: bool, duration: float,
-                       error_message: Optional[str] = None,
-                       stack_trace: Optional[str] = None) -> E2EResultCategory:
+    def analyze_result(
+        self,
+        test_name: str,
+        success: bool,
+        duration: float,
+        error_message: Optional[str] = None,
+        stack_trace: Optional[str] = None,
+    ) -> E2EResultCategory:
         """分析单个测试结果"""
         result = E2EResultCategory(test_name, success, duration, error_message)
 
@@ -170,9 +184,12 @@ class E2ETestAnalyzer:
 
         return result
 
-    def _classify_failure(self, result: E2EResultCategory,
-                         error_message: str,
-                         stack_trace: Optional[str] = None):
+    def _classify_failure(
+        self,
+        result: E2EResultCategory,
+        error_message: str,
+        stack_trace: Optional[str] = None,
+    ):
         """分类失败原因"""
         error_lower = error_message.lower()
         stack_lower = stack_trace.lower() if stack_trace else ""
@@ -187,7 +204,11 @@ class E2ETestAnalyzer:
                 # 计算置信度（基于匹配长度）
                 match = re.search(pattern, combined_text, re.IGNORECASE)
                 if match:
-                    confidence = len(match.group(0)) / len(error_lower) if len(error_lower) > 0 else 0.5
+                    confidence = (
+                        len(match.group(0)) / len(error_lower)
+                        if len(error_lower) > 0
+                        else 0.5
+                    )
                     if confidence > max_confidence:
                         max_confidence = confidence
                         best_match = failure_type
@@ -222,7 +243,9 @@ class E2ETestAnalyzer:
             error = result_data.get("error")
             stack_trace = result_data.get("stack_trace")
 
-            analyzed = self.analyze_result(test_name, success, duration, error, stack_trace)
+            analyzed = self.analyze_result(
+                test_name, success, duration, error, stack_trace
+            )
             analyzed_results.append(analyzed)
 
             if not success:
@@ -234,8 +257,9 @@ class E2ETestAnalyzer:
             "summary": self._generate_summary(analyzed_results, failure_stats),
         }
 
-    def _generate_summary(self, results: List[E2EResultCategory],
-                         failure_stats: Dict[FailureType, int]) -> Dict[str, Any]:
+    def _generate_summary(
+        self, results: List[E2EResultCategory], failure_stats: Dict[FailureType, int]
+    ) -> Dict[str, Any]:
         """生成分析摘要"""
         total = len(results)
         passed = sum(1 for r in results if r.success)
@@ -258,7 +282,7 @@ class E2ETestAnalyzer:
                 if result.stock_code not in problematic_stocks:
                     problematic_stocks[result.stock_code] = {
                         "failure_count": 0,
-                        "failure_types": set()
+                        "failure_types": set(),
                     }
                 problematic_stocks[result.stock_code]["failure_count"] += 1
                 if result.failure_type:
@@ -333,17 +357,21 @@ class E2ETestAnalyzer:
         # 转换E2EResultCategory对象为可序列化的字典
         results_data = []
         for result in analysis_results["analyzed_results"]:
-            results_data.append({
-                "test_name": result.test_name,
-                "success": result.success,
-                "duration": result.duration,
-                "error": result.error,
-                "failure_type": result.failure_type.value if result.failure_type else None,
-                "stock_code": result.stock_code,
-                "suggested_fix": result.suggested_fix,
-                "confidence": result.confidence,
-                "timestamp": result.timestamp,
-            })
+            results_data.append(
+                {
+                    "test_name": result.test_name,
+                    "success": result.success,
+                    "duration": result.duration,
+                    "error": result.error,
+                    "failure_type": (
+                        result.failure_type.value if result.failure_type else None
+                    ),
+                    "stock_code": result.stock_code,
+                    "suggested_fix": result.suggested_fix,
+                    "confidence": result.confidence,
+                    "timestamp": result.timestamp,
+                }
+            )
 
         report_data = {
             "analysis_info": {
@@ -353,13 +381,15 @@ class E2ETestAnalyzer:
             "summary": analysis_results["summary"],
             "failure_statistics": {
                 failure_type.value: count
-                for failure_type, count in analysis_results["failure_statistics"].items()
+                for failure_type, count in analysis_results[
+                    "failure_statistics"
+                ].items()
             },
             "detailed_results": results_data,
             "recommendations": self.generate_recommendations(analysis_results),
         }
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(report_data, f, ensure_ascii=False, indent=2)
 
         logger.info(f"分析报告已保存到: {output_file}")
@@ -416,10 +446,10 @@ def create_sample_analysis():
     print(f"成功率: {summary['success_rate']:.1f}%")
     print(f"{'='*60}")
 
-    if summary['failed_tests'] > 0:
+    if summary["failed_tests"] > 0:
         print("\n失败类型分布:")
-        for failure_type, count in summary['failure_by_type'].items():
-            percentage = (count / summary['failed_tests']) * 100
+        for failure_type, count in summary["failure_by_type"].items():
+            percentage = (count / summary["failed_tests"]) * 100
             print(f"  {failure_type}: {count} ({percentage:.1f}%)")
 
         print(f"\n{'='*60}")

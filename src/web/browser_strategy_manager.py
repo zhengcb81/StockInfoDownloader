@@ -3,22 +3,22 @@
 提供统一的浏览器策略选择和管理功能
 """
 
-import os
-from typing import Optional, Dict, Any, Union
 from enum import Enum
+from typing import Optional, Union
 
-from ..core.logger import get_logger
 from ..core.config import ConfigManager
 from ..core.exceptions import BrowserStrategyError, ErrorCode, ErrorSeverity
+from ..core.logger import get_logger
 from .browser_strategy import BrowserAutomationStrategy
-from .selenium_strategy import SeleniumStrategy
 from .playwright_strategy import PlaywrightStrategy
+from .selenium_strategy import SeleniumStrategy
 
 logger = get_logger(__name__)
 
 
 class BrowserType(Enum):
     """浏览器类型枚举"""
+
     SELENIUM = "selenium"
     PLAYWRIGHT = "playwright"
 
@@ -39,18 +39,19 @@ class BrowserStrategyManager:
 
         # 从配置获取默认浏览器类型
         self.default_browser_type = self.config_manager.get(
-            'browser.strategy',
-            'playwright'  # 默认使用Playwright
+            "browser.strategy", "playwright"  # 默认使用Playwright
         ).lower()
 
         # 验证浏览器类型
         if self.default_browser_type not in [t.value for t in BrowserType]:
-            logger.warning(f"未知的浏览器类型: {self.default_browser_type}, 使用默认的playwright")
-            self.default_browser_type = 'playwright'
+            logger.warning(
+                f"未知的浏览器类型: {self.default_browser_type}, 使用默认的playwright"
+            )
+            self.default_browser_type = "playwright"
 
-    def get_strategy(self,
-                    browser_type: Optional[Union[str, BrowserType]] = None,
-                    **kwargs) -> BrowserAutomationStrategy:
+    def get_strategy(
+        self, browser_type: Optional[Union[str, BrowserType]] = None, **kwargs
+    ) -> BrowserAutomationStrategy:
         """
         获取浏览器策略实例
 
@@ -68,8 +69,7 @@ class BrowserStrategyManager:
             browser_type = BrowserType(browser_type.lower())
 
         # 如果已经有相同类型的策略，直接返回
-        if (self._current_strategy is not None and
-            self._current_type == browser_type):
+        if self._current_strategy is not None and self._current_type == browser_type:
             return self._current_strategy
 
         # 关闭旧策略
@@ -95,7 +95,7 @@ class BrowserStrategyManager:
                 raise BrowserStrategyError(
                     f"不支持的浏览器类型: {browser_type}",
                     error_code=ErrorCode.BROWSER_STRATEGY_ERROR,
-                    severity=ErrorSeverity.ERROR
+                    severity=ErrorSeverity.ERROR,
                 )
 
             return self._current_strategy
@@ -110,7 +110,7 @@ class BrowserStrategyManager:
                 raise BrowserStrategyError(
                     f"无法初始化浏览器策略: {e}",
                     error_code=ErrorCode.BROWSER_STRATEGY_ERROR,
-                    severity=ErrorSeverity.CRITICAL
+                    severity=ErrorSeverity.CRITICAL,
                 )
 
     def get_current_strategy(self) -> Optional[BrowserAutomationStrategy]:
@@ -121,7 +121,9 @@ class BrowserStrategyManager:
         """获取当前浏览器类型"""
         return self._current_type
 
-    def switch_strategy(self, browser_type: Union[str, BrowserType], **kwargs) -> BrowserAutomationStrategy:
+    def switch_strategy(
+        self, browser_type: Union[str, BrowserType], **kwargs
+    ) -> BrowserAutomationStrategy:
         """
         切换浏览器策略
 

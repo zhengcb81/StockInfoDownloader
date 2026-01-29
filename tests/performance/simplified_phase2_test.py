@@ -7,31 +7,36 @@
 """
 
 import asyncio
-import time
-import threading
-import statistics
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-import tempfile
 import shutil
 import sys
-import os
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Dict
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.web.async_operations import (
-    AsyncTaskManager, AsyncBatchDownloader, DownloadTask, TaskPriority
+from src.core.logger import get_logger
+from src.utils.enhanced_error_handler import (
+    EnhancedErrorHandler,
+    RetryConfig,
+    RetryStrategy,
+    error_protected,
+    get_global_error_handler,
 )
 from src.utils.intelligent_cache import (
-    IntelligentCache, CacheConfig, EvictionPolicy, get_global_cache
+    CacheConfig,
+    EvictionPolicy,
+    IntelligentCache,
+    get_global_cache,
 )
-from src.utils.enhanced_error_handler import (
-    EnhancedErrorHandler, RetryConfig, RetryStrategy,
-    get_global_error_handler, error_protected
+from src.web.async_operations import (
+    AsyncTaskManager,
+    DownloadTask,
+    TaskPriority,
 )
-from src.core.logger import get_logger
 
 
 class SimplifiedPhase2Tester:
@@ -50,19 +55,19 @@ class SimplifiedPhase2Tester:
 
         # 1. 智能缓存测试
         self.logger.info("测试1: 智能缓存")
-        test_results['intelligent_cache'] = self.test_intelligent_cache()
+        test_results["intelligent_cache"] = self.test_intelligent_cache()
 
         # 2. 增强错误处理测试
         self.logger.info("测试2: 增强错误处理")
-        test_results['enhanced_error_handler'] = self.test_enhanced_error_handler()
+        test_results["enhanced_error_handler"] = self.test_enhanced_error_handler()
 
         # 3. 异步操作测试（本地测试）
         self.logger.info("测试3: 异步操作")
-        test_results['async_operations'] = self.test_async_operations_local()
+        test_results["async_operations"] = self.test_async_operations_local()
 
         # 4. 综合性能测试
         self.logger.info("测试4: 综合性能")
-        test_results['integrated_performance'] = self.test_integrated_performance()
+        test_results["integrated_performance"] = self.test_integrated_performance()
 
         # 生成汇总报告
         summary = self.generate_summary(test_results)
@@ -84,7 +89,7 @@ class SimplifiedPhase2Tester:
                 l1_eviction_policy=EvictionPolicy.ARC,
                 l2_eviction_policy=EvictionPolicy.LRU,
                 compression_enabled=True,
-                adaptive_ttl=True
+                adaptive_ttl=True,
             )
 
             cache = IntelligentCache(cache_config)
@@ -92,11 +97,11 @@ class SimplifiedPhase2Tester:
             # 测试数据
             test_data = {}
             for i in range(200):
-                test_data[f'key_{i}'] = {
-                    'id': i,
-                    'name': f'test_item_{i}',
-                    'data': 'x' * (100 + i * 10),  # 变长数据
-                    'timestamp': time.time()
+                test_data[f"key_{i}"] = {
+                    "id": i,
+                    "name": f"test_item_{i}",
+                    "data": "x" * (100 + i * 10),  # 变长数据
+                    "timestamp": time.time(),
                 }
 
             # 测试缓存操作
@@ -109,14 +114,14 @@ class SimplifiedPhase2Tester:
             # 读取缓存（测试命中率）
             hit_count = 0
             for _ in range(500):  # 500次读取操作
-                key = f'key_{(_ % 200)}'  # 循环读取已存在的键
+                key = f"key_{(_ % 200)}"  # 循环读取已存在的键
                 result = cache.get(key)
                 if result is not None:
                     hit_count += 1
 
             # 测试不存在的键
             for _ in range(100):
-                cache.get(f'nonexistent_key_{_}')
+                cache.get(f"nonexistent_key_{_}")
 
             end_time = time.time()
 
@@ -125,29 +130,29 @@ class SimplifiedPhase2Tester:
             detailed_status = cache.get_detailed_status()
 
             return {
-                'test_duration': end_time - start_time,
-                'cache_stats': cache_stats,
-                'hit_rate': (hit_count / 500) * 100,
-                'total_operations': 600,  # 500读取 + 100不存在的键
-                'cache_config': {
-                    'l1_max_size': cache_config.l1_max_size,
-                    'l2_max_size': cache_config.l2_max_size,
-                    'eviction_policies': {
-                        'l1': cache_config.l1_eviction_policy.value,
-                        'l2': cache_config.l2_eviction_policy.value
-                    }
+                "test_duration": end_time - start_time,
+                "cache_stats": cache_stats,
+                "hit_rate": (hit_count / 500) * 100,
+                "total_operations": 600,  # 500读取 + 100不存在的键
+                "cache_config": {
+                    "l1_max_size": cache_config.l1_max_size,
+                    "l2_max_size": cache_config.l2_max_size,
+                    "eviction_policies": {
+                        "l1": cache_config.l1_eviction_policy.value,
+                        "l2": cache_config.l2_eviction_policy.value,
+                    },
                 },
-                'detailed_status': detailed_status,
-                'success': True,
-                'message': '智能缓存测试通过'
+                "detailed_status": detailed_status,
+                "success": True,
+                "message": "智能缓存测试通过",
             }
 
         except Exception as e:
             self.logger.error(f"智能缓存测试失败: {e}")
             return {
-                'success': False,
-                'message': f"测试失败: {e}",
-                'error_details': str(e)
+                "success": False,
+                "message": f"测试失败: {e}",
+                "error_details": str(e),
             }
 
     def test_enhanced_error_handler(self) -> Dict[str, Any]:
@@ -160,16 +165,18 @@ class SimplifiedPhase2Tester:
                 max_retries=3,
                 base_delay=0.1,
                 strategy=RetryStrategy.EXPONENTIAL,
-                jitter=True
+                jitter=True,
             )
 
             # 测试函数（模拟失败后成功）
-            call_count = {'count': 0}
+            call_count = {"count": 0}
 
-            @error_protected(retry_config=retry_config, circuit_breaker_key="test_service")
+            @error_protected(
+                retry_config=retry_config, circuit_breaker_key="test_service"
+            )
             def test_function():
-                call_count['count'] += 1
-                if call_count['count'] <= 2:  # 前两次调用失败
+                call_count["count"] += 1
+                if call_count["count"] <= 2:  # 前两次调用失败
                     raise ConnectionError("模拟网络错误")
                 return "success"
 
@@ -195,27 +202,36 @@ class SimplifiedPhase2Tester:
             error_history = error_handler.get_error_history(limit=10)
 
             return {
-                'test_duration': end_time - start_time,
-                'retry_test': {
-                    'result': result,
-                    'total_calls': call_count['count'],
-                    'success': result == "success"
+                "test_duration": end_time - start_time,
+                "retry_test": {
+                    "result": result,
+                    "total_calls": call_count["count"],
+                    "success": result == "success",
                 },
-                'circuit_breaker_test': {
-                    'breaker_stats': error_stats.get('circuit_breakers', {}).get('failing_service', {}),
-                    'triggered': len([e for e in error_history if '熔断器开启' in str(e.get('message', ''))]) > 0
+                "circuit_breaker_test": {
+                    "breaker_stats": error_stats.get("circuit_breakers", {}).get(
+                        "failing_service", {}
+                    ),
+                    "triggered": len(
+                        [
+                            e
+                            for e in error_history
+                            if "熔断器开启" in str(e.get("message", ""))
+                        ]
+                    )
+                    > 0,
                 },
-                'error_stats': error_stats,
-                'success': True,
-                'message': '增强错误处理测试通过'
+                "error_stats": error_stats,
+                "success": True,
+                "message": "增强错误处理测试通过",
             }
 
         except Exception as e:
             self.logger.error(f"增强错误处理测试失败: {e}")
             return {
-                'success': False,
-                'message': f"测试失败: {e}",
-                'error_details': str(e)
+                "success": False,
+                "message": f"测试失败: {e}",
+                "error_details": str(e),
             }
 
     def test_async_operations_local(self) -> Dict[str, Any]:
@@ -237,7 +253,7 @@ class SimplifiedPhase2Tester:
                     save_path=str(save_path),
                     priority=TaskPriority.NORMAL,
                     timeout=10.0,
-                    retry_count=1
+                    retry_count=1,
                 )
                 download_tasks.append(task)
 
@@ -249,7 +265,9 @@ class SimplifiedPhase2Tester:
                     # 模拟异步文件复制
                     tasks = []
                     for task in download_tasks:
-                        task_future = asyncio.create_task(self._simulate_async_copy(task))
+                        task_future = asyncio.create_task(
+                            self._simulate_async_copy(task)
+                        )
                         tasks.append(task_future)
 
                     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -264,27 +282,29 @@ class SimplifiedPhase2Tester:
             end_time = time.time()
 
             # 分析结果
-            successful_operations = sum(1 for r in results if not isinstance(r, Exception))
+            successful_operations = sum(
+                1 for r in results if not isinstance(r, Exception)
+            )
 
             return {
-                'test_duration': end_time - start_time,
-                'total_tasks': len(download_tasks),
-                'successful_operations': successful_operations,
-                'success_rate': (successful_operations / len(download_tasks)) * 100,
-                'results_summary': {
-                    'completed': successful_operations,
-                    'failed': len(download_tasks) - successful_operations
+                "test_duration": end_time - start_time,
+                "total_tasks": len(download_tasks),
+                "successful_operations": successful_operations,
+                "success_rate": (successful_operations / len(download_tasks)) * 100,
+                "results_summary": {
+                    "completed": successful_operations,
+                    "failed": len(download_tasks) - successful_operations,
                 },
-                'success': True,
-                'message': '异步操作测试通过（本地模拟）'
+                "success": True,
+                "message": "异步操作测试通过（本地模拟）",
             }
 
         except Exception as e:
             self.logger.error(f"异步操作测试失败: {e}")
             return {
-                'success': False,
-                'message': f"测试失败: {e}",
-                'error_details': str(e)
+                "success": False,
+                "message": f"测试失败: {e}",
+                "error_details": str(e),
             }
 
     async def _simulate_async_copy(self, task: DownloadTask):
@@ -320,7 +340,10 @@ class SimplifiedPhase2Tester:
             async def integrated_workload():
                 # 缓存预热
                 for i in range(50):
-                    cache.set(f'integrated_key_{i}', {'data': f'value_{i}', 'timestamp': time.time()})
+                    cache.set(
+                        f"integrated_key_{i}",
+                        {"data": f"value_{i}", "timestamp": time.time()},
+                    )
 
                 # 异步任务处理
                 async with AsyncTaskManager(max_concurrent_tasks=5) as manager:
@@ -333,7 +356,7 @@ class SimplifiedPhase2Tester:
                             save_path=str(save_path),
                             priority=TaskPriority.NORMAL,
                             timeout=10.0,
-                            retry_count=1
+                            retry_count=1,
                         )
                         tasks.append(task)
 
@@ -348,13 +371,13 @@ class SimplifiedPhase2Tester:
                 # 缓存访问测试
                 cache_hits = 0
                 for i in range(200):
-                    result = cache.get(f'integrated_key_{i % 50}')
+                    result = cache.get(f"integrated_key_{i % 50}")
                     if result is not None:
                         cache_hits += 1
 
                 return {
-                    'cache_hits': cache_hits,
-                    'cache_hit_rate': (cache_hits / 200) * 100
+                    "cache_hits": cache_hits,
+                    "cache_hit_rate": (cache_hits / 200) * 100,
                 }
 
             # 运行综合工作负载
@@ -374,64 +397,70 @@ class SimplifiedPhase2Tester:
             error_stats = error_handler.get_error_stats()
 
             return {
-                'test_duration': end_time - start_time,
-                'resource_usage': {
-                    'memory_change_mb': final_memory - initial_memory,
-                    'final_memory_mb': final_memory,
-                    'cpu_usage_percent': final_cpu
+                "test_duration": end_time - start_time,
+                "resource_usage": {
+                    "memory_change_mb": final_memory - initial_memory,
+                    "final_memory_mb": final_memory,
+                    "cpu_usage_percent": final_cpu,
                 },
-                'workload_results': workload_results,
-                'cache_performance': {
-                    'hit_rate': workload_results['cache_hit_rate'],
-                    'cache_stats': cache_stats
+                "workload_results": workload_results,
+                "cache_performance": {
+                    "hit_rate": workload_results["cache_hit_rate"],
+                    "cache_stats": cache_stats,
                 },
-                'error_handling': {
-                    'error_stats': error_stats
-                },
-                'success': True,
-                'message': '综合性能测试通过'
+                "error_handling": {"error_stats": error_stats},
+                "success": True,
+                "message": "综合性能测试通过",
             }
 
         except Exception as e:
             self.logger.error(f"综合性能测试失败: {e}")
             return {
-                'success': False,
-                'message': f"测试失败: {e}",
-                'error_details': str(e)
+                "success": False,
+                "message": f"测试失败: {e}",
+                "error_details": str(e),
             }
 
     def generate_summary(self, test_results: Dict[str, Any]) -> Dict[str, Any]:
         """生成测试汇总报告"""
         try:
             total_tests = len(test_results)
-            successful_tests = sum(1 for result in test_results.values() if result.get('success', False))
+            successful_tests = sum(
+                1 for result in test_results.values() if result.get("success", False)
+            )
 
             # 计算性能指标
             performance_metrics = {}
             for test_name, result in test_results.items():
-                if result.get('success'):
-                    if 'test_duration' in result:
-                        performance_metrics[f'{test_name}_duration'] = result['test_duration']
+                if result.get("success"):
+                    if "test_duration" in result:
+                        performance_metrics[f"{test_name}_duration"] = result[
+                            "test_duration"
+                        ]
 
             # 生成报告
             summary = {
-                'test_summary': {
-                    'total_tests': total_tests,
-                    'successful_tests': successful_tests,
-                    'success_rate': (successful_tests / total_tests) * 100,
-                    'test_results': {name: result.get('success', False) for name, result in test_results.items()}
+                "test_summary": {
+                    "total_tests": total_tests,
+                    "successful_tests": successful_tests,
+                    "success_rate": (successful_tests / total_tests) * 100,
+                    "test_results": {
+                        name: result.get("success", False)
+                        for name, result in test_results.items()
+                    },
                 },
-                'performance_metrics': performance_metrics,
-                'detailed_results': test_results,
-                'overall_success': successful_tests == total_tests,
-                'timestamp': time.time(),
-                'test_phase': 'Phase 2 - 高级优化 (简化版)'
+                "performance_metrics": performance_metrics,
+                "detailed_results": test_results,
+                "overall_success": successful_tests == total_tests,
+                "timestamp": time.time(),
+                "test_phase": "Phase 2 - 高级优化 (简化版)",
             }
 
             # 保存详细报告
             report_file = self.temp_dir / "simplified_phase2_test_report.json"
             import json
-            with open(report_file, 'w', encoding='utf-8') as f:
+
+            with open(report_file, "w", encoding="utf-8") as f:
                 json.dump(summary, f, ensure_ascii=False, indent=2, default=str)
 
             self.logger.info(f"简化Phase 2测试报告已保存到: {report_file}")
@@ -440,9 +469,9 @@ class SimplifiedPhase2Tester:
         except Exception as e:
             self.logger.error(f"生成测试报告失败: {e}")
             return {
-                'test_summary': {'error': str(e)},
-                'overall_success': False,
-                'detailed_results': test_results
+                "test_summary": {"error": str(e)},
+                "overall_success": False,
+                "detailed_results": test_results,
             }
 
     def cleanup(self):
@@ -468,7 +497,7 @@ def main():
     print("简化Phase 2性能测试结果")
     print("=" * 60)
 
-    summary = results.get('test_summary', {})
+    summary = results.get("test_summary", {})
     print(f"总测试数: {summary.get('total_tests', 0)}")
     print(f"成功测试数: {summary.get('successful_tests', 0)}")
     print(f"成功率: {summary.get('success_rate', 0):.1f}%")
@@ -476,21 +505,21 @@ def main():
 
     # 输出各测试结果
     print("\n详细结果:")
-    for test_name, success in summary.get('test_results', {}).items():
+    for test_name, success in summary.get("test_results", {}).items():
         status = "OK" if success else "FAIL"
         print(f"  {test_name}: {status}")
 
     # 输出性能指标
-    if 'performance_metrics' in results:
+    if "performance_metrics" in results:
         print("\n性能指标:")
-        for metric, value in results['performance_metrics'].items():
-            if 'duration' in metric:
+        for metric, value in results["performance_metrics"].items():
+            if "duration" in metric:
                 print(f"  {metric}: {value:.3f}s")
 
     print("\n" + "=" * 60)
 
     # 返回退出码
-    return 0 if results.get('overall_success', False) else 1
+    return 0 if results.get("overall_success", False) else 1
 
 
 if __name__ == "__main__":

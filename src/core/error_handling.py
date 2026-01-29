@@ -5,8 +5,9 @@ Provides unified exception handling patterns and tools
 
 import sys
 import traceback
-from typing import Dict, Any, Optional, Callable, Type
 from functools import wraps
+from typing import Any, Callable, Dict, Optional, Type
+
 from .logger import get_logger
 
 
@@ -22,11 +23,13 @@ class ErrorHandler:
         """
         self.logger = logger or get_logger(__name__)
 
-    def handle_exception(self,
-                        exception: Exception,
-                        context: Optional[Dict[str, Any]] = None,
-                        reraise: bool = True,
-                        default_return: Any = None) -> Any:
+    def handle_exception(
+        self,
+        exception: Exception,
+        context: Optional[Dict[str, Any]] = None,
+        reraise: bool = True,
+        default_return: Any = None,
+    ) -> Any:
         """
         Unified exception handling
 
@@ -52,9 +55,9 @@ class ErrorHandler:
         # Re-raise exception
         raise exception
 
-    def _build_error_info(self,
-                          exception: Exception,
-                          context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _build_error_info(
+        self, exception: Exception, context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Build error info dictionary
 
@@ -66,17 +69,14 @@ class ErrorHandler:
             Dict[str, Any]: Error information
         """
         error_info = {
-            'exception_type': type(exception).__name__,
-            'exception_message': str(exception),
-            'traceback': traceback.format_exc(),
-            'context': context or {}
+            "exception_type": type(exception).__name__,
+            "exception_message": str(exception),
+            "traceback": traceback.format_exc(),
+            "context": context or {},
         }
 
         # Add system info
-        error_info.update({
-            'python_version': sys.version,
-            'platform': sys.platform
-        })
+        error_info.update({"python_version": sys.version, "platform": sys.platform})
 
         return error_info
 
@@ -93,17 +93,19 @@ class ErrorHandler:
             f"Context: {error_info['context']}"
         )
 
-        if error_info['exception_type'] in ['TimeoutError', 'ConnectionError']:
+        if error_info["exception_type"] in ["TimeoutError", "ConnectionError"]:
             self.logger.warning(error_msg)
         else:
             self.logger.error(error_msg + f"\nTraceback:\n{error_info['traceback']}")
 
 
-def with_error_handling(error_types: Optional[Type] = None,
-                       context: Optional[Dict[str, Any]] = None,
-                       reraise: bool = True,
-                       default_return: Any = None,
-                       log_level: str = 'error'):
+def with_error_handling(
+    error_types: Optional[Type] = None,
+    context: Optional[Dict[str, Any]] = None,
+    reraise: bool = True,
+    default_return: Any = None,
+    log_level: str = "error",
+):
     """
     Error handling decorator
 
@@ -117,14 +119,15 @@ def with_error_handling(error_types: Optional[Type] = None,
     Returns:
         Callable: Decorator function
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             error_handler = ErrorHandler()
             error_context = context or {}
-            error_context['function'] = func.__name__
-            error_context['args'] = str(args)[:100]  # Limit arg length
-            error_context['kwargs'] = str(kwargs)[:100]
+            error_context["function"] = func.__name__
+            error_context["args"] = str(args)[:100]  # Limit arg length
+            error_context["kwargs"] = str(kwargs)[:100]
 
             try:
                 return func(*args, **kwargs)
@@ -137,21 +140,24 @@ def with_error_handling(error_types: Optional[Type] = None,
                     exception=e,
                     context=error_context,
                     reraise=reraise,
-                    default_return=default_return
+                    default_return=default_return,
                 )
 
         return wrapper
+
     return decorator
 
 
 class RetryHandler:
     """Retry Handler"""
 
-    def __init__(self,
-                 max_attempts: int = 3,
-                 delay: float = 1.0,
-                 backoff_factor: float = 2.0,
-                 exceptions: tuple = (Exception,)):
+    def __init__(
+        self,
+        max_attempts: int = 3,
+        delay: float = 1.0,
+        backoff_factor: float = 2.0,
+        exceptions: tuple = (Exception,),
+    ):
         """
         Initialize RetryHandler
 
@@ -177,6 +183,7 @@ class RetryHandler:
         Returns:
             Callable: Decorator function
         """
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             last_exception = None
@@ -201,6 +208,7 @@ class RetryHandler:
                     )
 
                     import time
+
                     time.sleep(current_delay)
 
             # Raise last exception if all attempts fail
@@ -233,9 +241,13 @@ class ResourceGuard:
         for resource, cleanup_func in reversed(self.resources):
             try:
                 cleanup_func(resource)
-                self.logger.debug(f"Successfully cleaned up resource: {type(resource).__name__}")
+                self.logger.debug(
+                    f"Successfully cleaned up resource: {type(resource).__name__}"
+                )
             except Exception as e:
-                self.logger.error(f"Failed to cleanup resource: {type(resource).__name__}, Error: {e}")
+                self.logger.error(
+                    f"Failed to cleanup resource: {type(resource).__name__}, Error: {e}"
+                )
 
         self.resources.clear()
 
@@ -248,10 +260,7 @@ class ResourceGuard:
         self.cleanup()
 
 
-def safe_execute(func: Callable,
-                 *args,
-                 default_return: Any = None,
-                 **kwargs) -> Any:
+def safe_execute(func: Callable, *args, default_return: Any = None, **kwargs) -> Any:
     """
     Safely execute a function
 
@@ -282,11 +291,13 @@ def validate_params(**param_validators):
     Returns:
         Callable: Decorator function
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Get function parameters
             import inspect
+
             sig = inspect.signature(func)
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
@@ -296,11 +307,14 @@ def validate_params(**param_validators):
                 if param_name in bound_args.arguments:
                     param_value = bound_args.arguments[param_name]
                     if not validator(param_value):
-                        raise ValueError(f"Parameter {param_name} validation failed: {param_value}")
+                        raise ValueError(
+                            f"Parameter {param_name} validation failed: {param_value}"
+                        )
 
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -318,17 +332,21 @@ def validate_positive_number(value: (int, float)) -> bool:
 def validate_file_exists(file_path: str) -> bool:
     """Validate file existence"""
     import os
+
     return os.path.exists(file_path)
 
 
 def validate_url(url: str) -> bool:
     """Validate URL format"""
     import re
+
     url_pattern = re.compile(
-        r'^https?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)', re.IGNORECASE)
+        r"^https?://"  # http:// or https://
+        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
+        r"localhost|"  # localhost...
+        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
+        r"(?::\d+)?"  # optional port
+        r"(?:/?|[/?]\S+)",
+        re.IGNORECASE,
+    )
     return isinstance(url, str) and url_pattern.match(url) is not None

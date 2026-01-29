@@ -6,11 +6,12 @@
 """
 
 import pytest
+
 from src.web.common_browser_ops import (
+    BrowserConfigNormalizer,
     CommonBrowserConfig,
     CommonBrowserOperations,
-    BrowserConfigNormalizer,
-    normalize_config_for_engine
+    normalize_config_for_engine,
 )
 
 
@@ -22,24 +23,24 @@ class TestCommonBrowserConfig:
         args = CommonBrowserConfig.get_base_args()
         assert isinstance(args, list)
         assert len(args) > 0
-        assert '--no-sandbox' in args
-        assert '--disable-dev-shm-usage' in args
+        assert "--no-sandbox" in args
+        assert "--disable-dev-shm-usage" in args
 
     def test_get_default_user_agents(self):
         """测试获取默认User-Agent"""
         agents = CommonBrowserConfig.get_default_user_agents()
         assert isinstance(agents, list)
         assert len(agents) > 0
-        assert all('Mozilla' in agent for agent in agents)
+        assert all("Mozilla" in agent for agent in agents)
 
     def test_get_random_user_agent(self):
         """测试获取随机User-Agent"""
         agent = CommonBrowserConfig.get_random_user_agent()
         assert isinstance(agent, str)
-        assert 'Mozilla' in agent
+        assert "Mozilla" in agent
 
         # 测试自定义User-Agent列表
-        custom_agents = ['Agent1', 'Agent2']
+        custom_agents = ["Agent1", "Agent2"]
         agent = CommonBrowserConfig.get_random_user_agent(custom_agents)
         assert agent in custom_agents
 
@@ -47,19 +48,21 @@ class TestCommonBrowserConfig:
         """测试窗口大小标准化"""
         # 字符串格式
         result = CommonBrowserConfig.normalize_window_size("1920,1080")
-        assert result == {'width': 1920, 'height': 1080}
+        assert result == {"width": 1920, "height": 1080}
 
         # 字典格式
-        result = CommonBrowserConfig.normalize_window_size({'width': 1280, 'height': 720})
-        assert result == {'width': 1280, 'height': 720}
+        result = CommonBrowserConfig.normalize_window_size(
+            {"width": 1280, "height": 720}
+        )
+        assert result == {"width": 1280, "height": 720}
 
         # None格式
         result = CommonBrowserConfig.normalize_window_size(None)
-        assert result == {'width': 1920, 'height': 1080}
+        assert result == {"width": 1920, "height": 1080}
 
         # 列表格式
         result = CommonBrowserConfig.normalize_window_size([1024, 768])
-        assert result == {'width': 1024, 'height': 768}
+        assert result == {"width": 1024, "height": 768}
 
     def test_normalize_timeout(self):
         """测试超时标准化"""
@@ -77,9 +80,9 @@ class TestCommonBrowserConfig:
     def test_build_selenium_preferences(self):
         """测试Selenium偏好设置"""
         prefs = CommonBrowserConfig.build_selenium_preferences("/tmp/downloads")
-        assert 'download.default_directory' in prefs
-        assert prefs['download.prompt_for_download'] is False
-        assert prefs['plugins.always_open_pdf_externally'] is True
+        assert "download.default_directory" in prefs
+        assert prefs["download.prompt_for_download"] is False
+        assert prefs["plugins.always_open_pdf_externally"] is True
 
         # 无下载目录
         prefs = CommonBrowserConfig.build_selenium_preferences(None)
@@ -88,12 +91,12 @@ class TestCommonBrowserConfig:
     def test_build_playwright_context_options(self):
         """测试Playwright上下文选项"""
         options = CommonBrowserConfig.build_playwright_context_options("/tmp/downloads")
-        assert 'java_script_enabled' in options
-        assert options['accept_downloads'] is True
+        assert "java_script_enabled" in options
+        assert options["accept_downloads"] is True
 
         # 无下载目录
         options = CommonBrowserConfig.build_playwright_context_options(None)
-        assert 'accept_downloads' not in options
+        assert "accept_downloads" not in options
 
 
 class TestCommonBrowserOperations:
@@ -162,36 +165,36 @@ class TestBrowserConfigNormalizer:
     def test_normalize_for_selenium(self):
         """测试Selenium配置标准化"""
         config = {
-            'window_size': '1280,720',
-            'timeout': 60,
-            'download_dir': '/tmp/downloads',
-            'max_downloads_per_session': 5
+            "window_size": "1280,720",
+            "timeout": 60,
+            "download_dir": "/tmp/downloads",
+            "max_downloads_per_session": 5,
         }
 
         result = BrowserConfigNormalizer.normalize_for_selenium(config)
 
-        assert result['window_size'] == '1280,720'
-        assert result['timeout'] == 60
-        assert result['page_load_timeout'] == 60
-        assert result['implicit_wait'] == 3  # 默认值
-        assert result['download_dir'] == '/tmp/downloads'
-        assert result['max_downloads_per_session'] == 5
+        assert result["window_size"] == "1280,720"
+        assert result["timeout"] == 60
+        assert result["page_load_timeout"] == 60
+        assert result["implicit_wait"] == 3  # 默认值
+        assert result["download_dir"] == "/tmp/downloads"
+        assert result["max_downloads_per_session"] == 5
 
     def test_normalize_for_playwright(self):
         """测试Playwright配置标准化"""
         config = {
-            'window_size': {'width': 1280, 'height': 720},
-            'timeout': 60,
-            'download_dir': '/tmp/downloads',
-            'max_downloads_per_session': 5
+            "window_size": {"width": 1280, "height": 720},
+            "timeout": 60,
+            "download_dir": "/tmp/downloads",
+            "max_downloads_per_session": 5,
         }
 
         result = BrowserConfigNormalizer.normalize_for_playwright(config)
 
-        assert result['window_size'] == {'width': 1280, 'height': 720}
-        assert result['timeout'] == 60000  # 转换为毫秒
-        assert result['download_dir'] == '/tmp/downloads'
-        assert result['max_downloads_per_session'] == 5
+        assert result["window_size"] == {"width": 1280, "height": 720}
+        assert result["timeout"] == 60000  # 转换为毫秒
+        assert result["download_dir"] == "/tmp/downloads"
+        assert result["max_downloads_per_session"] == 5
 
 
 class TestNormalizeConfigForEngine:
@@ -199,20 +202,20 @@ class TestNormalizeConfigForEngine:
 
     def test_selenium_engine(self):
         """测试Selenium引擎"""
-        config = {'timeout': 90}
-        result = normalize_config_for_engine('selenium', config)
-        assert result['timeout'] == 90
+        config = {"timeout": 90}
+        result = normalize_config_for_engine("selenium", config)
+        assert result["timeout"] == 90
 
     def test_playwright_engine(self):
         """测试Playwright引擎"""
-        config = {'timeout': 90}
-        result = normalize_config_for_engine('playwright', config)
-        assert result['timeout'] == 90000  # 毫秒
+        config = {"timeout": 90}
+        result = normalize_config_for_engine("playwright", config)
+        assert result["timeout"] == 90000  # 毫秒
 
     def test_invalid_engine(self):
         """测试无效引擎"""
         with pytest.raises(ValueError, match="不支持的引擎"):
-            normalize_config_for_engine('invalid', {})
+            normalize_config_for_engine("invalid", {})
 
 
 # Mock类用于测试

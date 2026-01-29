@@ -4,12 +4,11 @@
 """
 
 import os
-import time
 import threading
-from functools import lru_cache
-from pathlib import Path
-from typing import Dict, Any, Optional, Union
+import time
 from collections import OrderedDict
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 from src.core.logger import get_logger
 
@@ -45,7 +44,9 @@ class CacheManager:
         self._config_cache: Dict[str, Any] = {}
         self._config_lock = threading.RLock()
 
-        self.logger.info(f"缓存管理器初始化完成，最大缓存: {max_cache_size}, TTL: {cache_ttl}s")
+        self.logger.info(
+            f"缓存管理器初始化完成，最大缓存: {max_cache_size}, TTL: {cache_ttl}s"
+        )
 
     def _cleanup_expired_cache(self, cache_dict: OrderedDict, lock: threading.RLock):
         """清理过期的缓存条目"""
@@ -54,7 +55,7 @@ class CacheManager:
 
         with lock:
             for key, cache_data in cache_dict.items():
-                if current_time - cache_data['timestamp'] > cache_data['ttl']:
+                if current_time - cache_data["timestamp"] > cache_data["ttl"]:
                     keys_to_remove.append(key)
 
             for key in keys_to_remove:
@@ -69,8 +70,12 @@ class CacheManager:
                 del cache_dict[oldest_key]
                 self.logger.debug(f"移除最旧缓存条目: {oldest_key}")
 
-    def cached_file_exists(self, file_path: Union[str, Path], min_size: int = 1024,
-                          custom_ttl: Optional[int] = None) -> bool:
+    def cached_file_exists(
+        self,
+        file_path: Union[str, Path],
+        min_size: int = 1024,
+        custom_ttl: Optional[int] = None,
+    ) -> bool:
         """
         缓存的文件存在性检查
 
@@ -96,9 +101,9 @@ class CacheManager:
         with self._file_exists_lock:
             if cache_key in self._file_exists_cache:
                 cache_data = self._file_exists_cache[cache_key]
-                if time.time() - cache_data['timestamp'] < ttl:
+                if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"缓存命中: {file_path}")
-                    return cache_data['exists']
+                    return cache_data["exists"]
                 else:
                     # 缓存过期，移除
                     del self._file_exists_cache[cache_key]
@@ -119,9 +124,9 @@ class CacheManager:
         # 更新缓存
         with self._file_exists_lock:
             self._file_exists_cache[cache_key] = {
-                'exists': result,
-                'timestamp': time.time(),
-                'ttl': ttl
+                "exists": result,
+                "timestamp": time.time(),
+                "ttl": ttl,
             }
 
             # 清理过期缓存
@@ -133,8 +138,9 @@ class CacheManager:
         self.logger.debug(f"文件检查结果: {file_path} -> {result}")
         return result
 
-    def cached_stock_info(self, stock_code: str, info_fetcher_func,
-                         custom_ttl: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def cached_stock_info(
+        self, stock_code: str, info_fetcher_func, custom_ttl: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         缓存的股票信息获取
 
@@ -152,9 +158,9 @@ class CacheManager:
         with self._stock_info_lock:
             if stock_code in self._stock_info_cache:
                 cache_data = self._stock_info_cache[stock_code]
-                if time.time() - cache_data['timestamp'] < ttl:
+                if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"股票信息缓存命中: {stock_code}")
-                    return cache_data['info']
+                    return cache_data["info"]
                 else:
                     # 缓存过期，移除
                     del self._stock_info_cache[stock_code]
@@ -168,16 +174,20 @@ class CacheManager:
                 # 更新缓存
                 with self._stock_info_lock:
                     self._stock_info_cache[stock_code] = {
-                        'info': stock_info,
-                        'timestamp': time.time(),
-                        'ttl': ttl
+                        "info": stock_info,
+                        "timestamp": time.time(),
+                        "ttl": ttl,
                     }
 
                     # 清理过期缓存
-                    self._cleanup_expired_cache(self._stock_info_cache, self._stock_info_lock)
+                    self._cleanup_expired_cache(
+                        self._stock_info_cache, self._stock_info_lock
+                    )
 
                     # 如果缓存过大，移除最旧的条目
-                    self._evict_cache_if_needed(self._stock_info_cache, self._stock_info_lock)
+                    self._evict_cache_if_needed(
+                        self._stock_info_cache, self._stock_info_lock
+                    )
             else:
                 self.logger.warning(f"无法获取股票信息: {stock_code}")
 
@@ -187,8 +197,9 @@ class CacheManager:
             self.logger.error(f"获取股票信息失败 {stock_code}: {e}")
             return None
 
-    def cached_page_content(self, url: str, content_fetcher_func,
-                           custom_ttl: Optional[int] = None) -> Optional[str]:
+    def cached_page_content(
+        self, url: str, content_fetcher_func, custom_ttl: Optional[int] = None
+    ) -> Optional[str]:
         """
         缓存的页面内容获取
 
@@ -206,9 +217,9 @@ class CacheManager:
         with self._page_content_lock:
             if url in self._page_content_cache:
                 cache_data = self._page_content_cache[url]
-                if time.time() - cache_data['timestamp'] < ttl:
+                if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"页面内容缓存命中: {url}")
-                    return cache_data['content']
+                    return cache_data["content"]
                 else:
                     # 缓存过期，移除
                     del self._page_content_cache[url]
@@ -222,16 +233,20 @@ class CacheManager:
                 # 更新缓存
                 with self._page_content_lock:
                     self._page_content_cache[url] = {
-                        'content': content,
-                        'timestamp': time.time(),
-                        'ttl': ttl
+                        "content": content,
+                        "timestamp": time.time(),
+                        "ttl": ttl,
                     }
 
                     # 清理过期缓存
-                    self._cleanup_expired_cache(self._page_content_cache, self._page_content_lock)
+                    self._cleanup_expired_cache(
+                        self._page_content_cache, self._page_content_lock
+                    )
 
                     # 如果缓存过大，移除最旧的条目
-                    self._evict_cache_if_needed(self._page_content_cache, self._page_content_lock)
+                    self._evict_cache_if_needed(
+                        self._page_content_cache, self._page_content_lock
+                    )
             else:
                 self.logger.warning(f"无法获取页面内容: {url}")
 
@@ -274,7 +289,7 @@ class CacheManager:
             cache_type: 缓存类型 ('file_exists', 'stock_info', 'page_content', 'config', None)
                         None表示清理所有缓存
         """
-        if cache_type is None or cache_type == 'all':
+        if cache_type is None or cache_type == "all":
             with self._file_exists_lock:
                 self._file_exists_cache.clear()
             with self._stock_info_lock:
@@ -284,19 +299,19 @@ class CacheManager:
             with self._config_lock:
                 self._config_cache.clear()
             self.logger.info("清理所有缓存")
-        elif cache_type == 'file_exists':
+        elif cache_type == "file_exists":
             with self._file_exists_lock:
                 self._file_exists_cache.clear()
             self.logger.info("清理文件存在性缓存")
-        elif cache_type == 'stock_info':
+        elif cache_type == "stock_info":
             with self._stock_info_lock:
                 self._stock_info_cache.clear()
             self.logger.info("清理股票信息缓存")
-        elif cache_type == 'page_content':
+        elif cache_type == "page_content":
             with self._page_content_lock:
                 self._page_content_cache.clear()
             self.logger.info("清理页面内容缓存")
-        elif cache_type == 'config':
+        elif cache_type == "config":
             with self._config_lock:
                 self._config_cache.clear()
             self.logger.info("清理配置缓存")
@@ -318,12 +333,12 @@ class CacheManager:
             config_count = len(self._config_cache)
 
         return {
-            'file_exists_cache_size': file_exists_count,
-            'stock_info_cache_size': stock_info_count,
-            'page_content_cache_size': page_content_count,
-            'config_cache_size': config_count,
-            'max_cache_size': self.max_cache_size,
-            'cache_ttl': self.cache_ttl
+            "file_exists_cache_size": file_exists_count,
+            "stock_info_cache_size": stock_info_count,
+            "page_content_cache_size": page_content_count,
+            "config_cache_size": config_count,
+            "max_cache_size": self.max_cache_size,
+            "cache_ttl": self.cache_ttl,
         }
 
     def optimize_cache(self):

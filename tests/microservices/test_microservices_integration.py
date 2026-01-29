@@ -7,20 +7,24 @@
 """
 
 import asyncio
-import pytest
-import pytest_asyncio
 import json
-from datetime import datetime
-from typing import Dict, Any
 
 # 导入微服务模块
 import sys
+from datetime import datetime
 from pathlib import Path
+
+import pytest
+import pytest_asyncio
+
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from microservices.common.service_client import (
-    ServiceRegistry, ServiceEvent, ServiceEventType, get_service_registry
+    ServiceEvent,
+    ServiceEventType,
+    ServiceRegistry,
+    get_service_registry,
 )
 
 
@@ -30,6 +34,7 @@ class TestMicroservicesIntegration:
     @pytest_asyncio.fixture
     async def service_registry(self):
         """服务注册中心fixture"""
+
         # 创建模拟的Redis客户端
         class MockRedis:
             def __init__(self):
@@ -69,11 +74,11 @@ class TestMicroservicesIntegration:
 
             async def ltrim(self, key, start, end):
                 if key in self.data and isinstance(self.data[key], list):
-                    self.data[key] = self.data[key][start:end+1]
+                    self.data[key] = self.data[key][start : end + 1]
 
             async def lrange(self, key, start, end):
                 if key in self.data and isinstance(self.data[key], list):
-                    return self.data[key][start:end+1]
+                    return self.data[key][start : end + 1]
                 return []
 
             async def smembers(self, key):
@@ -100,9 +105,7 @@ class TestMicroservicesIntegration:
         """测试服务注册"""
         # 注册服务
         await service_registry.register(
-            "test-service",
-            "http://localhost:8001",
-            "http://localhost:8001/health"
+            "test-service", "http://localhost:8001", "http://localhost:8001/health"
         )
 
         # 验证服务已注册
@@ -115,8 +118,12 @@ class TestMicroservicesIntegration:
     async def test_service_discovery(self, service_registry):
         """测试服务发现"""
         # 注册多个服务
-        await service_registry.register("service1", "http://localhost:8001", "http://localhost:8001/health")
-        await service_registry.register("service2", "http://localhost:8002", "http://localhost:8002/health")
+        await service_registry.register(
+            "service1", "http://localhost:8001", "http://localhost:8001/health"
+        )
+        await service_registry.register(
+            "service2", "http://localhost:8002", "http://localhost:8002/health"
+        )
 
         # 获取所有服务
         services = await service_registry.discovery.get_all_services()
@@ -133,13 +140,15 @@ class TestMicroservicesIntegration:
         async def event_handler(event: ServiceEvent):
             events_received.append(event)
 
-        await service_registry.subscribe_to_event(ServiceEventType.SERVICE_UP, event_handler)
+        await service_registry.subscribe_to_event(
+            ServiceEventType.SERVICE_UP, event_handler
+        )
 
         # 发布事件
         event = ServiceEvent(
             event_type=ServiceEventType.SERVICE_UP,
             source_service="test-service",
-            data={"message": "Service started"}
+            data={"message": "Service started"},
         )
 
         # 直接调用服务总线的事件处理来测试本地事件处理
@@ -155,9 +164,7 @@ class TestMicroservicesIntegration:
         """测试服务客户端创建"""
         # 注册服务
         await service_registry.register(
-            "test-service",
-            "http://localhost:8001",
-            "http://localhost:8001/health"
+            "test-service", "http://localhost:8001", "http://localhost:8001/health"
         )
 
         # 创建服务客户端
@@ -170,9 +177,7 @@ class TestMicroservicesIntegration:
         """测试服务注销"""
         # 注册服务
         await service_registry.register(
-            "test-service",
-            "http://localhost:8001",
-            "http://localhost:8001/health"
+            "test-service", "http://localhost:8001", "http://localhost:8001/health"
         )
 
         # 验证服务存在
@@ -195,7 +200,7 @@ class TestMicroservicesIntegration:
             task = service_registry.register(
                 f"service-{i}",
                 f"http://localhost:800{i}",
-                f"http://localhost:800{i}/health"
+                f"http://localhost:800{i}/health",
             )
             tasks.append(task)
 
@@ -212,7 +217,7 @@ class TestMicroservicesIntegration:
             "user_id": 123,
             "action": "download",
             "timestamp": datetime.now().isoformat(),
-            "metadata": {"source": "test", "version": "1.0"}
+            "metadata": {"source": "test", "version": "1.0"},
         }
 
         events_received = []
@@ -220,13 +225,15 @@ class TestMicroservicesIntegration:
         async def event_handler(event: ServiceEvent):
             events_received.append(event)
 
-        await service_registry.subscribe_to_event(ServiceEventType.TASK_COMPLETED, event_handler)
+        await service_registry.subscribe_to_event(
+            ServiceEventType.TASK_COMPLETED, event_handler
+        )
 
         # 发布包含复杂数据的事件
         event = ServiceEvent(
             event_type=ServiceEventType.TASK_COMPLETED,
             source_service="download-service",
-            data=test_data
+            data=test_data,
         )
 
         # 直接调用服务总线的事件处理来测试本地事件处理
@@ -244,6 +251,7 @@ class TestMicroservicesIntegration:
         """测试服务注册中心单例模式"""
         # 重置全局变量以测试单例模式
         import microservices.common.service_client
+
         microservices.common.service_client._service_registry = None
 
         # 获取第一个实例
@@ -268,7 +276,7 @@ class TestMicroservicesIntegration:
             ServiceEventType.SERVICE_UP,
             ServiceEventType.SERVICE_DOWN,
             ServiceEventType.CONFIG_CHANGE,
-            ServiceEventType.ERROR_REPORT
+            ServiceEventType.ERROR_REPORT,
         ]
 
         for event_type in event_types:
@@ -279,7 +287,7 @@ class TestMicroservicesIntegration:
             event = ServiceEvent(
                 event_type=event_type,
                 source_service="test-service",
-                data={"event_type": event_type.value}
+                data={"event_type": event_type.value},
             )
             # 直接调用服务总线的事件处理来测试本地事件处理
             await service_registry.service_bus._handle_local_event(event)
@@ -294,12 +302,18 @@ class TestMicroservicesIntegration:
     async def test_service_discovery_error_handling(self, service_registry):
         """测试服务发现错误处理"""
         # 尝试发现不存在的服务
-        service_info = await service_registry.discovery.discover_service("non-existent-service")
+        service_info = await service_registry.discovery.discover_service(
+            "non-existent-service"
+        )
         assert service_info is None
 
         # 验证不影响其他操作
-        await service_registry.register("existing-service", "http://localhost:8001", "http://localhost:8001/health")
-        service_info = await service_registry.discovery.discover_service("existing-service")
+        await service_registry.register(
+            "existing-service", "http://localhost:8001", "http://localhost:8001/health"
+        )
+        service_info = await service_registry.discovery.discover_service(
+            "existing-service"
+        )
         assert service_info is not None
 
 
@@ -311,7 +325,7 @@ class TestServiceEvent:
         event = ServiceEvent(
             event_type=ServiceEventType.SERVICE_UP,
             source_service="test-service",
-            data={"message": "test"}
+            data={"message": "test"},
         )
 
         assert event.event_type == ServiceEventType.SERVICE_UP
@@ -326,7 +340,7 @@ class TestServiceEvent:
             event_type=ServiceEventType.TASK_COMPLETED,
             source_service="download-service",
             target_service="cache-service",
-            data={"files": ["file1.pdf", "file2.pdf"]}
+            data={"files": ["file1.pdf", "file2.pdf"]},
         )
 
         # 转换为字典
@@ -336,7 +350,7 @@ class TestServiceEvent:
             "target_service": event.target_service,
             "data": event.data,
             "timestamp": event.timestamp.isoformat(),
-            "event_id": event.event_id
+            "event_id": event.event_id,
         }
 
         # 验证可以序列化为JSON

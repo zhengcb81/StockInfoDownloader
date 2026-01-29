@@ -6,25 +6,25 @@
 支持多种代理类型，智能轮换和健康检查
 """
 
+import hashlib
+import json
 import random
+import threading
 import time
-import asyncio
-import aiohttp
-import requests
-from typing import Dict, List, Optional, Tuple, Any
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from concurrent.futures import ThreadPoolExecutor
-import threading
-import json
-import hashlib
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import requests
 
 from src.core.logger import get_logger
 
 
 class ProxyType(Enum):
     """代理类型枚举"""
+
     HTTP = "http"
     HTTPS = "https"
     SOCKS4 = "socks4"
@@ -36,6 +36,7 @@ class ProxyType(Enum):
 
 class ProxyStatus(Enum):
     """代理状态枚举"""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     TESTING = "testing"
@@ -46,6 +47,7 @@ class ProxyStatus(Enum):
 @dataclass
 class ProxyInfo:
     """代理信息数据类"""
+
     ip: str
     port: int
     proxy_type: ProxyType
@@ -106,10 +108,14 @@ class ProxyInfo:
         self.last_used = time.time()
 
         if success:
-            self.success_rate = (self.total_requests - self.failed_requests) / self.total_requests
+            self.success_rate = (
+                self.total_requests - self.failed_requests
+            ) / self.total_requests
         else:
             self.failed_requests += 1
-            self.success_rate = (self.total_requests - self.failed_requests) / self.total_requests
+            self.success_rate = (
+                self.total_requests - self.failed_requests
+            ) / self.total_requests
 
         # 更新响应时间（使用移动平均）
         if self.response_time > 0:
@@ -152,7 +158,9 @@ class ProxyInfo:
 
     def get_unique_id(self) -> str:
         """获取代理唯一标识"""
-        unique_str = f"{self.ip}:{self.port}:{self.proxy_type.value}:{self.provider or ''}"
+        unique_str = (
+            f"{self.ip}:{self.port}:{self.proxy_type.value}:{self.provider or ''}"
+        )
         return hashlib.md5(unique_str.encode()).hexdigest()
 
 
@@ -167,15 +175,14 @@ class ProxyPool:
         self.proxies: Dict[str, ProxyInfo] = {}
         self.lock = threading.RLock()
 
-        self.max_size = config.get('max_size', 100)
-        self.rotation_interval = config.get('rotation_interval', 100)
-        self.health_check_interval = config.get('health_check_interval', 60)
-        self.max_usage_time = config.get('max_usage_time', 1800)
+        self.max_size = config.get("max_size", 100)
+        self.rotation_interval = config.get("rotation_interval", 100)
+        self.health_check_interval = config.get("health_check_interval", 60)
+        self.max_usage_time = config.get("max_usage_time", 1800)
 
         # 启动健康检查线程
         self.health_check_thread = threading.Thread(
-            target=self._health_check_loop,
-            daemon=True
+            target=self._health_check_loop, daemon=True
         )
         self.health_check_thread.start()
 
@@ -197,7 +204,9 @@ class ProxyPool:
                 self._remove_worst_proxy()
 
             self.proxies[proxy_id] = proxy_info
-            self.logger.info(f"添加代理: {proxy_info.ip}:{proxy_info.port} ({proxy_info.proxy_type.value})")
+            self.logger.info(
+                f"添加代理: {proxy_info.ip}:{proxy_info.port} ({proxy_info.proxy_type.value})"
+            )
 
     def remove_proxy(self, proxy_id: str):
         """从池中移除代理"""
@@ -212,19 +221,19 @@ class ProxyPool:
             return
 
         worst_proxy_id = min(
-            self.proxies.keys(),
-            key=lambda pid: self.proxies[pid].score
+            self.proxies.keys(), key=lambda pid: self.proxies[pid].score
         )
 
         self.remove_proxy(worst_proxy_id)
 
-    def get_proxy(self, requirements: Optional[Dict[str, Any]] = None) -> Optional[ProxyInfo]:
+    def get_proxy(
+        self, requirements: Optional[Dict[str, Any]] = None
+    ) -> Optional[ProxyInfo]:
         """获取代理"""
         with self.lock:
             # 过滤活跃代理
             active_proxies = [
-                proxy for proxy in self.proxies.values()
-                if proxy.is_active
+                proxy for proxy in self.proxies.values() if proxy.is_active
             ]
 
             if not active_proxies:
@@ -244,30 +253,32 @@ class ProxyPool:
             # 根据评分选择代理（权重随机选择）
             return self._select_proxy_by_score(filtered_proxies)
 
-    def _filter_proxies(self, proxies: List[ProxyInfo], requirements: Dict[str, Any]) -> List[ProxyInfo]:
+    def _filter_proxies(
+        self, proxies: List[ProxyInfo], requirements: Dict[str, Any]
+    ) -> List[ProxyInfo]:
         """根据要求过滤代理"""
         filtered = proxies
 
         # 按代理类型过滤
-        if 'proxy_type' in requirements:
-            req_type = requirements['proxy_type']
+        if "proxy_type" in requirements:
+            req_type = requirements["proxy_type"]
             if isinstance(req_type, str):
                 req_type = ProxyType(req_type)
             filtered = [p for p in filtered if p.proxy_type == req_type]
 
         # 按国家过滤
-        if 'country' in requirements:
-            country = requirements['country']
+        if "country" in requirements:
+            country = requirements["country"]
             filtered = [p for p in filtered if p.country == country]
 
         # 按最小评分过滤
-        if 'min_score' in requirements:
-            min_score = requirements['min_score']
+        if "min_score" in requirements:
+            min_score = requirements["min_score"]
             filtered = [p for p in filtered if p.score >= min_score]
 
         # 按最大响应时间过滤
-        if 'max_response_time' in requirements:
-            max_time = requirements['max_response_time']
+        if "max_response_time" in requirements:
+            max_time = requirements["max_response_time"]
             filtered = [p for p in filtered if p.response_time <= max_time]
 
         return filtered
@@ -331,8 +342,8 @@ class ProxyPool:
             start_time = time.time()
             response = requests.get(
                 test_url,
-                proxies={'http': proxy.proxy_url, 'https': proxy.proxy_url},
-                timeout=10
+                proxies={"http": proxy.proxy_url, "https": proxy.proxy_url},
+                timeout=10,
             )
             response_time = time.time() - start_time
 
@@ -340,11 +351,15 @@ class ProxyPool:
                 proxy.record_request(True, response_time)
                 proxy.status = ProxyStatus.ACTIVE
                 proxy.last_checked = time.time()
-                self.logger.debug(f"代理 {proxy.ip}:{proxy.port} 健康检查通过，响应时间: {response_time:.2f}s")
+                self.logger.debug(
+                    f"代理 {proxy.ip}:{proxy.port} 健康检查通过，响应时间: {response_time:.2f}s"
+                )
             else:
                 proxy.record_request(False, response_time)
                 proxy.status = ProxyStatus.INACTIVE
-                self.logger.warning(f"代理 {proxy.ip}:{proxy.port} 健康检查失败: HTTP {response.status_code}")
+                self.logger.warning(
+                    f"代理 {proxy.ip}:{proxy.port} 健康检查失败: HTTP {response.status_code}"
+                )
 
         except Exception as e:
             proxy.record_request(False, 0)
@@ -359,22 +374,26 @@ class ProxyPool:
 
             if total_proxies > 0:
                 avg_score = sum(p.score for p in self.proxies.values()) / total_proxies
-                avg_response_time = sum(p.response_time for p in self.proxies.values()) / total_proxies
-                avg_success_rate = sum(p.success_rate for p in self.proxies.values()) / total_proxies
+                avg_response_time = (
+                    sum(p.response_time for p in self.proxies.values()) / total_proxies
+                )
+                avg_success_rate = (
+                    sum(p.success_rate for p in self.proxies.values()) / total_proxies
+                )
             else:
                 avg_score = 0
                 avg_response_time = 0
                 avg_success_rate = 0
 
             return {
-                'name': self.name,
-                'total_proxies': total_proxies,
-                'active_proxies': active_proxies,
-                'avg_score': avg_score,
-                'avg_response_time': avg_response_time,
-                'avg_success_rate': avg_success_rate,
-                'max_size': self.max_size,
-                'health_check_interval': self.health_check_interval
+                "name": self.name,
+                "total_proxies": total_proxies,
+                "active_proxies": active_proxies,
+                "avg_score": avg_score,
+                "avg_response_time": avg_response_time,
+                "avg_success_rate": avg_success_rate,
+                "max_size": self.max_size,
+                "health_check_interval": self.health_check_interval,
             }
 
 
@@ -388,19 +407,19 @@ class ProxyManager:
         # 初始化代理池
         self.pools: Dict[str, ProxyPool] = {}
 
-        pools_config = config.get('pools', {})
+        pools_config = config.get("pools", {})
         for pool_name, pool_config in pools_config.items():
-            if pool_config.get('enabled', True):
+            if pool_config.get("enabled", True):
                 self.pools[pool_name] = ProxyPool(pool_name, pool_config)
 
         # 轮换策略配置
-        self.rotation_strategies = config.get('rotation_strategies', {})
+        self.rotation_strategies = config.get("rotation_strategies", {})
 
         # 健康检查配置
-        self.health_check_config = config.get('health_check', {})
+        self.health_check_config = config.get("health_check", {})
 
         # 加载代理提供商
-        self.providers = config.get('providers', [])
+        self.providers = config.get("providers", [])
 
         # 初始化代理
         self._initialize_proxies()
@@ -410,31 +429,31 @@ class ProxyManager:
     def _initialize_proxies(self):
         """初始化代理"""
         # 从配置中加载静态代理
-        static_proxies = self.config.get('static_proxies', [])
+        static_proxies = self.config.get("static_proxies", [])
         for proxy_config in static_proxies:
             self._add_proxy_from_config(proxy_config)
 
         # 从提供商加载代理
         for provider in self.providers:
-            if provider.get('enabled', True):
+            if provider.get("enabled", True):
                 self._load_proxies_from_provider(provider)
 
     def _add_proxy_from_config(self, proxy_config: Dict[str, Any]):
         """从配置添加代理"""
         try:
             proxy_info = ProxyInfo(
-                ip=proxy_config['ip'],
-                port=proxy_config['port'],
-                proxy_type=ProxyType(proxy_config.get('type', 'http')),
-                username=proxy_config.get('username'),
-                password=proxy_config.get('password'),
-                country=proxy_config.get('country'),
-                provider=proxy_config.get('provider'),
-                max_requests=proxy_config.get('max_requests', 100)
+                ip=proxy_config["ip"],
+                port=proxy_config["port"],
+                proxy_type=ProxyType(proxy_config.get("type", "http")),
+                username=proxy_config.get("username"),
+                password=proxy_config.get("password"),
+                country=proxy_config.get("country"),
+                provider=proxy_config.get("provider"),
+                max_requests=proxy_config.get("max_requests", 100),
             )
 
             # 添加到相应的池
-            pool_name = proxy_config.get('pool', 'data_center')
+            pool_name = proxy_config.get("pool", "data_center")
             if pool_name in self.pools:
                 self.pools[pool_name].add_proxy(proxy_info)
             else:
@@ -445,8 +464,8 @@ class ProxyManager:
 
     def _load_proxies_from_provider(self, provider: Dict[str, Any]):
         """从提供商加载代理"""
-        provider_name = provider.get('name', 'unknown')
-        provider_type = provider.get('type', 'residential')
+        provider_name = provider.get("name", "unknown")
+        provider_type = provider.get("type", "residential")
 
         self.logger.info(f"从提供商 {provider_name} 加载代理...")
 
@@ -454,21 +473,28 @@ class ProxyManager:
         # 例如：Luminati, Oxylabs, Smartproxy等
 
         # 示例：添加一些测试代理
-        if provider_name == 'luminati':
+        if provider_name == "luminati":
             # 这里应该调用Luminati API获取代理
             self.logger.info("Luminati代理加载逻辑待实现")
-        elif provider_name == 'test':
+        elif provider_name == "test":
             # 添加测试代理
             test_proxies = [
-                {'ip': '127.0.0.1', 'port': 8080, 'type': 'http', 'pool': 'data_center'},
-                {'ip': '127.0.0.1', 'port': 1080, 'type': 'socks5', 'pool': 'elite'},
+                {
+                    "ip": "127.0.0.1",
+                    "port": 8080,
+                    "type": "http",
+                    "pool": "data_center",
+                },
+                {"ip": "127.0.0.1", "port": 1080, "type": "socks5", "pool": "elite"},
             ]
 
             for proxy_config in test_proxies:
-                proxy_config['provider'] = provider_name
+                proxy_config["provider"] = provider_name
                 self._add_proxy_from_config(proxy_config)
 
-    def get_proxy(self, requirements: Optional[Dict[str, Any]] = None) -> Optional[ProxyInfo]:
+    def get_proxy(
+        self, requirements: Optional[Dict[str, Any]] = None
+    ) -> Optional[ProxyInfo]:
         """获取代理"""
         # 根据要求选择代理池
         pool_name = self._select_pool(requirements)
@@ -481,7 +507,7 @@ class ProxyManager:
 
         # 如果指定池没有可用代理，尝试其他池
         for pool_name, pool in self.pools.items():
-            if requirements and requirements.get('pool') != pool_name:
+            if requirements and requirements.get("pool") != pool_name:
                 continue
 
             proxy = pool.get_proxy(requirements)
@@ -494,24 +520,24 @@ class ProxyManager:
 
     def _select_pool(self, requirements: Optional[Dict[str, Any]]) -> Optional[str]:
         """选择代理池"""
-        if requirements and 'pool' in requirements:
-            return requirements['pool']
+        if requirements and "pool" in requirements:
+            return requirements["pool"]
 
         # 根据代理类型选择池
-        if requirements and 'proxy_type' in requirements:
-            proxy_type = requirements['proxy_type']
+        if requirements and "proxy_type" in requirements:
+            proxy_type = requirements["proxy_type"]
             if isinstance(proxy_type, str):
                 proxy_type = ProxyType(proxy_type)
 
             if proxy_type in [ProxyType.ELITE, ProxyType.SOCKS5]:
-                return 'elite'
+                return "elite"
             elif proxy_type == ProxyType.RESIDENTIAL:
-                return 'residential'
+                return "residential"
             else:
-                return 'data_center'
+                return "data_center"
 
         # 默认返回数据中心代理池
-        return 'data_center'
+        return "data_center"
 
     def release_proxy(self, proxy_info: ProxyInfo, success: bool, response_time: float):
         """释放代理"""
@@ -531,12 +557,15 @@ class ProxyManager:
             return True
 
         # 检查使用时间
-        max_usage_time = self.config.get('max_usage_time', 1800)
-        if proxy_info.last_used and (time.time() - proxy_info.last_used) > max_usage_time:
+        max_usage_time = self.config.get("max_usage_time", 1800)
+        if (
+            proxy_info.last_used
+            and (time.time() - proxy_info.last_used) > max_usage_time
+        ):
             return True
 
         # 检查评分
-        min_score = self.config.get('min_score', 50.0)
+        min_score = self.config.get("min_score", 50.0)
         if proxy_info.score < min_score:
             return True
 
@@ -544,45 +573,39 @@ class ProxyManager:
 
     def get_stats(self) -> Dict[str, Any]:
         """获取管理器统计信息"""
-        stats = {
-            'total_pools': len(self.pools),
-            'pools': {}
-        }
+        stats = {"total_pools": len(self.pools), "pools": {}}
 
         for pool_name, pool in self.pools.items():
-            stats['pools'][pool_name] = pool.get_stats()
+            stats["pools"][pool_name] = pool.get_stats()
 
         return stats
 
     def save_state(self, file_path: str):
         """保存代理状态到文件"""
         try:
-            state = {
-                'timestamp': time.time(),
-                'pools': {}
-            }
+            state = {"timestamp": time.time(), "pools": {}}
 
             for pool_name, pool in self.pools.items():
-                state['pools'][pool_name] = {
-                    'proxies': [
+                state["pools"][pool_name] = {
+                    "proxies": [
                         {
-                            'ip': proxy.ip,
-                            'port': proxy.port,
-                            'proxy_type': proxy.proxy_type.value,
-                            'country': proxy.country,
-                            'provider': proxy.provider,
-                            'score': proxy.score,
-                            'success_rate': proxy.success_rate,
-                            'response_time': proxy.response_time,
-                            'status': proxy.status.value,
-                            'total_requests': proxy.total_requests,
-                            'failed_requests': proxy.failed_requests
+                            "ip": proxy.ip,
+                            "port": proxy.port,
+                            "proxy_type": proxy.proxy_type.value,
+                            "country": proxy.country,
+                            "provider": proxy.provider,
+                            "score": proxy.score,
+                            "success_rate": proxy.success_rate,
+                            "response_time": proxy.response_time,
+                            "status": proxy.status.value,
+                            "total_requests": proxy.total_requests,
+                            "failed_requests": proxy.failed_requests,
                         }
                         for proxy in pool.proxies.values()
                     ]
                 }
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
 
             self.logger.info(f"代理状态已保存到 {file_path}")
@@ -597,26 +620,28 @@ class ProxyManager:
                 self.logger.warning(f"代理状态文件 {file_path} 不存在")
                 return
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
 
             # 恢复代理状态
-            for pool_name, pool_data in state.get('pools', {}).items():
+            for pool_name, pool_data in state.get("pools", {}).items():
                 if pool_name in self.pools:
                     pool = self.pools[pool_name]
 
                     # 恢复代理统计信息
-                    for proxy_data in pool_data.get('proxies', []):
+                    for proxy_data in pool_data.get("proxies", []):
                         proxy_id = f"{proxy_data['ip']}:{proxy_data['port']}:{proxy_data['proxy_type']}"
 
                         if proxy_id in pool.proxies:
                             proxy = pool.proxies[proxy_id]
-                            proxy.score = proxy_data.get('score', 100.0)
-                            proxy.success_rate = proxy_data.get('success_rate', 1.0)
-                            proxy.response_time = proxy_data.get('response_time', 0.0)
-                            proxy.status = ProxyStatus(proxy_data.get('status', 'active'))
-                            proxy.total_requests = proxy_data.get('total_requests', 0)
-                            proxy.failed_requests = proxy_data.get('failed_requests', 0)
+                            proxy.score = proxy_data.get("score", 100.0)
+                            proxy.success_rate = proxy_data.get("success_rate", 1.0)
+                            proxy.response_time = proxy_data.get("response_time", 0.0)
+                            proxy.status = ProxyStatus(
+                                proxy_data.get("status", "active")
+                            )
+                            proxy.total_requests = proxy_data.get("total_requests", 0)
+                            proxy.failed_requests = proxy_data.get("failed_requests", 0)
 
             self.logger.info(f"代理状态已从 {file_path} 加载")
 
@@ -645,7 +670,8 @@ class ProxyManager:
         for pool_name, pool in self.pools.items():
             with pool.lock:
                 expired_proxies = [
-                    proxy_id for proxy_id, proxy in pool.proxies.items()
+                    proxy_id
+                    for proxy_id, proxy in pool.proxies.items()
                     if proxy.is_expired
                 ]
 

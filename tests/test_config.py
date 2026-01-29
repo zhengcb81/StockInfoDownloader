@@ -8,8 +8,8 @@
 """
 
 import os
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 
 # 测试用股票代码
@@ -44,10 +44,10 @@ TEST_LOGS_DIR = Path(__file__).parent / "test_logs"
 
 # 测试超时设置
 TIMEOUTS = {
-    "short": 5,      # 短超时（秒）
-    "medium": 15,    # 中等超时（秒）
-    "long": 60,      # 长超时（秒）
-    "download": 120, # 下载超时（秒）
+    "short": 5,  # 短超时（秒）
+    "medium": 15,  # 中等超时（秒）
+    "long": 60,  # 长超时（秒）
+    "download": 120,  # 下载超时（秒）
 }
 
 # WebDriver测试配置
@@ -58,31 +58,32 @@ WEBDRIVER_CONFIG = {
     "implicit_wait": 10,
 }
 
+
 class EnvironmentManager:
     """测试环境管理器"""
 
     def __init__(self):
         self.temp_dirs = []
         self.temp_files = []
-    
+
     def create_temp_dir(self, prefix="test_"):
         """创建临时目录"""
         temp_dir = tempfile.mkdtemp(prefix=prefix)
         self.temp_dirs.append(temp_dir)
         return temp_dir
-    
+
     def create_temp_file(self, suffix=".tmp", content=""):
         """创建临时文件"""
         fd, temp_file = tempfile.mkstemp(suffix=suffix)
         os.close(fd)
-        
+
         if content:
-            with open(temp_file, 'w', encoding='utf-8') as f:
+            with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-        
+
         self.temp_files.append(temp_file)
         return temp_file
-    
+
     def cleanup(self):
         """清理临时文件和目录"""
         for temp_file in self.temp_files:
@@ -91,29 +92,31 @@ class EnvironmentManager:
                     os.remove(temp_file)
             except Exception:
                 pass
-        
+
         for temp_dir in self.temp_dirs:
             try:
                 if os.path.exists(temp_dir):
                     shutil.rmtree(temp_dir)
             except Exception:
                 pass
-        
+
         self.temp_dirs.clear()
         self.temp_files.clear()
+
 
 def create_test_config(stock_code="000001", save_dir=None):
     """创建测试用配置"""
     if save_dir is None:
         save_dir = tempfile.mkdtemp(prefix="test_downloads_")
-    
+
     return {
         "stock_code": stock_code,
         "save_dir": save_dir,
         "headless": True,
         "max_retries": 2,
-        "timeout": TIMEOUTS["medium"]
+        "timeout": TIMEOUTS["medium"],
     }
+
 
 def create_test_mapping():
     """创建测试用股票映射"""
@@ -121,7 +124,7 @@ def create_test_mapping():
         code: {
             "orgId": org_id,
             "name": f"测试股票{code}",
-            "market": "深圳" if code.startswith(("000", "002")) else "上海"
+            "market": "深圳" if code.startswith(("000", "002")) else "上海",
         }
         for code, org_id in TEST_ORG_IDS.items()
-    } 
+    }

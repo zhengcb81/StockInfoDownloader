@@ -6,12 +6,12 @@
 详细分析Playwright测试中stock_name参数从创建到使用的完整流程
 """
 
-from pathlib import Path
 import sys
-import os
+from pathlib import Path
 
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent))
+
 
 def analyze_stock_name_flow():
     """分析stock_name参数的完整传递链路"""
@@ -25,14 +25,15 @@ def analyze_stock_name_flow():
     config_file = Path("config_end2end_test.json")
     if config_file.exists():
         import json
-        with open(config_file, 'r', encoding='utf-8') as f:
+
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
         print(f"   配置文件: {config_file.name}")
         print(f"   保存目录: {config.get('save_dir', 'N/A')}")
         print(f"   预期结果目录: {config.get('expected_result_dir', 'N/A')}")
 
         # 检查测试用例
-        test_cases = config.get('test_cases', [])
+        test_cases = config.get("test_cases", [])
         print(f"\n   测试用例数: {len(test_cases)}")
         for i, case in enumerate(test_cases):
             print(f"   用例{i+1}: 股票代码={case['stock_code']}, 后缀={case['suffix']}")
@@ -44,6 +45,7 @@ def analyze_stock_name_flow():
     print("\n2. 股票名称映射检查:")
     try:
         from src.data.mapping import MappingManager
+
         mapping_manager = MappingManager("stock_orgid_mapping.json")
 
         test_stocks = ["301611", "300470"]
@@ -68,7 +70,7 @@ def analyze_stock_name_flow():
             suffix="research",
             allowed_keywords=["投资者关系管理信息20250725"],
             max_pages=1,
-            save_dir="end2end_test/test_results"
+            save_dir="end2end_test/test_results",
         )
 
         # 模拟添加stock_name属性（如download_activity_records函数中所做的）
@@ -97,7 +99,9 @@ def analyze_stock_name_flow():
     print("   stock_name = None")
     print("   if request and hasattr(request, 'stock_name'):")
     print("       stock_name = request.stock_name")
-    print("   elif self.current_request and hasattr(self.current_request, 'stock_name'):")
+    print(
+        "   elif self.current_request and hasattr(self.current_request, 'stock_name'):"
+    )
     print("       stock_name = self.current_request.stock_name")
     print("   ")
     print("   if stock_name:")
@@ -140,6 +144,7 @@ def analyze_stock_name_flow():
 
     return True
 
+
 def check_current_debug_markers():
     """检查现有的debug标记文件"""
     print("\n" + "=" * 80)
@@ -154,19 +159,21 @@ def check_current_debug_markers():
         for file in jsonl_files[-3:]:  # 只显示最近的3个
             print(f"\n文件: {file.name}")
             try:
-                with open(file, 'r', encoding='utf-8') as f:
+                with open(file, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                     print(f"  标记数量: {len(lines)}")
                     if lines:
                         # 显示最后几个标记
                         for line in lines[-3:]:
                             import json
+
                             data = json.loads(line.strip())
                             print(f"    - {data['step']}: {data['success']}")
             except Exception as e:
                 print(f"    读取失败: {e}")
     else:
         print("Debug标记目录不存在")
+
 
 def check_actual_vs_expected_structure():
     """检查实际vs预期的目录结构"""
@@ -220,6 +227,7 @@ def check_actual_vs_expected_structure():
             print(f"  [原因] stock_name参数未正确传递，导致保存路径错误")
         else:
             print(f"\n  [正常] 所有文件都在公司子目录中")
+
 
 if __name__ == "__main__":
     analyze_stock_name_flow()

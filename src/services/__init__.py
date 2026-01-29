@@ -5,6 +5,4 @@
 
 from .unified_downloader import UnifiedDownloader
 
-__all__ = [
-    'UnifiedDownloader'
-]
+__all__ = ["UnifiedDownloader"]

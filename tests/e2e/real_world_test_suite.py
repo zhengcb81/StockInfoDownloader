@@ -8,36 +8,44 @@
 这是真正的端到端测试，区别于使用mock对象的组件集成测试
 """
 
-import pytest
 import json
-import os
-import time
 import logging
-from pathlib import Path
-from typing import Dict, List, Any
 
 # 添加项目根目录到Python路径
 import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.adapters.legacy_downloader_adapter import DownloadServiceV1Adapter as DownloadService
+from src.adapters.legacy_downloader_adapter import (
+    DownloadServiceV1Adapter as DownloadService,
+)
 from src.core.config import ConfigManager
 
 # 网络环境感知装饰器
 try:
-    from tests.utils.network_decorators import requires_network, NetworkStatus
+    from tests.utils.network_decorators import requires_network
+
     NETWORK_DECORATORS_AVAILABLE = True
 except ImportError:
     NETWORK_DECORATORS_AVAILABLE = False
+
     # 如果装饰器不可用，创建一个简单的替代
-    def requires_network(func=None, *, skip_on_failure=True, checker=None, message=None):
+    def requires_network(
+        func=None, *, skip_on_failure=True, checker=None, message=None
+    ):
         if func is None:
             return lambda f: f  # 返回一个什么都不做的装饰器
         return func
 
+
 # E2E测试结果分析器
 try:
-    from tests.utils.e2e_test_analyzer import E2ETestAnalyzer, TestResultCategory
+    from tests.utils.e2e_test_analyzer import E2ETestAnalyzer
+
     ANALYZER_AVAILABLE = True
 except ImportError:
     ANALYZER_AVAILABLE = False
@@ -50,7 +58,7 @@ pytestmark = pytest.mark.slow
 def load_real_stock_codes() -> List[Dict[str, Any]]:
     """加载真实股票代码"""
     config_path = Path(__file__).parent / "real_stock_codes.json"
-    with open(config_path, 'r', encoding='utf-8') as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data["stocks"]
 
@@ -85,6 +93,7 @@ class TestRealWorldEndToEnd:
         """测试类清理"""
         # 清理临时文件
         import shutil
+
         if cls.temp_dir.exists():
             shutil.rmtree(cls.temp_dir)
             cls.logger.info(f"清理临时目录: {cls.temp_dir}")
@@ -97,12 +106,16 @@ class TestRealWorldEndToEnd:
 
                 # 打印摘要信息
                 summary = cls.analyzer.get_summary()
-                cls.logger.info(f"测试结果摘要: 总共 {summary['total_tests']} 个测试, "
-                              f"成功 {summary['successful_tests']} 个, "
-                              f"失败 {summary['failed_tests']} 个")
+                cls.logger.info(
+                    f"测试结果摘要: 总共 {summary['total_tests']} 个测试, "
+                    f"成功 {summary['successful_tests']} 个, "
+                    f"失败 {summary['failed_tests']} 个"
+                )
 
-                if summary['failed_tests'] > 0:
-                    cls.logger.warning(f"有 {summary['failed_tests']} 个测试失败，请查看详细报告")
+                if summary["failed_tests"] > 0:
+                    cls.logger.warning(
+                        f"有 {summary['failed_tests']} 个测试失败，请查看详细报告"
+                    )
             except Exception as e:
                 cls.logger.error(f"生成测试结果分析报告失败: {e}")
 
@@ -111,8 +124,7 @@ class TestRealWorldEndToEnd:
         """创建下载服务实例"""
         config = ConfigManager()
         service = DownloadService(
-            save_dir=str(self.temp_dir),
-            config_file=config.config_path
+            save_dir=str(self.temp_dir), config_file=config.config_path
         )
         yield service
         # 测试后清理
@@ -130,14 +142,18 @@ class TestRealWorldEndToEnd:
 
         # 下载股票PDF
         result = download_service.download_stock_pdfs(
-            stock_codes=[stock['code']],
+            stock_codes=[stock["code"]],
             max_pages=1,  # 限制页数
-            timeout=120  # 延长超时时间
+            timeout=120,  # 延长超时时间
         )
 
         # 验证结果
         assert result is not None
-        assert "success" in result or "completed" in result or result.get("status") in ["completed", "success"]
+        assert (
+            "success" in result
+            or "completed" in result
+            or result.get("status") in ["completed", "success"]
+        )
 
         # 检查下载历史
         history = download_service.get_download_history()
@@ -151,13 +167,11 @@ class TestRealWorldEndToEnd:
         if len(self.stock_codes) < 2:
             pytest.skip("没有足够的股票代码")
 
-        test_codes = [stock['code'] for stock in self.stock_codes[:2]]
+        test_codes = [stock["code"] for stock in self.stock_codes[:2]]
         self.logger.info(f"测试多个股票下载: {test_codes}")
 
         result = download_service.download_stock_pdfs(
-            stock_codes=test_codes,
-            max_pages=1,
-            timeout=180
+            stock_codes=test_codes, max_pages=1, timeout=180
         )
 
         assert result is not None
@@ -178,9 +192,7 @@ class TestRealWorldEndToEnd:
 
         try:
             result = download_service.download_stock_pdfs(
-                stock_codes=[stock['code']],
-                max_pages=1,
-                timeout=90
+                stock_codes=[stock["code"]], max_pages=1, timeout=90
             )
             assert result is not None
         finally:
@@ -202,7 +214,7 @@ class TestRealWorldEndToEnd:
         service = DownloadService(
             save_dir=str(self.temp_dir),
             max_downloads_per_session=1,
-            config_file=config.config_path
+            config_file=config.config_path,
         )
 
         if not self.stock_codes:
@@ -210,9 +222,7 @@ class TestRealWorldEndToEnd:
 
         stock = self.stock_codes[0]
         result = service.download_stock_pdfs(
-            stock_codes=[stock['code']],
-            max_pages=1,
-            timeout=120
+            stock_codes=[stock["code"]], max_pages=1, timeout=120
         )
 
         assert result is not None
@@ -227,9 +237,7 @@ class TestRealWorldEndToEnd:
         invalid_codes = ["999999", "INVALID"]
 
         result = download_service.download_stock_pdfs(
-            stock_codes=invalid_codes,
-            max_pages=1,
-            timeout=60
+            stock_codes=invalid_codes, max_pages=1, timeout=60
         )
 
         # 即使股票代码无效，也应该有相应的错误处理结果
@@ -260,12 +268,11 @@ class TestRealWorldEndToEnd:
         stock = self.stock_codes[0]
 
         import time
+
         start_time = time.time()
 
         result = download_service.download_stock_pdfs(
-            stock_codes=[stock['code']],
-            max_pages=1,
-            timeout=120
+            stock_codes=[stock["code"]], max_pages=1, timeout=120
         )
 
         end_time = time.time()

@@ -6,11 +6,10 @@
 提供统一的测试基类、工具函数和测试数据
 """
 
-import tempfile
-import os
 import json
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
+import os
+import tempfile
+from unittest.mock import Mock
 
 
 class TestBase:
@@ -24,7 +23,8 @@ class TestBase:
     def teardown_method(self):
         """通用测试清理"""
         import shutil
-        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+
+        if hasattr(self, "temp_dir") and os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
     def _get_test_data(self):
@@ -35,19 +35,19 @@ class TestBase:
                 "301611": "珂玛科技",
                 "000001": "平安银行",
                 "600519": "贵州茅台",
-                "430001": "北交所测试"
+                "430001": "北交所测试",
             },
             "org_ids": {
                 "300470": "9900023856",
                 "301611": "9900041611",
                 "000001": "9900000001",
-                "600519": "9900010519"
+                "600519": "9900010519",
             },
             "market_info": {
                 "SH": ["600519", "601318"],  # 上海
                 "SZ": ["000001", "300470"],  # 深圳
-                "BJ": ["430001", "830001"]   # 北京
-            }
+                "BJ": ["430001", "830001"],  # 北京
+            },
         }
 
     def create_test_mapping_file(self, filename="test_mapping.json"):
@@ -57,11 +57,11 @@ class TestBase:
             if code in self.test_data["org_ids"]:
                 mapping_data[code] = {
                     "org_id": self.test_data["org_ids"][code],
-                    "name": name
+                    "name": name,
                 }
 
         file_path = os.path.join(self.temp_dir, filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(mapping_data, f, ensure_ascii=False, indent=2)
 
         return file_path
@@ -71,9 +71,9 @@ class TestBase:
         import csv
 
         file_path = os.path.join(self.temp_dir, filename)
-        with open(file_path, 'w', encoding='utf-8', newline='') as f:
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(['stock_code', 'stock_name'])
+            writer.writerow(["stock_code", "stock_name"])
             for code, name in self.test_data["stock_codes"].items():
                 writer.writerow([code, name])
 
@@ -125,7 +125,7 @@ class StockServiceTestBase(TestBase):
         mock_response = Mock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.return_value = [
-            {'code': stock_code, 'value': f'{stock_name}-测试股票'}
+            {"code": stock_code, "value": f"{stock_name}-测试股票"}
         ]
         return mock_response
 
@@ -136,7 +136,7 @@ class DownloadServiceTestBase(TestBase):
     def setup_method(self):
         """DownloadService测试设置"""
         super().setup_method()
-        self.save_dir = os.path.join(self.temp_dir, 'downloads')
+        self.save_dir = os.path.join(self.temp_dir, "downloads")
         os.makedirs(self.save_dir, exist_ok=True)
         self.download_service = None  # 子类需要初始化具体的service
 
@@ -144,8 +144,8 @@ class DownloadServiceTestBase(TestBase):
         """创建测试PDF文件"""
         file_path = os.path.join(self.save_dir, filename)
         # 创建空的PDF文件（实际测试中可能需要真实内容）
-        with open(file_path, 'wb') as f:
-            f.write(b'%PDF-1.4\n%fake pdf content')
+        with open(file_path, "wb") as f:
+            f.write(b"%PDF-1.4\n%fake pdf content")
         return file_path
 
 
@@ -166,7 +166,7 @@ class OrgIdServiceTestBase(TestBase):
         mock_script = Mock()
         mock_script.get_attribute.return_value = "innerHTML"
         mock_script.get_attribute.side_effect = lambda attr: {
-            'innerHTML': f'var config = {{\"orgId\": \"{org_id}\"}};'
+            "innerHTML": f'var config = {{"orgId": "{org_id}"}};'
         }.get(attr)
 
         mock_driver.find_elements.return_value = [mock_script]
@@ -185,7 +185,7 @@ def assert_org_id_valid(org_id, msg=""):
     assert org_id is not None, f"{msg}: org_id should not be None"
     assert isinstance(org_id, str), f"{msg}: org_id should be string"
     assert len(org_id) == 10, f"{msg}: org_id should be 10 digits"
-    assert org_id.startswith('99'), f"{msg}: org_id should start with 99"
+    assert org_id.startswith("99"), f"{msg}: org_id should start with 99"
     assert org_id.isdigit(), f"{msg}: org_id should contain only digits"
 
 
@@ -201,21 +201,21 @@ def assert_stock_code_valid(stock_code, msg=""):
 TEST_STOCK_CODES = {
     "VALID": ["300470", "000001", "600519", "430001"],
     "INVALID": ["abc123", "12345", "1234567", "", "300470A"],
-    "WITH_SPACES": [" 300470 ", " 000001 "]
+    "WITH_SPACES": [" 300470 ", " 000001 "],
 }
 
 TEST_ORG_IDS = {
     "VALID": ["9900023856", "9900000001", "9900010519"],
-    "INVALID": ["1234567890", "990002385", "99000238567", "abc1234567"]
+    "INVALID": ["1234567890", "990002385", "99000238567", "abc1234567"],
 }
 
 TEST_URLS = {
     "WITH_ORG_ID": [
         "https://www.cninfo.com.cn/new/investor/investor?stockCode=300470&orgId=9900023856",
-        "https://www.cninfo.com.cn/new/disclosure/stock?orgId=9900010519&stockCode=600519"
+        "https://www.cninfo.com.cn/new/disclosure/stock?orgId=9900010519&stockCode=600519",
     ],
     "WITHOUT_ORG_ID": [
         "https://www.cninfo.com.cn/new/investor/investor?stockCode=300470",
-        "https://example.com"
-    ]
+        "https://example.com",
+    ],
 }

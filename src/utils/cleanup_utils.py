@@ -5,8 +5,9 @@
 
 import os
 import shutil
-from typing import Optional, Callable
 from pathlib import Path
+from typing import Callable, Optional
+
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -30,7 +31,9 @@ def safe_cleanup(cleanup_func: Callable, error_msg: str = "清理失败") -> boo
         raise TypeError("cleanup_func不能为None")
 
     if not callable(cleanup_func):
-        raise TypeError(f"cleanup_func必须是可调用对象，而不是 {type(cleanup_func).__name__}")
+        raise TypeError(
+            f"cleanup_func必须是可调用对象，而不是 {type(cleanup_func).__name__}"
+        )
 
     try:
         cleanup_func()
@@ -150,7 +153,7 @@ def cleanup_temp_files(directory: Optional[str], extensions: list = None) -> boo
         return True
 
     if extensions is None:
-        extensions = ['.tmp', '.crdownload', '.partial', '.download']
+        extensions = [".tmp", ".crdownload", ".partial", ".download"]
 
     try:
         cleaned_count = 0
@@ -264,7 +267,9 @@ def cleanup_large_files(directory: Optional[str], max_size_mb: int = 100) -> boo
                     if size > max_size_bytes:
                         os.remove(file_path)
                         cleaned_count += 1
-                        logger.info(f"清理大文件 ({size/(1024*1024):.1f}MB): {file_path}")
+                        logger.info(
+                            f"清理大文件 ({size/(1024*1024):.1f}MB): {file_path}"
+                        )
                 except Exception as e:
                     logger.warning(f"检查文件大小失败 {file_path}: {e}")
 

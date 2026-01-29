@@ -3,18 +3,16 @@ WebDriver连接池模块
 提供高效的WebDriver实例管理和复用，减少初始化开销
 """
 
+import queue
 import threading
 import time
-import queue
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
-from src.core.logger import get_logger
 from src.core.config import ConfigManager
+from src.core.logger import get_logger
 
 
 class WebDriverPool:
@@ -44,37 +42,36 @@ class WebDriverPool:
         for _ in range(self.pool_size):
             driver = self._create_driver()
             self.pool.put(driver)
-            self.active_drivers[driver] = {
-                'downloads': 0,
-                'created_at': time.time()
-            }
+            self.active_drivers[driver] = {"downloads": 0, "created_at": time.time()}
 
     def _create_driver(self) -> webdriver.Chrome:
         """创建新的WebDriver实例"""
         try:
             # 获取配置
-            headless = self.config_manager.get('headless', True)
-            window_size = self.config_manager.get('browser.window_size', '1920,1080')
-            page_load_timeout = self.config_manager.get('timeout.page_load', 30)
-            element_wait_timeout = self.config_manager.get('timeout.element_wait', 10)
+            headless = self.config_manager.get("headless", True)
+            window_size = self.config_manager.get("browser.window_size", "1920,1080")
+            page_load_timeout = self.config_manager.get("timeout.page_load", 30)
+            element_wait_timeout = self.config_manager.get("timeout.element_wait", 10)
 
             # 配置Chrome选项
             chrome_options = Options()
 
             if headless:
-                chrome_options.add_argument('--headless')
+                chrome_options.add_argument("--headless")
 
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-web-security')
-            chrome_options.add_argument('--disable-features=VizDisplayCompositor')
-            chrome_options.add_argument('--window-size=' + window_size)
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+            chrome_options.add_argument("--window-size=" + window_size)
 
             # 添加反检测设置
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option(
+                "excludeSwitches", ["enable-automation"]
+            )
+            chrome_options.add_experimental_option("useAutomationExtension", False)
 
             # 创建WebDriver实例
             driver = webdriver.Chrome(options=chrome_options)
@@ -144,15 +141,17 @@ class WebDriverPool:
                     return
 
                 # 更新下载计数
-                self.active_drivers[driver]['downloads'] += 1
-                downloads = self.active_drivers[driver]['downloads']
+                self.active_drivers[driver]["downloads"] += 1
+                downloads = self.active_drivers[driver]["downloads"]
 
                 # 检查是否需要重启（超过最大下载次数或运行时间过长）
-                created_at = self.active_drivers[driver]['created_at']
+                created_at = self.active_drivers[driver]["created_at"]
                 runtime = time.time() - created_at
 
                 if downloads >= self.max_session_downloads or runtime > 1800:  # 30分钟
-                    self.logger.info(f"WebDriver达到使用限制（下载次数: {downloads}, 运行时间: {runtime:.1f}s），重新创建")
+                    self.logger.info(
+                        f"WebDriver达到使用限制（下载次数: {downloads}, 运行时间: {runtime:.1f}s），重新创建"
+                    )
                     self._cleanup_driver(driver)
                     new_driver = self._create_driver()
                     self.pool.put(new_driver)
@@ -160,7 +159,9 @@ class WebDriverPool:
                     # 检查健康状态
                     if self._is_driver_healthy(driver):
                         self.pool.put(driver)
-                        self.logger.debug(f"WebDriver归还到池中，剩余: {self.pool.qsize()}")
+                        self.logger.debug(
+                            f"WebDriver归还到池中，剩余: {self.pool.qsize()}"
+                        )
                     else:
                         self.logger.warning("WebDriver不健康，重新创建")
                         self._cleanup_driver(driver)
@@ -176,16 +177,16 @@ class WebDriverPool:
         """获取连接池状态"""
         with self.lock:
             return {
-                'pool_size': self.pool.qsize(),
-                'max_pool_size': self.pool_size,
-                'active_drivers': len(self.active_drivers),
-                'driver_stats': [
+                "pool_size": self.pool.qsize(),
+                "max_pool_size": self.pool_size,
+                "active_drivers": len(self.active_drivers),
+                "driver_stats": [
                     {
-                        'downloads': info['downloads'],
-                        'runtime': time.time() - info['created_at']
+                        "downloads": info["downloads"],
+                        "runtime": time.time() - info["created_at"],
                     }
                     for info in self.active_drivers.values()
-                ]
+                ],
             }
 
     def cleanup_all(self):
@@ -260,7 +261,9 @@ class EnhancedWebDriverManager:
 WebDriverManager = EnhancedWebDriverManager
 
 
-def create_webdriver_manager(pool_size: int = 3, max_session_downloads: int = 20) -> EnhancedWebDriverManager:
+def create_webdriver_manager(
+    pool_size: int = 3, max_session_downloads: int = 20
+) -> EnhancedWebDriverManager:
     """
     创建WebDriver管理器的工厂函数
 

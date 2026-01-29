@@ -294,13 +294,50 @@ docker-compose -f docker-compose.dev.yml --profile tools up -d
 
 ### 环境变量配置
 
-#### 1. 基础配置
+#### 1. 服务发现配置
 ```bash
+# 服务地址配置 (默认 localhost)
+DOWNLOAD_SERVICE_HOST=localhost
+DOWNLOAD_SERVICE_PORT=8001
+
+CACHE_SERVICE_HOST=localhost
+CACHE_SERVICE_PORT=8002
+
+ERROR_SERVICE_HOST=localhost
+ERROR_SERVICE_PORT=8003
+
+CONFIG_SERVICE_HOST=localhost
+CONFIG_SERVICE_PORT=8004
+
 # Redis配置
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
+```
 
+#### 2. 业务规则配置
+业务规则（如 XPath 选择器、URL 模板、反爬参数）已从代码中剥离，统一管理在 `configs/business_rules.json` 文件中。
+
+**`configs/business_rules.json` 示例**:
+```json
+{
+  "urls": {
+    "base_url": "https://www.cninfo.com.cn",
+    ...
+  },
+  "selectors": {
+    "download_button": "//button[contains(., '公告下载')]",
+    ...
+  },
+  "timeouts": {
+    "page_load": 30,
+    ...
+  }
+}
+```
+
+#### 3. 基础配置
+```bash
 # 服务配置
 SERVICE_NAME=stock-downloader
 SERVICE_PORT=8000

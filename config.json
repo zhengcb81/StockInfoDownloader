@@ -1,29 +1,5 @@
 {
-  "environment": "production",
   "save_dir": "downloads",
-  "companies": [
-    {
-      "stock_code": "002415",
-      "company_name": "海康威视",
-      "enabled": true,
-      "priority": 1,
-      "custom_pages": null
-    },
-    {
-      "stock_code": "301611",
-      "company_name": "珂玛科技",
-      "enabled": true,
-      "priority": 2,
-      "custom_pages": null
-    },
-    {
-      "stock_code": "300470",
-      "company_name": "中密控股",
-      "enabled": true,
-      "priority": 3,
-      "custom_pages": null
-    }
-  ],
   "headless": true,
   "max_retries": 3,
   "use_dynamic_delay": true,
@@ -31,10 +7,9 @@
   "page_load_strategy": "eager",
   "timeout": {
     "page_load": 30,
-    "element_wait": 10,
-    "download": 300,
-    "script": 30,
-    "validation": 10
+    "element_wait": 30,
+    "download": 180,
+    "script": 30
   },
   "selectors": {
     "detail_links": "//a[contains(@href, '/new/disclosure/detail')]",
@@ -51,232 +26,108 @@
       ".xlsx"
     ],
     "mapping_file": "stock_orgid_mapping.json",
-    "log_dir": "logs",
-    "download_dir": "downloads"
-  },
-  "download": {
-    "max_downloads_per_session": 200,
-    "pagination_wait": 2,
-    "human_behavior_delay": 3,
-    "max_pages_per_type": 3,
-    "global_max_pages": 3
-  },
-  "driver_pool": {
-    "pool_size": 3,
-    "max_session_downloads": 20,
-    "health_check_interval": 60
+    "log_dir": "logs"
   },
   "browser": {
     "strategy": "playwright",
-    "window_size": "1920,1080",
+    "headless": true,
+    "window_size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "timeout": 30,
+    "page_load_timeout": 60,
+    "implicit_wait": 10,
+    "user_agent": null,
     "user_agents": [
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    ]
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/91.0.864.59"
+    ],
+    "proxy_enabled": false,
+    "proxy_host": null,
+    "proxy_port": 8080,
+    "proxy_type": "http"
   },
   "anti_crawler": {
-    "min_delay": 2.0,
-    "max_delay": 8.0,
-    "max_downloads": 5,
-    "scroll_range": [
-      200,
-      600
-    ],
-    "behavior_delay": [
+    "enabled": true,
+    "base_delay": 1.0,
+    "random_delay_range": [
       0.5,
-      1.5
+      2.0
+    ],
+    "session_limit": 50,
+    "max_retries": 3,
+    "retry_backoff_factor": 2.0,
+    "simulate_typing": false,
+    "simulate_mouse_movement": false,
+    "random_scrolling": false,
+    "referer_enabled": true,
+    "custom_headers": {
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache"
+    }
+  },
+  "download": {
+    "max_pages": 5,
+    "timeout": 180,
+    "download_delay": 0.5,
+    "concurrent_downloads": 3,
+    "chunk_size": 8192,
+    "file_name_format": "{stock_name}_{date}_{description}.pdf",
+    "save_directory": "downloads",
+    "create_subdirs": true,
+    "delete_after_analysis": false,
+    "validate_downloads": true,
+    "min_file_size": 1024,
+    "allowed_extensions": [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx"
     ]
+  },
+  "logging": {
+    "level": "INFO",
+    "log_to_file": true,
+    "log_file": "logs/downloader.log",
+    "max_file_size": 10485760,
+    "backup_count": 5,
+    "console_output": true,
+    "enable_performance_logging": true,
+    "performance_log_file": "logs/performance.log",
+    "enable_error_tracking": true,
+    "error_log_file": "logs/errors.log"
   },
   "pages": [
     {
       "name": "调研",
       "suffix": "research",
-      "allowed_keywords": null,
-      "excluded_keywords": ["英文版", "（英文版）"],
-      "max_pages": 3
+      "allowed_keywords": null
     },
     {
-      "name": "定期报告",
+      "name": "定期公告",
       "suffix": "periodicReports",
-      "allowed_keywords": null,
-      "excluded_keywords": ["摘要", "英文版", "（英文版）"],
-      "max_pages": 3
+      "allowed_keywords": null
     },
     {
       "name": "最新公告",
       "suffix": "latestAnnouncement",
-      "allowed_keywords": ["招股说明书", "问询函"],
-      "excluded_keywords": null,
-      "max_pages": 3
+      "allowed_keywords": [
+        "招股说明书"
+      ]
     }
   ],
-  "logging": {
-    "level": "INFO",
-    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    "encoding": "utf-8"
-  },
-  "validation": {
-    "file_patterns": {
-      "research": [
-        "投资者关系",
-        "活动记录表"
-      ],
-      "periodicReports": [
-        "季度报告",
-        "年报",
-        "半年报"
-      ],
-      "latestAnnouncement": [
-        "招股说明书",
-        "上市公告"
-      ]
-    }
-  },
-  "parallel_download": {
-    "enabled": false,
-    "max_workers": 1,
-    "batch_size": 50,
-    "task_timeout": 300,
-    "retry_policy": {
-      "max_retries": 3,
-      "retry_delay": 5,
-      "backoff_factor": 2
-    },
-    "priority_strategy": {
+  "companies": [
+    {
+      "stock_code": "000001",
+      "company_name": "平安银行",
       "enabled": true,
-      "factors": {
-        "market_cap_weight": 0.3,
-        "update_frequency_weight": 0.4,
-        "importance_weight": 0.3
-      }
+      "priority": 1,
+      "custom_pages": null
     }
-  },
-  "proxy_management": {
-    "enabled": false,
-    "pools": {
-      "data_center": {
-        "enabled": true,
-        "max_size": 200,
-        "rotation_interval": 100,
-        "health_check_interval": 60
-      },
-      "residential": {
-        "enabled": true,
-        "max_size": 100,
-        "rotation_interval": 50,
-        "max_usage_time": 1800
-      },
-      "elite": {
-        "enabled": true,
-        "max_size": 50,
-        "rotation_interval": 30,
-        "health_check_interval": 30
-      }
-    },
-    "providers": [
-      {
-        "name": "luminati",
-        "type": "residential",
-        "enabled": false,
-        "api_endpoint": "https://luminati.io/api",
-        "customer_id": "",
-        "zone": "",
-        "password": "",
-        "countries": [
-          "cn",
-          "us",
-          "hk",
-          "sg"
-        ],
-        "rotation_strategy": "request_based",
-        "max_requests_per_ip": 50
-      }
-    ],
-    "rotation_strategies": {
-      "request_based": {
-        "max_requests": 50,
-        "cooldown_period": 60
-      },
-      "time_based": {
-        "max_usage_time": 1800,
-        "min_usage_time": 300
-      },
-      "error_based": {
-        "max_failures": 3,
-        "recovery_time": 300
-      }
-    },
-    "health_check": {
-      "test_url": "http://httpbin.org/ip",
-      "timeout": 10,
-      "interval": 60,
-      "failure_threshold": 3
-    }
-  },
-  "enhanced_anti_crawler": {
-    "enabled": true,
-    "fingerprint_randomization": {
-      "user_agent_rotation": true,
-      "screen_resolution": true,
-      "timezone": true,
-      "language": true,
-      "platform": true,
-      "hardware_info": true
-    },
-    "behavior_simulation": {
-      "enabled": true,
-      "complexity_level": "high",
-      "randomization_factor": 0.3,
-      "patterns": [
-        "mouse_movement",
-        "scrolling",
-        "typing",
-        "tab_switching",
-        "idle_time"
-      ]
-    },
-    "adaptive_rate_limiting": {
-      "enabled": true,
-      "initial_requests_per_minute": 30,
-      "max_requests_per_minute": 100,
-      "adjustment_factor": 1.2,
-      "success_rate_threshold": 0.8,
-      "error_rate_threshold": 0.2
-    },
-    "captcha_handling": {
-      "enabled": true,
-      "strategies": [
-        "delay_retry",
-        "proxy_rotation",
-        "user_agent_change"
-      ],
-      "max_wait_time": 120,
-      "solve_timeout": 30
-    }
-  },
-  "performance_monitoring": {
-    "enabled": true,
-    "metrics": {
-      "response_time": true,
-      "success_rate": true,
-      "resource_usage": true,
-      "throughput": true
-    },
-    "alerting": {
-      "enabled": true,
-      "thresholds": {
-        "error_rate": 0.1,
-        "response_time": 30,
-        "memory_usage": 0.8,
-        "cpu_usage": 0.8
-      }
-    },
-    "reporting": {
-      "interval": 60,
-      "history_size": 1000
-    }
-  }
+  ]
 }

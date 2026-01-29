@@ -1,179 +1,59 @@
-# StockInfoDownloader 项目结构说明
+# StockInfoDownloader 项目结构说明 (重构版)
 
 ## 项目概述
-
-StockInfoDownloader 是一个用于下载巨潮资讯网股票信息的自动化工具。项目采用模块化设计，支持多种下载策略和并行处理。
-
-## 核心文件说明
-
-### 主要程序文件
-
-#### `cninfo_activity_downloader.py`
-**主要业务逻辑文件**
-- 功能：投资者关系活动记录表下载器
-- 特点：支持股票代码查询，自动映射组织ID，下载PDF文件
-- 重要性：⭐⭐⭐⭐⭐ 核心业务文件
-
-#### `main.py`
-**主程序入口**
-- 功能：基础的单一股票下载程序
-- 用途：简单的下载任务和测试
-- 重要性：⭐⭐⭐⭐
-
-#### `main_parallel.py`
-**并行下载主程序**
-- 功能：支持多公司并行下载
-- 特点：提高了下载效率，适合批量处理
-- 重要性：⭐⭐⭐⭐
-
-#### `e2e_test.py`
-**主要端到端测试**
-- 功能：完整的端到端测试框架
-- 特点：验证整个下载流程
-- 重要性：⭐⭐⭐⭐⭐ 核心测试文件
-
-#### `e2e_test_extended.py`
-**扩展端到端测试**
-- 功能：支持更多测试场景
-- 特点：更全面的测试覆盖
-- 重要性：⭐⭐⭐⭐
-
-### 工具和辅助文件
-
-#### `orgid_crawler.py`
-**组织ID爬虫**
-- 功能：爬取和更新组织ID映射
-- 重要性：⭐⭐⭐
-
-#### `orgid_utils.py`
-**组织ID工具**
-- 功能：组织ID相关的辅助函数
-- 重要性：⭐⭐⭐
-
-#### `get_stock_name.py`
-**股票名称获取**
-- 功能：根据股票代码获取公司名称
-- 重要性：⭐⭐
-
-#### `validate_*.py`
-**验证工具**
-- 功能：数据完整性验证
-- 重要性：⭐⭐⭐
+本项目是针对巨潮资讯网 (Cninfo) 的高度自动化下载引擎，经过大规模重构，实现了配置驱动、类型安全、多引擎支持（Playwright/Selenium）以及完善的异常恢复机制。
 
 ## 目录结构
 
-### `/src` - 源代码目录
+### `/src` - 现代化模块化核心
 ```
 src/
-├── core/           # 核心模块（配置、日志、异常处理）
-├── data/           # 数据处理模块
-├── services/       # 服务层（下载器、工厂模式）
-├── utils/          # 工具函数
-└── web/           # 网页操作模块（Selenium、Playwright）
+├── core/           # 基础设施层
+│   ├── config.py           # 统一 ConfigManager，支持 Dataclass 同步
+│   ├── config_definitions.py # 配置类型定义
+│   ├── config_constants.py   # 配置常量（硬编码清理终点）
+│   ├── logger.py           # 结构化日志
+│   └── exceptions.py       # 异常分级与恢复策略
+├── services/       # 业务服务层
+│   ├── unified_downloader.py # 核心：统一下载器引擎
+│   ├── validation_service.py # 下载结果验证
+│   └── file_service.py       # 文件系统操作
+├── factory/        # 工厂模式
+│   └── downloader_factory.py # 下载器与策略的统一创建入口
+├── web/            # 网络层
+│   ├── browser_strategy.py   # 策略模式接口
+│   ├── playwright_strategy.py # Playwright 实现 (推荐)
+│   └── selenium_strategy.py   # Selenium 实现 (稳定)
+├── adapters/       # 兼容层
+│   └── legacy_downloader_adapter.py # 对接旧代码的适配器
+└── data/           # 数据访问
+    └── mapping.py          # 股票代码与 OrgID 映射管理
 ```
 
-### `/tools` - 专业工具集
-包含22个专业工具，主要类别：
-- **验证工具**: 内容验证、页面监控
-- **管理工具**: 文档管理、目录清理
-- **测试工具**: 场景生成、测试报告
-- **分析工具**: 数据验证、深度分析
+### `/tests` - 阶梯式测试体系
+- **`unit/`**: 覆盖配置管理、数据映射、工厂模式等逻辑，540+ 测试。
+- **`integration/`**: 验证下载器与本地文件系统的交互。
+- **`e2e/`**: 
+    - `official_e2e_test.py`: 核心端到端验证，支持 `--browser-strategy`。
+- **`performance/`**: 批量下载压力测试。
 
-### `/tests` - 测试目录
-```
-tests/
-├── unit/           # 单元测试
-├── integration/    # 集成测试
-├── e2e/           # 端到端测试
-└── validation/    # 验证测试
-```
+### `/tools` - 生产辅助工具
+- `protect_expected_results.py`: 锁定 E2E 测试的基准结果，防止污染。
+- `run_protection.bat`: 一键保护测试基准。
 
-### `/configs` - 配置目录
-包含各种配置文件模板和环境配置。
+## 核心组件流程
 
-### `/docs` - 文档目录
-包含详细的技术文档和使用说明。
+1. **初始化**: `ConfigManager` 加载 `config.json` 并同步到 `ConfigConstants`。
+2. **工厂创建**: `DownloaderFactory` 根据配置选择 `BrowserStrategy` 并创建 `UnifiedDownloader`。
+3. **任务路由**: `UnifiedDownloader` 生成 URL，通过 `BrowserStrategy` 执行导航和 SPA 切换。
+4. **下载控制**: 支持 AJAX 数据等待、自动分页、验证码规避和下载后的文件重命名。
+5. **异常恢复**: 遇到超时或崩溃时，根据 `exceptions.py` 定义的策略进行重启或重试。
 
-## 配置文件
+## 关键技术点
+- **Dataclass Config**: 配置项强类型化，IDE 友好且减少运行时错误。
+- **SPA 兼容**: 针对 Vue/ElementUI 优化的分页逻辑和 Tab 切换。
+- **Anti-Detection**: 集成多种反爬指纹修改，降低被封禁风险。
+- **Encoding**: 完美支持中文路径、中文日志和 GBK/UTF-8 混合内容。
 
-### `config.json`
-**主配置文件**
-- 包含所有默认设置
-- 下载路径、浏览器配置等
-- 重要性：⭐⭐⭐⭐⭐
-
-### `config_*.json`
-**测试配置文件**
-- `config_end2end_test.json`: 端到端测试配置（主要配置文件）
-- `config_performance_test.json`: 性能测试配置
-
-### `stock_orgid_mapping.json`
-**股票代码映射文件**
-- 股票代码到组织ID的映射关系
-- 定期更新维护
-- 重要性：⭐⭐⭐⭐⭐
-
-## 重要文档
-
-### 技术文档
-- `README.md`: 项目总览和快速开始
-- `CLAUDE.md`: 开发指南和规范
-- `TESTING_PROTOCOL.md`: 测试协议和规范
-- `MULTI_COMPANY_GUIDE.md`: 多公司下载指南
-
-### 测试文档
-- `TESTING_BEST_PRACTICES.md`: 测试最佳实践
-- `E2E_TEST_REPORT.md`: 端到端测试报告
-- `PERFORMANCE_ANALYSIS_REPORT.md`: 性能分析报告
-
-### 技术报告
-- `COMPREHENSIVE_TESTING_ENHANCEMENT_SUMMARY.md`: 测试增强总结
-- `FINAL_TEST_SYSTEM_IMPROVEMENT_SUMMARY.md`: 测试系统改进总结
-
-## 开发工作流
-
-### 1. 功能开发
-1. 在 `/src` 目录下实现核心功能
-2. 在 `/tests` 目录下编写对应测试
-3. 使用 `/tools` 中的工具进行验证
-
-### 2. 测试流程
-1. 运行 `e2e_test.py` 进行完整测试
-2. 使用 `e2e_test_extended.py` 进行扩展测试
-3. 利用 `/tools` 中的专业工具进行专项验证
-
-### 3. 调试和验证
-1. 使用 `/tools/` 中的验证工具
-2. 查看相关测试报告
-3. 参考技术文档进行问题排查
-
-## 使用建议
-
-### 新手使用
-1. 先阅读 `README.md` 了解项目
-2. 查看 `CLAUDE.md` 了解开发规范
-3. 使用 `main.py` 进行简单测试
-
-### 高级使用
-1. 使用 `main_parallel.py` 进行批量下载
-2. 配置 `config.json` 满足特定需求
-3. 利用 `/tools` 中的专业工具
-
-### 开发贡献
-1. 遵循 `TESTING_PROTOCOL.md` 中的测试规范
-2. 参考 `TESTING_BEST_PRACTICES.md` 编写高质量测试
-3. 保持项目结构的整洁性
-
-## 维护指南
-
-### 定期维护任务
-1. 更新 `stock_orgid_mapping.json`
-2. 清理临时文件和日志
-3. 更新测试用例和文档
-
-### 代码质量
-1. 保持核心模块的稳定性
-2. 确保测试覆盖率
-3. 定期进行代码审查
-
-这个项目结构设计旨在提供清晰的代码组织、完整的测试覆盖和详细的文档支持，确保项目的可维护性和可扩展性。
+## 开发规范
+参考 `docs/core/CLAUDE.md` 获取详细的编码和测试指南。

@@ -6,22 +6,24 @@
 覆盖关键集成路径和边界情况
 """
 
-import pytest
-import tempfile
-import os
 import json
+import os
+import sys
+import tempfile
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
-import sys
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.adapters.legacy_downloader_adapter import DownloadServiceV2Adapter as DownloadService
-from src.data.mapping import MappingManager
+from src.adapters.legacy_downloader_adapter import (
+    DownloadServiceV2Adapter as DownloadService,
+)
 from src.core.config import ConfigManager
+from src.data.mapping import MappingManager
+from src.utils.keyword_matcher import KeywordConfig, KeywordMatcher
 from src.web.browser_strategy import BrowserStrategyFactory
-from src.utils.keyword_matcher import KeywordMatcher, KeywordConfig
 
 
 class TestEnhancedIntegration:
@@ -30,30 +32,22 @@ class TestEnhancedIntegration:
     def setup_method(self):
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.mapping_file = os.path.join(self.temp_dir, 'test_mapping.json')
+        self.mapping_file = os.path.join(self.temp_dir, "test_mapping.json")
 
         # 创建测试映射数据
         test_mapping = {
-            "301611": {
-                "orgId": "9900056250",
-                "name": "珂玛科技"
-            },
-            "300470": {
-                "orgId": "9900030047",
-                "name": "中密控股"
-            },
-            "002415": {
-                "orgId": "9900002415",
-                "name": "海康威视"
-            }
+            "301611": {"orgId": "9900056250", "name": "珂玛科技"},
+            "300470": {"orgId": "9900030047", "name": "中密控股"},
+            "002415": {"orgId": "9900002415", "name": "海康威视"},
         }
 
-        with open(self.mapping_file, 'w', encoding='utf-8') as f:
+        with open(self.mapping_file, "w", encoding="utf-8") as f:
             json.dump(test_mapping, f, ensure_ascii=False, indent=2)
 
     def teardown_method(self):
         """测试清理"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_level1_config_mapping_integration(self):
@@ -76,16 +70,12 @@ class TestEnhancedIntegration:
         """层级2: 浏览器策略集成"""
         # 测试策略工厂
         selenium_strategy = BrowserStrategyFactory.create_strategy(
-            strategy_type="selenium",
-            headless=True,
-            download_dir=self.temp_dir
+            strategy_type="selenium", headless=True, download_dir=self.temp_dir
         )
         assert selenium_strategy is not None
 
         playwright_strategy = BrowserStrategyFactory.create_strategy(
-            strategy_type="playwright",
-            headless=True,
-            download_dir=self.temp_dir
+            strategy_type="playwright", headless=True, download_dir=self.temp_dir
         )
         assert playwright_strategy is not None
 
@@ -93,7 +83,7 @@ class TestEnhancedIntegration:
         downloader = DownloadService(
             save_dir=self.temp_dir,
             mapping_file=self.mapping_file,
-            browser_strategy="selenium"
+            browser_strategy="selenium",
         )
 
         # 切换到Playwright
@@ -105,8 +95,7 @@ class TestEnhancedIntegration:
         """层级3: 关键词匹配器集成"""
         # 测试关键词配置
         keyword_config = KeywordConfig(
-            allowed_keywords=["投资者关系", "调研"],
-            exclude_keywords=["公告", "通知"]
+            allowed_keywords=["投资者关系", "调研"], exclude_keywords=["公告", "通知"]
         )
 
         keyword_matcher = KeywordMatcher(keyword_config)
@@ -118,15 +107,14 @@ class TestEnhancedIntegration:
 
         # 测试下载器中的关键词集成
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试关键词过滤
         test_links = [
             {"text": "投资者关系活动记录表", "url": "link1"},
             {"text": "公司公告", "url": "link2"},
-            {"text": "机构调研报告", "url": "link3"}
+            {"text": "机构调研报告", "url": "link3"},
         ]
 
         allowed_keywords = ["投资者关系", "调研"]
@@ -140,8 +128,7 @@ class TestEnhancedIntegration:
     def test_level4_file_management_integration(self):
         """层级4: 文件管理集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试文件路径生成
@@ -154,7 +141,7 @@ class TestEnhancedIntegration:
 
         # 创建测试文件
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'wb') as f:
+        with open(file_path, "wb") as f:
             f.write(b"PDF content" * 1000)
 
         assert downloader._file_exists_and_valid(file_path)
@@ -169,8 +156,7 @@ class TestEnhancedIntegration:
     def test_level5_error_recovery_integration(self):
         """层级5: 错误恢复集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试重试机制
@@ -179,7 +165,9 @@ class TestEnhancedIntegration:
 
         # 模拟重试
         downloader.retry_count = 2
-        assert downloader.should_retry() == (downloader.retry_count < downloader.max_retries)
+        assert downloader.should_retry() == (
+            downloader.retry_count < downloader.max_retries
+        )
 
         # 测试会话限制
         assert downloader.max_downloads_per_session > 0
@@ -195,8 +183,7 @@ class TestEnhancedIntegration:
     def test_level6_multi_stock_integration(self):
         """层级6: 多股票处理集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试多股票处理
@@ -210,7 +197,7 @@ class TestEnhancedIntegration:
             results[stock_code] = {
                 "org_id": org_id,
                 "stock_name": stock_name,
-                "success": org_id is not None
+                "success": org_id is not None,
             }
 
         # 验证结果
@@ -223,8 +210,7 @@ class TestEnhancedIntegration:
     def test_level7_performance_monitoring_integration(self):
         """层级7: 性能监控集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试性能监控
@@ -247,8 +233,7 @@ class TestEnhancedIntegration:
     def test_level8_boundary_conditions_integration(self):
         """层级8: 边界条件集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 测试无效股票代码
@@ -278,7 +263,7 @@ class TestEnhancedIntegration:
         downloader = DownloadService(
             save_dir=self.temp_dir,
             mapping_file=self.mapping_file,
-            browser_strategy="playwright"
+            browser_strategy="playwright",
         )
 
         # 测试浏览器策略初始化
@@ -286,8 +271,8 @@ class TestEnhancedIntegration:
         assert downloader.browser_strategy_type == "playwright"
 
         # 测试策略配置
-        assert hasattr(downloader.browser_strategy, 'headless')
-        assert hasattr(downloader.browser_strategy, 'download_dir')
+        assert hasattr(downloader.browser_strategy, "headless")
+        assert hasattr(downloader.browser_strategy, "download_dir")
 
         # 测试策略切换
         success = downloader.switch_browser_strategy("selenium")
@@ -297,8 +282,7 @@ class TestEnhancedIntegration:
     def test_level10_comprehensive_workflow_integration(self):
         """层级10: 完整工作流集成"""
         downloader = DownloadService(
-            save_dir=self.temp_dir,
-            mapping_file=self.mapping_file
+            save_dir=self.temp_dir, mapping_file=self.mapping_file
         )
 
         # 模拟完整工作流

@@ -3,11 +3,11 @@
 与浏览器策略解耦，专注于业务逻辑层的目录管理
 """
 
-import os
-import shutil
 import logging
+import shutil
 from pathlib import Path
 from typing import Optional, Tuple
+
 from ..data.mapping import MappingManager
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,9 @@ class DirectoryManager:
         logger.debug(f"创建公司目录: {company_dir}")
         return company_dir
 
-    def organize_downloaded_file(self, temp_file_path: Path, stock_code: str,
-                               filename: str, base_save_dir: Path) -> Path:
+    def organize_downloaded_file(
+        self, temp_file_path: Path, stock_code: str, filename: str, base_save_dir: Path
+    ) -> Path:
         """
         组织下载的文件到正确的目录
 
@@ -112,8 +113,9 @@ class DirectoryManager:
         # 备用方案：使用股票代码（不加前缀）
         return stock_code
 
-    def validate_directory_structure(self, base_save_dir: Path,
-                                  expected_companies: list) -> Tuple[bool, list]:
+    def validate_directory_structure(
+        self, base_save_dir: Path, expected_companies: list
+    ) -> Tuple[bool, list]:
         """
         验证目录结构是否符合预期（严格模式）
 
@@ -149,7 +151,9 @@ class DirectoryManager:
         return len(issues) == 0, issues
 
 
-def create_directory_manager(mapping_file: str = "stock_orgid_mapping.json") -> DirectoryManager:
+def create_directory_manager(
+    mapping_file: str = "stock_orgid_mapping.json",
+) -> DirectoryManager:
     """
     创建目录管理器实例
 

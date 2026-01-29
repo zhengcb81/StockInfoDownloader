@@ -6,18 +6,19 @@
 提供端到端测试数据的统一管理，包括生成、清理、验证和版本控制
 """
 
-import json
-import shutil
-import tempfile
 import hashlib
-import time
+import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+import shutil
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 try:
-    import yaml  # 可选，如果可用
+      # 可选，如果可用
+
     YAML_AVAILABLE = True
 except ImportError:
     YAML_AVAILABLE = False
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TestDataVersion:
     """测试数据版本信息"""
+
     version: str
     timestamp: str
     description: str
@@ -39,6 +41,7 @@ class TestDataVersion:
 @dataclass
 class StockTestData:
     """股票测试数据"""
+
     code: str
     name: str
     market: str
@@ -76,7 +79,12 @@ class E2ETestDataManager:
         self.temp_dir = self.base_dir / "temp"
         self.version_dir = self.base_dir / "versions"
 
-        for dir_path in [self.raw_data_dir, self.processed_dir, self.temp_dir, self.version_dir]:
+        for dir_path in [
+            self.raw_data_dir,
+            self.processed_dir,
+            self.temp_dir,
+            self.version_dir,
+        ]:
             dir_path.mkdir(exist_ok=True)
 
         self.version_file = self.base_dir / "versions.json"
@@ -86,7 +94,7 @@ class E2ETestDataManager:
         """加载当前版本信息"""
         if self.version_file.exists():
             try:
-                with open(self.version_file, 'r', encoding='utf-8') as f:
+                with open(self.version_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return TestDataVersion(**data)
             except Exception as e:
@@ -113,13 +121,15 @@ class E2ETestDataManager:
                 except Exception as e:
                     logger.warning(f"清理目录失败 {temp_dir}: {e}")
 
-    def load_stock_test_data(self, config_file: str = "real_stock_codes.json") -> List[StockTestData]:
+    def load_stock_test_data(
+        self, config_file: str = "real_stock_codes.json"
+    ) -> List[StockTestData]:
         """加载股票测试数据"""
         config_path = Path(__file__).parent.parent / "e2e" / config_file
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         stocks = []
@@ -128,19 +138,25 @@ class E2ETestDataManager:
                 code=stock_data.get("code"),
                 name=stock_data.get("name"),
                 market=stock_data.get("market", ""),
-                description=stock_data.get("description", "")
+                description=stock_data.get("description", ""),
             )
             stocks.append(stock)
 
         logger.info(f"加载了 {len(stocks)} 个股票测试数据")
         return stocks
 
-    def validate_test_data(self, stock_data: StockTestData, actual_files: List[str]) -> Tuple[bool, List[str]]:
+    def validate_test_data(
+        self, stock_data: StockTestData, actual_files: List[str]
+    ) -> Tuple[bool, List[str]]:
         """验证测试数据"""
         errors = []
 
         # 验证股票代码格式
-        if not stock_data.code or not stock_data.code.isdigit() or len(stock_data.code) != 6:
+        if (
+            not stock_data.code
+            or not stock_data.code.isdigit()
+            or len(stock_data.code) != 6
+        ):
             errors.append(f"股票代码格式无效: {stock_data.code}")
 
         # 验证股票名称
@@ -161,21 +177,25 @@ class E2ETestDataManager:
 
         return len(errors) == 0, errors
 
-    def create_data_version(self, description: str, source: str = "manual") -> TestDataVersion:
+    def create_data_version(
+        self, description: str, source: str = "manual"
+    ) -> TestDataVersion:
         """创建新的数据版本"""
         # 计算当前数据的哈希值
-        data_files = list(self.raw_data_dir.glob("*.json")) + list(self.processed_dir.glob("*.json"))
+        data_files = list(self.raw_data_dir.glob("*.json")) + list(
+            self.processed_dir.glob("*.json")
+        )
         data_content = ""
 
         for file_path in sorted(data_files):
             if file_path.is_file():
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         data_content += f.read()
                 except Exception as e:
                     logger.warning(f"读取文件失败 {file_path}: {e}")
 
-        data_hash = hashlib.sha256(data_content.encode('utf-8')).hexdigest()[:16]
+        data_hash = hashlib.sha256(data_content.encode("utf-8")).hexdigest()[:16]
 
         version = TestDataVersion(
             version=f"v{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -183,19 +203,16 @@ class E2ETestDataManager:
             description=description,
             data_hash=data_hash,
             source=source,
-            metadata={
-                "file_count": len(data_files),
-                "manager_version": "1.0.0"
-            }
+            metadata={"file_count": len(data_files), "manager_version": "1.0.0"},
         )
 
         # 保存版本信息
         version_path = self.version_dir / f"{version.version}.json"
-        with open(version_path, 'w', encoding='utf-8') as f:
+        with open(version_path, "w", encoding="utf-8") as f:
             json.dump(asdict(version), f, ensure_ascii=False, indent=2)
 
         # 更新当前版本
-        with open(self.version_file, 'w', encoding='utf-8') as f:
+        with open(self.version_file, "w", encoding="utf-8") as f:
             json.dump(asdict(version), f, ensure_ascii=False, indent=2)
 
         self.current_version = version
@@ -208,7 +225,7 @@ class E2ETestDataManager:
         versions = []
         for version_file in sorted(self.version_dir.glob("*.json")):
             try:
-                with open(version_file, 'r', encoding='utf-8') as f:
+                with open(version_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 versions.append(TestDataVersion(**data))
             except Exception as e:

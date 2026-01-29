@@ -6,16 +6,14 @@
 确保测试环境的一致性和可靠性
 """
 
-import os
+import json
+import platform
+import shutil
 import sys
 import time
-import json
-import shutil
-import platform
-import subprocess
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
@@ -23,18 +21,21 @@ sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
 
+
 def log(message):
     """记录日志"""
     try:
         print(f"[{time.strftime('%H:%M:%S')}] {message}")
     except UnicodeEncodeError:
         # 处理编码问题
-        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        safe_message = message.encode("gbk", errors="replace").decode("gbk")
         print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
 
 @dataclass
 class EnvironmentCheck:
     """环境检查结果"""
+
     component: str
     status: str
     version: str
@@ -42,15 +43,18 @@ class EnvironmentCheck:
     check_passed: bool
     error_message: Optional[str] = None
 
+
 @dataclass
 class EnvironmentValidation:
     """环境验证结果"""
+
     environment_name: str
     checks_passed: int
     checks_failed: int
     total_checks: int
     validation_passed: bool
     environment_checks: List[EnvironmentCheck]
+
 
 class SimpleTestEnvironmentManager:
     """简化测试环境管理器"""
@@ -68,7 +72,7 @@ class SimpleTestEnvironmentManager:
             required_version = "3.8+"
 
             # 检查Python版本
-            version_parts = python_version.split('.')
+            version_parts = python_version.split(".")
             major = int(version_parts[0])
             minor = int(version_parts[1])
 
@@ -81,13 +85,15 @@ class SimpleTestEnvironmentManager:
                 status=status,
                 version=python_version,
                 required_version=required_version,
-                check_passed=check_passed
+                check_passed=check_passed,
             )
 
             if check_passed:
                 log(f"✅ {component} 检查通过: {status}")
             else:
-                log(f"❌ {component} 检查失败: 需要 {required_version}, 当前 {python_version}")
+                log(
+                    f"❌ {component} 检查失败: 需要 {required_version}, 当前 {python_version}"
+                )
 
             return result
 
@@ -98,7 +104,7 @@ class SimpleTestEnvironmentManager:
                 version="未知",
                 required_version="3.8+",
                 check_passed=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {component} 检查失败: {e}")
             return result
@@ -123,7 +129,7 @@ class SimpleTestEnvironmentManager:
                 status=status,
                 version=system,
                 required_version="Windows/Linux/macOS",
-                check_passed=check_passed
+                check_passed=check_passed,
             )
 
             if check_passed:
@@ -140,7 +146,7 @@ class SimpleTestEnvironmentManager:
                 version="未知",
                 required_version="Windows/Linux/macOS",
                 check_passed=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {component} 检查失败: {e}")
             return result
@@ -160,7 +166,7 @@ class SimpleTestEnvironmentManager:
                 "beautifulsoup4": "bs4",
                 "lxml": "lxml",
                 "pandas": "pandas",
-                "numpy": "numpy"
+                "numpy": "numpy",
             }
 
             missing_packages = []
@@ -181,7 +187,7 @@ class SimpleTestEnvironmentManager:
                 status=status,
                 version=f"{len(installed_packages)}/{len(required_packages)}",
                 required_version="全部安装",
-                check_passed=check_passed
+                check_passed=check_passed,
             )
 
             if check_passed:
@@ -199,7 +205,7 @@ class SimpleTestEnvironmentManager:
                 version="未知",
                 required_version="全部安装",
                 check_passed=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {component} 检查失败: {e}")
             return result
@@ -211,9 +217,7 @@ class SimpleTestEnvironmentManager:
 
         try:
             # 检查必要的目录
-            required_dirs = [
-                "tests", "src", "end2end_test", "logs"
-            ]
+            required_dirs = ["tests", "src", "end2end_test", "logs"]
 
             missing_dirs = []
             existing_dirs = []
@@ -232,7 +236,7 @@ class SimpleTestEnvironmentManager:
                 status=status,
                 version=f"{len(existing_dirs)}/{len(required_dirs)}",
                 required_version="全部存在",
-                check_passed=check_passed
+                check_passed=check_passed,
             )
 
             if check_passed:
@@ -250,7 +254,7 @@ class SimpleTestEnvironmentManager:
                 version="未知",
                 required_version="全部存在",
                 check_passed=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {component} 检查失败: {e}")
             return result
@@ -280,14 +284,16 @@ class SimpleTestEnvironmentManager:
                 status=status,
                 version=f"{free_gb:.1f}GB",
                 required_version=f">{required_space_gb}GB",
-                check_passed=check_passed
+                check_passed=check_passed,
             )
 
             if check_passed:
                 log(f"✅ {component} 检查通过: {status}")
             else:
                 log(f"❌ {component} 检查失败: 磁盘空间不足")
-                result.error_message = f"磁盘空间不足，需要 {required_space_gb}GB，当前 {free_gb:.1f}GB"
+                result.error_message = (
+                    f"磁盘空间不足，需要 {required_space_gb}GB，当前 {free_gb:.1f}GB"
+                )
 
             return result
 
@@ -298,12 +304,14 @@ class SimpleTestEnvironmentManager:
                 version="未知",
                 required_version=">1GB",
                 check_passed=False,
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {component} 检查失败: {e}")
             return result
 
-    def validate_environment(self, environment_name: str = "测试环境") -> EnvironmentValidation:
+    def validate_environment(
+        self, environment_name: str = "测试环境"
+    ) -> EnvironmentValidation:
         """验证测试环境"""
         log(f"开始验证 {environment_name}...")
 
@@ -312,7 +320,7 @@ class SimpleTestEnvironmentManager:
             self.check_operating_system,
             self.check_dependencies,
             self.check_file_system,
-            self.check_disk_space
+            self.check_disk_space,
         ]
 
         environment_checks = []
@@ -333,11 +341,11 @@ class SimpleTestEnvironmentManager:
             checks_failed=checks_failed,
             total_checks=total_checks,
             validation_passed=validation_passed,
-            environment_checks=environment_checks
+            environment_checks=environment_checks,
         )
 
         # 显示验证结果
-        log("\n" + "="*50)
+        log("\n" + "=" * 50)
         log(f"{environment_name} 验证结果:")
         log(f"总检查数: {total_checks}")
         log(f"通过检查: {checks_passed}")
@@ -345,6 +353,7 @@ class SimpleTestEnvironmentManager:
         log(f"验证通过: {'✅ 是' if validation_passed else '❌ 否'}")
 
         return validation_result
+
 
 def main():
     """主函数"""
@@ -361,12 +370,12 @@ def main():
         "system_info": {
             "platform": platform.platform(),
             "python_version": platform.python_version(),
-            "processor": platform.processor()
-        }
+            "processor": platform.processor(),
+        },
     }
 
     result_file = "test_environment_validation_results.json"
-    with open(result_file, 'w', encoding='utf-8') as f:
+    with open(result_file, "w", encoding="utf-8") as f:
         json.dump(result_data, f, ensure_ascii=False, indent=2)
 
     log(f"✅ 测试环境验证结果已保存: {result_file}")
@@ -379,9 +388,10 @@ def main():
 
     return validation_result.validation_passed
 
+
 def create_environment_report(result_data: Dict[str, Any], report_file: str):
     """创建环境管理报告"""
-    with open(report_file, 'w', encoding='utf-8') as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write("# 测试环境管理报告\n\n")
         f.write("## 概述\n")
         f.write("本报告总结了测试环境的验证结果和管理建议。\n\n")
@@ -393,15 +403,19 @@ def create_environment_report(result_data: Dict[str, Any], report_file: str):
         f.write(f"- **总检查数**: {validation['total_checks']}\n")
         f.write(f"- **通过检查**: {validation['checks_passed']}\n")
         f.write(f"- **失败检查**: {validation['checks_failed']}\n")
-        f.write(f"- **验证通过**: {'✅ 是' if validation['validation_passed'] else '❌ 否'}\n\n")
+        f.write(
+            f"- **验证通过**: {'✅ 是' if validation['validation_passed'] else '❌ 否'}\n\n"
+        )
 
         f.write("## 详细检查结果\n\n")
         f.write("| 组件 | 状态 | 版本 | 要求版本 | 检查结果 |\n")
         f.write("|------|------|------|----------|----------|\n")
 
-        for check in validation['environment_checks']:
-            status_icon = "✅" if check['check_passed'] else "❌"
-            f.write(f"| {check['component']} | {check['status']} | {check['version']} | {check['required_version']} | {status_icon} |\n")
+        for check in validation["environment_checks"]:
+            status_icon = "✅" if check["check_passed"] else "❌"
+            f.write(
+                f"| {check['component']} | {check['status']} | {check['version']} | {check['required_version']} | {status_icon} |\n"
+            )
 
         f.write("\n## 系统信息\n\n")
         system_info = result_data["system_info"]
@@ -411,22 +425,25 @@ def create_environment_report(result_data: Dict[str, Any], report_file: str):
 
         f.write("## 环境管理建议\n\n")
 
-        if validation['validation_passed']:
+        if validation["validation_passed"]:
             f.write("✅ 当前环境状态良好，建议：\n")
             f.write("- 定期运行环境验证\n")
             f.write("- 保持依赖项更新\n")
             f.write("- 监控磁盘空间使用\n")
         else:
             f.write("⚠️ 当前环境存在问题，建议：\n")
-            for check in validation['environment_checks']:
-                if not check['check_passed']:
-                    f.write(f"- **{check['component']}**: {check.get('error_message', '需要修复')}\n")
+            for check in validation["environment_checks"]:
+                if not check["check_passed"]:
+                    f.write(
+                        f"- **{check['component']}**: {check.get('error_message', '需要修复')}\n"
+                    )
 
         f.write("\n## 持续环境管理\n\n")
         f.write("1. **定期验证**: 每次测试前运行环境验证\n")
         f.write("2. **依赖管理**: 保持依赖项版本一致性\n")
         f.write("3. **环境隔离**: 使用虚拟环境避免冲突\n")
         f.write("4. **监控告警**: 设置环境监控和告警\n")
+
 
 if __name__ == "__main__":
     success = main()

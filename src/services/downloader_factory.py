@@ -3,19 +3,20 @@
 提供统一的下载器创建和管理接口
 """
 
-from typing import Dict, Any, Optional, Type
+from typing import Any, Dict, Optional, Type
+
 from ..core.config import ConfigManager
 from ..core.logger import get_logger
-from .refactored_downloader import RefactoredDownloader
 from .improved_downloader import ImprovedDownloadService
+from .refactored_downloader import RefactoredDownloader
 
 
 class DownloaderFactory:
     """下载器工厂类"""
 
     _downloaders: Dict[str, Type] = {
-        'refactored': RefactoredDownloader,
-        'improved': ImprovedDownloadService,
+        "refactored": RefactoredDownloader,
+        "improved": ImprovedDownloadService,
     }
 
     def __init__(self, config_manager: Optional[ConfigManager] = None):
@@ -28,9 +29,7 @@ class DownloaderFactory:
         self.config_manager = config_manager or ConfigManager()
         self.logger = get_logger(__name__)
 
-    def create_downloader(self,
-                         downloader_type: str = 'refactored',
-                         **kwargs) -> Any:
+    def create_downloader(self, downloader_type: str = "refactored", **kwargs) -> Any:
         """
         创建下载器实例
 
@@ -46,8 +45,10 @@ class DownloaderFactory:
         """
         if downloader_type not in self._downloaders:
             available_types = list(self._downloaders.keys())
-            raise ValueError(f"不支持的下载器类型: {downloader_type}. "
-                           f"可用类型: {available_types}")
+            raise ValueError(
+                f"不支持的下载器类型: {downloader_type}. "
+                f"可用类型: {available_types}"
+            )
 
         downloader_class = self._downloaders[downloader_type]
 
@@ -75,18 +76,20 @@ class DownloaderFactory:
             Dict[str, Any]: 配置参数字典
         """
         base_config = {
-            'config_file': self.config_manager.config_path,
+            "config_file": self.config_manager.config_path,
         }
 
         # 根据下载器类型添加特定配置
-        if downloader_type == 'refactored':
+        if downloader_type == "refactored":
             return base_config
-        elif downloader_type == 'improved':
-            save_dir = self.config_manager.get('save_dir', 'downloads')
-            mapping_file = self.config_manager.get('files.mapping_file', 'stock_orgid_mapping.json')
+        elif downloader_type == "improved":
+            save_dir = self.config_manager.get("save_dir", "downloads")
+            mapping_file = self.config_manager.get(
+                "files.mapping_file", "stock_orgid_mapping.json"
+            )
             return {
-                'save_dir': save_dir,
-                'mapping_file': mapping_file,
+                "save_dir": save_dir,
+                "mapping_file": mapping_file,
             }
         else:
             return base_config
@@ -98,7 +101,7 @@ class DownloaderFactory:
         Returns:
             str: 默认下载器类型
         """
-        return self.config_manager.get('downloader.default_type', 'refactored')
+        return self.config_manager.get("downloader.default_type", "refactored")
 
     def create_default_downloader(self, **kwargs) -> Any:
         """
@@ -113,9 +116,7 @@ class DownloaderFactory:
         default_type = self.get_default_downloader_type()
         return self.create_downloader(default_type, **kwargs)
 
-    def register_downloader(self,
-                           downloader_type: str,
-                           downloader_class: Type) -> None:
+    def register_downloader(self, downloader_type: str, downloader_class: Type) -> None:
         """
         注册新的下载器类型
 
@@ -150,11 +151,11 @@ class DownloaderFactory:
 
         downloader_class = self._downloaders[downloader_type]
         return {
-            'type': downloader_type,
-            'class_name': downloader_class.__name__,
-            'module': downloader_class.__module__,
-            'description': downloader_class.__doc__ or '无描述',
-            'is_default': downloader_type == self.get_default_downloader_type()
+            "type": downloader_type,
+            "class_name": downloader_class.__name__,
+            "module": downloader_class.__module__,
+            "description": downloader_class.__doc__ or "无描述",
+            "is_default": downloader_type == self.get_default_downloader_type(),
         }
 
     def compare_downloaders(self) -> Dict[str, Any]:
@@ -171,7 +172,7 @@ class DownloaderFactory:
 
         return comparison
 
-    def create_unified_downloader(self, **kwargs) -> 'UnifiedDownloader':
+    def create_unified_downloader(self, **kwargs) -> "UnifiedDownloader":
         """
         创建统一下载器接口
 
@@ -200,15 +201,19 @@ class UnifiedDownloader:
         self.logger = get_logger(__name__)
 
         # 根据配置选择底层下载器
-        self.downloader_type = self.config_manager.get('downloader.unified_type', 'refactored')
+        self.downloader_type = self.config_manager.get(
+            "downloader.unified_type", "refactored"
+        )
         self.downloader = self.factory.create_downloader(self.downloader_type, **kwargs)
 
-    def download_stock_pdfs(self,
-                          stock_code: str,
-                          stock_name: str,
-                          suffix: str = "research",
-                          allowed_keywords: Optional[list] = None,
-                          max_pages: Optional[int] = None) -> list:
+    def download_stock_pdfs(
+        self,
+        stock_code: str,
+        stock_name: str,
+        suffix: str = "research",
+        allowed_keywords: Optional[list] = None,
+        max_pages: Optional[int] = None,
+    ) -> list:
         """
         统一下载接口
 
@@ -227,21 +232,23 @@ class UnifiedDownloader:
             self.logger.info(f"使用下载器类型: {self.downloader_type}")
 
             # 调用底层下载器
-            if hasattr(self.downloader, 'download_stock_pdfs'):
+            if hasattr(self.downloader, "download_stock_pdfs"):
                 return self.downloader.download_stock_pdfs(
                     stock_code, stock_name, suffix, allowed_keywords, max_pages
                 )
             else:
                 # 如果没有统一接口，尝试其他方法
-                if hasattr(self.downloader, 'download_activity_records'):
+                if hasattr(self.downloader, "download_activity_records"):
                     return self.downloader.download_activity_records(
                         stock_code=stock_code,
                         suffix=suffix,
                         allowed_keywords=allowed_keywords,
-                        max_pages=max_pages
+                        max_pages=max_pages,
                     )
                 else:
-                    raise AttributeError(f"下载器 {self.downloader_type} 不支持下载操作")
+                    raise AttributeError(
+                        f"下载器 {self.downloader_type} 不支持下载操作"
+                    )
 
         except Exception as e:
             self.logger.error(f"下载失败: {e}")

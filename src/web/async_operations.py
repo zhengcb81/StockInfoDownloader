@@ -4,26 +4,26 @@
 """
 
 import asyncio
-import aiohttp
-import aiofiles
-import time
-import threading
-from typing import List, Dict, Any, Optional, Callable, Awaitable
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from enum import Enum
 import hashlib
-import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
-from src.core.logger import get_logger
+import aiofiles
+import aiohttp
+
 from src.core.config import ConfigManager
+from src.core.logger import get_logger
 from src.utils.string_optimizer import get_string_optimizer
 from src.web.rate_limiter import get_global_rate_limiter
 
 
 class TaskPriority(Enum):
     """任务优先级"""
+
     HIGH = 1
     NORMAL = 2
     LOW = 3
@@ -31,6 +31,7 @@ class TaskPriority(Enum):
 
 class TaskStatus(Enum):
     """任务状态"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -41,6 +42,7 @@ class TaskStatus(Enum):
 @dataclass
 class DownloadTask:
     """下载任务"""
+
     url: str
     save_path: str
     priority: TaskPriority = TaskPriority.NORMAL
@@ -54,6 +56,7 @@ class DownloadTask:
 @dataclass
 class TaskResult:
     """任务结果"""
+
     task_id: str
     status: TaskStatus
     success: bool
@@ -88,22 +91,24 @@ class AsyncTaskManager:
 
         # 统计信息
         self.stats = {
-            'total_tasks': 0,
-            'completed_tasks': 0,
-            'failed_tasks': 0,
-            'cancelled_tasks': 0,
-            'total_bytes_downloaded': 0,
-            'average_download_speed': 0.0,
-            'concurrent_tasks_peak': 0
+            "total_tasks": 0,
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "cancelled_tasks": 0,
+            "total_bytes_downloaded": 0,
+            "average_download_speed": 0.0,
+            "concurrent_tasks_peak": 0,
         }
 
         # 事件循环
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
-        self.logger.info(f"异步任务管理器初始化完成: "
-                       f"最大并发任务={max_concurrent_tasks}, "
-                       f"最大工作线程={max_workers}")
+        self.logger.info(
+            f"异步任务管理器初始化完成: "
+            f"最大并发任务={max_concurrent_tasks}, "
+            f"最大工作线程={max_workers}"
+        )
 
     async def __aenter__(self):
         """异步上下文管理器入口"""
@@ -124,18 +129,16 @@ class AsyncTaskManager:
                 ttl_dns_cache=300,
                 use_dns_cache=True,
                 keepalive_timeout=30,
-                enable_cleanup_closed=True
+                enable_cleanup_closed=True,
             )
 
             timeout = aiohttp.ClientTimeout(total=300, connect=30)
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             }
 
             self.session_pool = aiohttp.ClientSession(
-                connector=connector,
-                timeout=timeout,
-                headers=headers
+                connector=connector, timeout=timeout, headers=headers
             )
 
         # 启动任务处理器
@@ -146,11 +149,11 @@ class AsyncTaskManager:
         """停止任务管理器"""
         # 取消所有任务
         for task_id, task_info in self.active_tasks.items():
-            if not task_info['task'].done():
-                task_info['task'].cancel()
+            if not task_info["task"].done():
+                task_info["task"].cancel()
 
         # 停止任务处理器
-        if hasattr(self, 'task_processor'):
+        if hasattr(self, "task_processor"):
             self.task_processor.cancel()
             try:
                 await self.task_processor
@@ -183,7 +186,7 @@ class AsyncTaskManager:
         self.task_queue.put_nowait((priority_value, time.time(), task_id, task))
 
         # 更新统计
-        self.stats['total_tasks'] += 1
+        self.stats["total_tasks"] += 1
 
         self.logger.debug(f"添加下载任务: {task_id} -> {Path(task.save_path).name}")
         return task_id
@@ -202,15 +205,15 @@ class AsyncTaskManager:
                 # 创建任务
                 task_future = asyncio.create_task(self._execute_task(task_id, task))
                 self.active_tasks[task_id] = {
-                    'task': task_future,
-                    'start_time': time.time(),
-                    'task_obj': task
+                    "task": task_future,
+                    "start_time": time.time(),
+                    "task_obj": task,
                 }
 
                 # 更新并发峰值
                 current_concurrent = len(self.active_tasks)
-                if current_concurrent > self.stats['concurrent_tasks_peak']:
-                    self.stats['concurrent_tasks_peak'] = current_concurrent
+                if current_concurrent > self.stats["concurrent_tasks_peak"]:
+                    self.stats["concurrent_tasks_peak"] = current_concurrent
 
                 self.task_queue.task_done()
 
@@ -227,14 +230,16 @@ class AsyncTaskManager:
             task_id=task_id,
             status=TaskStatus.RUNNING,
             success=False,
-            file_path=task.save_path
+            file_path=task.save_path,
         )
 
         try:
             self.logger.debug(f"开始执行任务: {task_id}")
 
             # 应用速率限制
-            await self.rate_limiter.wait_if_needed_async(task.url, f"download_{task_id}")
+            await self.rate_limiter.wait_if_needed_async(
+                task.url, f"download_{task_id}"
+            )
 
             # 创建保存目录
             save_dir = Path(task.save_path).parent
@@ -249,19 +254,19 @@ class AsyncTaskManager:
 
             # 更新统计
             if success:
-                self.stats['completed_tasks'] += 1
-                self.stats['total_bytes_downloaded'] += result.bytes_downloaded
+                self.stats["completed_tasks"] += 1
+                self.stats["total_bytes_downloaded"] += result.bytes_downloaded
 
                 # 计算平均下载速度
                 if result.duration > 0:
                     speed = result.bytes_downloaded / result.duration
-                    total_completed = self.stats['completed_tasks']
-                    current_avg = self.stats['average_download_speed']
-                    self.stats['average_download_speed'] = (
-                        (current_avg * (total_completed - 1) + speed) / total_completed
-                    )
+                    total_completed = self.stats["completed_tasks"]
+                    current_avg = self.stats["average_download_speed"]
+                    self.stats["average_download_speed"] = (
+                        current_avg * (total_completed - 1) + speed
+                    ) / total_completed
             else:
-                self.stats['failed_tasks'] += 1
+                self.stats["failed_tasks"] += 1
 
             # 调用回调
             if task.callback:
@@ -273,7 +278,7 @@ class AsyncTaskManager:
         except asyncio.CancelledError:
             result.status = TaskStatus.CANCELLED
             result.duration = time.time() - start_time
-            self.stats['cancelled_tasks'] += 1
+            self.stats["cancelled_tasks"] += 1
             self.logger.info(f"任务已取消: {task_id}")
 
         except Exception as e:
@@ -281,7 +286,7 @@ class AsyncTaskManager:
             result.success = False
             result.error_message = str(e)
             result.duration = time.time() - start_time
-            self.stats['failed_tasks'] += 1
+            self.stats["failed_tasks"] += 1
             self.logger.error(f"任务执行失败: {task_id} - {e}")
 
         finally:
@@ -306,11 +311,11 @@ class AsyncTaskManager:
                     response.raise_for_status()
 
                     # 获取文件大小
-                    total_size = int(response.headers.get('content-length', 0))
+                    total_size = int(response.headers.get("content-length", 0))
                     downloaded_size = 0
 
                     # 下载文件
-                    async with aiofiles.open(task.save_path, 'wb') as f:
+                    async with aiofiles.open(task.save_path, "wb") as f:
                         async for chunk in response.content.iter_chunked(8192):
                             await f.write(chunk)
                             downloaded_size += len(chunk)
@@ -326,14 +331,18 @@ class AsyncTaskManager:
                     if total_size > 0 and downloaded_size != total_size:
                         raise Exception(f"下载不完整: {downloaded_size}/{total_size}")
 
-                    self.logger.info(f"文件下载成功: {Path(task.save_path).name} "
-                                   f"({downloaded_size} bytes, {result.duration:.1f}s)")
+                    self.logger.info(
+                        f"文件下载成功: {Path(task.save_path).name} "
+                        f"({downloaded_size} bytes, {result.duration:.1f}s)"
+                    )
                     return True
 
             except Exception as e:
-                self.logger.warning(f"下载失败 (尝试 {attempt + 1}/{task.retry_count + 1}): {e}")
+                self.logger.warning(
+                    f"下载失败 (尝试 {attempt + 1}/{task.retry_count + 1}): {e}"
+                )
                 if attempt < task.retry_count:
-                    await asyncio.sleep(2 ** attempt)  # 指数退避
+                    await asyncio.sleep(2**attempt)  # 指数退避
                 else:
                     result.error_message = str(e)
                     return False
@@ -348,7 +357,9 @@ class AsyncTaskManager:
             # 在线程池中运行同步回调
             await self.loop.run_in_executor(self.executor, callback, *args)
 
-    async def wait_for_task(self, task_id: str, timeout: Optional[float] = None) -> Optional[TaskResult]:
+    async def wait_for_task(
+        self, task_id: str, timeout: Optional[float] = None
+    ) -> Optional[TaskResult]:
         """
         等待任务完成
 
@@ -376,7 +387,9 @@ class AsyncTaskManager:
 
             await asyncio.sleep(0.1)
 
-    async def wait_for_all_tasks(self, timeout: Optional[float] = None) -> Dict[str, TaskResult]:
+    async def wait_for_all_tasks(
+        self, timeout: Optional[float] = None
+    ) -> Dict[str, TaskResult]:
         """
         等待所有任务完成
 
@@ -408,9 +421,9 @@ class AsyncTaskManager:
         """
         if task_id in self.active_tasks:
             task_info = self.active_tasks[task_id]
-            if not task_info['task'].done():
-                task_info['task'].cancel()
-                self.stats['cancelled_tasks'] += 1
+            if not task_info["task"].done():
+                task_info["task"].cancel()
+                self.stats["cancelled_tasks"] += 1
                 self.logger.info(f"任务已取消: {task_id}")
                 return True
         return False
@@ -441,12 +454,12 @@ class AsyncTaskManager:
         """
         return {
             **self.stats,
-            'active_tasks': len(self.active_tasks),
-            'completed_tasks': len(self.completed_tasks),
-            'queue_size': self.task_queue.qsize(),
-            'success_rate': (
-                self.stats['completed_tasks'] / max(self.stats['total_tasks'], 1) * 100
-            )
+            "active_tasks": len(self.active_tasks),
+            "completed_tasks": len(self.completed_tasks),
+            "queue_size": self.task_queue.qsize(),
+            "success_rate": (
+                self.stats["completed_tasks"] / max(self.stats["total_tasks"], 1) * 100
+            ),
         }
 
     def get_active_tasks_info(self) -> List[Dict[str, Any]]:
@@ -458,17 +471,19 @@ class AsyncTaskManager:
         """
         active_info = []
         for task_id, task_info in self.active_tasks.items():
-            runtime = time.time() - task_info['start_time']
-            task_obj = task_info['task_obj']
+            runtime = time.time() - task_info["start_time"]
+            task_obj = task_info["task_obj"]
 
-            active_info.append({
-                'task_id': task_id,
-                'url': task_obj.url,
-                'save_path': task_obj.save_path,
-                'priority': task_obj.priority.name,
-                'runtime': runtime,
-                'timeout': task_obj.timeout
-            })
+            active_info.append(
+                {
+                    "task_id": task_id,
+                    "url": task_obj.url,
+                    "save_path": task_obj.save_path,
+                    "priority": task_obj.priority.name,
+                    "runtime": runtime,
+                    "timeout": task_obj.timeout,
+                }
+            )
 
         return active_info
 
@@ -486,7 +501,9 @@ class AsyncBatchDownloader:
         self.task_manager = task_manager or AsyncTaskManager()
         self.logger = get_logger(__name__)
 
-    async def download_batch(self, download_tasks: List[DownloadTask]) -> Dict[str, TaskResult]:
+    async def download_batch(
+        self, download_tasks: List[DownloadTask]
+    ) -> Dict[str, TaskResult]:
         """
         批量下载
 
@@ -509,14 +526,18 @@ class AsyncBatchDownloader:
 
         # 输出统计
         stats = self.task_manager.get_stats()
-        self.logger.info(f"批量下载完成: 成功={stats['completed_tasks']}, "
-                        f"失败={stats['failed_tasks']}, "
-                        f"取消={stats['cancelled_tasks']}, "
-                        f"总大小={stats['total_bytes_downloaded']} bytes")
+        self.logger.info(
+            f"批量下载完成: 成功={stats['completed_tasks']}, "
+            f"失败={stats['failed_tasks']}, "
+            f"取消={stats['cancelled_tasks']}, "
+            f"总大小={stats['total_bytes_downloaded']} bytes"
+        )
 
         return results
 
-    async def download_with_progress(self, download_tasks: List[DownloadTask]) -> Dict[str, TaskResult]:
+    async def download_with_progress(
+        self, download_tasks: List[DownloadTask]
+    ) -> Dict[str, TaskResult]:
         """
         带进度显示的批量下载
 
@@ -543,7 +564,7 @@ class AsyncBatchDownloader:
                 timeout=task.timeout,
                 retry_count=task.retry_count,
                 metadata=task.metadata,
-                on_progress=lambda p: progress_callback(task_id, p)
+                on_progress=lambda p: progress_callback(task_id, p),
             )
             enhanced_tasks.append(enhanced_task)
 
@@ -551,7 +572,9 @@ class AsyncBatchDownloader:
         results = await self.download_batch(enhanced_tasks)
 
         # 输出最终进度
-        completed_count = sum(1 for r in results.values() if r.status == TaskStatus.COMPLETED)
+        completed_count = sum(
+            1 for r in results.values() if r.status == TaskStatus.COMPLETED
+        )
         self.logger.info(f"下载进度: {completed_count}/{len(download_tasks)} 完成")
 
         return results
@@ -578,7 +601,9 @@ async def download_file_async(url: str, save_path: str, **kwargs) -> bool:
         return result.success if result else False
 
 
-async def download_batch_async(download_tasks: List[DownloadTask]) -> Dict[str, TaskResult]:
+async def download_batch_async(
+    download_tasks: List[DownloadTask],
+) -> Dict[str, TaskResult]:
     """
     异步批量下载
 

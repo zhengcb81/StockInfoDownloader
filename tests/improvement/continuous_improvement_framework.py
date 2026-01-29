@@ -6,14 +6,13 @@
 建立测试质量持续改进的流程和机制
 """
 
-import os
+import datetime
+import json
 import sys
 import time
-import json
-import datetime
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
@@ -21,30 +20,35 @@ sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
 
+
 def log(message):
     """记录日志"""
     try:
         print(f"[{time.strftime('%H:%M:%S')}] {message}")
     except UnicodeEncodeError:
         # 处理编码问题
-        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        safe_message = message.encode("gbk", errors="replace").decode("gbk")
         print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
 
 @dataclass
 class ImprovementAction:
     """改进行动"""
+
     action_id: str
     description: str
     priority: str  # "高", "中", "低"
-    status: str   # "待办", "进行中", "完成", "取消"
+    status: str  # "待办", "进行中", "完成", "取消"
     assigned_to: str
     due_date: str
     progress: float  # 0-100
     impact_areas: List[str]
 
+
 @dataclass
 class ImprovementCycle:
     """改进周期"""
+
     cycle_id: str
     start_date: str
     end_date: str
@@ -53,6 +57,7 @@ class ImprovementCycle:
     metrics_before: Dict[str, float]
     metrics_after: Dict[str, float]
     improvement_percentage: float
+
 
 class ContinuousImprovementFramework:
     """持续改进机制框架"""
@@ -66,8 +71,10 @@ class ContinuousImprovementFramework:
         log("创建新的改进周期...")
 
         cycle_id = f"cycle_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        start_date = datetime.datetime.now().strftime('%Y-%m-%d')
-        end_date = (datetime.datetime.now() + datetime.timedelta(days=14)).strftime('%Y-%m-%d')  # 2周周期
+        start_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        end_date = (datetime.datetime.now() + datetime.timedelta(days=14)).strftime(
+            "%Y-%m-%d"
+        )  # 2周周期
 
         # 获取当前质量指标作为基准
         current_metrics = self._get_current_quality_metrics()
@@ -80,7 +87,7 @@ class ContinuousImprovementFramework:
             actions=[],
             metrics_before=current_metrics,
             metrics_after={},
-            improvement_percentage=0.0
+            improvement_percentage=0.0,
         )
 
         log(f"✅ 改进周期已创建: {cycle_id}")
@@ -95,7 +102,7 @@ class ContinuousImprovementFramework:
             # 尝试从质量指标结果文件读取
             result_file = "simple_test_quality_metrics_results.json"
             if Path(result_file).exists():
-                with open(result_file, 'r', encoding='utf-8') as f:
+                with open(result_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     quality_score = data.get("quality_score", {})
 
@@ -114,13 +121,18 @@ class ContinuousImprovementFramework:
             "测试可维护性": 0.0,
             "测试多样性": 0.0,
             "测试完整性": 0.0,
-            "测试组织性": 0.0
+            "测试组织性": 0.0,
         }
 
-    def add_improvement_action(self, cycle: ImprovementCycle,
-                             description: str, priority: str,
-                             assigned_to: str, due_date: str,
-                             impact_areas: List[str]) -> ImprovementAction:
+    def add_improvement_action(
+        self,
+        cycle: ImprovementCycle,
+        description: str,
+        priority: str,
+        assigned_to: str,
+        due_date: str,
+        impact_areas: List[str],
+    ) -> ImprovementAction:
         """添加改进行动"""
         action_id = f"action_{len(cycle.actions) + 1:03d}"
 
@@ -132,7 +144,7 @@ class ContinuousImprovementFramework:
             assigned_to=assigned_to,
             due_date=due_date,
             progress=0.0,
-            impact_areas=impact_areas
+            impact_areas=impact_areas,
         )
 
         cycle.actions.append(action)
@@ -143,8 +155,9 @@ class ContinuousImprovementFramework:
 
         return action
 
-    def update_action_status(self, action: ImprovementAction,
-                           status: str, progress: float = None):
+    def update_action_status(
+        self, action: ImprovementAction, status: str, progress: float = None
+    ):
         """更新行动状态"""
         action.status = status
         if progress is not None:
@@ -199,7 +212,7 @@ class ContinuousImprovementFramework:
             "total_actions": len(cycle.actions),
             "metrics_comparison": {},
             "key_achievements": [],
-            "next_steps": []
+            "next_steps": [],
         }
 
         # 指标对比
@@ -209,25 +222,26 @@ class ContinuousImprovementFramework:
             report["metrics_comparison"][metric_name] = {
                 "before": before_score,
                 "after": after_score,
-                "improvement": improvement
+                "improvement": improvement,
             }
 
         # 关键成就
         completed_actions = [a for a in cycle.actions if a.status == "完成"]
         for action in completed_actions:
-            report["key_achievements"].append({
-                "action": action.description,
-                "impact": action.impact_areas
-            })
+            report["key_achievements"].append(
+                {"action": action.description, "impact": action.impact_areas}
+            )
 
         # 下一步行动
         pending_actions = [a for a in cycle.actions if a.status in ["待办", "进行中"]]
         for action in pending_actions:
-            report["next_steps"].append({
-                "action": action.description,
-                "priority": action.priority,
-                "assigned_to": action.assigned_to
-            })
+            report["next_steps"].append(
+                {
+                    "action": action.description,
+                    "priority": action.priority,
+                    "assigned_to": action.assigned_to,
+                }
+            )
 
         return report
 
@@ -236,15 +250,15 @@ class ContinuousImprovementFramework:
         log("生成改进路线图...")
 
         roadmap = {
-            "generated_date": datetime.datetime.now().strftime('%Y-%m-%d'),
+            "generated_date": datetime.datetime.now().strftime("%Y-%m-%d"),
             "timeframe": "3个月",
             "strategic_goals": [
                 "提高测试覆盖率至90%以上",
                 "优化测试执行时间减少50%",
                 "建立完整的端到端测试套件",
-                "实现测试自动化流水线"
+                "实现测试自动化流水线",
             ],
-            "quarterly_cycles": []
+            "quarterly_cycles": [],
         }
 
         # 生成季度改进周期
@@ -259,7 +273,7 @@ class ContinuousImprovementFramework:
                 "cycle_number": i + 1,
                 "period": f"{cycle_start.strftime('%Y-%m-%d')} 至 {cycle_end.strftime('%Y-%m-%d')}",
                 "goals": cycle_goals,
-                "key_focus_areas": self._get_focus_areas(i + 1)
+                "key_focus_areas": self._get_focus_areas(i + 1),
             }
 
             roadmap["quarterly_cycles"].append(quarterly_cycle)
@@ -269,26 +283,10 @@ class ContinuousImprovementFramework:
     def _generate_cycle_goals(self, cycle_number: int) -> List[str]:
         """生成周期目标"""
         goals_map = {
-            1: [
-                "优化单元测试覆盖率",
-                "改进测试数据管理",
-                "建立测试环境验证机制"
-            ],
-            2: [
-                "增强集成测试套件",
-                "优化测试执行性能",
-                "建立测试质量指标"
-            ],
-            3: [
-                "完善端到端测试",
-                "实现测试并行化",
-                "建立持续改进机制"
-            ],
-            4: [
-                "优化测试维护性",
-                "建立测试文档体系",
-                "实现测试自动化部署"
-            ]
+            1: ["优化单元测试覆盖率", "改进测试数据管理", "建立测试环境验证机制"],
+            2: ["增强集成测试套件", "优化测试执行性能", "建立测试质量指标"],
+            3: ["完善端到端测试", "实现测试并行化", "建立持续改进机制"],
+            4: ["优化测试维护性", "建立测试文档体系", "实现测试自动化部署"],
         }
 
         return goals_map.get(cycle_number, ["持续优化测试质量"])
@@ -299,7 +297,7 @@ class ContinuousImprovementFramework:
             1: ["测试覆盖率", "测试数据", "环境管理"],
             2: ["集成测试", "性能优化", "质量指标"],
             3: ["端到端测试", "并行执行", "改进流程"],
-            4: ["可维护性", "文档化", "自动化"]
+            4: ["可维护性", "文档化", "自动化"],
         }
 
         return focus_areas_map.get(cycle_number, ["质量改进"])
@@ -307,11 +305,12 @@ class ContinuousImprovementFramework:
     def save_improvement_data(self, data: Dict[str, Any], filename: str):
         """保存改进数据"""
         try:
-            with open(filename, 'w', encoding='utf-8') as f:
+            with open(filename, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             log(f"✅ 改进数据已保存: {filename}")
         except Exception as e:
             log(f"❌ 保存改进数据失败: {e}")
+
 
 def main():
     """主函数"""
@@ -320,11 +319,7 @@ def main():
     framework = ContinuousImprovementFramework()
 
     # 1. 创建当前改进周期
-    current_goals = [
-        "优化测试可维护性",
-        "提高测试多样性",
-        "完善测试组织性"
-    ]
+    current_goals = ["优化测试可维护性", "提高测试多样性", "完善测试组织性"]
 
     current_cycle = framework.create_improvement_cycle(current_goals)
 
@@ -334,8 +329,10 @@ def main():
         description="重构大型测试文件，拆分超过300行的测试文件",
         priority="高",
         assigned_to="测试团队",
-        due_date=(datetime.datetime.now() + datetime.timedelta(days=7)).strftime('%Y-%m-%d'),
-        impact_areas=["测试可维护性"]
+        due_date=(datetime.datetime.now() + datetime.timedelta(days=7)).strftime(
+            "%Y-%m-%d"
+        ),
+        impact_areas=["测试可维护性"],
     )
 
     framework.add_improvement_action(
@@ -343,8 +340,10 @@ def main():
         description="增加端到端测试用例，平衡测试类型分布",
         priority="中",
         assigned_to="测试团队",
-        due_date=(datetime.datetime.now() + datetime.timedelta(days=10)).strftime('%Y-%m-%d'),
-        impact_areas=["测试多样性"]
+        due_date=(datetime.datetime.now() + datetime.timedelta(days=10)).strftime(
+            "%Y-%m-%d"
+        ),
+        impact_areas=["测试多样性"],
     )
 
     framework.add_improvement_action(
@@ -352,25 +351,31 @@ def main():
         description="统一测试文件命名规范，修复不符合规范的测试文件",
         priority="中",
         assigned_to="开发团队",
-        due_date=(datetime.datetime.now() + datetime.timedelta(days=5)).strftime('%Y-%m-%d'),
-        impact_areas=["测试组织性"]
+        due_date=(datetime.datetime.now() + datetime.timedelta(days=5)).strftime(
+            "%Y-%m-%d"
+        ),
+        impact_areas=["测试组织性"],
     )
 
     # 3. 生成改进路线图
     improvement_roadmap = framework.generate_improvement_roadmap()
 
     # 4. 保存改进数据
-    framework.save_improvement_data(asdict(current_cycle), "current_improvement_cycle.json")
+    framework.save_improvement_data(
+        asdict(current_cycle), "current_improvement_cycle.json"
+    )
     framework.save_improvement_data(improvement_roadmap, "improvement_roadmap.json")
 
     # 5. 创建改进报告
     improvement_report_file = "continuous_improvement_framework_report.md"
-    create_improvement_report(current_cycle, improvement_roadmap, improvement_report_file)
+    create_improvement_report(
+        current_cycle, improvement_roadmap, improvement_report_file
+    )
 
     log(f"✅ 持续改进机制报告已生成: {improvement_report_file}")
 
     # 显示改进计划
-    log("\n" + "="*50)
+    log("\n" + "=" * 50)
     log("持续改进机制已建立:")
     log(f"当前改进周期: {current_cycle.cycle_id}")
     log(f"周期目标: {', '.join(current_cycle.goals)}")
@@ -384,9 +389,12 @@ def main():
 
     return True
 
-def create_improvement_report(cycle: ImprovementCycle, roadmap: Dict[str, Any], report_file: str):
+
+def create_improvement_report(
+    cycle: ImprovementCycle, roadmap: Dict[str, Any], report_file: str
+):
     """创建改进报告"""
-    with open(report_file, 'w', encoding='utf-8') as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write("# 持续改进机制报告\n\n")
         f.write("## 概述\n")
         f.write("本报告总结了测试质量持续改进的框架、计划和执行情况。\n\n")
@@ -401,7 +409,9 @@ def create_improvement_report(cycle: ImprovementCycle, roadmap: Dict[str, Any], 
         f.write("|--------|------|--------|------|--------|----------|------|\n")
 
         for action in cycle.actions:
-            f.write(f"| {action.action_id} | {action.description} | {action.priority} | {action.status} | {action.assigned_to} | {action.due_date} | {action.progress}% |\n")
+            f.write(
+                f"| {action.action_id} | {action.description} | {action.priority} | {action.status} | {action.assigned_to} | {action.due_date} | {action.progress}% |\n"
+            )
 
         f.write("\n## 改进路线图\n\n")
         f.write(f"- **生成日期**: {roadmap['generated_date']}\n")
@@ -413,7 +423,9 @@ def create_improvement_report(cycle: ImprovementCycle, roadmap: Dict[str, Any], 
 
         f.write("\n### 季度改进周期\n\n")
         for cycle_data in roadmap["quarterly_cycles"]:
-            f.write(f"#### 周期 {cycle_data['cycle_number']}: {cycle_data['period']}\n\n")
+            f.write(
+                f"#### 周期 {cycle_data['cycle_number']}: {cycle_data['period']}\n\n"
+            )
             f.write("**目标**:\n")
             for goal in cycle_data["goals"]:
                 f.write(f"- {goal}\n")
@@ -433,6 +445,7 @@ def create_improvement_report(cycle: ImprovementCycle, roadmap: Dict[str, Any], 
         f.write("- **团队参与**: 全员参与质量改进活动\n")
         f.write("- **数据驱动**: 基于指标和数据的决策\n")
         f.write("- **持续学习**: 不断学习和应用最佳实践\n")
+
 
 if __name__ == "__main__":
     success = main()

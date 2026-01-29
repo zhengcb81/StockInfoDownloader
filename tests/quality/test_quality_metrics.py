@@ -6,14 +6,13 @@
 建立全面的测试质量评估体系
 """
 
-import os
-import sys
-import time
 import json
 import math
+import sys
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
@@ -21,18 +20,21 @@ sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
 
+
 def log(message):
     """记录日志"""
     try:
         print(f"[{time.strftime('%H:%M:%S')}] {message}")
     except UnicodeEncodeError:
         # 处理编码问题
-        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        safe_message = message.encode("gbk", errors="replace").decode("gbk")
         print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
 
 @dataclass
 class TestQualityMetric:
     """测试质量指标"""
+
     metric_name: str
     value: float
     target_value: float
@@ -41,14 +43,17 @@ class TestQualityMetric:
     status: str
     description: str
 
+
 @dataclass
 class TestQualityScore:
     """测试质量评分"""
+
     overall_score: float
     weighted_score: float
     metrics: List[TestQualityMetric]
     quality_level: str
     recommendations: List[str]
+
 
 class TestQualityMetrics:
     """测试质量指标系统"""
@@ -62,13 +67,21 @@ class TestQualityMetrics:
 
         try:
             # 分析测试文件数量
-            test_dirs = ["tests/unit", "tests/integration", "tests/e2e", "tests/validation", "tests/optimization"]
+            test_dirs = [
+                "tests/unit",
+                "tests/integration",
+                "tests/e2e",
+                "tests/validation",
+                "tests/optimization",
+            ]
             total_test_files = 0
 
             for test_dir in test_dirs:
                 test_path = Path(test_dir)
                 if test_path.exists():
-                    test_files = list(test_path.rglob("test_*.py")) + list(test_path.rglob("*_test.py"))
+                    test_files = list(test_path.rglob("test_*.py")) + list(
+                        test_path.rglob("*_test.py")
+                    )
                     total_test_files += len(test_files)
 
             # 分析源代码文件数量
@@ -95,7 +108,11 @@ class TestQualityMetrics:
             else:
                 score = (coverage_percentage / target_coverage) * 100
 
-            status = "优秀" if score >= 90 else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            status = (
+                "优秀"
+                if score >= 90
+                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试覆盖率",
@@ -104,7 +121,7 @@ class TestQualityMetrics:
                 weight=0.25,  # 25%权重
                 score=score,
                 status=status,
-                description=f"测试文件数: {total_test_files}, 源代码文件数: {total_src_files}"
+                description=f"测试文件数: {total_test_files}, 源代码文件数: {total_src_files}",
             )
 
             log(f"  测试覆盖率: {coverage_percentage:.1f}% (得分: {score:.1f})")
@@ -119,7 +136,7 @@ class TestQualityMetrics:
                 weight=0.25,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
     def calculate_test_success_rate(self) -> TestQualityMetric:
@@ -135,7 +152,7 @@ class TestQualityMetrics:
                 ["python", "-m", "pytest", "tests/unit/", "-v", "--tb=short"],
                 capture_output=True,
                 text=True,
-                timeout=120
+                timeout=120,
             )
 
             # 分析测试输出
@@ -161,7 +178,11 @@ class TestQualityMetrics:
             else:
                 score = (success_rate / target_success_rate) * 100
 
-            status = "优秀" if score >= 95 else "良好" if score >= 85 else "一般" if score >= 70 else "需要改进"
+            status = (
+                "优秀"
+                if score >= 95
+                else "良好" if score >= 85 else "一般" if score >= 70 else "需要改进"
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试成功率",
@@ -170,7 +191,7 @@ class TestQualityMetrics:
                 weight=0.20,  # 20%权重
                 score=score,
                 status=status,
-                description=f"通过: {passed_tests}, 失败: {failed_tests}, 错误: {error_tests}"
+                description=f"通过: {passed_tests}, 失败: {failed_tests}, 错误: {error_tests}",
             )
 
             log(f"  测试成功率: {success_rate:.1f}% (得分: {score:.1f})")
@@ -185,7 +206,7 @@ class TestQualityMetrics:
                 weight=0.20,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
     def calculate_test_execution_time(self) -> TestQualityMetric:
@@ -203,14 +224,16 @@ class TestQualityMetrics:
                 ["python", "-m", "pytest", "tests/unit/", "-v", "--tb=short"],
                 capture_output=True,
                 text=True,
-                timeout=180
+                timeout=180,
             )
 
             end_time = time_module.time()
             execution_time = end_time - start_time
 
             # 分析测试文件数量
-            test_files = list(Path("tests/unit").rglob("test_*.py")) + list(Path("tests/unit").rglob("*_test.py"))
+            test_files = list(Path("tests/unit").rglob("test_*.py")) + list(
+                Path("tests/unit").rglob("*_test.py")
+            )
             num_test_files = len(test_files)
 
             if num_test_files > 0:
@@ -224,9 +247,17 @@ class TestQualityMetrics:
             if avg_time_per_test <= target_avg_time:
                 score = 100.0
             else:
-                score = max(0, 100 - ((avg_time_per_test - target_avg_time) / target_avg_time) * 100)
+                score = max(
+                    0,
+                    100
+                    - ((avg_time_per_test - target_avg_time) / target_avg_time) * 100,
+                )
 
-            status = "优秀" if score >= 90 else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            status = (
+                "优秀"
+                if score >= 90
+                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试执行时间",
@@ -235,7 +266,7 @@ class TestQualityMetrics:
                 weight=0.15,  # 15%权重
                 score=score,
                 status=status,
-                description=f"总执行时间: {execution_time:.1f}秒, 测试文件数: {num_test_files}"
+                description=f"总执行时间: {execution_time:.1f}秒, 测试文件数: {num_test_files}",
             )
 
             log(f"  平均执行时间: {avg_time_per_test:.2f}秒/文件 (得分: {score:.1f})")
@@ -250,7 +281,7 @@ class TestQualityMetrics:
                 weight=0.15,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
     def calculate_test_maintainability(self) -> TestQualityMetric:
@@ -267,12 +298,14 @@ class TestQualityMetrics:
             for test_dir in test_dirs:
                 test_path = Path(test_dir)
                 if test_path.exists():
-                    test_files = list(test_path.rglob("test_*.py")) + list(test_path.rglob("*_test.py"))
+                    test_files = list(test_path.rglob("test_*.py")) + list(
+                        test_path.rglob("*_test.py")
+                    )
                     total_test_files += len(test_files)
 
                     for test_file in test_files:
                         try:
-                            with open(test_file, 'r', encoding='utf-8') as f:
+                            with open(test_file, "r", encoding="utf-8") as f:
                                 lines = f.readlines()
                                 total_test_lines += len(lines)
                         except:
@@ -290,9 +323,18 @@ class TestQualityMetrics:
             if avg_lines_per_file <= target_avg_lines:
                 score = 100.0
             else:
-                score = max(0, 100 - ((avg_lines_per_file - target_avg_lines) / target_avg_lines) * 100)
+                score = max(
+                    0,
+                    100
+                    - ((avg_lines_per_file - target_avg_lines) / target_avg_lines)
+                    * 100,
+                )
 
-            status = "优秀" if score >= 90 else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            status = (
+                "优秀"
+                if score >= 90
+                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试可维护性",
@@ -301,7 +343,7 @@ class TestQualityMetrics:
                 weight=0.15,  # 15%权重
                 score=score,
                 status=status,
-                description=f"测试文件数: {total_test_files}, 总代码行数: {total_test_lines}"
+                description=f"测试文件数: {total_test_files}, 总代码行数: {total_test_lines}",
             )
 
             log(f"  平均文件大小: {avg_lines_per_file:.1f}行/文件 (得分: {score:.1f})")
@@ -316,7 +358,7 @@ class TestQualityMetrics:
                 weight=0.15,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
     def calculate_test_diversity(self) -> TestQualityMetric:
@@ -330,7 +372,7 @@ class TestQualityMetrics:
                 "集成测试": "tests/integration",
                 "端到端测试": "tests/e2e",
                 "验证测试": "tests/validation",
-                "优化测试": "tests/optimization"
+                "优化测试": "tests/optimization",
             }
 
             type_counts = {}
@@ -339,7 +381,9 @@ class TestQualityMetrics:
             for test_type, test_dir in test_types.items():
                 test_path = Path(test_dir)
                 if test_path.exists():
-                    test_files = list(test_path.rglob("test_*.py")) + list(test_path.rglob("*_test.py"))
+                    test_files = list(test_path.rglob("test_*.py")) + list(
+                        test_path.rglob("*_test.py")
+                    )
                     count = len(test_files)
                     type_counts[test_type] = count
                     total_tests += count
@@ -359,13 +403,23 @@ class TestQualityMetrics:
                 if std_dev <= max_std_dev:
                     diversity_score = 100.0
                 else:
-                    diversity_score = max(0, 100 - ((std_dev - max_std_dev) / max_std_dev) * 100)
+                    diversity_score = max(
+                        0, 100 - ((std_dev - max_std_dev) / max_std_dev) * 100
+                    )
             else:
                 diversity_score = 0
 
             target_diversity = 80.0
 
-            status = "优秀" if diversity_score >= 90 else "良好" if diversity_score >= 70 else "一般" if diversity_score >= 50 else "需要改进"
+            status = (
+                "优秀"
+                if diversity_score >= 90
+                else (
+                    "良好"
+                    if diversity_score >= 70
+                    else "一般" if diversity_score >= 50 else "需要改进"
+                )
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试多样性",
@@ -374,10 +428,12 @@ class TestQualityMetrics:
                 weight=0.10,  # 10%权重
                 score=diversity_score,
                 status=status,
-                description=f"测试类型分布: {type_counts}"
+                description=f"测试类型分布: {type_counts}",
             )
 
-            log(f"  测试多样性得分: {diversity_score:.1f} (得分: {diversity_score:.1f})")
+            log(
+                f"  测试多样性得分: {diversity_score:.1f} (得分: {diversity_score:.1f})"
+            )
             return metric
 
         except Exception as e:
@@ -389,7 +445,7 @@ class TestQualityMetrics:
                 weight=0.10,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
     def calculate_test_reliability(self) -> TestQualityMetric:
@@ -408,7 +464,7 @@ class TestQualityMetrics:
                     ["python", "-m", "pytest", "tests/unit/", "-v", "--tb=short"],
                     capture_output=True,
                     text=True,
-                    timeout=120
+                    timeout=120,
                 )
 
                 output = result.stdout
@@ -430,7 +486,15 @@ class TestQualityMetrics:
 
             target_reliability = 95.0
 
-            status = "优秀" if reliability_score >= 95 else "良好" if reliability_score >= 85 else "一般" if reliability_score >= 70 else "需要改进"
+            status = (
+                "优秀"
+                if reliability_score >= 95
+                else (
+                    "良好"
+                    if reliability_score >= 85
+                    else "一般" if reliability_score >= 70 else "需要改进"
+                )
+            )
 
             metric = TestQualityMetric(
                 metric_name="测试可靠性",
@@ -439,10 +503,12 @@ class TestQualityMetrics:
                 weight=0.15,  # 15%权重
                 score=reliability_score,
                 status=status,
-                description=f"多次运行结果: {results}"
+                description=f"多次运行结果: {results}",
             )
 
-            log(f"  测试可靠性得分: {reliability_score:.1f} (得分: {reliability_score:.1f})")
+            log(
+                f"  测试可靠性得分: {reliability_score:.1f} (得分: {reliability_score:.1f})"
+            )
             return metric
 
         except Exception as e:
@@ -454,10 +520,12 @@ class TestQualityMetrics:
                 weight=0.15,
                 score=0,
                 status="计算失败",
-                description=f"错误: {e}"
+                description=f"错误: {e}",
             )
 
-    def calculate_overall_quality_score(self, metrics: List[TestQualityMetric]) -> TestQualityScore:
+    def calculate_overall_quality_score(
+        self, metrics: List[TestQualityMetric]
+    ) -> TestQualityScore:
         """计算总体质量评分"""
         log("计算总体质量评分...")
 
@@ -500,7 +568,7 @@ class TestQualityMetrics:
             weighted_score=weighted_score,
             metrics=metrics,
             quality_level=quality_level,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         log(f"  总体质量评分: {overall_score:.1f}")
@@ -509,7 +577,9 @@ class TestQualityMetrics:
 
         return quality_score
 
-    def _generate_recommendations(self, metrics: List[TestQualityMetric], weighted_score: float) -> List[str]:
+    def _generate_recommendations(
+        self, metrics: List[TestQualityMetric], weighted_score: float
+    ) -> List[str]:
         """生成改进建议"""
         recommendations = []
 
@@ -527,19 +597,32 @@ class TestQualityMetrics:
         for metric in metrics:
             if metric.score < 70:
                 if metric.metric_name == "测试覆盖率":
-                    recommendations.append(f"提高{metric.metric_name}: 当前{metric.value:.1f}%，目标{metric.target_value}%")
+                    recommendations.append(
+                        f"提高{metric.metric_name}: 当前{metric.value:.1f}%，目标{metric.target_value}%"
+                    )
                 elif metric.metric_name == "测试成功率":
-                    recommendations.append(f"提高{metric.metric_name}: 修复失败的测试用例")
+                    recommendations.append(
+                        f"提高{metric.metric_name}: 修复失败的测试用例"
+                    )
                 elif metric.metric_name == "测试执行时间":
-                    recommendations.append(f"优化{metric.metric_name}: 当前{metric.value:.2f}秒/文件，目标{metric.target_value}秒")
+                    recommendations.append(
+                        f"优化{metric.metric_name}: 当前{metric.value:.2f}秒/文件，目标{metric.target_value}秒"
+                    )
                 elif metric.metric_name == "测试可维护性":
-                    recommendations.append(f"改进{metric.metric_name}: 重构大型测试文件")
+                    recommendations.append(
+                        f"改进{metric.metric_name}: 重构大型测试文件"
+                    )
                 elif metric.metric_name == "测试多样性":
-                    recommendations.append(f"增强{metric.metric_name}: 平衡不同类型测试的比例")
+                    recommendations.append(
+                        f"增强{metric.metric_name}: 平衡不同类型测试的比例"
+                    )
                 elif metric.metric_name == "测试可靠性":
-                    recommendations.append(f"提高{metric.metric_name}: 确保测试结果的一致性")
+                    recommendations.append(
+                        f"提高{metric.metric_name}: 确保测试结果的一致性"
+                    )
 
         return recommendations
+
 
 def main():
     """主函数"""
@@ -554,7 +637,7 @@ def main():
         quality_metrics.calculate_test_execution_time(),
         quality_metrics.calculate_test_maintainability(),
         quality_metrics.calculate_test_diversity(),
-        quality_metrics.calculate_test_reliability()
+        quality_metrics.calculate_test_reliability(),
     ]
 
     # 计算总体质量评分
@@ -564,14 +647,11 @@ def main():
     result_data = {
         "quality_score": asdict(quality_score),
         "timestamp": time.time(),
-        "system_info": {
-            "platform": sys.platform,
-            "python_version": sys.version
-        }
+        "system_info": {"platform": sys.platform, "python_version": sys.version},
     }
 
     result_file = "test_quality_metrics_results.json"
-    with open(result_file, 'w', encoding='utf-8') as f:
+    with open(result_file, "w", encoding="utf-8") as f:
         json.dump(result_data, f, ensure_ascii=False, indent=2)
 
     log(f"✅ 测试质量指标结果已保存: {result_file}")
@@ -583,7 +663,7 @@ def main():
     log(f"✅ 测试质量指标报告已生成: {report_file}")
 
     # 显示质量评分
-    log("\n" + "="*50)
+    log("\n" + "=" * 50)
     log("测试质量指标分析完成:")
     log(f"总体评分: {quality_score.overall_score:.1f}")
     log(f"加权评分: {quality_score.weighted_score:.1f}")
@@ -595,9 +675,10 @@ def main():
 
     return quality_score.weighted_score >= 70
 
+
 def create_quality_report(result_data: Dict[str, Any], report_file: str):
     """创建质量报告"""
-    with open(report_file, 'w', encoding='utf-8') as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         f.write("# 测试质量指标报告\n\n")
         f.write("## 概述\n")
         f.write("本报告总结了测试质量指标的评估结果和改进建议。\n\n")
@@ -613,11 +694,13 @@ def create_quality_report(result_data: Dict[str, Any], report_file: str):
         f.write("| 指标 | 当前值 | 目标值 | 权重 | 得分 | 状态 |\n")
         f.write("|------|--------|--------|------|------|------|\n")
 
-        for metric in quality_score['metrics']:
-            f.write(f"| {metric['metric_name']} | {metric['value']:.1f} | {metric['target_value']:.1f} | {metric['weight']*100:.0f}% | {metric['score']:.1f} | {metric['status']} |\n")
+        for metric in quality_score["metrics"]:
+            f.write(
+                f"| {metric['metric_name']} | {metric['value']:.1f} | {metric['target_value']:.1f} | {metric['weight']*100:.0f}% | {metric['score']:.1f} | {metric['status']} |\n"
+            )
 
         f.write("\n## 改进建议\n\n")
-        for recommendation in quality_score['recommendations']:
+        for recommendation in quality_score["recommendations"]:
             f.write(f"- {recommendation}\n")
 
         f.write("\n## 持续质量改进\n\n")
@@ -625,6 +708,7 @@ def create_quality_report(result_data: Dict[str, Any], report_file: str):
         f.write("2. **目标设定**: 为每个指标设定改进目标\n")
         f.write("3. **监控趋势**: 跟踪质量指标的变化趋势\n")
         f.write("4. **团队协作**: 建立质量改进的团队机制\n")
+
 
 if __name__ == "__main__":
     success = main()

@@ -1,0 +1,105 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-check:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r dev-requirements.txt
+    
+    - name: Run Black check
+      run: black --check .
+    
+    - name: Run Isort check
+      run: isort --check-only .
+    
+    - name: Run Flake8 check
+      run: flake8 src/ --count --max-line-length=120 --extend-ignore=E203 --statistics
+    
+    - name: Run Mypy check
+      run: mypy src/ --ignore-missing-imports
+
+  unit-tests:
+    name: Unit Tests (${{ matrix.os }}, ${{ matrix.python-version }})
+    needs: quality-check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt
+    
+    - name: Run unit tests with coverage
+      run: |
+        python -m pytest tests/unit/ -v --cov=src --cov-report=xml --cov-config=.coveragerc --cov-fail-under=40
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+
+  e2e-tests:
+    name: E2E Tests (Windows)
+    needs: unit-tests
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt
+        playwright install chromium
+    
+    - name: Run Playwright E2E Tests
+      run: python tests/e2e/official_e2e_test.py --browser-strategy=playwright
+    
+    - name: Run Selenium E2E Tests
+      run: python tests/e2e/official_e2e_test.py --browser-strategy=selenium
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-results
+        path: end2end_test/test_results/

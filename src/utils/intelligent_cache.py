@@ -4,72 +4,75 @@
 """
 
 import asyncio
+import functools
+import hashlib
 import json
 import pickle
-import time
 import threading
-from typing import Any, Dict, List, Optional, Tuple, Union, Callable
+import time
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-import hashlib
-import heapq
-from collections import OrderedDict, defaultdict
-import functools
+from typing import Any, Callable, Dict, Optional
 
-from src.core.logger import get_logger
 from src.core.config import ConfigManager
+from src.core.logger import get_logger
 
 
 class CacheLevel(Enum):
     """缓存级别"""
+
     L1_MEMORY = 1  # 内存缓存
-    L2_DISK = 2    # 磁盘缓存
+    L2_DISK = 2  # 磁盘缓存
     L3_REMOTE = 3  # 远程缓存
 
 
 class EvictionPolicy(Enum):
     """淘汰策略"""
-    LRU = "lru"          # 最近最少使用
-    LFU = "lfu"          # 最不经常使用
-    FIFO = "fifo"        # 先进先出
-    ARC = "arc"          # 自适应替换缓存
-    TTL_BASED = "ttl"    # 基于时间的淘汰
+
+    LRU = "lru"  # 最近最少使用
+    LFU = "lfu"  # 最不经常使用
+    FIFO = "fifo"  # 先进先出
+    ARC = "arc"  # 自适应替换缓存
+    TTL_BASED = "ttl"  # 基于时间的淘汰
 
 
 @dataclass
 class CacheConfig:
     """缓存配置"""
+
     # 容量配置
-    l1_max_size: int = 1000        # L1缓存最大条目数
+    l1_max_size: int = 1000  # L1缓存最大条目数
     l1_max_memory: int = 100 * 1024 * 1024  # L1缓存最大内存(100MB)
-    l2_max_size: int = 10000       # L2缓存最大条目数
+    l2_max_size: int = 10000  # L2缓存最大条目数
     l2_max_disk: int = 1024 * 1024 * 1024  # L2缓存最大磁盘空间(1GB)
 
     # 生存时间配置
-    default_ttl: float = 3600.0     # 默认TTL(1小时)
-    l1_ttl: float = 1800.0          # L1缓存TTL(30分钟)
-    l2_ttl: float = 7200.0          # L2缓存TTL(2小时)
+    default_ttl: float = 3600.0  # 默认TTL(1小时)
+    l1_ttl: float = 1800.0  # L1缓存TTL(30分钟)
+    l2_ttl: float = 7200.0  # L2缓存TTL(2小时)
 
     # 淘汰策略配置
     l1_eviction_policy: EvictionPolicy = EvictionPolicy.ARC
     l2_eviction_policy: EvictionPolicy = EvictionPolicy.LRU
 
     # 性能配置
-    compression_enabled: bool = True      # 启用压缩
-    serialization: str = "pickle"         # 序列化方式 (pickle/json)
-    background_cleanup: bool = True      # 后台清理
-    cleanup_interval: float = 300.0       # 清理间隔(5分钟)
+    compression_enabled: bool = True  # 启用压缩
+    serialization: str = "pickle"  # 序列化方式 (pickle/json)
+    background_cleanup: bool = True  # 后台清理
+    cleanup_interval: float = 300.0  # 清理间隔(5分钟)
 
     # 智能配置
-    preload_enabled: bool = True          # 启用预热
-    adaptive_ttl: bool = True             # 启用自适应TTL
-    hit_rate_threshold: float = 0.8      # 命中率阈值
+    preload_enabled: bool = True  # 启用预热
+    adaptive_ttl: bool = True  # 启用自适应TTL
+    hit_rate_threshold: float = 0.8  # 命中率阈值
 
 
 @dataclass
 class CacheEntry:
     """缓存条目"""
+
     key: str
     value: Any
     created_at: float
@@ -154,15 +157,15 @@ class IntelligentCache:
 
         # 统计信息
         self.stats = {
-            'l1_hits': 0,
-            'l1_misses': 0,
-            'l2_hits': 0,
-            'l2_misses': 0,
-            'l1_evictions': 0,
-            'l2_evictions': 0,
-            'total_requests': 0,
-            'compression_savings': 0,
-            'adaptive_ttl_adjustments': 0
+            "l1_hits": 0,
+            "l1_misses": 0,
+            "l2_hits": 0,
+            "l2_misses": 0,
+            "l1_evictions": 0,
+            "l2_evictions": 0,
+            "total_requests": 0,
+            "compression_savings": 0,
+            "adaptive_ttl_adjustments": 0,
         }
 
         # 自适应TTL
@@ -187,8 +190,10 @@ class IntelligentCache:
         # 启动后台任务
         self._start_background_tasks()
 
-        self.logger.info(f"智能缓存初始化完成: L1={self.config.l1_max_size}, "
-                       f"L2={self.config.l2_max_size}, 策略={self.config.l1_eviction_policy.value}")
+        self.logger.info(
+            f"智能缓存初始化完成: L1={self.config.l1_max_size}, "
+            f"L2={self.config.l2_max_size}, 策略={self.config.l1_eviction_policy.value}"
+        )
 
     def _start_background_tasks(self):
         """启动后台任务"""
@@ -197,16 +202,14 @@ class IntelligentCache:
         # 启动清理任务
         if self.config.background_cleanup:
             self.cleanup_task = threading.Thread(
-                target=self._cleanup_worker,
-                daemon=True
+                target=self._cleanup_worker, daemon=True
             )
             self.cleanup_task.start()
 
         # 启动预热任务
         if self.config.preload_enabled:
             self.preload_task = threading.Thread(
-                target=self._preload_worker,
-                daemon=True
+                target=self._preload_worker, daemon=True
             )
             self.preload_task.start()
 
@@ -242,7 +245,7 @@ class IntelligentCache:
         Returns:
             Any: 缓存值或默认值
         """
-        self.stats['total_requests'] += 1
+        self.stats["total_requests"] += 1
 
         # 记录访问模式
         is_hit = False
@@ -253,7 +256,7 @@ class IntelligentCache:
             entry = self.l1_cache[key]
             if not self._is_entry_expired(entry):
                 self._update_access_info(entry, CacheLevel.L1_MEMORY)
-                self.stats['l1_hits'] += 1
+                self.stats["l1_hits"] += 1
                 is_hit = True
                 result = entry.value
                 self.adaptive_ttl.record_access(key, True)
@@ -266,12 +269,12 @@ class IntelligentCache:
             if l2_entry and not self._is_entry_expired(l2_entry):
                 # 提升到L1缓存
                 self._promote_to_l1(l2_entry)
-                self.stats['l2_hits'] += 1
+                self.stats["l2_hits"] += 1
                 is_hit = True
                 result = l2_entry.value
                 self.adaptive_ttl.record_access(key, True)
             else:
-                self.stats['l2_misses'] += 1
+                self.stats["l2_misses"] += 1
                 self.adaptive_ttl.record_access(key, False)
 
         return result
@@ -301,7 +304,7 @@ class IntelligentCache:
                 value=value,
                 created_at=time.time(),
                 ttl=ttl,
-                level=CacheLevel.L1_MEMORY
+                level=CacheLevel.L1_MEMORY,
             )
 
             # 计算大小
@@ -358,7 +361,7 @@ class IntelligentCache:
             if self.config.serialization == "pickle":
                 size = len(pickle.dumps(entry.value))
             else:
-                size = len(json.dumps(entry.value, default=str).encode('utf-8'))
+                size = len(json.dumps(entry.value, default=str).encode("utf-8"))
 
             if self.config.compression_enabled:
                 # 估算压缩后的大小
@@ -443,18 +446,18 @@ class IntelligentCache:
         # 执行实际的替换
         if len(self.arc_t1) + len(self.arc_t2) > self.config.l1_max_size:
             if len(self.arc_t1) > 0 and (
-                len(self.arc_t1) > self.arc_p or
-                (key in self.arc_b2 and len(self.arc_t2) == 0)
+                len(self.arc_t1) > self.arc_p
+                or (key in self.arc_b2 and len(self.arc_t2) == 0)
             ):
                 # 从T1淘汰
                 evicted_key = next(iter(self.arc_t1))
                 self.arc_b1[evicted_key] = self.arc_t1.pop(evicted_key)
-                self.stats['l1_evictions'] += 1
+                self.stats["l1_evictions"] += 1
             elif len(self.arc_t2) > 0:
                 # 从T2淘汰
                 evicted_key = next(iter(self.arc_t2))
                 self.arc_b2[evicted_key] = self.arc_t2.pop(evicted_key)
-                self.stats['l1_evictions'] += 1
+                self.stats["l1_evictions"] += 1
 
     def _evict_lfu_from_l1(self):
         """从L1缓存淘汰最不常用的项"""
@@ -463,12 +466,14 @@ class IntelligentCache:
 
         # 找到访问次数最少的项
         min_access = min(e.access_count for e in self.l1_cache.values())
-        candidates = [k for k, e in self.l1_cache.items() if e.access_count == min_access]
+        candidates = [
+            k for k, e in self.l1_cache.items() if e.access_count == min_access
+        ]
 
         if candidates:
             evicted_key = candidates[0]
             self.l1_cache.pop(evicted_key)
-            self.stats['l1_evictions'] += 1
+            self.stats["l1_evictions"] += 1
 
     def _evict_lru_from_l2(self):
         """从L2缓存淘汰最近最少使用的项"""
@@ -476,9 +481,9 @@ class IntelligentCache:
         if len(l2_files) > self.config.l2_max_size:
             # 按修改时间排序，删除最旧的文件
             l2_files.sort(key=lambda f: f.stat().st_mtime)
-            for file in l2_files[:len(l2_files) - self.config.l2_max_size]:
+            for file in l2_files[: len(l2_files) - self.config.l2_max_size]:
                 file.unlink()
-                self.stats['l2_evictions'] += 1
+                self.stats["l2_evictions"] += 1
 
     def _evict_lfu_from_l2(self):
         """从L2缓存淘汰最不常用的项"""
@@ -487,13 +492,15 @@ class IntelligentCache:
 
     def _get_from_l2(self, key: str) -> Optional[CacheEntry]:
         """从L2缓存获取"""
-        cache_file = self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        cache_file = (
+            self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        )
 
         if not cache_file.exists():
             return None
 
         try:
-            with open(cache_file, 'rb') as f:
+            with open(cache_file, "rb") as f:
                 data = pickle.load(f)
 
             entry = CacheEntry(**data)
@@ -511,22 +518,28 @@ class IntelligentCache:
 
     def _save_to_l2(self, entry: CacheEntry):
         """保存到L2缓存"""
-        cache_file = self.l2_cache_path / f"{hashlib.md5(entry.key.encode()).hexdigest()}.cache"
+        cache_file = (
+            self.l2_cache_path / f"{hashlib.md5(entry.key.encode()).hexdigest()}.cache"
+        )
 
         try:
-            with open(cache_file, 'wb') as f:
+            with open(cache_file, "wb") as f:
                 pickle.dump(entry.__dict__, f)
         except Exception as e:
             self.logger.error(f"保存到L2缓存失败: {e}")
 
     def _exists_in_l2(self, key: str) -> bool:
         """检查L2缓存中是否存在"""
-        cache_file = self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        cache_file = (
+            self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        )
         return cache_file.exists()
 
     def _remove_from_l2(self, key: str):
         """从L2缓存删除"""
-        cache_file = self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        cache_file = (
+            self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
+        )
         if cache_file.exists():
             cache_file.unlink()
 
@@ -554,7 +567,7 @@ class IntelligentCache:
         # 清理L2缓存
         for cache_file in self.l2_cache_path.glob("*.cache"):
             try:
-                with open(cache_file, 'rb') as f:
+                with open(cache_file, "rb") as f:
                     data = pickle.load(f)
                 entry = CacheEntry(**data)
                 if self._is_entry_expired(entry):
@@ -565,7 +578,7 @@ class IntelligentCache:
     def _optimize_cache_size(self):
         """优化缓存大小"""
         # 基于命中率调整缓存大小
-        l1_hit_rate = self.stats['l1_hits'] / max(self.stats['total_requests'], 1)
+        l1_hit_rate = self.stats["l1_hits"] / max(self.stats["total_requests"], 1)
 
         if l1_hit_rate < 0.5:  # L1命中率低，考虑增加L1大小
             # 这里可以动态调整配置，但需要谨慎
@@ -593,35 +606,37 @@ class IntelligentCache:
         l1_memory = sum(e.size for e in self.l1_cache.values())
         l2_files = len(list(self.l2_cache_path.glob("*.cache")))
 
-        l1_hit_rate = self.stats['l1_hits'] / max(self.stats['total_requests'], 1)
-        l2_hit_rate = self.stats['l2_hits'] / max(self.stats['total_requests'], 1)
-        overall_hit_rate = (self.stats['l1_hits'] + self.stats['l2_hits']) / max(self.stats['total_requests'], 1)
+        l1_hit_rate = self.stats["l1_hits"] / max(self.stats["total_requests"], 1)
+        l2_hit_rate = self.stats["l2_hits"] / max(self.stats["total_requests"], 1)
+        overall_hit_rate = (self.stats["l1_hits"] + self.stats["l2_hits"]) / max(
+            self.stats["total_requests"], 1
+        )
 
         return {
-            'cache_sizes': {
-                'l1_entries': l1_size,
-                'l1_memory_bytes': l1_memory,
-                'l2_files': l2_files
+            "cache_sizes": {
+                "l1_entries": l1_size,
+                "l1_memory_bytes": l1_memory,
+                "l2_files": l2_files,
             },
-            'hit_rates': {
-                'l1_hit_rate': l1_hit_rate,
-                'l2_hit_rate': l2_hit_rate,
-                'overall_hit_rate': overall_hit_rate
+            "hit_rates": {
+                "l1_hit_rate": l1_hit_rate,
+                "l2_hit_rate": l2_hit_rate,
+                "overall_hit_rate": overall_hit_rate,
             },
-            'performance': {
-                'total_requests': self.stats['total_requests'],
-                'l1_hits': self.stats['l1_hits'],
-                'l1_misses': self.stats['l1_misses'],
-                'l2_hits': self.stats['l2_hits'],
-                'l2_misses': self.stats['l2_misses'],
-                'l1_evictions': self.stats['l1_evictions'],
-                'l2_evictions': self.stats['l2_evictions']
+            "performance": {
+                "total_requests": self.stats["total_requests"],
+                "l1_hits": self.stats["l1_hits"],
+                "l1_misses": self.stats["l1_misses"],
+                "l2_hits": self.stats["l2_hits"],
+                "l2_misses": self.stats["l2_misses"],
+                "l1_evictions": self.stats["l1_evictions"],
+                "l2_evictions": self.stats["l2_evictions"],
             },
-            'adaptive_metrics': {
-                'adaptive_ttl_adjustments': self.stats['adaptive_ttl_adjustments'],
-                'compression_savings': self.stats['compression_savings'],
-                'arc_p_parameter': self.arc_p
-            }
+            "adaptive_metrics": {
+                "adaptive_ttl_adjustments": self.stats["adaptive_ttl_adjustments"],
+                "compression_savings": self.stats["compression_savings"],
+                "arc_p_parameter": self.arc_p,
+            },
         }
 
     def get_detailed_status(self) -> Dict[str, Any]:
@@ -633,28 +648,30 @@ class IntelligentCache:
         for key, accesses in self.adaptive_ttl.access_patterns.items():
             frequency = self.adaptive_ttl.get_access_frequency(key)
             hit_rate = self.adaptive_ttl.hit_rates[key]
-            hot_keys.append({
-                'key': key,
-                'frequency': frequency,
-                'hit_rate': hit_rate,
-                'access_count': len(accesses)
-            })
+            hot_keys.append(
+                {
+                    "key": key,
+                    "frequency": frequency,
+                    "hit_rate": hit_rate,
+                    "access_count": len(accesses),
+                }
+            )
 
-        hot_keys.sort(key=lambda x: x['frequency'], reverse=True)
+        hot_keys.sort(key=lambda x: x["frequency"], reverse=True)
 
         return {
             **stats,
-            'hot_data': hot_keys[:20],  # 前20个最热的数据
-            'cache_config': {
-                'l1_max_size': self.config.l1_max_size,
-                'l1_max_memory': self.config.l1_max_memory,
-                'l2_max_size': self.config.l2_max_size,
-                'default_ttl': self.config.default_ttl,
-                'eviction_policies': {
-                    'l1': self.config.l1_eviction_policy.value,
-                    'l2': self.config.l2_eviction_policy.value
-                }
-            }
+            "hot_data": hot_keys[:20],  # 前20个最热的数据
+            "cache_config": {
+                "l1_max_size": self.config.l1_max_size,
+                "l1_max_memory": self.config.l1_max_memory,
+                "l2_max_size": self.config.l2_max_size,
+                "default_ttl": self.config.default_ttl,
+                "eviction_policies": {
+                    "l1": self.config.l1_eviction_policy.value,
+                    "l2": self.config.l2_eviction_policy.value,
+                },
+            },
         }
 
     def cleanup(self):
@@ -664,7 +681,11 @@ class IntelligentCache:
 
 
 # 装饰器模式
-def cached(cache: IntelligentCache, ttl: Optional[float] = None, key_func: Optional[Callable] = None):
+def cached(
+    cache: IntelligentCache,
+    ttl: Optional[float] = None,
+    key_func: Optional[Callable] = None,
+):
     """
     缓存装饰器
 
@@ -673,6 +694,7 @@ def cached(cache: IntelligentCache, ttl: Optional[float] = None, key_func: Optio
         ttl: 生存时间
         key_func: 自定义键生成函数
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -693,6 +715,7 @@ def cached(cache: IntelligentCache, ttl: Optional[float] = None, key_func: Optio
             return result
 
         return wrapper
+
     return decorator
 
 

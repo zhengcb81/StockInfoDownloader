@@ -6,15 +6,15 @@
 优化测试执行时间和资源使用
 """
 
-import os
-import sys
-import time
 import json
 import subprocess
-import psutil
+import sys
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
@@ -22,18 +22,21 @@ sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
 
+
 def log(message):
     """记录日志"""
     try:
         print(f"[{time.strftime('%H:%M:%S')}] {message}")
     except UnicodeEncodeError:
         # 处理编码问题
-        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        safe_message = message.encode("gbk", errors="replace").decode("gbk")
         print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
 
 @dataclass
 class TestExecutionMetrics:
     """测试执行指标"""
+
     test_name: str
     execution_time: float
     memory_usage: float
@@ -42,14 +45,17 @@ class TestExecutionMetrics:
     success: bool
     error_message: Optional[str] = None
 
+
 @dataclass
 class OptimizationResult:
     """优化结果"""
+
     optimization_name: str
     before_metrics: TestExecutionMetrics
     after_metrics: TestExecutionMetrics
     improvement_percentage: float
     optimization_applied: bool
+
 
 class TestExecutionOptimizer:
     """测试执行优化器"""
@@ -58,14 +64,18 @@ class TestExecutionOptimizer:
         self.logger = get_logger("test_execution_optimizer")
         self.optimization_results = []
 
-    def measure_test_execution(self, test_command: str, test_name: str) -> TestExecutionMetrics:
+    def measure_test_execution(
+        self, test_command: str, test_name: str
+    ) -> TestExecutionMetrics:
         """测量测试执行指标"""
         log(f"测量测试执行: {test_name}")
 
         start_time = time.time()
         start_memory = psutil.virtual_memory().used
         start_cpu = psutil.cpu_percent(interval=None)
-        start_disk_io = psutil.disk_io_counters().read_bytes + psutil.disk_io_counters().write_bytes
+        start_disk_io = (
+            psutil.disk_io_counters().read_bytes + psutil.disk_io_counters().write_bytes
+        )
 
         try:
             # 执行测试命令
@@ -74,13 +84,16 @@ class TestExecutionOptimizer:
                 shell=True,
                 capture_output=True,
                 text=True,
-                timeout=300  # 5分钟超时
+                timeout=300,  # 5分钟超时
             )
 
             end_time = time.time()
             end_memory = psutil.virtual_memory().used
             end_cpu = psutil.cpu_percent(interval=None)
-            end_disk_io = psutil.disk_io_counters().read_bytes + psutil.disk_io_counters().write_bytes
+            end_disk_io = (
+                psutil.disk_io_counters().read_bytes
+                + psutil.disk_io_counters().write_bytes
+            )
 
             execution_time = end_time - start_time
             memory_usage = (end_memory - start_memory) / (1024 * 1024)  # MB
@@ -95,7 +108,7 @@ class TestExecutionOptimizer:
                 memory_usage=memory_usage,
                 cpu_usage=cpu_usage,
                 disk_io=disk_io,
-                success=success
+                success=success,
             )
 
             log(f"✅ 测试执行测量完成: {test_name}")
@@ -118,7 +131,7 @@ class TestExecutionOptimizer:
                 cpu_usage=0,
                 disk_io=0,
                 success=False,
-                error_message="测试执行超时"
+                error_message="测试执行超时",
             )
 
             log(f"❌ 测试执行超时: {test_name}")
@@ -135,7 +148,7 @@ class TestExecutionOptimizer:
                 cpu_usage=0,
                 disk_io=0,
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
 
             log(f"❌ 测试执行失败: {test_name} - {e}")
@@ -156,7 +169,10 @@ class TestExecutionOptimizer:
 
         # 计算改进百分比
         if before_metrics.execution_time > 0:
-            improvement_percentage = ((before_metrics.execution_time - after_metrics.execution_time) / before_metrics.execution_time) * 100
+            improvement_percentage = (
+                (before_metrics.execution_time - after_metrics.execution_time)
+                / before_metrics.execution_time
+            ) * 100
         else:
             improvement_percentage = 0
 
@@ -165,7 +181,7 @@ class TestExecutionOptimizer:
             before_metrics=before_metrics,
             after_metrics=after_metrics,
             improvement_percentage=improvement_percentage,
-            optimization_applied=True
+            optimization_applied=True,
         )
 
         log(f"✅ {optimization_name} 完成 - 改进: {improvement_percentage:.1f}%")
@@ -186,7 +202,10 @@ class TestExecutionOptimizer:
 
         # 计算改进百分比
         if before_metrics.execution_time > 0:
-            improvement_percentage = ((before_metrics.execution_time - after_metrics.execution_time) / before_metrics.execution_time) * 100
+            improvement_percentage = (
+                (before_metrics.execution_time - after_metrics.execution_time)
+                / before_metrics.execution_time
+            ) * 100
         else:
             improvement_percentage = 0
 
@@ -195,7 +214,7 @@ class TestExecutionOptimizer:
             before_metrics=before_metrics,
             after_metrics=after_metrics,
             improvement_percentage=improvement_percentage,
-            optimization_applied=True
+            optimization_applied=True,
         )
 
         log(f"✅ {optimization_name} 完成 - 改进: {improvement_percentage:.1f}%")
@@ -212,11 +231,16 @@ class TestExecutionOptimizer:
 
         # 应用缓存优化
         optimized_command = "python -m pytest tests/unit/ -v --cache-clear"
-        after_metrics = self.measure_test_execution(optimized_command, "单元测试(有缓存)")
+        after_metrics = self.measure_test_execution(
+            optimized_command, "单元测试(有缓存)"
+        )
 
         # 计算改进百分比
         if before_metrics.execution_time > 0:
-            improvement_percentage = ((before_metrics.execution_time - after_metrics.execution_time) / before_metrics.execution_time) * 100
+            improvement_percentage = (
+                (before_metrics.execution_time - after_metrics.execution_time)
+                / before_metrics.execution_time
+            ) * 100
         else:
             improvement_percentage = 0
 
@@ -225,7 +249,7 @@ class TestExecutionOptimizer:
             before_metrics=before_metrics,
             after_metrics=after_metrics,
             improvement_percentage=improvement_percentage,
-            optimization_applied=True
+            optimization_applied=True,
         )
 
         log(f"✅ {optimization_name} 完成 - 改进: {improvement_percentage:.1f}%")
@@ -247,13 +271,17 @@ class TestExecutionOptimizer:
                 temp_file.unlink()
             elif temp_file.is_dir():
                 import shutil
+
                 shutil.rmtree(temp_file)
 
         after_metrics = self.measure_test_execution(test_command, "单元测试(优化环境)")
 
         # 计算改进百分比
         if before_metrics.execution_time > 0:
-            improvement_percentage = ((before_metrics.execution_time - after_metrics.execution_time) / before_metrics.execution_time) * 100
+            improvement_percentage = (
+                (before_metrics.execution_time - after_metrics.execution_time)
+                / before_metrics.execution_time
+            ) * 100
         else:
             improvement_percentage = 0
 
@@ -262,7 +290,7 @@ class TestExecutionOptimizer:
             before_metrics=before_metrics,
             after_metrics=after_metrics,
             improvement_percentage=improvement_percentage,
-            optimization_applied=True
+            optimization_applied=True,
         )
 
         log(f"✅ {optimization_name} 完成 - 改进: {improvement_percentage:.1f}%")
@@ -279,11 +307,16 @@ class TestExecutionOptimizer:
 
         # 应用资源优化 - 限制内存使用
         optimized_command = "python -m pytest tests/unit/ -v --maxfail=5"
-        after_metrics = self.measure_test_execution(optimized_command, "单元测试(优化资源)")
+        after_metrics = self.measure_test_execution(
+            optimized_command, "单元测试(优化资源)"
+        )
 
         # 计算改进百分比
         if before_metrics.execution_time > 0:
-            improvement_percentage = ((before_metrics.execution_time - after_metrics.execution_time) / before_metrics.execution_time) * 100
+            improvement_percentage = (
+                (before_metrics.execution_time - after_metrics.execution_time)
+                / before_metrics.execution_time
+            ) * 100
         else:
             improvement_percentage = 0
 
@@ -292,7 +325,7 @@ class TestExecutionOptimizer:
             before_metrics=before_metrics,
             after_metrics=after_metrics,
             improvement_percentage=improvement_percentage,
-            optimization_applied=True
+            optimization_applied=True,
         )
 
         log(f"✅ {optimization_name} 完成 - 改进: {improvement_percentage:.1f}%")
@@ -307,7 +340,7 @@ class TestExecutionOptimizer:
             self.optimize_test_selection,
             self.optimize_test_cache,
             self.optimize_test_environment,
-            self.optimize_test_resource_usage
+            self.optimize_test_resource_usage,
         ]
 
         optimization_results = []
@@ -321,7 +354,10 @@ class TestExecutionOptimizer:
 
         return optimization_results
 
-def analyze_optimization_results(optimization_results: List[OptimizationResult]) -> Dict[str, Any]:
+
+def analyze_optimization_results(
+    optimization_results: List[OptimizationResult],
+) -> Dict[str, Any]:
     """分析优化结果"""
     log("分析优化结果...")
 
@@ -334,13 +370,17 @@ def analyze_optimization_results(optimization_results: List[OptimizationResult])
             total_improvement += result.improvement_percentage
             successful_optimizations += 1
 
-    average_improvement = total_improvement / successful_optimizations if successful_optimizations > 0 else 0
+    average_improvement = (
+        total_improvement / successful_optimizations
+        if successful_optimizations > 0
+        else 0
+    )
 
     analysis = {
         "total_optimizations": total_optimizations,
         "successful_optimizations": successful_optimizations,
         "average_improvement": average_improvement,
-        "optimization_results": [asdict(result) for result in optimization_results]
+        "optimization_results": [asdict(result) for result in optimization_results],
     }
 
     log(f"优化分析完成:")
@@ -349,6 +389,7 @@ def analyze_optimization_results(optimization_results: List[OptimizationResult])
     log(f"  平均改进: {average_improvement:.1f}%")
 
     return analysis
+
 
 def main():
     """主函数"""
@@ -362,24 +403,27 @@ def main():
 
     # 保存优化结果
     result_file = "test_execution_optimization_results.json"
-    with open(result_file, 'w', encoding='utf-8') as f:
+    with open(result_file, "w", encoding="utf-8") as f:
         json.dump(analysis, f, ensure_ascii=False, indent=2)
 
     log(f"✅ 测试执行优化结果已保存: {result_file}")
 
     # 显示优化建议
-    log("\n" + "="*50)
+    log("\n" + "=" * 50)
     log("测试执行优化建议:")
 
     for result in optimization_results:
         if result.improvement_percentage > 0:
-            log(f"  ✅ {result.optimization_name}: 改进 {result.improvement_percentage:.1f}%")
+            log(
+                f"  ✅ {result.optimization_name}: 改进 {result.improvement_percentage:.1f}%"
+            )
         else:
             log(f"  ⚠️ {result.optimization_name}: 无改进或负改进")
 
     overall_success = analysis["successful_optimizations"] > 0
 
     return overall_success
+
 
 if __name__ == "__main__":
     success = main()

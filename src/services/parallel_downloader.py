@@ -6,18 +6,17 @@
 支持多公司并行下载，具备任务调度、资源管理和监控功能
 """
 
-import asyncio
 import concurrent.futures
-import time
-import threading
-import queue
-import uuid
-from typing import Dict, List, Optional, Any, Callable, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime, timedelta
 import json
+import queue
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 from src.core.logger import get_logger
 from src.core.performance_monitor import PerformanceMonitor
@@ -25,6 +24,7 @@ from src.core.performance_monitor import PerformanceMonitor
 
 class TaskStatus(Enum):
     """任务状态枚举"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -35,6 +35,7 @@ class TaskStatus(Enum):
 
 class TaskPriority(Enum):
     """任务优先级枚举"""
+
     LOW = 1
     NORMAL = 2
     HIGH = 3
@@ -44,6 +45,7 @@ class TaskPriority(Enum):
 @dataclass
 class DownloadTask:
     """下载任务数据类"""
+
     task_id: str
     stock_code: str
     company_name: str
@@ -71,7 +73,11 @@ class DownloadTask:
     @property
     def is_completed(self) -> bool:
         """是否完成"""
-        return self.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]
+        return self.status in [
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+        ]
 
     def mark_started(self):
         """标记任务开始"""
@@ -159,12 +165,20 @@ class TaskQueue:
     def get_pending_tasks(self) -> List[DownloadTask]:
         """获取待处理任务"""
         with self._lock:
-            return [task for task in self._tasks.values() if task.status == TaskStatus.PENDING]
+            return [
+                task
+                for task in self._tasks.values()
+                if task.status == TaskStatus.PENDING
+            ]
 
     def get_running_tasks(self) -> List[DownloadTask]:
         """获取运行中任务"""
         with self._lock:
-            return [task for task in self._tasks.values() if task.status == TaskStatus.RUNNING]
+            return [
+                task
+                for task in self._tasks.values()
+                if task.status == TaskStatus.RUNNING
+            ]
 
     def get_completed_tasks(self) -> List[DownloadTask]:
         """获取已完成任务"""
@@ -187,13 +201,14 @@ class ResourceMonitor:
         """更新资源使用情况"""
         try:
             import psutil
+
             process = psutil.Process()
 
             with self._lock:
                 self._cpu_usage = process.cpu_percent()
                 self._memory_usage = process.memory_percent()
                 self._network_io = sum(process.io_counters()[:2])
-                disk_info = psutil.disk_usage('/')
+                disk_info = psutil.disk_usage("/")
                 self._disk_usage = disk_info.percent
 
         except ImportError:
@@ -221,11 +236,12 @@ class ResourceMonitor:
         with self._lock:
             return self._disk_usage
 
-    def is_resource_available(self, max_cpu: float = 80.0, max_memory: float = 80.0) -> bool:
+    def is_resource_available(
+        self, max_cpu: float = 80.0, max_memory: float = 80.0
+    ) -> bool:
         """检查资源是否可用"""
         self.update_usage()
-        return (self.get_cpu_usage() < max_cpu and
-                self.get_memory_usage() < max_memory)
+        return self.get_cpu_usage() < max_cpu and self.get_memory_usage() < max_memory
 
 
 class ParallelDownloadManager:
@@ -255,41 +271,46 @@ class ParallelDownloadManager:
 
         # 统计信息
         self.stats = {
-            'total_tasks': 0,
-            'completed_tasks': 0,
-            'failed_tasks': 0,
-            'running_tasks': 0,
-            'pending_tasks': 0,
-            'total_files_downloaded': 0,
-            'total_execution_time': 0.0,
-            'average_execution_time': 0.0,
-            'success_rate': 0.0,
-            'throughput': 0.0
+            "total_tasks": 0,
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "running_tasks": 0,
+            "pending_tasks": 0,
+            "total_files_downloaded": 0,
+            "total_execution_time": 0.0,
+            "average_execution_time": 0.0,
+            "success_rate": 0.0,
+            "throughput": 0.0,
         }
 
         # 任务超时配置
-        self.task_timeout = self.config.get('task_timeout', 300)  # 5分钟
+        self.task_timeout = self.config.get("task_timeout", 300)  # 5分钟
 
         # 重试策略
-        self.retry_policy = self.config.get('retry_policy', {})
-        self.max_retries = self.retry_policy.get('max_retries', 3)
-        self.retry_delay = self.retry_policy.get('retry_delay', 5)
-        self.backoff_factor = self.retry_policy.get('backoff_factor', 2)
+        self.retry_policy = self.config.get("retry_policy", {})
+        self.max_retries = self.retry_policy.get("max_retries", 3)
+        self.retry_delay = self.retry_policy.get("retry_delay", 5)
+        self.backoff_factor = self.retry_policy.get("backoff_factor", 2)
 
         # 回调函数
         self.task_callbacks: Dict[str, List[Callable]] = {
-            'on_task_start': [],
-            'on_task_complete': [],
-            'on_task_error': [],
-            'on_task_retry': []
+            "on_task_start": [],
+            "on_task_complete": [],
+            "on_task_error": [],
+            "on_task_retry": [],
         }
 
         self.logger.info(f"并行下载管理器初始化完成，最大工作线程: {max_workers}")
 
-    def add_task(self, stock_code: str, company_name: str, target_pages: List[Dict[str, Any]],
-                 priority: TaskPriority = TaskPriority.NORMAL,
-                 max_retries: int = None,
-                 proxy_info: Optional[Dict[str, Any]] = None) -> str:
+    def add_task(
+        self,
+        stock_code: str,
+        company_name: str,
+        target_pages: List[Dict[str, Any]],
+        priority: TaskPriority = TaskPriority.NORMAL,
+        max_retries: int = None,
+        proxy_info: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """添加下载任务"""
         task_id = str(uuid.uuid4())
 
@@ -300,7 +321,7 @@ class ParallelDownloadManager:
             target_pages=target_pages,
             priority=priority,
             max_retries=max_retries or self.max_retries,
-            proxy_info=proxy_info
+            proxy_info=proxy_info,
         )
 
         self.task_queue.put(task)
@@ -334,17 +355,13 @@ class ParallelDownloadManager:
         # 启动工作线程
         for i in range(self.max_workers):
             worker_thread = threading.Thread(
-                target=self._worker_loop,
-                name=f"DownloadWorker-{i}",
-                daemon=True
+                target=self._worker_loop, name=f"DownloadWorker-{i}", daemon=True
             )
             worker_thread.start()
 
         # 启动监控线程
         monitor_thread = threading.Thread(
-            target=self._monitor_loop,
-            name="DownloadMonitor",
-            daemon=True
+            target=self._monitor_loop, name="DownloadMonitor", daemon=True
         )
         monitor_thread.start()
 
@@ -402,30 +419,34 @@ class ParallelDownloadManager:
         """执行下载任务"""
         try:
             task.mark_started()
-            self._trigger_callbacks('on_task_start', task)
+            self._trigger_callbacks("on_task_start", task)
             self._update_stats()
 
             # 执行下载
             result = self._perform_download(task)
 
-            if result['success']:
+            if result["success"]:
                 task.mark_completed(result)
-                self._trigger_callbacks('on_task_complete', task)
-                self.logger.info(f"任务 {task.task_id} 完成: {task.stock_code} - {task.company_name}")
+                self._trigger_callbacks("on_task_complete", task)
+                self.logger.info(
+                    f"任务 {task.task_id} 完成: {task.stock_code} - {task.company_name}"
+                )
             else:
-                task.mark_failed(result.get('error', 'Unknown error'))
-                self._trigger_callbacks('on_task_error', task)
+                task.mark_failed(result.get("error", "Unknown error"))
+                self._trigger_callbacks("on_task_error", task)
 
                 # 检查是否需要重试
                 if task.can_retry():
                     self._retry_task(task)
                 else:
-                    self.logger.error(f"任务 {task.task_id} 失败: {task.stock_code} - {task.company_name}")
+                    self.logger.error(
+                        f"任务 {task.task_id} 失败: {task.stock_code} - {task.company_name}"
+                    )
 
         except Exception as e:
             error_msg = f"任务执行异常: {e}"
             task.mark_failed(error_msg)
-            self._trigger_callbacks('on_task_error', task)
+            self._trigger_callbacks("on_task_error", task)
             self.logger.error(f"任务 {task.task_id} 执行异常: {e}")
 
         finally:
@@ -448,20 +469,20 @@ class ParallelDownloadManager:
             files_downloaded = random.randint(1, 10) if success else 0
 
             return {
-                'success': success,
-                'files_downloaded': files_downloaded,
-                'execution_time': download_time,
-                'stock_code': task.stock_code,
-                'company_name': task.company_name,
-                'timestamp': datetime.now().isoformat()
+                "success": success,
+                "files_downloaded": files_downloaded,
+                "execution_time": download_time,
+                "stock_code": task.stock_code,
+                "company_name": task.company_name,
+                "timestamp": datetime.now().isoformat(),
             }
 
         except Exception as e:
             return {
-                'success': False,
-                'error': str(e),
-                'execution_time': 0,
-                'files_downloaded': 0
+                "success": False,
+                "error": str(e),
+                "execution_time": 0,
+                "files_downloaded": 0,
             }
 
     def _retry_task(self, task: DownloadTask):
@@ -470,14 +491,16 @@ class ParallelDownloadManager:
 
         # 计算重试延迟
         delay = self.retry_delay * (self.backoff_factor ** (task.retry_count - 1))
-        self.logger.info(f"任务 {task.task_id} 将在 {delay} 秒后重试 (第 {task.retry_count} 次)")
+        self.logger.info(
+            f"任务 {task.task_id} 将在 {delay} 秒后重试 (第 {task.retry_count} 次)"
+        )
 
         # 延迟后重新添加到队列
         def retry_later():
             time.sleep(delay)
             if self._running:
                 self.task_queue.put(task)
-                self._trigger_callbacks('on_task_retry', task)
+                self._trigger_callbacks("on_task_retry", task)
 
         retry_thread = threading.Thread(target=retry_later, daemon=True)
         retry_thread.start()
@@ -508,19 +531,29 @@ class ParallelDownloadManager:
         with self._lock:
             tasks = self.task_queue.get_all_tasks()
 
-            self.stats['total_tasks'] = len(tasks)
-            self.stats['pending_tasks'] = len([t for t in tasks if t.status == TaskStatus.PENDING])
-            self.stats['running_tasks'] = len([t for t in tasks if t.status == TaskStatus.RUNNING])
-            self.stats['completed_tasks'] = len([t for t in tasks if t.status == TaskStatus.COMPLETED])
-            self.stats['failed_tasks'] = len([t for t in tasks if t.status == TaskStatus.FAILED])
+            self.stats["total_tasks"] = len(tasks)
+            self.stats["pending_tasks"] = len(
+                [t for t in tasks if t.status == TaskStatus.PENDING]
+            )
+            self.stats["running_tasks"] = len(
+                [t for t in tasks if t.status == TaskStatus.RUNNING]
+            )
+            self.stats["completed_tasks"] = len(
+                [t for t in tasks if t.status == TaskStatus.COMPLETED]
+            )
+            self.stats["failed_tasks"] = len(
+                [t for t in tasks if t.status == TaskStatus.FAILED]
+            )
 
             # 计算成功率
-            total_completed = self.stats['completed_tasks'] + self.stats['failed_tasks']
+            total_completed = self.stats["completed_tasks"] + self.stats["failed_tasks"]
             if total_completed > 0:
-                self.stats['success_rate'] = self.stats['completed_tasks'] / total_completed
+                self.stats["success_rate"] = (
+                    self.stats["completed_tasks"] / total_completed
+                )
 
             # 计算吞吐量（暂时设为0，需要实现具体逻辑）
-            self.stats['throughput'] = 0
+            self.stats["throughput"] = 0
 
     def _cleanup_completed_tasks(self):
         """清理已完成的任务"""
@@ -537,7 +570,7 @@ class ParallelDownloadManager:
 
     def _log_monitor_info(self):
         """记录监控信息"""
-        if self.stats['total_tasks'] > 0:
+        if self.stats["total_tasks"] > 0:
             self.logger.info(
                 f"任务状态 - 总计: {self.stats['total_tasks']}, "
                 f"待处理: {self.stats['pending_tasks']}, "
@@ -551,7 +584,9 @@ class ParallelDownloadManager:
         cpu_usage = self.resource_monitor.get_cpu_usage()
         memory_usage = self.resource_monitor.get_memory_usage()
         if cpu_usage > 0 or memory_usage > 0:
-            self.logger.info(f"资源使用 - CPU: {cpu_usage:.1f}%, 内存: {memory_usage:.1f}%")
+            self.logger.info(
+                f"资源使用 - CPU: {cpu_usage:.1f}%, 内存: {memory_usage:.1f}%"
+            )
 
     def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
         """获取任务状态"""
@@ -560,19 +595,19 @@ class ParallelDownloadManager:
             return None
 
         return {
-            'task_id': task.task_id,
-            'stock_code': task.stock_code,
-            'company_name': task.company_name,
-            'status': task.status.value,
-            'priority': task.priority.name,
-            'progress': task.progress,
-            'retry_count': task.retry_count,
-            'execution_time': task.execution_time,
-            'created_at': task.created_at,
-            'started_at': task.started_at,
-            'completed_at': task.completed_at,
-            'error': task.error,
-            'result': task.result
+            "task_id": task.task_id,
+            "stock_code": task.stock_code,
+            "company_name": task.company_name,
+            "status": task.status.value,
+            "priority": task.priority.name,
+            "progress": task.progress,
+            "retry_count": task.retry_count,
+            "execution_time": task.execution_time,
+            "created_at": task.created_at,
+            "started_at": task.started_at,
+            "completed_at": task.completed_at,
+            "error": task.error,
+            "result": task.result,
         }
 
     def get_all_tasks_status(self) -> List[Dict[str, Any]]:
@@ -583,16 +618,16 @@ class ParallelDownloadManager:
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         return {
-            'manager_stats': self.stats.copy(),
-            'resource_usage': {
-                'cpu_usage': self.resource_monitor.get_cpu_usage(),
-                'memory_usage': self.resource_monitor.get_memory_usage(),
-                'disk_usage': self.resource_monitor.get_disk_usage()
+            "manager_stats": self.stats.copy(),
+            "resource_usage": {
+                "cpu_usage": self.resource_monitor.get_cpu_usage(),
+                "memory_usage": self.resource_monitor.get_memory_usage(),
+                "disk_usage": self.resource_monitor.get_disk_usage(),
             },
-            'queue_size': self.task_queue.size(),
-            'is_running': self._running,
-            'is_paused': self._paused,
-            'max_workers': self.max_workers
+            "queue_size": self.task_queue.size(),
+            "is_running": self._running,
+            "is_paused": self._paused,
+            "max_workers": self.max_workers,
         }
 
     def cancel_task(self, task_id: str) -> bool:
@@ -639,30 +674,26 @@ class ParallelDownloadManager:
     def save_state(self, file_path: str):
         """保存状态到文件"""
         try:
-            state = {
-                'timestamp': time.time(),
-                'stats': self.stats,
-                'tasks': []
-            }
+            state = {"timestamp": time.time(), "stats": self.stats, "tasks": []}
 
             for task in self.task_queue.get_all_tasks():
                 task_data = {
-                    'task_id': task.task_id,
-                    'stock_code': task.stock_code,
-                    'company_name': task.company_name,
-                    'target_pages': task.target_pages,
-                    'priority': task.priority.name,
-                    'max_retries': task.max_retries,
-                    'retry_count': task.retry_count,
-                    'created_at': task.created_at,
-                    'status': task.status.value,
-                    'progress': task.progress,
-                    'error': task.error,
-                    'result': task.result
+                    "task_id": task.task_id,
+                    "stock_code": task.stock_code,
+                    "company_name": task.company_name,
+                    "target_pages": task.target_pages,
+                    "priority": task.priority.name,
+                    "max_retries": task.max_retries,
+                    "retry_count": task.retry_count,
+                    "created_at": task.created_at,
+                    "status": task.status.value,
+                    "progress": task.progress,
+                    "error": task.error,
+                    "result": task.result,
                 }
-                state['tasks'].append(task_data)
+                state["tasks"].append(task_data)
 
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2, ensure_ascii=False)
 
             self.logger.info(f"状态已保存到 {file_path}")
@@ -677,28 +708,28 @@ class ParallelDownloadManager:
                 self.logger.warning(f"状态文件 {file_path} 不存在")
                 return
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 state = json.load(f)
 
-            self.stats = state.get('stats', {})
+            self.stats = state.get("stats", {})
 
             # 恢复任务
-            for task_data in state.get('tasks', []):
-                if task_data['status'] in ['pending', 'running']:
+            for task_data in state.get("tasks", []):
+                if task_data["status"] in ["pending", "running"]:
                     task = DownloadTask(
-                        task_id=task_data['task_id'],
-                        stock_code=task_data['stock_code'],
-                        company_name=task_data['company_name'],
-                        target_pages=task_data['target_pages'],
-                        priority=TaskPriority[task_data['priority']],
-                        max_retries=task_data['max_retries'],
-                        retry_count=task_data['retry_count'],
-                        created_at=task_data['created_at']
+                        task_id=task_data["task_id"],
+                        stock_code=task_data["stock_code"],
+                        company_name=task_data["company_name"],
+                        target_pages=task_data["target_pages"],
+                        priority=TaskPriority[task_data["priority"]],
+                        max_retries=task_data["max_retries"],
+                        retry_count=task_data["retry_count"],
+                        created_at=task_data["created_at"],
                     )
-                    task.status = TaskStatus(task_data['status'])
-                    task.progress = task_data.get('progress', 0.0)
-                    task.error = task_data.get('error')
-                    task.result = task_data.get('result')
+                    task.status = TaskStatus(task_data["status"])
+                    task.progress = task_data.get("progress", 0.0)
+                    task.error = task_data.get("error")
+                    task.result = task_data.get("result")
 
                     self.task_queue.put(task)
 

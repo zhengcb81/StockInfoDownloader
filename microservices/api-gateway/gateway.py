@@ -8,6 +8,7 @@ API网关微服务
 
 import asyncio
 import json
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
@@ -119,29 +120,42 @@ class APIGateway(MicroserviceBase):
 
     async def _register_services(self):
         """注册微服务"""
+        # 从环境变量获取服务地址，默认值为 localhost
+        download_host = os.getenv("DOWNLOAD_SERVICE_HOST", "localhost")
+        download_port = os.getenv("DOWNLOAD_SERVICE_PORT", "8001")
+        
+        cache_host = os.getenv("CACHE_SERVICE_HOST", "localhost")
+        cache_port = os.getenv("CACHE_SERVICE_PORT", "8002")
+        
+        error_host = os.getenv("ERROR_SERVICE_HOST", "localhost")
+        error_port = os.getenv("ERROR_SERVICE_PORT", "8003")
+        
+        config_host = os.getenv("CONFIG_SERVICE_HOST", "localhost")
+        config_port = os.getenv("CONFIG_SERVICE_PORT", "8004")
+
         services_config = {
             "download-service": ServiceInfo(
                 name="download-service",
-                url="http://localhost:8001",
-                health_check_url="http://localhost:8001/health",
+                url=f"http://{download_host}:{download_port}",
+                health_check_url=f"http://{download_host}:{download_port}/health",
                 weight=1
             ),
             "cache-service": ServiceInfo(
                 name="cache-service",
-                url="http://localhost:8002",
-                health_check_url="http://localhost:8002/health",
+                url=f"http://{cache_host}:{cache_port}",
+                health_check_url=f"http://{cache_host}:{cache_port}/health",
                 weight=1
             ),
             "error-service": ServiceInfo(
                 name="error-service",
-                url="http://localhost:8003",
-                health_check_url="http://localhost:8003/health",
+                url=f"http://{error_host}:{error_port}",
+                health_check_url=f"http://{error_host}:{error_port}/health",
                 weight=1
             ),
             "config-service": ServiceInfo(
                 name="config-service",
-                url="http://localhost:8004",
-                health_check_url="http://localhost:8004/health",
+                url=f"http://{config_host}:{config_port}",
+                health_check_url=f"http://{config_host}:{config_port}/health",
                 weight=1
             )
         }

@@ -6,24 +6,22 @@
 验证系统在各种错误情况下的恢复能力
 """
 
-import os
-import sys
-import time
 import json
-import tempfile
 import shutil
+import sys
+import tempfile
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
-from src.services.downloader_factory import DownloaderFactory
 from src.data.mapping import MappingManager
-from src.services.orgid_service import OrgIdService
+
 
 def log(message):
     """记录日志"""
@@ -31,12 +29,14 @@ def log(message):
         print(f"[{time.strftime('%H:%M:%S')}] {message}")
     except UnicodeEncodeError:
         # 处理编码问题
-        safe_message = message.encode('gbk', errors='replace').decode('gbk')
+        safe_message = message.encode("gbk", errors="replace").decode("gbk")
         print(f"[{time.strftime('%H:%M:%S')}] {safe_message}")
+
 
 @dataclass
 class ErrorRecoveryTestResult:
     """错误恢复测试结果"""
+
     test_name: str
     error_injected: str
     recovery_successful: bool
@@ -45,14 +45,17 @@ class ErrorRecoveryTestResult:
     system_state_after_recovery: str
     error_message: Optional[str] = None
 
+
 @dataclass
 class ErrorRecoveryTestSummary:
     """错误恢复测试汇总"""
+
     total_tests: int
     tests_passed: int
     tests_failed: int
     average_recovery_time: float
     test_results: List[ErrorRecoveryTestResult]
+
 
 class ErrorRecoveryTester:
     """错误恢复测试器"""
@@ -105,7 +108,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="正常运行"
+                system_state_after_recovery="正常运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -120,7 +123,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="错误状态",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -152,7 +155,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="正常运行"
+                system_state_after_recovery="正常运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -167,7 +170,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="错误状态",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -200,7 +203,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="正常运行"
+                system_state_after_recovery="正常运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -215,7 +218,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="错误状态",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -243,7 +246,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="正常运行"
+                system_state_after_recovery="正常运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -258,7 +261,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="错误状态",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -284,7 +287,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="正常运行"
+                system_state_after_recovery="正常运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -299,7 +302,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="错误状态",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -324,7 +327,7 @@ class ErrorRecoveryTester:
                 recovery_successful=recovery_successful,
                 recovery_time=recovery_time,
                 error_handled_gracefully=error_handled,
-                system_state_after_recovery="降级运行"
+                system_state_after_recovery="降级运行",
             )
 
             log(f"✅ {test_name} 完成 - 恢复时间: {recovery_time:.2f}秒")
@@ -339,7 +342,7 @@ class ErrorRecoveryTester:
                 recovery_time=recovery_time,
                 error_handled_gracefully=False,
                 system_state_after_recovery="完全不可用",
-                error_message=str(e)
+                error_message=str(e),
             )
             log(f"❌ {test_name} 失败: {e}")
             return result
@@ -354,7 +357,7 @@ class ErrorRecoveryTester:
             self.test_memory_error_recovery,
             self.test_database_error_recovery,
             self.test_concurrent_error_recovery,
-            self.test_graceful_degradation
+            self.test_graceful_degradation,
         ]
 
         test_results = []
@@ -369,20 +372,23 @@ class ErrorRecoveryTester:
         tests_failed = total_tests - tests_passed
 
         total_recovery_time = sum(r.recovery_time for r in test_results)
-        average_recovery_time = total_recovery_time / total_tests if total_tests > 0 else 0
+        average_recovery_time = (
+            total_recovery_time / total_tests if total_tests > 0 else 0
+        )
 
         summary = ErrorRecoveryTestSummary(
             total_tests=total_tests,
             tests_passed=tests_passed,
             tests_failed=tests_failed,
             average_recovery_time=average_recovery_time,
-            test_results=test_results
+            test_results=test_results,
         )
 
         # 清理测试环境
         self.cleanup_test_environment()
 
         return summary
+
 
 def run_error_recovery_tests() -> Dict[str, Any]:
     """运行错误恢复测试"""
@@ -392,7 +398,7 @@ def run_error_recovery_tests() -> Dict[str, Any]:
     summary = tester.run_all_tests()
 
     # 显示测试结果
-    log("\n" + "="*50)
+    log("\n" + "=" * 50)
     log("错误恢复测试结果:")
     log(f"总测试数: {summary.total_tests}")
     log(f"通过测试: {summary.tests_passed}")
@@ -415,8 +421,9 @@ def run_error_recovery_tests() -> Dict[str, Any]:
     return {
         "overall_success": overall_success,
         "summary": asdict(summary),
-        "timestamp": time.time()
+        "timestamp": time.time(),
     }
+
 
 def main():
     """主函数"""
@@ -424,12 +431,13 @@ def main():
 
     # 保存测试结果
     result_file = "error_recovery_test_results.json"
-    with open(result_file, 'w', encoding='utf-8') as f:
+    with open(result_file, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     log(f"✅ 错误恢复测试结果已保存: {result_file}")
 
     return result["overall_success"]
+
 
 if __name__ == "__main__":
     success = main()

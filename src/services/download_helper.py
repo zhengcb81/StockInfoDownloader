@@ -6,10 +6,7 @@
 提供基于不同浏览器策略的文件下载辅助功能
 """
 
-import os
-import time
 from pathlib import Path
-from typing import Optional
 
 from ..core.logger import get_logger
 
@@ -29,7 +26,9 @@ class BaseDownloadHelper:
         self.browser_strategy = browser_strategy
         self.logger = logger
 
-    def download_from_detail_page(self, url: str, save_path: str, timeout: int = 60) -> bool:
+    def download_from_detail_page(
+        self, url: str, save_path: str, timeout: int = 60
+    ) -> bool:
         """
         从详情页下载文件
 
@@ -47,7 +46,9 @@ class BaseDownloadHelper:
 class PlaywrightDownloadHelper(BaseDownloadHelper):
     """Playwright下载辅助器"""
 
-    def download_from_detail_page(self, url: str, save_path: str, timeout: int = 60) -> bool:
+    def download_from_detail_page(
+        self, url: str, save_path: str, timeout: int = 60
+    ) -> bool:
         """
         使用Playwright从详情页下载文件
 
@@ -65,7 +66,7 @@ class PlaywrightDownloadHelper(BaseDownloadHelper):
             save_dir.mkdir(parents=True, exist_ok=True)
 
             # 使用浏览器策略的download_file方法
-            if hasattr(self.browser_strategy, 'download_file'):
+            if hasattr(self.browser_strategy, "download_file"):
                 success = self.browser_strategy.download_file(url, save_path, timeout)
                 if success:
                     self.logger.info(f"Playwright下载成功: {save_path}")
@@ -96,7 +97,9 @@ class SeleniumDownloadHelper(BaseDownloadHelper):
         super().__init__(browser_strategy)
         self.download_dir = download_dir
 
-    def download_from_detail_page(self, url: str, save_path: str, timeout: int = 60) -> bool:
+    def download_from_detail_page(
+        self, url: str, save_path: str, timeout: int = 60
+    ) -> bool:
         """
         使用Selenium从详情页下载文件
 
@@ -114,7 +117,7 @@ class SeleniumDownloadHelper(BaseDownloadHelper):
             save_dir.mkdir(parents=True, exist_ok=True)
 
             # 使用浏览器策略的download_file方法
-            if hasattr(self.browser_strategy, 'download_file'):
+            if hasattr(self.browser_strategy, "download_file"):
                 success = self.browser_strategy.download_file(url, save_path, timeout)
                 if success:
                     self.logger.info(f"Selenium下载成功: {save_path}")

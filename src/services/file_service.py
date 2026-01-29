@@ -6,13 +6,13 @@
 import os
 import re
 import shutil
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-from ..core.logger import get_logger
 from ..core.config import ConfigManager
 from ..core.config_constants import ConfigConstants
+from ..core.logger import get_logger
 
 
 class FileService:
@@ -40,18 +40,22 @@ class FileService:
         """
         # 默认非法字符正则表达式
         default_pattern = r'[\\/:*?"<>|]'
-        
+
         try:
-            if hasattr(self.config_manager, 'use_constants'):
-                invalid_chars = self.config_manager.use_constants('INVALID_FILENAME_CHARS')
+            if hasattr(self.config_manager, "use_constants"):
+                invalid_chars = self.config_manager.use_constants(
+                    "INVALID_FILENAME_CHARS"
+                )
             elif isinstance(self.config_manager, dict):
-                invalid_chars = self.config_manager.get('INVALID_FILENAME_CHARS', default_pattern)
+                invalid_chars = self.config_manager.get(
+                    "INVALID_FILENAME_CHARS", default_pattern
+                )
             else:
                 invalid_chars = default_pattern
         except:
             invalid_chars = default_pattern
-            
-        return re.sub(invalid_chars, '_', filename)
+
+        return re.sub(invalid_chars, "_", filename)
 
     def get_stock_directory(self, stock_code: str, stock_name: str) -> Path:
         """
@@ -64,7 +68,7 @@ class FileService:
         Returns:
             Path: 股票目录路径
         """
-        base_dir = self.config_manager.get('save_dir', 'downloads')
+        base_dir = self.config_manager.get("save_dir", "downloads")
         stock_dir_name = f"{stock_code}_{self.clean_filename(stock_name)}"
         stock_dir = Path(base_dir) / stock_dir_name
 
@@ -74,8 +78,13 @@ class FileService:
 
         return stock_dir
 
-    def save_downloaded_file(self, source_path: str, target_directory: Path,
-                           stock_code: str, document_info: Dict[str, Any]) -> Optional[str]:
+    def save_downloaded_file(
+        self,
+        source_path: str,
+        target_directory: Path,
+        stock_code: str,
+        document_info: Dict[str, Any],
+    ) -> Optional[str]:
         """
         保存下载的文件
 
@@ -119,9 +128,9 @@ class FileService:
             str: 生成的文件名
         """
         # 获取文件基本信息
-        title = document_info.get('title', '未知文档')
-        date = document_info.get('date', '')
-        file_type = document_info.get('file_type', 'pdf')
+        title = document_info.get("title", "未知文档")
+        date = document_info.get("date", "")
+        file_type = document_info.get("file_type", "pdf")
 
         # 清理标题
         clean_title = self.clean_filename(title)
@@ -134,7 +143,9 @@ class FileService:
 
         return filename
 
-    def validate_downloaded_file(self, file_path: str, expected_size: Optional[int] = None) -> bool:
+    def validate_downloaded_file(
+        self, file_path: str, expected_size: Optional[int] = None
+    ) -> bool:
         """
         验证下载的文件
 
@@ -154,7 +165,9 @@ class FileService:
 
             # 检查文件大小
             if expected_size and file_size != expected_size:
-                self.logger.warning(f"文件大小不匹配: 期望 {expected_size}, 实际 {file_size}")
+                self.logger.warning(
+                    f"文件大小不匹配: 期望 {expected_size}, 实际 {file_size}"
+                )
                 return False
 
             # 检查文件是否为空
@@ -163,8 +176,10 @@ class FileService:
                 return False
 
             # 检查文件扩展名
-            allowed_extensions = self.config_manager.get('files.allowed_extensions',
-                                                          ConfigConstants.FILE_CONFIG['allowed_extensions'])
+            allowed_extensions = self.config_manager.get(
+                "files.allowed_extensions",
+                ConfigConstants.FILE_CONFIG["allowed_extensions"],
+            )
             file_ext = Path(file_path).suffix.lower()
             if file_ext not in allowed_extensions:
                 self.logger.warning(f"不支持的文件类型: {file_ext}")
@@ -197,9 +212,11 @@ class FileService:
             max_age_seconds = max_age_hours * 3600
             cleaned_count = 0
 
-            for file_path in download_path.glob('*'):
+            for file_path in download_path.glob("*"):
                 if file_path.is_file():
-                    file_age = (current_time - datetime.fromtimestamp(file_path.stat().st_mtime)).total_seconds()
+                    file_age = (
+                        current_time - datetime.fromtimestamp(file_path.stat().st_mtime)
+                    ).total_seconds()
                     if file_age > max_age_seconds:
                         file_path.unlink()
                         cleaned_count += 1
@@ -229,12 +246,12 @@ class FileService:
 
             stat = path.stat()
             return {
-                'name': path.name,
-                'size': stat.st_size,
-                'extension': path.suffix.lower(),
-                'created_time': datetime.fromtimestamp(stat.st_ctime),
-                'modified_time': datetime.fromtimestamp(stat.st_mtime),
-                'path': str(path.absolute())
+                "name": path.name,
+                "size": stat.st_size,
+                "extension": path.suffix.lower(),
+                "created_time": datetime.fromtimestamp(stat.st_ctime),
+                "modified_time": datetime.fromtimestamp(stat.st_mtime),
+                "path": str(path.absolute()),
             }
 
         except Exception as e:
@@ -262,7 +279,7 @@ class FileService:
             backup_path.mkdir(parents=True, exist_ok=True)
 
             # 生成备份文件名（添加时间戳）
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_filename = f"{source.stem}_{timestamp}{source.suffix}"
             backup_file_path = backup_path / backup_filename
 

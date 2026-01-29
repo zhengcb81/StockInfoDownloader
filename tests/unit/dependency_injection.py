@@ -6,8 +6,8 @@
 提供依赖注入模式，提高测试的可测试性和可维护性
 """
 
-from typing import Dict, Any, Type, Callable, Optional
-from unittest.mock import Mock, MagicMock
+from typing import Any, Callable, Dict, Optional, Type
+from unittest.mock import Mock
 
 
 class DependencyContainer:
@@ -65,7 +65,9 @@ class TestServiceBuilder:
     def __init__(self, container: DependencyContainer):
         self.container = container
 
-    def build_stock_service(self, mock_responses: Optional[Dict[str, Any]] = None) -> Mock:
+    def build_stock_service(
+        self, mock_responses: Optional[Dict[str, Any]] = None
+    ) -> Mock:
         """构建StockService mock"""
         mock_stock_service = Mock()
 
@@ -73,8 +75,12 @@ class TestServiceBuilder:
         if mock_responses is None:
             mock_responses = {
                 "get_stock_name": "测试股票",
-                "get_stock_info": {"stock_code": "300470", "stock_name": "测试股票", "market": "SZ"},
-                "validate_stock_code": True
+                "get_stock_info": {
+                    "stock_code": "300470",
+                    "stock_name": "测试股票",
+                    "market": "SZ",
+                },
+                "validate_stock_code": True,
             }
 
         # 配置mock方法
@@ -85,7 +91,9 @@ class TestServiceBuilder:
         self.container.register_service("stock_service", mock_stock_service)
         return mock_stock_service
 
-    def build_orgid_service(self, mock_responses: Optional[Dict[str, Any]] = None) -> Mock:
+    def build_orgid_service(
+        self, mock_responses: Optional[Dict[str, Any]] = None
+    ) -> Mock:
         """构建OrgIdService mock"""
         mock_orgid_service = Mock()
 
@@ -94,7 +102,7 @@ class TestServiceBuilder:
             mock_responses = {
                 "get_org_id": "9900023856",
                 "_extract_org_id_from_url": "9900023856",
-                "_extract_org_id_from_page": "9900023856"
+                "_extract_org_id_from_page": "9900023856",
             }
 
         # 配置mock方法
@@ -105,7 +113,9 @@ class TestServiceBuilder:
         self.container.register_service("orgid_service", mock_orgid_service)
         return mock_orgid_service
 
-    def build_download_service(self, mock_responses: Optional[Dict[str, Any]] = None) -> Mock:
+    def build_download_service(
+        self, mock_responses: Optional[Dict[str, Any]] = None
+    ) -> Mock:
         """构建DownloadService mock"""
         mock_download_service = Mock()
 
@@ -114,7 +124,7 @@ class TestServiceBuilder:
             mock_responses = {
                 "download_stock_info": True,
                 "_get_stock_info": {"stock_code": "300470", "org_id": "9900023856"},
-                "_matches_keywords": True
+                "_matches_keywords": True,
             }
 
         # 配置mock方法
@@ -125,7 +135,9 @@ class TestServiceBuilder:
         self.container.register_service("download_service", mock_download_service)
         return mock_download_service
 
-    def build_file_service(self, mock_responses: Optional[Dict[str, Any]] = None) -> Mock:
+    def build_file_service(
+        self, mock_responses: Optional[Dict[str, Any]] = None
+    ) -> Mock:
         """构建FileService mock"""
         mock_file_service = Mock()
 
@@ -134,7 +146,7 @@ class TestServiceBuilder:
             mock_responses = {
                 "save_file": True,
                 "read_file": "测试文件内容",
-                "file_exists": True
+                "file_exists": True,
             }
 
         # 配置mock方法
@@ -175,7 +187,9 @@ class TestDependencyManager:
             service = self.container.get(service_name)
             setattr(target, attr_name, service)
 
-    def create_test_instance(self, class_type: Type, dependencies: Dict[str, str], **kwargs) -> Any:
+    def create_test_instance(
+        self, class_type: Type, dependencies: Dict[str, str], **kwargs
+    ) -> Any:
         """创建测试实例并注入依赖"""
         # 创建实例
         instance = class_type(**kwargs)
@@ -197,12 +211,15 @@ test_dependency_manager = TestDependencyManager()
 # 依赖注入装饰器
 def inject_dependencies(dependencies: Dict[str, str]):
     """依赖注入装饰器"""
+
     def decorator(test_method):
         def wrapper(self, *args, **kwargs):
             # 注入依赖到测试实例
             test_dependency_manager.inject_dependencies(self, dependencies)
             return test_method(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -223,6 +240,10 @@ class DependencyInjectionTestBase:
         """获取服务"""
         return self.dependency_manager.get_service(name)
 
-    def create_test_instance(self, class_type: Type, dependencies: Dict[str, str], **kwargs) -> Any:
+    def create_test_instance(
+        self, class_type: Type, dependencies: Dict[str, str], **kwargs
+    ) -> Any:
         """创建测试实例"""
-        return self.dependency_manager.create_test_instance(class_type, dependencies, **kwargs)
+        return self.dependency_manager.create_test_instance(
+            class_type, dependencies, **kwargs
+        )

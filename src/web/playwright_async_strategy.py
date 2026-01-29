@@ -3,20 +3,22 @@ Playwright异步浏览器自动化策略实现
 使用异步API避免与同步环境的冲突
 """
 
+import asyncio
 import os
 import random
-import time
-import asyncio
-from pathlib import Path
-from typing import Optional, List, Any, Dict
+from typing import Any, Dict, List, Optional
 
-from .browser_strategy import BrowserAutomationStrategy
+from ..core.config import ConfigManager
 from ..core.exceptions import (
-    WebDriverError, WebDriverInitError, WebDriverTimeoutError, WebDriverCrashError,
-    ErrorCode, ErrorSeverity, RecoveryStrategy, with_error_handling
+    ErrorCode,
+    ErrorSeverity,
+    RecoveryStrategy,
+    WebDriverInitError,
+    WebDriverTimeoutError,
+    with_error_handling,
 )
 from ..core.logger import get_logger
-from ..core.config import ConfigManager
+from .browser_strategy import BrowserAutomationStrategy
 
 logger = get_logger(__name__)
 
@@ -24,8 +26,12 @@ logger = get_logger(__name__)
 class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
     """Playwright异步浏览器自动化策略"""
 
-    def __init__(self, headless: bool = True, download_dir: Optional[str] = None,
-                 config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        headless: bool = True,
+        download_dir: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ):
         """初始化Playwright异步策略"""
         self.headless = headless
         self.download_dir = download_dir
@@ -39,21 +45,26 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
         self.config_manager = ConfigManager()
 
         # 从配置获取参数
-        self.window_size = self.config.get('window_size', '1920,1080')
-        self.timeout = self.config.get('page_load_timeout', 30) * 1000  # 转换为毫秒
-        self.implicit_wait = self.config.get('implicit_wait', 3)
-        self.max_downloads_per_session = self.config.get('max_downloads_per_session', 10)
+        self.window_size = self.config.get("window_size", "1920,1080")
+        self.timeout = self.config.get("page_load_timeout", 30) * 1000  # 转换为毫秒
+        self.implicit_wait = self.config.get("implicit_wait", 3)
+        self.max_downloads_per_session = self.config.get(
+            "max_downloads_per_session", 10
+        )
 
-        self._user_agents = self.config.get('user_agents', [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        ])
+        self._user_agents = self.config.get(
+            "user_agents",
+            [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            ],
+        )
 
     @with_error_handling(
         error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
         severity=ErrorSeverity.CRITICAL,
         recovery_strategy=RecoveryStrategy.RETRY,
-        max_retries=3
+        max_retries=3,
     )
     async def create_driver(self) -> Any:
         """创建Playwright浏览器实例（异步）"""
@@ -92,7 +103,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             """)
 
             # 测试页面是否正常工作
-            await self.page.goto('about:blank', wait_until='domcontentloaded')
+            await self.page.goto("about:blank", wait_until="domcontentloaded")
 
             logger.info("Playwright异步浏览器初始化成功")
             return self.browser
@@ -100,7 +111,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
         except ImportError:
             raise WebDriverInitError(
                 "Playwright未安装，请运行: pip install playwright && playwright install chromium",
-                context={"phase": "initialization", "error_type": "missing_dependency"}
+                context={"phase": "initialization", "error_type": "missing_dependency"},
             )
         except Exception as e:
             error_msg = f"Playwright异步浏览器创建失败: {e}"
@@ -112,52 +123,64 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             if "timeout" in str(e).lower():
                 raise WebDriverTimeoutError(
                     error_msg,
-                    context={"phase": "initialization", "timeout_type": "creation_timeout"},
-                    original_exception=e
+                    context={
+                        "phase": "initialization",
+                        "timeout_type": "creation_timeout",
+                    },
+                    original_exception=e,
                 )
             else:
                 raise WebDriverInitError(
                     error_msg,
                     context={"phase": "initialization", "error_details": str(e)},
-                    original_exception=e
+                    original_exception=e,
                 )
 
     def _build_launch_options(self) -> Dict[str, Any]:
         """构建浏览器启动选项"""
         launch_options = {
-            'headless': self.headless,
-            'args': [
-                f'--window-size={self.window_size}',
-                '--no-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--disable-extensions',
-                '--disable-blink-features=AutomationControlled',
-                '--remote-debugging-port=0',
-                '--no-first-run', '--no-default-browser-check',
-                '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding', '--disable-sync', '--disable-translate',
-                '--disable-default-apps', '--disable-notifications', '--disable-popup-blocking',
-                '--log-level=3', '--disable-features=TranslateUI',
-                '--disable-component-extensions-with-background-pages',
-                '--disable-domain-reliability', '--disable-setuid-sandbox',
-                '--disable-features=VizDisplayCompositor', '--disable-ipc-flooding-protection',
-            ]
+            "headless": self.headless,
+            "args": [
+                f"--window-size={self.window_size}",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-extensions",
+                "--disable-blink-features=AutomationControlled",
+                "--remote-debugging-port=0",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-sync",
+                "--disable-translate",
+                "--disable-default-apps",
+                "--disable-notifications",
+                "--disable-popup-blocking",
+                "--log-level=3",
+                "--disable-features=TranslateUI",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-domain-reliability",
+                "--disable-setuid-sandbox",
+                "--disable-features=VizDisplayCompositor",
+                "--disable-ipc-flooding-protection",
+            ],
         }
 
         # 随机User-Agent
         user_agent = random.choice(self._user_agents)
-        launch_options['args'].append(f'--user-agent={user_agent}')
+        launch_options["args"].append(f"--user-agent={user_agent}")
 
         return launch_options
 
     def _build_context_options(self) -> Dict[str, Any]:
         """构建浏览器上下文选项"""
         context_options = {
-            'viewport': {'width': 1920, 'height': 1080},
-            'user_agent': random.choice(self._user_agents),
-            'ignore_https_errors': True,
-            'bypass_csp': True
+            "viewport": {"width": 1920, "height": 1080},
+            "user_agent": random.choice(self._user_agents),
+            "ignore_https_errors": True,
+            "bypass_csp": True,
         }
 
         # 设置下载目录
@@ -165,7 +188,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             abs_download_dir = os.path.abspath(self.download_dir)
             os.makedirs(abs_download_dir, exist_ok=True)
 
-            context_options['accept_downloads'] = True
+            context_options["accept_downloads"] = True
 
         return context_options
 
@@ -179,7 +202,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             return False
 
         try:
-            await self.page.goto(url, wait_until='domcontentloaded')
+            await self.page.goto(url, wait_until="domcontentloaded")
             return True
         except Exception as e:
             logger.error(f"导航到 {url} 失败: {e}")
@@ -249,8 +272,13 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             logger.error(f"执行脚本失败: {e}")
             return None
 
-    async def wait_for_element(self, selector: str, timeout: int = 10,
-                              by: str = "css", condition: str = "visible") -> bool:
+    async def wait_for_element(
+        self,
+        selector: str,
+        timeout: int = 10,
+        by: str = "css",
+        condition: str = "visible",
+    ) -> bool:
         """等待元素出现"""
         if not self.page:
             return False
@@ -262,9 +290,13 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             if condition == "presence":
                 await self.page.wait_for_selector(selector, timeout=timeout * 1000)
             elif condition == "visible":
-                await self.page.wait_for_selector(selector, timeout=timeout * 1000, state="visible")
+                await self.page.wait_for_selector(
+                    selector, timeout=timeout * 1000, state="visible"
+                )
             elif condition == "clickable":
-                await self.page.wait_for_selector(selector, timeout=timeout * 1000, state="visible")
+                await self.page.wait_for_selector(
+                    selector, timeout=timeout * 1000, state="visible"
+                )
 
             return True
 
@@ -364,7 +396,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
             screenshot_data = await self.page.screenshot()
 
             if save_path:
-                with open(save_path, 'wb') as f:
+                with open(save_path, "wb") as f:
                     f.write(screenshot_data)
 
             return screenshot_data
@@ -395,7 +427,7 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
                 return False
 
             # 等待页面加载
-            await self.page.wait_for_load_state('domcontentloaded')
+            await self.page.wait_for_load_state("domcontentloaded")
             await asyncio.sleep(2)
 
             # 查找下载按钮（公告下载）
@@ -405,7 +437,9 @@ class PlaywrightAsyncStrategy(BrowserAutomationStrategy):
                 return False
 
             # 设置下载事件监听
-            async with self.page.expect_download(timeout=timeout * 1000) as download_info:
+            async with self.page.expect_download(
+                timeout=timeout * 1000
+            ) as download_info:
                 # 点击下载按钮
                 if not await self.click(download_button):
                     logger.error("点击下载按钮失败")

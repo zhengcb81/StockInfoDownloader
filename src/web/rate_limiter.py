@@ -3,20 +3,21 @@
 防止过度频繁的请求，避免被目标网站封禁
 """
 
-import time
 import threading
-from typing import Dict, List, Optional, Tuple
-from collections import deque, defaultdict
-from dataclasses import dataclass
+import time
+from collections import deque
 from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Dict, Optional
 
-from src.core.logger import get_logger
 from src.core.config import ConfigManager
+from src.core.logger import get_logger
 
 
 @dataclass
 class RateLimitInfo:
     """速率限制信息"""
+
     max_requests: int
     time_window: float
     current_count: int
@@ -122,7 +123,7 @@ class RateLimiter:
                 time_window=self.time_window,
                 current_count=window_requests,
                 window_start=window_start,
-                wait_time=max(0.0, wait_time)
+                wait_time=max(0.0, wait_time),
             )
 
     def get_stats(self) -> Dict[str, any]:
@@ -137,7 +138,9 @@ class RateLimiter:
             current_time = time.time()
 
             # 计算请求速率
-            total_time = current_time - (self.requests[0] if self.requests else current_time)
+            total_time = current_time - (
+                self.requests[0] if self.requests else current_time
+            )
             request_rate = len(self.requests) / max(total_time, 1.0)
 
             # 计算阻止率
@@ -147,15 +150,15 @@ class RateLimiter:
             avg_wait_time = self.total_wait_time / max(self.blocked_requests, 1)
 
             return {
-                'max_requests': self.max_requests,
-                'time_window': self.time_window,
-                'current_requests': len(self.requests),
-                'request_rate': request_rate,
-                'total_requests': self.total_requests,
-                'blocked_requests': self.blocked_requests,
-                'block_rate': block_rate,
-                'total_wait_time': self.total_wait_time,
-                'avg_wait_time': avg_wait_time
+                "max_requests": self.max_requests,
+                "time_window": self.time_window,
+                "current_requests": len(self.requests),
+                "request_rate": request_rate,
+                "total_requests": self.total_requests,
+                "blocked_requests": self.blocked_requests,
+                "block_rate": block_rate,
+                "total_wait_time": self.total_wait_time,
+                "avg_wait_time": avg_wait_time,
             }
 
     def reset_stats(self):
@@ -166,7 +169,9 @@ class RateLimiter:
             self.total_wait_time = 0.0
         self.logger.info("速率限制统计信息已重置")
 
-    def adjust_limits(self, max_requests: Optional[int] = None, time_window: Optional[float] = None):
+    def adjust_limits(
+        self, max_requests: Optional[int] = None, time_window: Optional[float] = None
+    ):
         """
         调整速率限制参数
 
@@ -184,13 +189,17 @@ class RateLimiter:
                 self.time_window = time_window
 
             if old_max != self.max_requests or old_window != self.time_window:
-                self.logger.info(f"速率限制调整: {old_max}/{old_window}s -> {self.max_requests}/{self.time_window}s")
+                self.logger.info(
+                    f"速率限制调整: {old_max}/{old_window}s -> {self.max_requests}/{self.time_window}s"
+                )
 
 
 class AdaptiveRateLimiter:
     """自适应速率限制器，根据响应动态调整限制"""
 
-    def __init__(self, initial_max_requests: int = 10, initial_time_window: float = 60.0):
+    def __init__(
+        self, initial_max_requests: int = 10, initial_time_window: float = 60.0
+    ):
         """
         初始化自适应速率限制器
 
@@ -272,28 +281,32 @@ class AdaptiveRateLimiter:
     def _increase_limits(self):
         """增加速率限制"""
         stats = self.base_limiter.get_stats()
-        current_max = stats['max_requests']
-        current_window = stats['time_window']
+        current_max = stats["max_requests"]
+        current_window = stats["time_window"]
 
         # 增加20%，但不超过最大值
         new_max = min(int(current_max * 1.2), self.max_requests)
         new_window = min(current_window * 1.1, self.max_window)
 
         self.base_limiter.adjust_limits(new_max, new_window)
-        self.logger.info(f"增加速率限制: {current_max}/{current_window}s -> {new_max}/{new_window}s")
+        self.logger.info(
+            f"增加速率限制: {current_max}/{current_window}s -> {new_max}/{new_window}s"
+        )
 
     def _decrease_limits(self):
         """降低速率限制"""
         stats = self.base_limiter.get_stats()
-        current_max = stats['max_requests']
-        current_window = stats['time_window']
+        current_max = stats["max_requests"]
+        current_window = stats["time_window"]
 
         # 减少20%，但不低于最小值
         new_max = max(int(current_max * 0.8), self.min_requests)
         new_window = max(current_window * 0.9, self.min_window)
 
         self.base_limiter.adjust_limits(new_max, new_window)
-        self.logger.info(f"降低速率限制: {current_max}/{current_window}s -> {new_max}/{new_window}s")
+        self.logger.info(
+            f"降低速率限制: {current_max}/{current_window}s -> {new_max}/{new_window}s"
+        )
 
     def get_stats(self) -> Dict[str, any]:
         """获取统计信息"""
@@ -303,17 +316,19 @@ class AdaptiveRateLimiter:
 
         return {
             **base_stats,
-            'success_count': self.success_count,
-            'failure_count': self.failure_count,
-            'success_rate': success_rate,
-            'adaptive': True
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
+            "success_rate": success_rate,
+            "adaptive": True,
         }
 
 
 class DomainRateLimiter:
     """按域名分组的速率限制器"""
 
-    def __init__(self, default_max_requests: int = 10, default_time_window: float = 60.0):
+    def __init__(
+        self, default_max_requests: int = 10, default_time_window: float = 60.0
+    ):
         """
         初始化域名速率限制器
 
@@ -340,8 +355,7 @@ class DomainRateLimiter:
         with self.lock:
             if domain not in self.limiters:
                 self.limiters[domain] = RateLimiter(
-                    self.default_max_requests,
-                    self.default_time_window
+                    self.default_max_requests, self.default_time_window
                 )
                 self.logger.debug(f"创建域名速率限制器: {domain}")
             return self.limiters[domain]
@@ -366,6 +380,7 @@ class DomainRateLimiter:
         """从URL中提取域名"""
         try:
             from urllib.parse import urlparse
+
             parsed = urlparse(url)
             return parsed.netloc
         except Exception:
@@ -374,7 +389,9 @@ class DomainRateLimiter:
     def get_all_stats(self) -> Dict[str, Dict[str, any]]:
         """获取所有域名的统计信息"""
         with self.lock:
-            return {domain: limiter.get_stats() for domain, limiter in self.limiters.items()}
+            return {
+                domain: limiter.get_stats() for domain, limiter in self.limiters.items()
+            }
 
     def cleanup_inactive_limiters(self, max_age: float = 3600.0):
         """
@@ -389,7 +406,10 @@ class DomainRateLimiter:
         with self.lock:
             for domain, limiter in self.limiters.items():
                 stats = limiter.get_stats()
-                if stats['current_requests'] == 0 and current_time - stats.get('last_request_time', 0) > max_age:
+                if (
+                    stats["current_requests"] == 0
+                    and current_time - stats.get("last_request_time", 0) > max_age
+                ):
                     domains_to_remove.append(domain)
 
             for domain in domains_to_remove:
@@ -409,8 +429,8 @@ def get_global_rate_limiter() -> DomainRateLimiter:
         with _rate_limiter_lock:
             if _global_rate_limiter is None:
                 config_manager = ConfigManager()
-                max_requests = config_manager.get('anti_crawler.max_requests', 10)
-                time_window = config_manager.get('anti_crawler.time_window', 60.0)
+                max_requests = config_manager.get("anti_crawler.max_requests", 10)
+                time_window = config_manager.get("anti_crawler.time_window", 60.0)
                 _global_rate_limiter = DomainRateLimiter(max_requests, time_window)
     return _global_rate_limiter
 

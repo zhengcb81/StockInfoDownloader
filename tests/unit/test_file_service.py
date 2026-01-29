@@ -6,16 +6,17 @@ FileService全面单元测试
 测试文件服务的所有功能，包括文件处理、验证、清理等
 """
 
-import pytest
-import tempfile
 import os
 import shutil
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from src.services.file_service import FileService
+import pytest
+
 from src.core.config import ConfigManager
+from src.services.file_service import FileService
 
 
 class TestFileService:
@@ -28,8 +29,8 @@ class TestFileService:
 
         # 配置mock配置管理器
         self.test_config_manager.get.side_effect = lambda key, default=None: {
-            'save_dir': 'downloads',
-            'files.allowed_extensions': ['.pdf', '.txt', '.doc', '.docx']
+            "save_dir": "downloads",
+            "files.allowed_extensions": [".pdf", ".txt", ".doc", ".docx"],
         }.get(key, default)
 
         self.test_config_manager.use_constants.return_value = r'[<>:"/\\|?*]'
@@ -63,12 +64,29 @@ class TestFileService:
             ('包含"引号.pdf', "包含_引号.pdf"),
             ("包含<小于号.pdf", "包含_小于号.pdf"),
             ("包含>大于号.pdf", "包含_大于号.pdf"),
-            ("包含|竖线.pdf", "包含_竖线.pdf")
+            ("包含|竖线.pdf", "包含_竖线.pdf"),
         ]
 
         for input_name, expected in test_cases:
             result = self.file_service.clean_filename(input_name)
             assert result == expected
+
+    def test_clean_filename_config_variants(self):
+        """测试不同配置源下的 clean_filename"""
+        # Case 1: ConfigManager with use_constants
+        self.test_config_manager.use_constants.return_value = r'[x]'
+        self.file_service.config_manager = self.test_config_manager
+        assert self.file_service.clean_filename("axb") == "a_b"
+
+        # Case 2: Dict config
+        self.file_service.config_manager = {"INVALID_FILENAME_CHARS": r'[y]'}
+        assert self.file_service.clean_filename("ayb") == "a_b"
+
+        # Case 3: Exception/Fallback (mocking AttributeError on config_manager)
+        mock_bad_config = Mock(spec=object)
+        self.file_service.config_manager = mock_bad_config
+        # Should fallback to default pattern (includes :)
+        assert self.file_service.clean_filename("a:b") == "a_b"
 
     def test_get_stock_directory(self):
         """测试获取股票目录"""
@@ -98,9 +116,9 @@ class TestFileService:
 
         # 文档信息
         document_info = {
-            'title': '投资者关系活动记录表',
-            'date': '20240101',
-            'file_type': 'pdf'
+            "title": "投资者关系活动记录表",
+            "date": "20240101",
+            "file_type": "pdf",
         }
 
         # 保存文件
@@ -120,7 +138,7 @@ class TestFileService:
         target_dir = Path(self.temp_dir) / "target"
         target_dir.mkdir()
 
-        document_info = {'title': '测试文档', 'file_type': 'pdf'}
+        document_info = {"title": "测试文档", "file_type": "pdf"}
 
         result = self.file_service.save_downloaded_file(
             "/nonexistent/file.pdf", target_dir, "300470", document_info
@@ -135,10 +153,10 @@ class TestFileService:
         source_file.write_text("测试内容")
 
         target_dir = Path(self.temp_dir) / "target"
-        document_info = {'title': '测试', 'file_type': 'pdf'}
+        document_info = {"title": "测试", "file_type": "pdf"}
 
         # 模拟移动文件时出现异常
-        with patch('shutil.move') as mock_move:
+        with patch("shutil.move") as mock_move:
             mock_move.side_effect = Exception("移动文件失败")
 
             result = self.file_service.save_downloaded_file(
@@ -151,22 +169,21 @@ class TestFileService:
         """测试文件名生成"""
         test_cases = [
             # 有日期的情况
-            ({
-                'title': '投资者关系活动记录表',
-                'date': '20240115',
-                'file_type': 'pdf'
-            }, "300470_投资者关系活动记录表_20240115.pdf"),
+            (
+                {
+                    "title": "投资者关系活动记录表",
+                    "date": "20240115",
+                    "file_type": "pdf",
+                },
+                "300470_投资者关系活动记录表_20240115.pdf",
+            ),
             # 无日期的情况
-            ({
-                'title': '年度报告',
-                'file_type': 'pdf'
-            }, "300470_年度报告.pdf"),
+            ({"title": "年度报告", "file_type": "pdf"}, "300470_年度报告.pdf"),
             # 包含特殊字符的标题
-            ({
-                'title': '测试/文档:名称',
-                'date': '20240101',
-                'file_type': 'docx'
-            }, "300470_测试_文档_名称_20240101.docx")
+            (
+                {"title": "测试/文档:名称", "date": "20240101", "file_type": "docx"},
+                "300470_测试_文档_名称_20240101.docx",
+            ),
         ]
 
         for document_info, expected in test_cases:
@@ -190,11 +207,15 @@ class TestFileService:
         test_file.write_text(content)
 
         # 测试大小匹配
-        result = self.file_service.validate_downloaded_file(str(test_file), expected_size=2048)
+        result = self.file_service.validate_downloaded_file(
+            str(test_file), expected_size=2048
+        )
         assert result is True
 
         # 测试大小不匹配
-        result = self.file_service.validate_downloaded_file(str(test_file), expected_size=1024)
+        result = self.file_service.validate_downloaded_file(
+            str(test_file), expected_size=1024
+        )
         assert result is False
 
     def test_validate_downloaded_file_not_exists(self):
@@ -232,21 +253,29 @@ class TestFileService:
         new_file = test_dir / "new.pdf"
         new_file.write_text("新文件")
         new_file_stat = new_file.stat()
-        os.utime(new_file, (new_file_stat.st_atime, (current_time - timedelta(hours=1)).timestamp()))
+        os.utime(
+            new_file,
+            (new_file_stat.st_atime, (current_time - timedelta(hours=1)).timestamp()),
+        )
 
         # 旧文件（25小时前）
         old_file = test_dir / "old.pdf"
         old_file.write_text("旧文件")
         old_file_stat = old_file.stat()
-        os.utime(old_file, (old_file_stat.st_atime, (current_time - timedelta(hours=25)).timestamp()))
+        os.utime(
+            old_file,
+            (old_file_stat.st_atime, (current_time - timedelta(hours=25)).timestamp()),
+        )
 
         # 执行清理（最大年龄24小时）
-        cleaned_count = self.file_service.cleanup_temp_files(str(test_dir), max_age_hours=24)
+        cleaned_count = self.file_service.cleanup_temp_files(
+            str(test_dir), max_age_hours=24
+        )
 
         # 验证结果
         assert cleaned_count == 1
         assert not old_file.exists()  # 旧文件应被删除
-        assert new_file.exists()      # 新文件应保留
+        assert new_file.exists()  # 新文件应保留
 
     def test_cleanup_temp_files_nonexistent_dir(self):
         """测试清理不存在的目录"""
@@ -260,7 +289,7 @@ class TestFileService:
         test_dir.mkdir()
 
         # 模拟删除文件时出现异常
-        with patch('pathlib.Path.unlink') as mock_unlink:
+        with patch("pathlib.Path.unlink") as mock_unlink:
             mock_unlink.side_effect = Exception("删除失败")
 
             cleaned_count = self.file_service.cleanup_temp_files(str(test_dir))
@@ -274,12 +303,12 @@ class TestFileService:
 
         file_info = self.file_service.get_file_info(str(test_file))
 
-        assert file_info['name'] == "test.pdf"
-        assert file_info['size'] > 0
-        assert file_info['extension'] == ".pdf"
-        assert 'created_time' in file_info
-        assert 'modified_time' in file_info
-        assert 'path' in file_info
+        assert file_info["name"] == "test.pdf"
+        assert file_info["size"] > 0
+        assert file_info["extension"] == ".pdf"
+        assert "created_time" in file_info
+        assert "modified_time" in file_info
+        assert "path" in file_info
 
     def test_get_file_info_not_exists(self):
         """测试获取不存在的文件信息"""
@@ -293,7 +322,7 @@ class TestFileService:
         test_file.write_text("test")
 
         # 模拟获取文件信息时出现异常
-        with patch('pathlib.Path.stat') as mock_stat:
+        with patch("pathlib.Path.stat") as mock_stat:
             mock_stat.side_effect = Exception("获取文件信息失败")
 
             file_info = self.file_service.get_file_info(str(test_file))
@@ -323,7 +352,9 @@ class TestFileService:
         """测试备份不存在的源文件"""
         backup_dir = Path(self.temp_dir) / "backup"
 
-        result = self.file_service.backup_file("/nonexistent/source.pdf", str(backup_dir))
+        result = self.file_service.backup_file(
+            "/nonexistent/source.pdf", str(backup_dir)
+        )
         assert result is None
 
     def test_backup_file_exception(self):
@@ -335,7 +366,7 @@ class TestFileService:
         backup_dir = Path(self.temp_dir) / "backup"
 
         # 模拟复制文件时出现异常
-        with patch('shutil.copy2') as mock_copy:
+        with patch("shutil.copy2") as mock_copy:
             mock_copy.side_effect = Exception("复制失败")
 
             result = self.file_service.backup_file(str(source_file), str(backup_dir))

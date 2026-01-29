@@ -25,7 +25,7 @@ sys.path.insert(0, str(project_root))
 
 from microservices.common.service_base import MicroserviceBase, ServiceConfig
 from microservices.common.service_config import create_service_config
-from src.services.downloader_v2 import DownloadServiceV2
+from src.factory.downloader_factory import downloader_factory
 from src.core.logger import get_logger
 
 
@@ -128,7 +128,7 @@ class DownloadService(MicroserviceBase):
             self.logger.warning(f"Failed to connect to Redis: {e}")
 
         # 初始化下载服务
-        self.download_service = DownloadServiceV2()
+        self.download_service = downloader_factory.create_downloader('unified')
 
         # 注册API路由
         self._register_download_routes()
@@ -408,39 +408,30 @@ class DownloadService(MicroserviceBase):
             config = ConfigManager()
             config.set('browser_strategy', 'playwright')
 
-            # 构建 target_pages 参数（DownloadServiceV2 的接口）
-            target_pages = []
+            # 聚合结果
+            all_downloaded_files = []
+            total_execution_time = 0
+
+            # 遍历页面类型进行下载
             for page_type in request.page_types:
-                page_config = {
-                    'suffix': page_type,
-                    'allowed_keywords': request.keywords if request.keywords else None
-                }
-                target_pages.append(page_config)
+                # 使用 UnifiedDownloader 的 download_activity_records 或 download_stock_pdfs
+                # 这里使用 download_activity_records 作为兼容入口，它底层调用 download_stock_pdfs
+                files = self.download_service.download_activity_records(
+                    stock_code=request.stock_code,
+                    suffix=page_type,
+                    allowed_keywords=request.keywords if request.keywords else None,
+                    max_pages=request.max_pages
+                )
+                
+                if files:
+                    all_downloaded_files.extend(files)
 
-            # 执行下载
-            result = self.download_service.download_stock_pdfs(
-                stock_code=request.stock_code,
-                target_pages=target_pages,
-                max_retries=3
-            )
-
-            # DownloadServiceV2 返回 List[DownloadRecord]，需要转换
-            if isinstance(result, list):
-                downloaded_files = [record.file_path for record in result if record.status == "success"]
-                return {
-                    "success": len(downloaded_files) > 0,
-                    "downloaded_files": downloaded_files,
-                    "total_files": len(downloaded_files),
-                    "execution_time": sum(getattr(record, 'duration', 0) for record in result)
-                }
-            else:
-                # 兼容旧接口
-                return {
-                    "success": True,
-                    "downloaded_files": result.get("downloaded_files", []),
-                    "total_files": len(result.get("downloaded_files", [])),
-                    "execution_time": result.get("execution_time", 0)
-                }
+            return {
+                "success": len(all_downloaded_files) > 0,
+                "downloaded_files": all_downloaded_files,
+                "total_files": len(all_downloaded_files),
+                "execution_time": total_execution_time # Currently not tracked precisely per call in this simplified version
+            }
 
         except Exception as e:
             raise Exception(f"Download failed: {e}")

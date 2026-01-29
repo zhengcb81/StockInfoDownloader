@@ -7,16 +7,16 @@ BrowserService增强测试模块
 使用依赖注入和mock技术提高测试隔离性
 """
 
-import pytest
-import tempfile
 import os
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
+from unittest.mock import Mock, patch
 
-from src.services.browser_service import BrowserService
+import pytest
+
 from src.core.config import ConfigManager
-from .test_utils import TestConfig, TestDataGenerator, EnvironmentManager
+from src.services.browser_service import BrowserService
+
 from .dependency_injection import DependencyInjectionTestBase
+from .test_utils import EnvironmentManager
 
 
 class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
@@ -44,19 +44,19 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         """设置mock配置"""
         # 基础配置
         self.mock_config_manager.get.side_effect = lambda key, default=None: {
-            'save_dir': self.temp_dir,
-            'anti_crawler.min_delay': 2.0,
-            'anti_crawler.max_delay': 8.0,
-            'anti_crawler.max_downloads': 5,
-            'anti_crawler.scroll_range': [200, 600],
-            'anti_crawler.behavior_delay': [0.5, 1.5],
-            'anti_crawler': {
-                'min_delay': 2.0,
-                'max_delay': 8.0,
-                'max_downloads': 5,
-                'scroll_range': [200, 600],
-                'behavior_delay': [0.5, 1.5]
-            }
+            "save_dir": self.temp_dir,
+            "anti_crawler.min_delay": 2.0,
+            "anti_crawler.max_delay": 8.0,
+            "anti_crawler.max_downloads": 5,
+            "anti_crawler.scroll_range": [200, 600],
+            "anti_crawler.behavior_delay": [0.5, 1.5],
+            "anti_crawler": {
+                "min_delay": 2.0,
+                "max_delay": 8.0,
+                "max_downloads": 5,
+                "scroll_range": [200, 600],
+                "behavior_delay": [0.5, 1.5],
+            },
         }.get(key, default)
 
     def test_init(self):
@@ -74,17 +74,17 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         custom_service = BrowserService(config_manager=self.mock_config_manager)
         assert custom_service.config_manager == self.mock_config_manager
 
-    @patch('src.services.browser_service.webdriver.Chrome')
-    @patch('src.services.browser_service.BrowserConfig')
+    @patch("src.services.browser_service.webdriver.Chrome")
+    @patch("src.services.browser_service.BrowserConfig")
     def test_setup_driver_success(self, mock_browser_config, mock_chrome):
         """测试成功设置浏览器驱动"""
         # 设置mock
         mock_config_instance = Mock()
         mock_config_instance.is_headless.return_value = False
-        mock_config_instance.get_all_timeouts.return_value = {'page_load': 30}
-        mock_config_instance.get_window_size.return_value = '1920,1080'
-        mock_config_instance.get_random_user_agent.return_value = 'test-user-agent'
-        mock_config_instance.get_page_load_strategy.return_value = 'normal'
+        mock_config_instance.get_all_timeouts.return_value = {"page_load": 30}
+        mock_config_instance.get_window_size.return_value = "1920,1080"
+        mock_config_instance.get_random_user_agent.return_value = "test-user-agent"
+        mock_config_instance.get_page_load_strategy.return_value = "normal"
         mock_browser_config.return_value = mock_config_instance
 
         mock_driver = Mock()
@@ -102,17 +102,17 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         mock_driver.set_page_load_timeout.assert_called_with(30)
         mock_driver.set_window_size.assert_called_with(1920, 1080)
 
-    @patch('src.services.browser_service.webdriver.Chrome')
-    @patch('src.services.browser_service.BrowserConfig')
+    @patch("src.services.browser_service.webdriver.Chrome")
+    @patch("src.services.browser_service.BrowserConfig")
     def test_setup_driver_failure(self, mock_browser_config, mock_chrome):
         """测试设置浏览器驱动失败"""
         # 设置mock
         mock_config_instance = Mock()
         mock_config_instance.is_headless.return_value = False
-        mock_config_instance.get_all_timeouts.return_value = {'page_load': 30}
-        mock_config_instance.get_window_size.return_value = '1920,1080'
-        mock_config_instance.get_random_user_agent.return_value = 'test-user-agent'
-        mock_config_instance.get_page_load_strategy.return_value = 'normal'
+        mock_config_instance.get_all_timeouts.return_value = {"page_load": 30}
+        mock_config_instance.get_window_size.return_value = "1920,1080"
+        mock_config_instance.get_random_user_agent.return_value = "test-user-agent"
+        mock_config_instance.get_page_load_strategy.return_value = "normal"
         mock_browser_config.return_value = mock_config_instance
 
         mock_chrome.side_effect = Exception("Chrome driver failed")
@@ -121,7 +121,7 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         with pytest.raises(Exception):
             self.service.setup_driver()
 
-    @patch('src.services.browser_service.webdriver.Chrome')
+    @patch("src.services.browser_service.webdriver.Chrome")
     def test_setup_driver_headless_mode(self, mock_chrome):
         """测试无头模式设置"""
         mock_driver = Mock()
@@ -132,10 +132,12 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
 
         # 验证Chrome选项包含无头模式参数
         call_args = mock_chrome.call_args
-        options = call_args[1]['options']
+        options = call_args[1]["options"]
 
         # 检查是否包含无头模式参数
-        options_args = [arg for arg in options.arguments if arg.startswith('--headless')]
+        options_args = [
+            arg for arg in options.arguments if arg.startswith("--headless")
+        ]
         assert len(options_args) > 0
 
     def test_get_chrome_options(self):
@@ -146,20 +148,20 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
 
         # 检查基础参数
         expected_args = [
-            '--no-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-extensions',
-            '--disable-infobars',
-            '--disable-notifications',
-            '--disable-popup-blocking'
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-extensions",
+            "--disable-infobars",
+            "--disable-notifications",
+            "--disable-popup-blocking",
         ]
 
         for arg in expected_args:
             assert arg in options.arguments
 
         # 检查无头模式参数
-        assert '--headless' in options.arguments
+        assert "--headless" in options.arguments
 
     def test_get_download_directory(self):
         """测试获取下载目录"""
@@ -170,8 +172,8 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         assert os.path.exists(download_dir)
         assert download_dir == os.path.abspath(self.temp_dir)
 
-    @patch('src.services.browser_service.random')
-    @patch('src.services.browser_service.time')
+    @patch("src.services.browser_service.random")
+    @patch("src.services.browser_service.time")
     def test_simulate_human_behavior_with_driver(self, mock_time, mock_random):
         """测试有驱动时模拟人类行为"""
         # 设置mock驱动
@@ -196,8 +198,8 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         # 应该不会抛出异常
         self.service.simulate_human_behavior()
 
-    @patch('src.services.browser_service.random')
-    @patch('src.services.browser_service.time')
+    @patch("src.services.browser_service.random")
+    @patch("src.services.browser_service.time")
     def test_dynamic_delay(self, mock_time, mock_random):
         """测试动态延迟"""
         # 设置mock随机值
@@ -217,8 +219,8 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         self.service.dynamic_delay()
 
         # 验证延迟因子计算
-        expected_min = 2.0 * (1 + 10/20)  # 1.5倍
-        expected_max = 8.0 * (1 + 10/20)  # 1.5倍
+        expected_min = 2.0 * (1 + 10 / 20)  # 1.5倍
+        expected_max = 8.0 * (1 + 10 / 20)  # 1.5倍
         mock_random.uniform.assert_called_with(expected_min, expected_max)
 
     def test_wait_for_element_success(self):
@@ -227,13 +229,15 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         self.service.driver = Mock()
 
         # 设置mock等待
-        with patch('src.services.browser_service.WebDriverWait') as mock_wait:
+        with patch("src.services.browser_service.WebDriverWait") as mock_wait:
             mock_wait_instance = Mock()
             mock_wait.return_value = mock_wait_instance
             mock_wait_instance.until.return_value = True
 
             # Mock BrowserConfig
-            with patch.object(self.service.browser_config, 'get_timeout') as mock_timeout:
+            with patch.object(
+                self.service.browser_config, "get_timeout"
+            ) as mock_timeout:
                 mock_timeout.return_value = 10
 
                 # 执行测试
@@ -248,16 +252,19 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         self.service.driver = Mock()
 
         # 设置mock等待超时
-        with patch('src.services.browser_service.WebDriverWait') as mock_wait:
+        with patch("src.services.browser_service.WebDriverWait") as mock_wait:
             mock_wait_instance = Mock()
             mock_wait.return_value = mock_wait_instance
 
             # 模拟TimeoutException
             from selenium.common.exceptions import TimeoutException
+
             mock_wait_instance.until.side_effect = TimeoutException("Timeout")
 
             # Mock BrowserConfig
-            with patch.object(self.service.browser_config, 'get_timeout') as mock_timeout:
+            with patch.object(
+                self.service.browser_config, "get_timeout"
+            ) as mock_timeout:
                 mock_timeout.return_value = 10
 
                 # 执行测试
@@ -276,7 +283,7 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         with pytest.raises(AttributeError):
             self.service.wait_for_element(("id", "test-element"))
 
-    @patch('src.services.browser_service.BrowserService.setup_driver')
+    @patch("src.services.browser_service.BrowserService.setup_driver")
     def test_restart_driver(self, mock_setup_driver):
         """测试重启驱动"""
         # 设置现有驱动
@@ -300,7 +307,9 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         # 确保没有现有驱动
         self.service.driver = None
 
-        with patch('src.services.browser_service.BrowserService.setup_driver') as mock_setup_driver:
+        with patch(
+            "src.services.browser_service.BrowserService.setup_driver"
+        ) as mock_setup_driver:
             # 执行重启
             self.service.restart_driver()
 
@@ -327,10 +336,10 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
 
         # 验证配置已设置
         # 检查AntiCrawlerStrategy的实际属性
-        assert hasattr(self.service.anti_crawler, 'min_delay')
-        assert hasattr(self.service.anti_crawler, 'max_delay')
-        assert hasattr(self.service.anti_crawler, 'max_session_downloads')
-        assert hasattr(self.service.anti_crawler, 'set_session_parameters')
+        assert hasattr(self.service.anti_crawler, "min_delay")
+        assert hasattr(self.service.anti_crawler, "max_delay")
+        assert hasattr(self.service.anti_crawler, "max_session_downloads")
+        assert hasattr(self.service.anti_crawler, "set_session_parameters")
 
     def test_error_handling_consistency(self):
         """测试错误处理的一致性"""
@@ -360,13 +369,13 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
     def test_context_manager(self):
         """测试上下文管理器"""
         # 测试进入上下文
-        with patch.object(self.service, 'setup_driver') as mock_setup:
+        with patch.object(self.service, "setup_driver") as mock_setup:
             # 模拟上下文管理器使用
             with self.service as service:
                 assert service == self.service
 
             # 验证退出上下文时调用了close
-            with patch.object(self.service, 'close') as mock_close:
+            with patch.object(self.service, "close") as mock_close:
                 self.service.__exit__(None, None, None)
                 mock_close.assert_called_once()
 
@@ -380,7 +389,7 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         assert self.service.download_count == 1
 
         # 重启后重置
-        with patch('src.services.browser_service.BrowserService.setup_driver'):
+        with patch("src.services.browser_service.BrowserService.setup_driver"):
             self.service.restart_driver()
             assert self.service.download_count == 0
 
@@ -393,7 +402,7 @@ class TestBrowserServiceEdgeCases:
         self.mock_config_manager = Mock(spec=ConfigManager)
         # 设置基础mock配置
         self.mock_config_manager.get.side_effect = lambda key, default=None: {
-            'save_dir': '/tmp/test'
+            "save_dir": "/tmp/test"
         }.get(key, default)
 
     def test_init_with_none_config(self):
@@ -401,17 +410,17 @@ class TestBrowserServiceEdgeCases:
         service = BrowserService(config_manager=None)
         assert service.config_manager is not None
 
-    @patch('src.services.browser_service.webdriver.Chrome')
-    @patch('src.services.browser_service.BrowserConfig')
+    @patch("src.services.browser_service.webdriver.Chrome")
+    @patch("src.services.browser_service.BrowserConfig")
     def test_setup_driver_with_custom_timeout(self, mock_browser_config, mock_chrome):
         """测试自定义超时设置"""
         # 设置mock
         mock_config_instance = Mock()
         mock_config_instance.is_headless.return_value = True
-        mock_config_instance.get_all_timeouts.return_value = {'page_load': 30}
-        mock_config_instance.get_window_size.return_value = '1920,1080'
-        mock_config_instance.get_random_user_agent.return_value = 'test-user-agent'
-        mock_config_instance.get_page_load_strategy.return_value = 'normal'
+        mock_config_instance.get_all_timeouts.return_value = {"page_load": 30}
+        mock_config_instance.get_window_size.return_value = "1920,1080"
+        mock_config_instance.get_random_user_agent.return_value = "test-user-agent"
+        mock_config_instance.get_page_load_strategy.return_value = "normal"
         mock_browser_config.return_value = mock_config_instance
 
         service = BrowserService(config_manager=self.mock_config_manager)
@@ -425,26 +434,26 @@ class TestBrowserServiceEdgeCases:
         # 验证超时设置被调用
         mock_driver.set_page_load_timeout.assert_called_once()
 
-    @patch('src.services.browser_service.BrowserConfig')
+    @patch("src.services.browser_service.BrowserConfig")
     def test_get_chrome_options_with_special_characters(self, mock_browser_config):
         """测试特殊字符的下载目录"""
         # 设置mock
         mock_config_instance = Mock()
-        mock_config_instance.get_random_user_agent.return_value = 'test-user-agent'
-        mock_config_instance.get_page_load_strategy.return_value = 'normal'
+        mock_config_instance.get_random_user_agent.return_value = "test-user-agent"
+        mock_config_instance.get_page_load_strategy.return_value = "normal"
         mock_browser_config.return_value = mock_config_instance
 
         service = BrowserService(config_manager=self.mock_config_manager)
 
         # Mock下载目录包含特殊字符
-        with patch.object(service, '_get_download_directory') as mock_dir:
+        with patch.object(service, "_get_download_directory") as mock_dir:
             mock_dir.return_value = "/tmp/test with spaces/下载目录"
 
             options = service._get_chrome_options(headless=False)
 
             # 验证下载配置包含特殊字符路径
-            prefs = options.experimental_options.get('prefs', {})
-            assert 'download.default_directory' in prefs
+            prefs = options.experimental_options.get("prefs", {})
+            assert "download.default_directory" in prefs
 
 
 if __name__ == "__main__":

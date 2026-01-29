@@ -3,7 +3,8 @@
 统一管理所有浏览器相关配置参数
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from ..core.config import ConfigManager
 from ..core.config_constants import ConfigConstants
 
@@ -33,7 +34,7 @@ class BrowserConfig:
             "page_load_strategy": self.get_page_load_strategy(),
             "user_agents": self.get_user_agents(),
             "strategy": self.get_browser_strategy(),
-            "timeouts": self.get_all_timeouts()
+            "timeouts": self.get_all_timeouts(),
         }
 
     def is_headless(self) -> bool:
@@ -43,7 +44,7 @@ class BrowserConfig:
         Returns:
             bool: 是否使用无头模式
         """
-        return self.config_manager.get('headless', True)
+        return self.config_manager.get("headless", True)
 
     def get_window_size(self) -> str:
         """
@@ -52,7 +53,7 @@ class BrowserConfig:
         Returns:
             str: 窗口大小字符串，如 "1920,1080"
         """
-        return self.config_manager.get('browser.window_size', '1920,1080')
+        return self.config_manager.get("browser.window_size", "1920,1080")
 
     def get_page_load_strategy(self) -> str:
         """
@@ -61,7 +62,7 @@ class BrowserConfig:
         Returns:
             str: 页面加载策略
         """
-        return self.config_manager.get('page_load_strategy', 'eager')
+        return self.config_manager.get("page_load_strategy", "eager")
 
     def get_user_agents(self) -> List[str]:
         """
@@ -70,8 +71,9 @@ class BrowserConfig:
         Returns:
             List[str]: 用户代理字符串列表
         """
-        return self.config_manager.get('browser.user_agents',
-                                     ConfigConstants.USER_AGENTS)
+        return self.config_manager.get(
+            "browser.user_agents", ConfigConstants.USER_AGENTS
+        )
 
     def get_browser_strategy(self) -> str:
         """
@@ -80,7 +82,7 @@ class BrowserConfig:
         Returns:
             str: 浏览器策略类型
         """
-        return self.config_manager.get('browser.strategy', 'playwright')
+        return self.config_manager.get("browser.strategy", "playwright")
 
     def get_all_timeouts(self) -> Dict[str, int]:
         """
@@ -90,10 +92,10 @@ class BrowserConfig:
             Dict[str, int]: 超时设置字典
         """
         return {
-            "page_load": self.get_timeout('page_load'),
-            "element_wait": self.get_timeout('element_wait'),
-            "download": self.get_timeout('download'),
-            "script": self.get_timeout('script')
+            "page_load": self.get_timeout("page_load"),
+            "element_wait": self.get_timeout("element_wait"),
+            "download": self.get_timeout("download"),
+            "script": self.get_timeout("script"),
         }
 
     def get_timeout(self, timeout_type: str) -> int:
@@ -106,8 +108,9 @@ class BrowserConfig:
         Returns:
             int: 超时时间（秒）
         """
-        return self.config_manager.get(f'timeout.{timeout_type}',
-                                     ConfigConstants.get_timeout(timeout_type))
+        return self.config_manager.get(
+            f"timeout.{timeout_type}", ConfigConstants.get_timeout(timeout_type)
+        )
 
     def get_test_browser_config(self) -> Dict[str, Any]:
         """
@@ -117,13 +120,19 @@ class BrowserConfig:
             Dict[str, Any]: 测试浏览器配置
         """
         return {
-            "headless": self.config_manager.get_test_config('test_environment.headless', False),
-            "page_load_timeout": self.config_manager.get_test_timeout('page_load'),
-            "element_wait_timeout": self.config_manager.get_test_timeout('element_wait'),
-            "download_timeout": self.config_manager.get_test_timeout('download'),
+            "headless": self.config_manager.get_test_config(
+                "test_environment.headless", False
+            ),
+            "page_load_timeout": self.config_manager.get_test_timeout("page_load"),
+            "element_wait_timeout": self.config_manager.get_test_timeout(
+                "element_wait"
+            ),
+            "download_timeout": self.config_manager.get_test_timeout("download"),
             "window_size": self.get_window_size(),
             "user_agents": self.get_user_agents(),
-            "debug_mode": self.config_manager.get_test_config('test_environment.debug_mode', True)
+            "debug_mode": self.config_manager.get_test_config(
+                "test_environment.debug_mode", True
+            ),
         }
 
     def get_selenium_options(self) -> Dict[str, Any]:
@@ -137,7 +146,7 @@ class BrowserConfig:
             "headless": self.is_headless(),
             "window_size": self.get_window_size(),
             "page_load_strategy": self.get_page_load_strategy(),
-            "user_agent": self.get_random_user_agent()
+            "user_agent": self.get_random_user_agent(),
         }
 
     def get_playwright_options(self) -> Dict[str, Any]:
@@ -150,7 +159,7 @@ class BrowserConfig:
         return {
             "headless": self.is_headless(),
             "viewport": self._parse_window_size(),
-            "user_agent": self.get_random_user_agent()
+            "user_agent": self.get_random_user_agent(),
         }
 
     def get_random_user_agent(self) -> str:
@@ -161,6 +170,7 @@ class BrowserConfig:
             str: 随机用户代理字符串
         """
         import random
+
         user_agents = self.get_user_agents()
         return random.choice(user_agents)
 
@@ -173,7 +183,7 @@ class BrowserConfig:
         """
         try:
             window_size = self.get_window_size()
-            width, height = map(int, window_size.split(','))
+            width, height = map(int, window_size.split(","))
             return {"width": width, "height": height}
         except (ValueError, AttributeError):
             return {"width": 1920, "height": 1080}
@@ -186,7 +196,7 @@ class BrowserConfig:
             **kwargs: 配置键值对
         """
         for key, value in kwargs.items():
-            if '.' in key:
+            if "." in key:
                 # 支持嵌套配置，如 'browser.window_size'
                 self.config_manager.set(key, value)
             else:
@@ -203,7 +213,7 @@ class BrowserConfig:
         errors = []
 
         # 验证超时设置
-        for timeout_type in ['page_load', 'element_wait', 'download', 'script']:
+        for timeout_type in ["page_load", "element_wait", "download", "script"]:
             timeout = self.get_timeout(timeout_type)
             if timeout <= 0:
                 errors.append(f"Invalid timeout for {timeout_type}: {timeout}")
@@ -220,7 +230,7 @@ class BrowserConfig:
 
         # 验证浏览器策略
         strategy = self.get_browser_strategy()
-        if strategy not in ['selenium', 'playwright']:
+        if strategy not in ["selenium", "playwright"]:
             errors.append(f"Invalid browser strategy: {strategy}")
 
         return errors

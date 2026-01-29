@@ -7,17 +7,18 @@
 测试DebugStep枚举、DebugMarker类和DebugMarkerManager的功能
 """
 
-import pytest
 import json
 import tempfile
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from src.services.unified_downloader import (
-    DebugStep,
+import pytest
+
+from src.core.debug_tracker import (
     DebugMarker,
     DebugMarkerManager,
-    get_debug_marker_manager
+    DebugStep,
+    get_debug_marker_manager,
 )
 
 
@@ -48,7 +49,7 @@ class TestDebugMarker:
         marker = DebugMarker(
             step=DebugStep.URL_GENERATION,
             success=True,
-            details={"url": "https://example.com", "stock_code": "002415"}
+            details={"url": "https://example.com", "stock_code": "002415"},
         )
 
         assert marker.step == DebugStep.URL_GENERATION
@@ -64,7 +65,7 @@ class TestDebugMarker:
             step=DebugStep.DOWNLOAD_SUCCESS,
             success=False,
             details={"url": "https://example.com"},
-            error="下载超时"
+            error="下载超时",
         )
 
         assert marker.step == DebugStep.DOWNLOAD_SUCCESS
@@ -77,7 +78,7 @@ class TestDebugMarker:
         marker = DebugMarker(
             step=DebugStep.ORG_ID_MAPPING,
             success=True,
-            details={"stock_code": "002415"}
+            details={"stock_code": "002415"},
         )
 
         marker_dict = marker.to_dict()
@@ -95,9 +96,7 @@ class TestDebugMarker:
         """测试标记转换为日志字符串"""
         # 成功标记
         marker_success = DebugMarker(
-            step=DebugStep.PDF_VISIBILITY,
-            success=True,
-            details={"count": 5}
+            step=DebugStep.PDF_VISIBILITY, success=True, details={"count": 5}
         )
         log_str = marker_success.to_log_string()
         assert "SUCCESS" in log_str
@@ -106,9 +105,7 @@ class TestDebugMarker:
 
         # 失败标记
         marker_failure = DebugMarker(
-            step=DebugStep.PAGINATION,
-            success=False,
-            error="翻页失败"
+            step=DebugStep.PAGINATION, success=False, error="翻页失败"
         )
         log_str = marker_failure.to_log_string()
         assert "FAILED" in log_str
@@ -136,7 +133,7 @@ class TestDebugMarkerManager:
         marker = manager.add_marker(
             step=DebugStep.ORG_ID_MAPPING,
             success=True,
-            details={"stock_code": "002415"}
+            details={"stock_code": "002415"},
         )
 
         assert len(manager.markers) == 1
@@ -150,7 +147,9 @@ class TestDebugMarkerManager:
         # 添加多个标记
         manager.add_marker(DebugStep.ORG_ID_MAPPING, True, {"stock": "002415"})
         manager.add_marker(DebugStep.URL_GENERATION, False, {}, "URL错误")
-        manager.add_marker(DebugStep.WEBPAGE_CONNECTION, True, {"url": "https://example.com"})
+        manager.add_marker(
+            DebugStep.WEBPAGE_CONNECTION, True, {"url": "https://example.com"}
+        )
 
         summary = manager.get_summary()
 
@@ -205,7 +204,7 @@ class TestDebugMarkerIntegration:
             assert len(marker_files) == 1
 
             # 检查文件内容
-            with open(marker_files[0], 'r', encoding='utf-8') as f:
+            with open(marker_files[0], "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 assert len(lines) == 1
 
@@ -222,14 +221,12 @@ class TestDebugMarkerIntegration:
             # 添加多个标记
             for i in range(3):
                 manager.add_marker(
-                    DebugStep.PAGINATION,
-                    success=i % 2 == 0,
-                    details={"page": i}
+                    DebugStep.PAGINATION, success=i % 2 == 0, details={"page": i}
                 )
 
             # 检查文件内容
             marker_files = list(Path(temp_dir).glob("markers_*.jsonl"))
-            with open(marker_files[0], 'r', encoding='utf-8') as f:
+            with open(marker_files[0], "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 assert len(lines) == 3
 
@@ -246,7 +243,8 @@ class TestUnifiedDownloaderWithDebugMarkers:
 
     def setup_method(self):
         """每个测试前重置单例"""
-        from src.services.unified_downloader import DebugMarkerManager
+        from src.core.debug_tracker import DebugMarkerManager
+
         DebugMarkerManager.reset_instance()
 
     def test_unified_downloader_has_debug_methods(self):
@@ -254,10 +252,10 @@ class TestUnifiedDownloaderWithDebugMarkers:
         from src.services.unified_downloader import UnifiedDownloader
 
         # 检查类是否有必要的方法
-        assert hasattr(UnifiedDownloader, '_debug_step')
-        assert hasattr(UnifiedDownloader, '_log_debug_marker')
-        assert hasattr(UnifiedDownloader, 'get_debug_markers')
-        assert hasattr(UnifiedDownloader, 'get_debug_summary')
+        assert hasattr(UnifiedDownloader, "_debug_step")
+        assert hasattr(UnifiedDownloader, "_log_debug_marker")
+        assert hasattr(UnifiedDownloader, "get_debug_markers")
+        assert hasattr(UnifiedDownloader, "get_debug_summary")
 
     def test_debug_step_wrapper(self):
         """测试_debug_step封装器"""
@@ -268,15 +266,11 @@ class TestUnifiedDownloaderWithDebugMarkers:
             return x + y
 
         # 创建下载器实例（使用最小配置）
-        config = {'save_dir': tempfile.mkdtemp()}
+        config = {"save_dir": tempfile.mkdtemp()}
         downloader = UnifiedDownloader(config)
 
         # 测试成功情况
-        result = downloader._debug_step(
-            DebugStep.URL_GENERATION,
-            mock_func,
-            10, 20
-        )
+        result = downloader._debug_step(DebugStep.URL_GENERATION, mock_func, 10, 20)
         assert result == 30
 
         # 检查标记已记录
@@ -292,15 +286,12 @@ class TestUnifiedDownloaderWithDebugMarkers:
         def failing_func():
             raise ValueError("测试错误")
 
-        config = {'save_dir': tempfile.mkdtemp()}
+        config = {"save_dir": tempfile.mkdtemp()}
         downloader = UnifiedDownloader(config)
 
         # 测试失败情况
         with pytest.raises(ValueError, match="测试错误"):
-            downloader._debug_step(
-                DebugStep.DOWNLOAD_SUCCESS,
-                failing_func
-            )
+            downloader._debug_step(DebugStep.DOWNLOAD_SUCCESS, failing_func)
 
         # 检查失败标记已记录
         markers = downloader.get_debug_markers()

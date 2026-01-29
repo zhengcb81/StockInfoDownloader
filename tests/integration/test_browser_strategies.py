@@ -6,18 +6,20 @@
 测试Selenium和Playwright策略在真实下载流程中的表现
 """
 
-import pytest
-import tempfile
-import os
 import json
+import os
+import sys
+import tempfile
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
-import sys
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.adapters.legacy_downloader_adapter import DownloadServiceV2Adapter as DownloadServiceV2
+from src.adapters.legacy_downloader_adapter import (
+    DownloadServiceV2Adapter as DownloadServiceV2,
+)
 from src.web.browser_strategy import BrowserStrategyFactory
 
 
@@ -27,23 +29,19 @@ class TestBrowserStrategiesIntegration:
     def setup_method(self):
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.save_dir = os.path.join(self.temp_dir, 'downloads')
+        self.save_dir = os.path.join(self.temp_dir, "downloads")
 
         # 创建测试映射文件
-        self.mapping_file = os.path.join(self.temp_dir, 'test_mapping.json')
-        test_mapping = {
-            "300470": {
-                "orgId": "9900023856",
-                "name": "中密控股"
-            }
-        }
+        self.mapping_file = os.path.join(self.temp_dir, "test_mapping.json")
+        test_mapping = {"300470": {"orgId": "9900023856", "name": "中密控股"}}
 
-        with open(self.mapping_file, 'w', encoding='utf-8') as f:
+        with open(self.mapping_file, "w", encoding="utf-8") as f:
             json.dump(test_mapping, f, ensure_ascii=False, indent=2)
 
     def teardown_method(self):
         """测试清理"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @pytest.mark.parametrize("strategy_type", ["selenium", "playwright"])
@@ -51,9 +49,7 @@ class TestBrowserStrategiesIntegration:
         """测试策略工厂创建不同类型的策略"""
         # 测试策略工厂能创建正确类型的策略
         strategy = BrowserStrategyFactory.create_strategy(
-            strategy_type=strategy_type,
-            headless=True,
-            download_dir=self.save_dir
+            strategy_type=strategy_type, headless=True, download_dir=self.save_dir
         )
 
         # 验证策略创建成功
@@ -76,7 +72,7 @@ class TestBrowserStrategiesIntegration:
                 strategy = BrowserStrategyFactory.create_strategy(
                     strategy_type=strategy_type,
                     headless=True,
-                    download_dir=self.save_dir
+                    download_dir=self.save_dir,
                 )
                 strategies[strategy_type] = strategy
             except Exception as e:
@@ -90,12 +86,12 @@ class TestBrowserStrategiesIntegration:
         # 测试策略接口一致性
         for strategy_type, strategy in strategies.items():
             # 验证基本方法存在
-            assert hasattr(strategy, 'create_driver')
-            assert hasattr(strategy, 'navigate')
-            assert hasattr(strategy, 'find_elements')
-            assert hasattr(strategy, 'close')
-            assert hasattr(strategy, 'restart')
-            assert hasattr(strategy, 'is_healthy')
+            assert hasattr(strategy, "create_driver")
+            assert hasattr(strategy, "navigate")
+            assert hasattr(strategy, "find_elements")
+            assert hasattr(strategy, "close")
+            assert hasattr(strategy, "restart")
+            assert hasattr(strategy, "is_healthy")
 
             # 清理
             strategy.close()
@@ -108,7 +104,7 @@ class TestBrowserStrategiesIntegration:
             downloader = DownloadServiceV2(
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
-                browser_strategy=strategy_type
+                browser_strategy=strategy_type,
             )
 
             # 验证下载器正确配置了策略
@@ -116,9 +112,7 @@ class TestBrowserStrategiesIntegration:
 
             # 验证策略类型
             expected_strategy = BrowserStrategyFactory.create_strategy(
-                strategy_type=strategy_type,
-                headless=True,
-                download_dir=self.save_dir
+                strategy_type=strategy_type, headless=True, download_dir=self.save_dir
             )
 
             # 验证策略类型匹配
@@ -142,7 +136,7 @@ class TestBrowserStrategiesIntegration:
                 downloader = DownloadServiceV2(
                     save_dir=self.save_dir,
                     mapping_file=self.mapping_file,
-                    browser_strategy=strategy_type
+                    browser_strategy=strategy_type,
                 )
 
                 # 验证当前策略
@@ -165,7 +159,7 @@ class TestBrowserStrategiesIntegration:
             BrowserStrategyFactory.create_strategy(
                 strategy_type="invalid_strategy",
                 headless=True,
-                download_dir=self.save_dir
+                download_dir=self.save_dir,
             )
 
     @pytest.mark.parametrize("strategy_type", ["selenium", "playwright"])
@@ -176,13 +170,12 @@ class TestBrowserStrategiesIntegration:
             configurations = [
                 {"headless": True, "download_dir": self.save_dir},
                 {"headless": False, "download_dir": self.save_dir},
-                {"headless": True, "download_dir": None}
+                {"headless": True, "download_dir": None},
             ]
 
             for config in configurations:
                 strategy = BrowserStrategyFactory.create_strategy(
-                    strategy_type=strategy_type,
-                    **config
+                    strategy_type=strategy_type, **config
                 )
 
                 # 验证策略创建成功
@@ -211,7 +204,7 @@ class TestBrowserStrategiesIntegration:
                 strategy = BrowserStrategyFactory.create_strategy(
                     strategy_type=strategy_type,
                     headless=True,
-                    download_dir=self.save_dir
+                    download_dir=self.save_dir,
                 )
                 creation_time = time.time() - start_time
 
@@ -240,7 +233,7 @@ class TestBrowserStrategiesIntegration:
                 strategy = BrowserStrategyFactory.create_strategy(
                     strategy_type=strategy_type,
                     headless=True,
-                    download_dir=self.save_dir
+                    download_dir=self.save_dir,
                 )
                 strategies[strategy_type] = strategy
 
@@ -268,7 +261,7 @@ class TestBrowserStrategiesIntegration:
                 downloader = DownloadServiceV2(
                     save_dir=self.save_dir,
                     mapping_file=self.mapping_file,
-                    browser_strategy=strategy_type
+                    browser_strategy=strategy_type,
                 )
 
                 # 测试下载器基本功能

@@ -7,7 +7,7 @@
 """
 
 from pathlib import Path
-import os
+
 
 def debug_directory_structure():
     """详细分析目录结构问题"""
@@ -108,7 +108,8 @@ def debug_directory_structure():
     config_file = Path("config_end2end_test.json")
     if config_file.exists():
         import json
-        with open(config_file, 'r', encoding='utf-8') as f:
+
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
         print(f"   配置文件: {config_file.name}")
         print(f"   保存目录: {config.get('save_dir', 'N/A')}")
@@ -128,6 +129,7 @@ def debug_directory_structure():
         print(f"\n   [SUCCESS] 目录结构正常")
 
     return len(root_pdfs) > 0
+
 
 if __name__ == "__main__":
     has_issue = debug_directory_structure()

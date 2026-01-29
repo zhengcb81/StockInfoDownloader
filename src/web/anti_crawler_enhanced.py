@@ -8,21 +8,16 @@
 
 import random
 import time
-import json
-import threading
-from typing import Dict, List, Optional, Any, Tuple, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import hashlib
-import base64
-from datetime import datetime, timedelta
-import asyncio
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.core.logger import get_logger
 
 
 class FingerprintType(Enum):
     """指纹类型枚举"""
+
     USER_AGENT = "user_agent"
     SCREEN_RESOLUTION = "screen_resolution"
     TIMEZONE = "timezone"
@@ -37,6 +32,7 @@ class FingerprintType(Enum):
 
 class BehaviorPattern(Enum):
     """行为模式枚举"""
+
     MOUSE_MOVEMENT = "mouse_movement"
     SCROLLING = "scrolling"
     TYPING = "typing"
@@ -49,15 +45,17 @@ class BehaviorPattern(Enum):
 
 class AntiCrawlerLevel(Enum):
     """反爬虫保护级别"""
-    LOW = "low"        # 基础保护
+
+    LOW = "low"  # 基础保护
     MEDIUM = "medium"  # 中等保护
-    HIGH = "high"      # 高强度保护
+    HIGH = "high"  # 高强度保护
     EXTREME = "extreme"  # 极端保护
 
 
 @dataclass
 class FingerprintProfile:
     """指纹配置文件"""
+
     profile_id: str
     user_agent: str
     screen_resolution: Tuple[int, int]
@@ -85,17 +83,23 @@ class FingerprintProfile:
 
         if success:
             # 更新成功率
-            self.success_rate = (self.success_rate * (self.usage_count - 1) + 1) / self.usage_count
+            self.success_rate = (
+                self.success_rate * (self.usage_count - 1) + 1
+            ) / self.usage_count
         else:
-            self.success_rate = (self.success_rate * (self.usage_count - 1)) / self.usage_count
+            self.success_rate = (
+                self.success_rate * (self.usage_count - 1)
+            ) / self.usage_count
             self.blocked_count += 1
 
     @property
     def is_suspicious(self) -> bool:
         """检查指纹是否可疑"""
-        return (self.success_rate < 0.3 or  # 成功率低于30%
-                self.blocked_count > 5 or   # 被封次数超过5次
-                self.usage_count > 100)     # 使用次数过多
+        return (
+            self.success_rate < 0.3  # 成功率低于30%
+            or self.blocked_count > 5  # 被封次数超过5次
+            or self.usage_count > 100
+        )  # 使用次数过多
 
     @property
     def score(self) -> float:
@@ -148,10 +152,12 @@ class BehaviorSimulator:
             BehaviorPattern.IDLE_TIME: self._simulate_idle_time,
             BehaviorPattern.FORM_FILLING: self._simulate_form_filling,
             BehaviorPattern.CLICK_PATTERN: self._simulate_click_pattern,
-            BehaviorPattern.DRAG_DROP: self._simulate_drag_drop
+            BehaviorPattern.DRAG_DROP: self._simulate_drag_drop,
         }
 
-    def simulate_behavior(self, pattern: BehaviorPattern, duration: float = None) -> float:
+    def simulate_behavior(
+        self, pattern: BehaviorPattern, duration: float = None
+    ) -> float:
         """模拟指定行为"""
         if pattern not in self.patterns:
             self.logger.warning(f"不支持的行为模式: {pattern}")
@@ -164,7 +170,9 @@ class BehaviorSimulator:
             self.logger.error(f"行为模拟失败: {e}")
             return 0.0
 
-    def simulate_human_interaction(self, patterns: List[BehaviorPattern], total_duration: float) -> Dict[str, float]:
+    def simulate_human_interaction(
+        self, patterns: List[BehaviorPattern], total_duration: float
+    ) -> Dict[str, float]:
         """模拟完整的人机交互"""
         results = {}
         remaining_time = total_duration
@@ -175,7 +183,9 @@ class BehaviorSimulator:
                 break
 
             # 为当前行为分配时间
-            pattern_duration = min(remaining_time, random.uniform(1, remaining_time / len(patterns)))
+            pattern_duration = min(
+                remaining_time, random.uniform(1, remaining_time / len(patterns))
+            )
             actual_duration = self.simulate_behavior(pattern, pattern_duration)
             results[pattern.value] = actual_duration
             remaining_time -= actual_duration
@@ -205,7 +215,9 @@ class BehaviorSimulator:
             target_y = random.randint(0, 1080)
 
             # 计算移动参数
-            distance = ((target_x - current_x) ** 2 + (target_y - current_y) ** 2) ** 0.5
+            distance = (
+                (target_x - current_x) ** 2 + (target_y - current_y) ** 2
+            ) ** 0.5
             speed = random.uniform(*self.mouse_speed_range)
             move_time = distance / speed if speed > 0 else 0.1
 
@@ -436,11 +448,11 @@ class AdaptiveRateLimiter:
         self.logger = get_logger("AdaptiveRateLimiter")
 
         # 速率限制参数
-        self.initial_requests_per_minute = config.get('initial_requests_per_minute', 30)
-        self.max_requests_per_minute = config.get('max_requests_per_minute', 100)
-        self.adjustment_factor = config.get('adjustment_factor', 1.2)
-        self.success_rate_threshold = config.get('success_rate_threshold', 0.8)
-        self.error_rate_threshold = config.get('error_rate_threshold', 0.2)
+        self.initial_requests_per_minute = config.get("initial_requests_per_minute", 30)
+        self.max_requests_per_minute = config.get("max_requests_per_minute", 100)
+        self.adjustment_factor = config.get("adjustment_factor", 1.2)
+        self.success_rate_threshold = config.get("success_rate_threshold", 0.8)
+        self.error_rate_threshold = config.get("error_rate_threshold", 0.2)
 
         # 动态参数
         self.current_rate_limit = self.initial_requests_per_minute
@@ -457,7 +469,9 @@ class AdaptiveRateLimiter:
         self.protection_start_time = None
         self.protection_duration = 300  # 5分钟保护模式
 
-        self.logger.info(f"自适应速率限制器初始化完成，初始速率: {self.initial_requests_per_minute}/分钟")
+        self.logger.info(
+            f"自适应速率限制器初始化完成，初始速率: {self.initial_requests_per_minute}/分钟"
+        )
 
     def record_request(self, success: bool = True):
         """记录请求结果"""
@@ -491,7 +505,10 @@ class AdaptiveRateLimiter:
         self.last_adjustment = current_time
 
         # 检查是否应该退出保护模式
-        if self.protection_mode and (current_time - self.protection_start_time) > self.protection_duration:
+        if (
+            self.protection_mode
+            and (current_time - self.protection_start_time) > self.protection_duration
+        ):
             self.protection_mode = False
             self.logger.info("退出保护模式")
 
@@ -511,13 +528,18 @@ class AdaptiveRateLimiter:
             # 成功率高，适当增加速率
             new_rate = min(
                 self.current_rate_limit * self.adjustment_factor,
-                self.max_requests_per_minute
+                self.max_requests_per_minute,
             )
             if new_rate > self.current_rate_limit:
                 self.current_rate_limit = new_rate
-                self.logger.info(f"提高速率限制至 {self.current_rate_limit:.1f}/分钟 (成功率: {success_rate:.2%})")
+                self.logger.info(
+                    f"提高速率限制至 {self.current_rate_limit:.1f}/分钟 (成功率: {success_rate:.2%})"
+                )
 
-        elif success_rate < self.success_rate_threshold or error_rate > self.error_rate_threshold:
+        elif (
+            success_rate < self.success_rate_threshold
+            or error_rate > self.error_rate_threshold
+        ):
             # 成功率低或错误率高，降低速率
             new_rate = self.current_rate_limit / self.adjustment_factor
             self.current_rate_limit = max(1, new_rate)
@@ -527,23 +549,37 @@ class AdaptiveRateLimiter:
                 self.protection_mode = True
                 self.protection_start_time = current_time
                 self.current_rate_limit = max(5, self.current_rate_limit / 2)
-                self.logger.warning(f"进入保护模式，降低速率限制至 {self.current_rate_limit:.1f}/分钟")
+                self.logger.warning(
+                    f"进入保护模式，降低速率限制至 {self.current_rate_limit:.1f}/分钟"
+                )
 
-            self.logger.warning(f"降低速率限制至 {self.current_rate_limit:.1f}/分钟 (成功率: {success_rate:.2%}, 错误率: {error_rate:.2%})")
+            self.logger.warning(
+                f"降低速率限制至 {self.current_rate_limit:.1f}/分钟 (成功率: {success_rate:.2%}, 错误率: {error_rate:.2%})"
+            )
 
     def can_make_request(self) -> Tuple[bool, float]:
         """检查是否可以发起请求"""
         if self.protection_mode:
             # 保护模式下更加保守
-            recent_requests = len([t for t in self.request_history if time.time() - t < 10])
+            recent_requests = len(
+                [t for t in self.request_history if time.time() - t < 10]
+            )
             if recent_requests >= 2:
-                wait_time = 10 - (time.time() - self.request_history[-1]) if self.request_history else 0
+                wait_time = (
+                    10 - (time.time() - self.request_history[-1])
+                    if self.request_history
+                    else 0
+                )
                 return False, max(0, wait_time)
 
         # 检查速率限制
         recent_requests = len([t for t in self.request_history if time.time() - t < 60])
         if recent_requests >= self.current_rate_limit:
-            wait_time = 60 - (time.time() - self.request_history[-1]) if self.request_history else 0
+            wait_time = (
+                60 - (time.time() - self.request_history[-1])
+                if self.request_history
+                else 0
+            )
             return False, max(0, wait_time)
 
         return True, 0
@@ -559,17 +595,19 @@ class AdaptiveRateLimiter:
         success_rate = successful_requests / total_requests if total_requests > 0 else 0
         error_rate = error_requests / total_requests if total_requests > 0 else 0
 
-        current_requests_per_minute = len([t for t in self.request_history if time.time() - t < 60])
+        current_requests_per_minute = len(
+            [t for t in self.request_history if time.time() - t < 60]
+        )
 
         return {
-            'current_rate_limit': self.current_rate_limit,
-            'current_requests_per_minute': current_requests_per_minute,
-            'success_rate': success_rate,
-            'error_rate': error_rate,
-            'protection_mode': self.protection_mode,
-            'total_requests': total_requests,
-            'successful_requests': successful_requests,
-            'error_requests': error_requests
+            "current_rate_limit": self.current_rate_limit,
+            "current_requests_per_minute": current_requests_per_minute,
+            "success_rate": success_rate,
+            "error_rate": error_rate,
+            "protection_mode": self.protection_mode,
+            "total_requests": total_requests,
+            "successful_requests": successful_requests,
+            "error_requests": error_requests,
         }
 
 
@@ -580,17 +618,26 @@ class CaptchaHandler:
         self.config = config
         self.logger = get_logger("CaptchaHandler")
 
-        self.strategies = config.get('strategies', ['delay_retry', 'proxy_rotation', 'user_agent_change'])
-        self.max_wait_time = config.get('max_wait_time', 120)
-        self.solve_timeout = config.get('solve_timeout', 30)
+        self.strategies = config.get(
+            "strategies", ["delay_retry", "proxy_rotation", "user_agent_change"]
+        )
+        self.max_wait_time = config.get("max_wait_time", 120)
+        self.solve_timeout = config.get("solve_timeout", 30)
 
         # 验证码检测模式
         self.captcha_indicators = [
-            'captcha', '验证码', '请输入验证码', '请完成验证',
-            'security check', 'human verification', 'robot check'
+            "captcha",
+            "验证码",
+            "请输入验证码",
+            "请完成验证",
+            "security check",
+            "human verification",
+            "robot check",
         ]
 
-    def detect_captcha(self, page_content: str, response_headers: Dict[str, str] = None) -> bool:
+    def detect_captcha(
+        self, page_content: str, response_headers: Dict[str, str] = None
+    ) -> bool:
         """检测是否遇到验证码"""
         # 检查页面内容
         content_lower = page_content.lower()
@@ -601,7 +648,9 @@ class CaptchaHandler:
         # 检查响应头
         if response_headers:
             for key, value in response_headers.items():
-                if any(indicator in value.lower() for indicator in self.captcha_indicators):
+                if any(
+                    indicator in value.lower() for indicator in self.captcha_indicators
+                ):
                     return True
 
         return False
@@ -617,35 +666,43 @@ class CaptchaHandler:
                 result = self._execute_strategy(strategy, context)
                 results.append(result)
 
-                if result.get('success'):
+                if result.get("success"):
                     self.logger.info(f"验证码处理成功，策略: {strategy}")
                     return result
 
             except Exception as e:
                 self.logger.error(f"验证码处理策略 {strategy} 失败: {e}")
-                results.append({'strategy': strategy, 'success': False, 'error': str(e)})
+                results.append(
+                    {"strategy": strategy, "success": False, "error": str(e)}
+                )
 
         # 所有策略都失败
         self.logger.error("所有验证码处理策略都失败了")
         return {
-            'success': False,
-            'strategy': 'all',
-            'error': '所有验证码处理策略失败',
-            'results': results
+            "success": False,
+            "strategy": "all",
+            "error": "所有验证码处理策略失败",
+            "results": results,
         }
 
-    def _execute_strategy(self, strategy: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_strategy(
+        self, strategy: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """执行具体策略"""
-        if strategy == 'delay_retry':
+        if strategy == "delay_retry":
             return self._strategy_delay_retry(context)
-        elif strategy == 'proxy_rotation':
+        elif strategy == "proxy_rotation":
             return self._strategy_proxy_rotation(context)
-        elif strategy == 'user_agent_change':
+        elif strategy == "user_agent_change":
             return self._strategy_user_agent_change(context)
-        elif strategy == 'ip_change':
+        elif strategy == "ip_change":
             return self._strategy_ip_change(context)
         else:
-            return {'strategy': strategy, 'success': False, 'error': f'未知策略: {strategy}'}
+            return {
+                "strategy": strategy,
+                "success": False,
+                "error": f"未知策略: {strategy}",
+            }
 
     def _strategy_delay_retry(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """延迟重试策略"""
@@ -655,41 +712,49 @@ class CaptchaHandler:
         time.sleep(delay)
 
         return {
-            'strategy': 'delay_retry',
-            'success': True,
-            'delay': delay,
-            'action': 'delayed_retry'
+            "strategy": "delay_retry",
+            "success": True,
+            "delay": delay,
+            "action": "delayed_retry",
         }
 
     def _strategy_proxy_rotation(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """代理轮换策略"""
-        proxy_manager = context.get('proxy_manager')
+        proxy_manager = context.get("proxy_manager")
         if not proxy_manager:
-            return {'strategy': 'proxy_rotation', 'success': False, 'error': '代理管理器不可用'}
+            return {
+                "strategy": "proxy_rotation",
+                "success": False,
+                "error": "代理管理器不可用",
+            }
 
         # 轮换所有代理
         proxy_manager.rotate_all_proxies()
 
         return {
-            'strategy': 'proxy_rotation',
-            'success': True,
-            'action': 'proxy_rotated'
+            "strategy": "proxy_rotation",
+            "success": True,
+            "action": "proxy_rotated",
         }
 
     def _strategy_user_agent_change(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """用户代理更改策略"""
-        user_agents = context.get('user_agents', [])
+        user_agents = context.get("user_agents", [])
         if not user_agents:
-            return {'strategy': 'user_agent_change', 'success': False, 'error': '用户代理列表不可用'}
+            return {
+                "strategy": "user_agent_change",
+                "success": False,
+                "error": "用户代理列表不可用",
+            }
 
         # 选择新的用户代理
         new_user_agent = random.choice(user_agents)
 
         return {
-            'strategy': 'user_agent_change',
-            'success': True,
-            'action': 'user_agent_changed',
-            'new_user_agent': new_user_agent
+            "strategy": "user_agent_change",
+            "success": True,
+            "action": "user_agent_changed",
+            "new_user_agent": new_user_agent,
         }
 
     def _strategy_ip_change(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -700,11 +765,7 @@ class CaptchaHandler:
         # 模拟IP更改（实际实现需要具体网络操作）
         time.sleep(5)  # 模拟IP切换时间
 
-        return {
-            'strategy': 'ip_change',
-            'success': True,
-            'action': 'ip_changed'
-        }
+        return {"strategy": "ip_change", "success": True, "action": "ip_changed"}
 
 
 class EnhancedAntiCrawler:
@@ -714,68 +775,89 @@ class EnhancedAntiCrawler:
         self.config = config
         self.logger = get_logger("EnhancedAntiCrawler")
 
-        self.enabled = config.get('enabled', True)
-        self.level = AntiCrawlerLevel(config.get('level', 'high'))
+        self.enabled = config.get("enabled", True)
+        self.level = AntiCrawlerLevel(config.get("level", "high"))
 
         # 初始化各个组件
         self.fingerprint_randomization = self._init_fingerprint_randomization()
-        self.behavior_simulator = BehaviorSimulator(config.get('behavior_simulation', {}).get('complexity_level', 'high'))
-        self.rate_limiter = AdaptiveRateLimiter(config.get('adaptive_rate_limiting', {}))
-        self.captcha_handler = CaptchaHandler(config.get('captcha_handling', {}))
+        self.behavior_simulator = BehaviorSimulator(
+            config.get("behavior_simulation", {}).get("complexity_level", "high")
+        )
+        self.rate_limiter = AdaptiveRateLimiter(
+            config.get("adaptive_rate_limiting", {})
+        )
+        self.captcha_handler = CaptchaHandler(config.get("captcha_handling", {}))
 
         # 随机化参数
-        self.randomization_factor = config.get('behavior_simulation', {}).get('randomization_factor', 0.3)
+        self.randomization_factor = config.get("behavior_simulation", {}).get(
+            "randomization_factor", 0.3
+        )
 
         # 行为模式配置
-        self.enabled_patterns = config.get('behavior_simulation', {}).get('patterns', [
-            'mouse_movement', 'scrolling', 'typing', 'tab_switching', 'idle_time'
-        ])
+        self.enabled_patterns = config.get("behavior_simulation", {}).get(
+            "patterns",
+            ["mouse_movement", "scrolling", "typing", "tab_switching", "idle_time"],
+        )
 
         # 统计信息
         self.stats = {
-            'total_requests': 0,
-            'successful_requests': 0,
-            'blocked_requests': 0,
-            'captcha_encountered': 0,
-            'proxy_rotations': 0,
-            'fingerprint_changes': 0,
-            'behavior_simulations': 0
+            "total_requests": 0,
+            "successful_requests": 0,
+            "blocked_requests": 0,
+            "captcha_encountered": 0,
+            "proxy_rotations": 0,
+            "fingerprint_changes": 0,
+            "behavior_simulations": 0,
         }
 
         self.logger.info(f"增强反爬虫保护系统初始化完成，保护级别: {self.level.value}")
 
     def _init_fingerprint_randomization(self) -> Dict[FingerprintType, bool]:
         """初始化指纹随机化配置"""
-        fingerprint_config = self.config.get('fingerprint_randomization', {})
+        fingerprint_config = self.config.get("fingerprint_randomization", {})
         return {
-            FingerprintType.USER_AGENT: fingerprint_config.get('user_agent_rotation', True),
-            FingerprintType.SCREEN_RESOLUTION: fingerprint_config.get('screen_resolution', True),
-            FingerprintType.TIMEZONE: fingerprint_config.get('timezone', True),
-            FingerprintType.LANGUAGE: fingerprint_config.get('language', True),
-            FingerprintType.PLATFORM: fingerprint_config.get('platform', True),
-            FingerprintType.HARDWARE_INFO: fingerprint_config.get('hardware_info', True),
-            FingerprintType.WEBGL_RENDERER: fingerprint_config.get('webgl_renderer', False),
-            FingerprintType.CANVAS_FINGERPRINT: fingerprint_config.get('canvas_fingerprint', False),
-            FingerprintType.AUDIO_FINGERPRINT: fingerprint_config.get('audio_fingerprint', False),
-            FingerprintType.FONT_FINGERPRINT: fingerprint_config.get('font_fingerprint', False)
+            FingerprintType.USER_AGENT: fingerprint_config.get(
+                "user_agent_rotation", True
+            ),
+            FingerprintType.SCREEN_RESOLUTION: fingerprint_config.get(
+                "screen_resolution", True
+            ),
+            FingerprintType.TIMEZONE: fingerprint_config.get("timezone", True),
+            FingerprintType.LANGUAGE: fingerprint_config.get("language", True),
+            FingerprintType.PLATFORM: fingerprint_config.get("platform", True),
+            FingerprintType.HARDWARE_INFO: fingerprint_config.get(
+                "hardware_info", True
+            ),
+            FingerprintType.WEBGL_RENDERER: fingerprint_config.get(
+                "webgl_renderer", False
+            ),
+            FingerprintType.CANVAS_FINGERPRINT: fingerprint_config.get(
+                "canvas_fingerprint", False
+            ),
+            FingerprintType.AUDIO_FINGERPRINT: fingerprint_config.get(
+                "audio_fingerprint", False
+            ),
+            FingerprintType.FONT_FINGERPRINT: fingerprint_config.get(
+                "font_fingerprint", False
+            ),
         }
 
     def before_request(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """请求前处理"""
         if not self.enabled:
-            return {'success': True, 'action': 'disabled'}
+            return {"success": True, "action": "disabled"}
 
-        self.stats['total_requests'] += 1
+        self.stats["total_requests"] += 1
 
         # 检查速率限制
         can_request, wait_time = self.rate_limiter.can_make_request()
         if not can_request:
             self.logger.warning(f"速率限制，需要等待 {wait_time:.1f} 秒")
             return {
-                'success': False,
-                'action': 'rate_limited',
-                'wait_time': wait_time,
-                'reason': '请求频率过高'
+                "success": False,
+                "action": "rate_limited",
+                "wait_time": wait_time,
+                "reason": "请求频率过高",
             }
 
         # 随机化指纹
@@ -786,54 +868,56 @@ class EnhancedAntiCrawler:
 
         # 记录行为模拟
         if behavior_results:
-            self.stats['behavior_simulations'] += 1
+            self.stats["behavior_simulations"] += 1
 
         return {
-            'success': True,
-            'action': 'pre_request_complete',
-            'fingerprint_changes': fingerprint_changes,
-            'behavior_simulation': behavior_results,
-            'wait_time': wait_time
+            "success": True,
+            "action": "pre_request_complete",
+            "fingerprint_changes": fingerprint_changes,
+            "behavior_simulation": behavior_results,
+            "wait_time": wait_time,
         }
 
-    def after_request(self, success: bool, response_data: Dict[str, Any] = None) -> Dict[str, Any]:
+    def after_request(
+        self, success: bool, response_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """请求后处理"""
         if not self.enabled:
-            return {'success': True, 'action': 'disabled'}
+            return {"success": True, "action": "disabled"}
 
         # 记录请求结果
         self.rate_limiter.record_request(success)
 
         if success:
-            self.stats['successful_requests'] += 1
+            self.stats["successful_requests"] += 1
         else:
-            self.stats['blocked_requests'] += 1
+            self.stats["blocked_requests"] += 1
 
         # 检查验证码
         if response_data:
-            page_content = response_data.get('page_content', '')
-            response_headers = response_data.get('response_headers', {})
+            page_content = response_data.get("page_content", "")
+            response_headers = response_data.get("response_headers", {})
 
             if self.captcha_handler.detect_captcha(page_content, response_headers):
-                self.stats['captcha_encountered'] += 1
+                self.stats["captcha_encountered"] += 1
 
                 captcha_context = {
-                    'proxy_manager': response_data.get('proxy_manager'),
-                    'user_agents': response_data.get('user_agents', [])
+                    "proxy_manager": response_data.get("proxy_manager"),
+                    "user_agents": response_data.get("user_agents", []),
                 }
 
                 captcha_result = self.captcha_handler.handle_captcha(captcha_context)
                 return {
-                    'success': False,
-                    'action': 'captcha_detected',
-                    'captcha_result': captcha_result,
-                    'needs_retry': True
+                    "success": False,
+                    "action": "captcha_detected",
+                    "captcha_result": captcha_result,
+                    "needs_retry": True,
                 }
 
         return {
-            'success': success,
-            'action': 'post_request_complete',
-            'stats': self.stats.copy()
+            "success": success,
+            "action": "post_request_complete",
+            "stats": self.stats.copy(),
         }
 
     def _randomize_fingerprint(self, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -842,32 +926,43 @@ class EnhancedAntiCrawler:
 
         # 用户代理随机化
         if self.fingerprint_randomization[FingerprintType.USER_AGENT]:
-            user_agents = context.get('user_agents', [])
+            user_agents = context.get("user_agents", [])
             if user_agents:
                 new_user_agent = random.choice(user_agents)
-                changes['user_agent'] = new_user_agent
-                self.stats['fingerprint_changes'] += 1
+                changes["user_agent"] = new_user_agent
+                self.stats["fingerprint_changes"] += 1
 
         # 屏幕分辨率随机化
         if self.fingerprint_randomization[FingerprintType.SCREEN_RESOLUTION]:
             resolutions = [
-                (1920, 1080), (1366, 768), (1440, 900), (1536, 864),
-                (1280, 720), (1600, 900), (1280, 1024), (2560, 1440)
+                (1920, 1080),
+                (1366, 768),
+                (1440, 900),
+                (1536, 864),
+                (1280, 720),
+                (1600, 900),
+                (1280, 1024),
+                (2560, 1440),
             ]
             new_resolution = random.choice(resolutions)
-            changes['screen_resolution'] = new_resolution
+            changes["screen_resolution"] = new_resolution
 
         # 时区随机化
         if self.fingerprint_randomization[FingerprintType.TIMEZONE]:
-            timezones = ['Asia/Shanghai', 'Asia/Tokyo', 'Asia/Hong_Kong', 'Asia/Singapore']
+            timezones = [
+                "Asia/Shanghai",
+                "Asia/Tokyo",
+                "Asia/Hong_Kong",
+                "Asia/Singapore",
+            ]
             new_timezone = random.choice(timezones)
-            changes['timezone'] = new_timezone
+            changes["timezone"] = new_timezone
 
         # 语言随机化
         if self.fingerprint_randomization[FingerprintType.LANGUAGE]:
-            languages = ['zh-CN', 'zh-TW', 'en-US', 'en-GB']
+            languages = ["zh-CN", "zh-TW", "en-US", "en-GB"]
             new_language = random.choice(languages)
-            changes['language'] = new_language
+            changes["language"] = new_language
 
         return changes
 
@@ -887,8 +982,7 @@ class EnhancedAntiCrawler:
 
         # 随机选择要模拟的模式
         selected_patterns = random.sample(
-            pattern_enums,
-            min(len(pattern_enums), random.randint(1, 3))
+            pattern_enums, min(len(pattern_enums), random.randint(1, 3))
         )
 
         # 计算总持续时间
@@ -914,8 +1008,8 @@ class EnhancedAntiCrawler:
         """获取统计信息"""
         stats = self.stats.copy()
         stats.update(self.rate_limiter.get_stats())
-        stats['protection_level'] = self.level.value
-        stats['enabled'] = self.enabled
+        stats["protection_level"] = self.level.value
+        stats["enabled"] = self.enabled
         return stats
 
     def emergency_stop(self):
@@ -930,7 +1024,9 @@ class EnhancedAntiCrawler:
         """恢复正常模式"""
         self.logger.info("恢复正常模式")
         self.rate_limiter.protection_mode = False
-        self.rate_limiter.current_rate_limit = self.rate_limiter.initial_requests_per_minute
+        self.rate_limiter.current_rate_limit = (
+            self.rate_limiter.initial_requests_per_minute
+        )
 
     def rotate_all_protections(self):
         """轮换所有保护机制"""
@@ -938,9 +1034,11 @@ class EnhancedAntiCrawler:
 
         # 轮换指纹
         if self.fingerprint_randomization[FingerprintType.USER_AGENT]:
-            self.stats['fingerprint_changes'] += 1
+            self.stats["fingerprint_changes"] += 1
 
         # 重置速率限制器
-        self.rate_limiter.current_rate_limit = self.rate_limiter.initial_requests_per_minute
+        self.rate_limiter.current_rate_limit = (
+            self.rate_limiter.initial_requests_per_minute
+        )
 
         self.logger.info("所有保护机制已轮换")

@@ -1,0 +1,28 @@
+[run]
+branch = True
+source = src
+omit =
+    */__init__.py
+    src/tools/legacy/*
+    src/web/selenium_strategy.py
+    src/web/playwright_strategy.py
+    # 暂时排除未完全重构的大型模块以聚焦核心逻辑
+    src/web/anti_crawler_enhanced.py
+    src/web/async_operations.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+ignore_errors = True
+precision = 2
+fail_under = 40

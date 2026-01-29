@@ -6,17 +6,19 @@ Playwright策略核心功能测试
 只测试核心功能，避免复杂的mock问题
 """
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
-
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, PropertyMock
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.web.playwright_strategy import PlaywrightStrategy, is_test_environment
 from src.web.browser_strategy import BrowserAutomationStrategy
+from src.utils.browser_utils import is_test_environment
+from src.web.playwright_strategy import PlaywrightStrategy
 
 
 class TestPlaywrightStrategyCore:
@@ -25,12 +27,13 @@ class TestPlaywrightStrategyCore:
     def setup_method(self):
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.download_dir = os.path.join(self.temp_dir, 'downloads')
+        self.download_dir = os.path.join(self.temp_dir, "downloads")
         os.makedirs(self.download_dir, exist_ok=True)
 
     def teardown_method(self):
         """测试清理"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     # ==================== 初始化测试 ====================
@@ -50,25 +53,23 @@ class TestPlaywrightStrategyCore:
     def test_initialization_with_parameters(self):
         """测试带参数初始化"""
         config = {
-            'window_size': {'width': 1280, 'height': 720},
-            'timeout': 60,  # 60秒
-            'max_downloads_per_session': 5,
-            'user_agents': ['Test-Agent/1.0']
+            "window_size": {"width": 1280, "height": 720},
+            "timeout": 60,  # 60秒
+            "max_downloads_per_session": 5,
+            "user_agents": ["Test-Agent/1.0"],
         }
 
         strategy = PlaywrightStrategy(
-            headless=False,
-            download_dir=self.download_dir,
-            config=config
+            headless=False, download_dir=self.download_dir, config=config
         )
 
         assert strategy.headless is False
         assert strategy.download_dir == self.download_dir
         assert strategy.config == config
-        assert strategy.window_size == {'width': 1280, 'height': 720}
+        assert strategy.window_size == {"width": 1280, "height": 720}
         assert strategy.timeout == 60000  # 60秒 = 60000毫秒
         assert strategy.max_downloads_per_session == 5
-        assert strategy._user_agents == ['Test-Agent/1.0']
+        assert strategy._user_agents == ["Test-Agent/1.0"]
 
     # ==================== 页面操作测试 ====================
 
@@ -247,13 +248,13 @@ class TestPlaywrightStrategyCore:
 
         try:
             # 测试正常环境
-            sys.argv = ['normal_script.py']
-            os.environ.pop('TEST_ENV', None)
-            os.environ.pop('PYTEST_CURRENT_TEST', None)
+            sys.argv = ["normal_script.py"]
+            os.environ.pop("TEST_ENV", None)
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
             assert is_test_environment() is False
 
             # 测试TEST_ENV环境变量
-            os.environ['TEST_ENV'] = 'true'
+            os.environ["TEST_ENV"] = "true"
             assert is_test_environment() is True
 
         finally:

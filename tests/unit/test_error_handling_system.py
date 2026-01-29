@@ -6,28 +6,28 @@
 测试ErrorHandler、装饰器、重试机制等核心错误处理功能
 """
 
-import pytest
-import time
 import sys
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from pathlib import Path
+
 from src.core.error_handling import (
     ErrorHandler,
-    with_error_handling,
-    RetryHandler,
     ResourceGuard,
+    RetryHandler,
     safe_execute,
-    validate_params,
-    validate_non_empty,
-    validate_positive_number,
     validate_file_exists,
-    validate_url
+    validate_non_empty,
+    validate_params,
+    validate_positive_number,
+    validate_url,
+    with_error_handling,
 )
-from pathlib import Path
 
 
 class TestErrorHandler:
@@ -62,7 +62,7 @@ class TestErrorHandler:
             ValueError("test error"),
             context=context,
             reraise=False,
-            default_return="default"
+            default_return="default",
         )
 
         assert result == "default"
@@ -88,10 +88,10 @@ class TestErrorHandler:
         handler.logger = mock_logger
 
         error_info = {
-            'exception_type': 'TimeoutError',
-            'exception_message': 'timeout',
-            'traceback': 'trace',
-            'context': {}
+            "exception_type": "TimeoutError",
+            "exception_message": "timeout",
+            "traceback": "trace",
+            "context": {},
         }
 
         handler._log_error(error_info)
@@ -104,10 +104,10 @@ class TestErrorHandler:
         handler.logger = mock_logger
 
         error_info = {
-            'exception_type': 'ValueError',
-            'exception_message': 'error',
-            'traceback': 'trace',
-            'context': {}
+            "exception_type": "ValueError",
+            "exception_message": "error",
+            "traceback": "trace",
+            "context": {},
         }
 
         handler._log_error(error_info)
@@ -119,6 +119,7 @@ class TestErrorHandlingDecorator:
 
     def test_with_error_handling_success(self):
         """测试装饰器成功执行"""
+
         @with_error_handling()
         def test_func():
             return "success"
@@ -128,6 +129,7 @@ class TestErrorHandlingDecorator:
 
     def test_with_error_handling_catches_exception(self):
         """测试装饰器捕获异常"""
+
         @with_error_handling(reraise=False, default_return="default")
         def test_func():
             raise ValueError("error")
@@ -137,7 +139,10 @@ class TestErrorHandlingDecorator:
 
     def test_with_error_handling_specific_error_types(self):
         """测试装饰器捕获特定异常类型"""
-        @with_error_handling(error_types=ValueError, reraise=False, default_return="default")
+
+        @with_error_handling(
+            error_types=ValueError, reraise=False, default_return="default"
+        )
         def test_func():
             raise ValueError("error")
 
@@ -146,6 +151,7 @@ class TestErrorHandlingDecorator:
 
     def test_with_error_handling_other_exception_reraises(self):
         """测试装饰器不捕获其他异常"""
+
         @with_error_handling(error_types=ValueError, reraise=True)
         def test_func():
             raise TypeError("type error")
@@ -158,7 +164,8 @@ class TestErrorHandlingDecorator:
         mock_handler = Mock()
         mock_handler.handle_exception = Mock(return_value="default")
 
-        with patch('src.core.error_handling.ErrorHandler', return_value=mock_handler):
+        with patch("src.core.error_handling.ErrorHandler", return_value=mock_handler):
+
             @with_error_handling(context={"test": "context"}, reraise=False)
             def test_func():
                 raise ValueError("error")
@@ -364,6 +371,7 @@ class TestValidateParams:
 
     def test_validate_params_success(self):
         """测试参数验证成功"""
+
         @validate_params(name=validate_non_empty, age=validate_positive_number)
         def test_func(name, age):
             return f"{name}:{age}"
@@ -373,6 +381,7 @@ class TestValidateParams:
 
     def test_validate_params_failure(self):
         """测试参数验证失败"""
+
         @validate_params(name=validate_non_empty)
         def test_func(name):
             return name
@@ -382,6 +391,7 @@ class TestValidateParams:
 
     def test_validate_params_with_defaults(self):
         """测试带默认值的参数验证"""
+
         @validate_params(threshold=validate_positive_number)
         def test_func(value, threshold=1.0):
             return value > threshold
@@ -414,7 +424,7 @@ class TestValidatorFunctions:
 
     def test_validate_file_exists(self):
         """测试文件存在验证"""
-        with patch('os.path.exists') as mock_exists:
+        with patch("os.path.exists") as mock_exists:
             mock_exists.return_value = True
             assert validate_file_exists("/path/to/file") is True
 

@@ -2,14 +2,14 @@
 目录管理器单元测试
 """
 
-import os
 import tempfile
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-from src.utils.directory_manager import DirectoryManager
+import pytest
+
 from src.data.mapping import MappingManager
+from src.utils.directory_manager import DirectoryManager
 from tests.test_config_manager import ConfigManagerTool
 
 
@@ -22,6 +22,7 @@ def temp_directory():
 
     # 清理
     import shutil
+
     shutil.rmtree(temp_dir)
 
 
@@ -45,10 +46,12 @@ def directory_manager(mock_mapping_manager):
     return DirectoryManager(mock_mapping_manager)
 
 
-def test_get_company_directory(directory_manager, mock_mapping_manager, test_config, temp_directory):
+def test_get_company_directory(
+    directory_manager, mock_mapping_manager, test_config, temp_directory
+):
     """测试获取公司目录"""
     test_stock = test_config.get_test_stock("300470")
-    stock_code = test_stock.get('code', '300470')
+    stock_code = test_stock.get("code", "300470")
     company_dir = directory_manager.get_company_directory(stock_code, temp_directory)
 
     expected_path = temp_directory / "测试公司"
@@ -58,7 +61,9 @@ def test_get_company_directory(directory_manager, mock_mapping_manager, test_con
     mock_mapping_manager.get_stock_name.assert_called_with(stock_code)
 
 
-def test_get_company_directory_fallback(directory_manager, mock_mapping_manager, temp_directory):
+def test_get_company_directory_fallback(
+    directory_manager, mock_mapping_manager, temp_directory
+):
     """测试获取公司目录的回退机制"""
     # 模拟映射管理器返回None
     mock_mapping_manager.get_stock_name.return_value = None
@@ -70,10 +75,12 @@ def test_get_company_directory_fallback(directory_manager, mock_mapping_manager,
     assert company_dir == expected_path
 
 
-def test_create_company_directory(directory_manager, mock_mapping_manager, test_config, temp_directory):
+def test_create_company_directory(
+    directory_manager, mock_mapping_manager, test_config, temp_directory
+):
     """测试创建公司目录"""
     test_stock = test_config.get_test_stock("300470")
-    stock_code = test_stock.get('code', '300470')
+    stock_code = test_stock.get("code", "300470")
     company_dir = directory_manager.create_company_directory(stock_code, temp_directory)
 
     # 验证目录存在
@@ -84,7 +91,9 @@ def test_create_company_directory(directory_manager, mock_mapping_manager, test_
     assert company_dir == expected_path
 
 
-def test_create_company_directory_existing(directory_manager, mock_mapping_manager, test_config, temp_directory):
+def test_create_company_directory_existing(
+    directory_manager, mock_mapping_manager, test_config, temp_directory
+):
     """测试创建已存在的公司目录"""
     # 先创建目录
     existing_dir = temp_directory / "测试公司"
@@ -92,7 +101,7 @@ def test_create_company_directory_existing(directory_manager, mock_mapping_manag
 
     # 再次创建相同的目录
     test_stock = test_config.get_test_stock("300470")
-    stock_code = test_stock.get('code', '300470')
+    stock_code = test_stock.get("code", "300470")
     company_dir = directory_manager.create_company_directory(stock_code, temp_directory)
 
     # 应该成功且目录仍然存在
@@ -112,14 +121,16 @@ def test_ensure_save_directory(directory_manager, temp_directory):
     assert test_file_path.parent.is_dir()
 
 
-def test_organize_downloaded_file(directory_manager, mock_mapping_manager, test_config, temp_directory):
+def test_organize_downloaded_file(
+    directory_manager, mock_mapping_manager, test_config, temp_directory
+):
     """测试组织下载的文件"""
     # 创建临时文件
     temp_file = temp_directory / "temp_file.pdf"
     temp_file.write_text("test content")
 
     test_stock = test_config.get_test_stock("300470")
-    stock_code = test_stock.get('code', '300470')
+    stock_code = test_stock.get("code", "300470")
     filename = "测试文件.pdf"
 
     # 组织文件
@@ -139,12 +150,14 @@ def test_organize_downloaded_file(directory_manager, mock_mapping_manager, test_
     assert final_path == expected_path
 
 
-def test_organize_downloaded_file_nonexistent(directory_manager, mock_mapping_manager, test_config, temp_directory):
+def test_organize_downloaded_file_nonexistent(
+    directory_manager, mock_mapping_manager, test_config, temp_directory
+):
     """测试组织不存在的文件"""
     nonexistent_file = temp_directory / "nonexistent.pdf"
 
     test_stock = test_config.get_test_stock("300470")
-    stock_code = test_stock.get('code', '300470')
+    stock_code = test_stock.get("code", "300470")
 
     with pytest.raises(FileNotFoundError):
         directory_manager.organize_downloaded_file(
@@ -187,7 +200,9 @@ def test_validate_directory_structure_invalid(directory_manager, temp_directory)
     assert "公司目录不存在" in issues[1]
 
 
-def test_validate_directory_structure_nonexistent_base(directory_manager, temp_directory):
+def test_validate_directory_structure_nonexistent_base(
+    directory_manager, temp_directory
+):
     """测试验证不存在的基目录"""
     nonexistent_dir = temp_directory / "nonexistent"
 

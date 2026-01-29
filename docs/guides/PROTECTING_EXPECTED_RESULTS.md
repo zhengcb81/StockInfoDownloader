@@ -268,7 +268,7 @@ graph TD
 
 ```bash
 # 完整的工作流程示例
-cd C:\Users\郑曾波\Projects\StockInfoDownloader
+cd <PROJECT_ROOT>
 
 # 1. 预览目录状态
 python tools/protect_expected_results.py --dry-run
@@ -288,8 +288,8 @@ python tools/protect_expected_results.py --dry-run
 1. 任务名称：`StockInfoDownloader - 保护ExpectedResults`
 2. 触发器：每天 08:00
 3. 操作：`python.exe`
-4. 参数：`"C:\Users\郑曾波\Projects\StockInfoDownloader\tools\protect_expected_results.py" --lock`
-5. 起始于：`C:\Users\郑曾波\Projects\StockInfoDownloader`
+4. 参数：`"<PROJECT_ROOT>\tools\protect_expected_results.py" --lock`
+5. 起始于：`<PROJECT_ROOT>`
 
 ---
 

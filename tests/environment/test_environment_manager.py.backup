@@ -6,22 +6,23 @@
 确保测试环境的一致性和可靠性
 """
 
+import json
 import os
+import platform
+import shutil
+import subprocess
 import sys
 import time
-import json
-import shutil
-import platform
-import subprocess
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 
 # 添加当前目录到Python路径
 current_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(current_dir))
 
 from src.core.logger import get_logger
+
 
 def log(message):
     """记录日志"""

@@ -7,16 +7,15 @@
 """
 
 import json
-import time
-import coverage
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, asdict
-from enum import Enum
-
 import sys
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import coverage
 
 # 添加项目根目录到sys.path
 project_root = Path(__file__).parent.parent.parent
@@ -27,6 +26,7 @@ try:
     from src.core.logger import get_logger
 except ImportError:
     import logging
+
     get_logger = logging.getLogger
 
 logger = get_logger(__name__)
@@ -34,16 +34,18 @@ logger = get_logger(__name__)
 
 class CoverageStatus(Enum):
     """覆盖率状态枚举"""
+
     EXCELLENT = "excellent"  # >= 90%
-    GOOD = "good"           # 80% - 89%
-    FAIR = "fair"           # 70% - 79%
-    POOR = "poor"           # 60% - 69%
-    VERY_POOR = "very_poor" # < 60%
+    GOOD = "good"  # 80% - 89%
+    FAIR = "fair"  # 70% - 79%
+    POOR = "poor"  # 60% - 69%
+    VERY_POOR = "very_poor"  # < 60%
 
 
 @dataclass
 class CoverageMetrics:
     """覆盖率指标"""
+
     timestamp: float
     overall_coverage: float
     line_coverage: float
@@ -74,6 +76,7 @@ class CoverageMetrics:
 @dataclass
 class ModuleCoverage:
     """模块覆盖率"""
+
     module_name: str
     file_path: str
     overall_coverage: float
@@ -102,23 +105,23 @@ class CoverageMonitor:
 
         # 监控配置
         self.config = {
-            'target_coverage': 80.0,
-            'warning_threshold': 70.0,
-            'critical_threshold': 60.0,
-            'trend_window_days': 30,
-            'enable_trend_analysis': True
+            "target_coverage": 80.0,
+            "warning_threshold": 70.0,
+            "critical_threshold": 60.0,
+            "trend_window_days": 30,
+            "enable_trend_analysis": True,
         }
 
         # 统计信息
         self.stats = {
-            'total_measurements': 0,
-            'current_coverage': 0.0,
-            'best_coverage': 0.0,
-            'worst_coverage': 100.0,
-            'coverage_trend': 'stable',  # 'improving', 'declining', 'stable'
-            'modules_below_target': [],
-            'modules_improving': [],
-            'modules_declining': []
+            "total_measurements": 0,
+            "current_coverage": 0.0,
+            "best_coverage": 0.0,
+            "worst_coverage": 100.0,
+            "coverage_trend": "stable",  # 'improving', 'declining', 'stable'
+            "modules_below_target": [],
+            "modules_improving": [],
+            "modules_declining": [],
         }
 
         self.logger.info("覆盖率监控器初始化完成")
@@ -132,7 +135,10 @@ class CoverageMonitor:
 
             # 执行测试
             import subprocess
-            result = subprocess.run(test_command.split(), capture_output=True, text=True)
+
+            result = subprocess.run(
+                test_command.split(), capture_output=True, text=True
+            )
 
             cov.stop()
             cov.save()
@@ -167,7 +173,7 @@ class CoverageMonitor:
                 total_branches=0,
                 covered_branches=0,
                 total_functions=0,
-                covered_functions=0
+                covered_functions=0,
             )
 
     def _calculate_coverage_metrics(self, coverage_data) -> CoverageMetrics:
@@ -179,7 +185,9 @@ class CoverageMonitor:
             # 计算各种覆盖率
             total_lines = analysis.numbers.n_statements
             covered_lines = analysis.numbers.n_executed
-            line_coverage = (covered_lines / total_lines * 100) if total_lines > 0 else 0
+            line_coverage = (
+                (covered_lines / total_lines * 100) if total_lines > 0 else 0
+            )
 
             # 简化计算，实际项目中需要更精确的计算
             overall_coverage = line_coverage
@@ -197,7 +205,7 @@ class CoverageMonitor:
                 total_branches=int(total_lines * 0.5),  # 简化计算
                 covered_branches=int(covered_lines * 0.4),  # 简化计算
                 total_functions=int(total_lines * 0.1),  # 简化计算
-                covered_functions=int(covered_lines * 0.09)  # 简化计算
+                covered_functions=int(covered_lines * 0.09),  # 简化计算
             )
         except Exception as e:
             self.logger.warning(f"覆盖率计算失败，使用默认值: {e}")
@@ -213,7 +221,7 @@ class CoverageMonitor:
                 total_branches=0,
                 covered_branches=0,
                 total_functions=0,
-                covered_functions=0
+                covered_functions=0,
             )
 
     def _update_module_coverage(self, coverage_data, timestamp: float):
@@ -232,8 +240,16 @@ class CoverageMonitor:
                         module_cov = ModuleCoverage(
                             module_name=file_path.stem,
                             file_path=str(file_path),
-                            overall_coverage=(analysis.numbers.n_executed / analysis.numbers.n_statements * 100),
-                            line_coverage=(analysis.numbers.n_executed / analysis.numbers.n_statements * 100),
+                            overall_coverage=(
+                                analysis.numbers.n_executed
+                                / analysis.numbers.n_statements
+                                * 100
+                            ),
+                            line_coverage=(
+                                analysis.numbers.n_executed
+                                / analysis.numbers.n_statements
+                                * 100
+                            ),
                             branch_coverage=0.0,  # 简化计算
                             function_coverage=0.0,  # 简化计算
                             total_lines=analysis.numbers.n_statements,
@@ -241,7 +257,7 @@ class CoverageMonitor:
                             total_branches=0,
                             covered_branches=0,
                             total_functions=0,
-                            covered_functions=0
+                            covered_functions=0,
                         )
                         self._module_coverage[timestamp_str].append(module_cov)
 
@@ -254,16 +270,16 @@ class CoverageMonitor:
             return
 
         current_metrics = self._coverage_data[-1]
-        self.stats['total_measurements'] = len(self._coverage_data)
-        self.stats['current_coverage'] = current_metrics.overall_coverage
+        self.stats["total_measurements"] = len(self._coverage_data)
+        self.stats["current_coverage"] = current_metrics.overall_coverage
 
         # 计算最佳和最差覆盖率
         coverages = [m.overall_coverage for m in self._coverage_data]
-        self.stats['best_coverage'] = max(coverages)
-        self.stats['worst_coverage'] = min(coverages)
+        self.stats["best_coverage"] = max(coverages)
+        self.stats["worst_coverage"] = min(coverages)
 
         # 分析趋势
-        self.stats['coverage_trend'] = self._analyze_trend()
+        self.stats["coverage_trend"] = self._analyze_trend()
 
         # 分析模块状态
         self._analyze_module_status()
@@ -271,24 +287,24 @@ class CoverageMonitor:
     def _analyze_trend(self) -> str:
         """分析覆盖率趋势"""
         if len(self._coverage_data) < 2:
-            return 'stable'
+            return "stable"
 
         # 获取最近几次测量的覆盖率
         recent_coverages = [m.overall_coverage for m in self._coverage_data[-5:]]
 
         if len(recent_coverages) < 2:
-            return 'stable'
+            return "stable"
 
         # 计算趋势
         first = recent_coverages[0]
         last = recent_coverages[-1]
 
         if last - first > 1.0:  # 提高超过1%
-            return 'improving'
+            return "improving"
         elif first - last > 1.0:  # 下降超过1%
-            return 'declining'
+            return "declining"
         else:
-            return 'stable'
+            return "stable"
 
     def _analyze_module_status(self):
         """分析模块状态"""
@@ -299,14 +315,15 @@ class CoverageMonitor:
         current_modules = self._module_coverage.get(current_timestamp, [])
 
         # 找出低于目标的模块
-        self.stats['modules_below_target'] = [
-            m.module_name for m in current_modules
-            if m.overall_coverage < self.config['target_coverage']
+        self.stats["modules_below_target"] = [
+            m.module_name
+            for m in current_modules
+            if m.overall_coverage < self.config["target_coverage"]
         ]
 
         # 分析模块趋势（简化实现）
-        self.stats['modules_improving'] = []
-        self.stats['modules_declining'] = []
+        self.stats["modules_improving"] = []
+        self.stats["modules_declining"] = []
 
     def get_current_coverage(self) -> Optional[CoverageMetrics]:
         """获取当前覆盖率"""
@@ -326,7 +343,9 @@ class CoverageMonitor:
         for timestamp_str, modules in self._module_coverage.items():
             for module in modules:
                 if module.module_name == module_name:
-                    module_history.append((float(timestamp_str), module.overall_coverage))
+                    module_history.append(
+                        (float(timestamp_str), module.overall_coverage)
+                    )
                     break
 
         return sorted(module_history, key=lambda x: x[0])
@@ -335,17 +354,19 @@ class CoverageMonitor:
         """检查覆盖率质量"""
         current = self.get_current_coverage()
         if not current:
-            return {'status': 'unknown', 'message': '没有覆盖率数据'}
+            return {"status": "unknown", "message": "没有覆盖率数据"}
 
         quality_check = {
-            'current_coverage': current.overall_coverage,
-            'target_coverage': self.config['target_coverage'],
-            'status': current.status.value,
-            'meets_target': current.overall_coverage >= self.config['target_coverage'],
-            'above_warning': current.overall_coverage >= self.config['warning_threshold'],
-            'above_critical': current.overall_coverage >= self.config['critical_threshold'],
-            'trend': self.stats['coverage_trend'],
-            'modules_below_target': len(self.stats['modules_below_target'])
+            "current_coverage": current.overall_coverage,
+            "target_coverage": self.config["target_coverage"],
+            "status": current.status.value,
+            "meets_target": current.overall_coverage >= self.config["target_coverage"],
+            "above_warning": current.overall_coverage
+            >= self.config["warning_threshold"],
+            "above_critical": current.overall_coverage
+            >= self.config["critical_threshold"],
+            "trend": self.stats["coverage_trend"],
+            "modules_below_target": len(self.stats["modules_below_target"]),
         }
 
         return quality_check
@@ -355,24 +376,28 @@ class CoverageMonitor:
         current = self.get_current_coverage()
 
         report = {
-            'timestamp': datetime.now().isoformat(),
-            'monitor_config': self.config,
-            'current_coverage': current.overall_coverage if current else 0.0,
-            'coverage_status': current.status.value if current else 'unknown',
-            'statistics': self.stats,
-            'quality_check': self.check_coverage_quality(),
-            'coverage_history': [
+            "timestamp": datetime.now().isoformat(),
+            "monitor_config": self.config,
+            "current_coverage": current.overall_coverage if current else 0.0,
+            "coverage_status": current.status.value if current else "unknown",
+            "statistics": self.stats,
+            "quality_check": self.check_coverage_quality(),
+            "coverage_history": [
                 {
-                    'timestamp': m.timestamp,
-                    'overall_coverage': m.overall_coverage,
-                    'status': m.status.value
+                    "timestamp": m.timestamp,
+                    "overall_coverage": m.overall_coverage,
+                    "status": m.status.value,
                 }
                 for m in self._coverage_data[-10:]  # 最近10次测量
             ],
-            'module_analysis': {
-                'modules_below_target': self.stats['modules_below_target'],
-                'total_modules': len(self._module_coverage.get(str(current.timestamp), [])) if current else 0
-            }
+            "module_analysis": {
+                "modules_below_target": self.stats["modules_below_target"],
+                "total_modules": (
+                    len(self._module_coverage.get(str(current.timestamp), []))
+                    if current
+                    else 0
+                ),
+            },
         }
 
         return report
@@ -388,7 +413,7 @@ class CoverageMonitor:
         try:
             report = self.generate_report()
 
-            with open(report_path, 'w', encoding='utf-8') as f:
+            with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
 
             self.logger.info(f"覆盖率报告已保存到: {report_path}")
@@ -403,20 +428,24 @@ class CoverageMonitor:
         history = self.get_coverage_history(days)
 
         trend_data = {
-            'period_days': days,
-            'data_points': [
+            "period_days": days,
+            "data_points": [
                 {
-                    'date': datetime.fromtimestamp(m.timestamp).strftime('%Y-%m-%d'),
-                    'coverage': m.overall_coverage,
-                    'status': m.status.value
+                    "date": datetime.fromtimestamp(m.timestamp).strftime("%Y-%m-%d"),
+                    "coverage": m.overall_coverage,
+                    "status": m.status.value,
                 }
                 for m in history
             ],
-            'summary': {
-                'average_coverage': sum(m.overall_coverage for m in history) / len(history) if history else 0,
-                'trend': self.stats['coverage_trend'],
-                'measurement_count': len(history)
-            }
+            "summary": {
+                "average_coverage": (
+                    sum(m.overall_coverage for m in history) / len(history)
+                    if history
+                    else 0
+                ),
+                "trend": self.stats["coverage_trend"],
+                "measurement_count": len(history),
+            },
         }
 
         return trend_data

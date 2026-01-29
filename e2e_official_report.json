@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-01-29T20:21:26.599533",
+  "overall_success": true,
+  "results": [
+    {
+      "stock_code": "301611",
+      "stock_name": "珂玛科技",
+      "success": true,
+      "downloaded_files": 1,
+      "duration": 0
+    },
+    {
+      "stock_code": "300470",
+      "stock_name": "中密控股",
+      "success": true,
+      "downloaded_files": 1,
+      "duration": 0
+    },
+    {
+      "stock_code": "300470",
+      "stock_name": "中密控股",
+      "success": true,
+      "downloaded_files": 1,
+      "duration": 0
+    }
+  ]
+}

@@ -6,20 +6,19 @@
 测试微服务架构的核心组件
 """
 
-import pytest
-import pytest_asyncio
-import json
-from datetime import datetime
-from typing import Dict, Any
 
 # 导入微服务模块
 import sys
+from datetime import datetime
 from pathlib import Path
+
+import pytest
+
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from microservices.common.service_client import ServiceEvent, ServiceEventType
-from microservices.common.task_queue import Task, TaskStatus, TaskPriority, TaskQueue
+from microservices.common.task_queue import Task, TaskPriority, TaskStatus
 
 
 class TestServiceEvent:
@@ -30,7 +29,7 @@ class TestServiceEvent:
         event = ServiceEvent(
             event_type=ServiceEventType.SERVICE_UP,
             source_service="test-service",
-            data={"message": "Service started"}
+            data={"message": "Service started"},
         )
 
         assert event.event_type == ServiceEventType.SERVICE_UP
@@ -44,7 +43,7 @@ class TestServiceEvent:
         event = ServiceEvent(
             event_type=ServiceEventType.SERVICE_UP,
             source_service="test-service",
-            data={"message": "Service started"}
+            data={"message": "Service started"},
         )
 
         # 转换为字典
@@ -53,7 +52,7 @@ class TestServiceEvent:
             "source_service": event.source_service,
             "data": event.data,
             "timestamp": event.timestamp.isoformat(),
-            "event_id": event.event_id
+            "event_id": event.event_id,
         }
 
         assert "event_type" in event_dict
@@ -71,7 +70,7 @@ class TestTask:
             name="Test Task",
             func_name="test_function",
             args=[1, 2, 3],
-            kwargs={"param": "value"}
+            kwargs={"param": "value"},
         )
 
         assert task.id == "test-task-1"
@@ -85,11 +84,7 @@ class TestTask:
 
     def test_task_defaults(self):
         """测试任务默认值"""
-        task = Task(
-            id="test-task-2",
-            name="Simple Task",
-            func_name="simple_function"
-        )
+        task = Task(id="test-task-2", name="Simple Task", func_name="simple_function")
 
         assert task.args == []
         assert task.kwargs == {}
@@ -128,7 +123,7 @@ class TestTaskResult:
             status=TaskStatus.COMPLETED,
             result={"data": "success"},
             execution_time=1.5,
-            worker_id="worker-1"
+            worker_id="worker-1",
         )
 
         assert result.task_id == "test-task-1"
@@ -147,8 +142,7 @@ class TestMicroservicesComponents:
         before_create = datetime.now()
 
         event = ServiceEvent(
-            event_type=ServiceEventType.SERVICE_UP,
-            source_service="test-service"
+            event_type=ServiceEventType.SERVICE_UP, source_service="test-service"
         )
 
         after_create = datetime.now()
@@ -159,13 +153,11 @@ class TestMicroservicesComponents:
     async def test_service_event_id_generation(self):
         """测试服务事件ID生成"""
         event1 = ServiceEvent(
-            event_type=ServiceEventType.SERVICE_UP,
-            source_service="test-service"
+            event_type=ServiceEventType.SERVICE_UP, source_service="test-service"
         )
 
         event2 = ServiceEvent(
-            event_type=ServiceEventType.SERVICE_UP,
-            source_service="test-service"
+            event_type=ServiceEventType.SERVICE_UP, source_service="test-service"
         )
 
         # 不同时间创建的事件应该有不同的ID
@@ -174,9 +166,7 @@ class TestMicroservicesComponents:
     async def test_task_progress_tracking(self):
         """测试任务进度跟踪"""
         task = Task(
-            id="progress-task",
-            name="Progress Task",
-            func_name="progress_function"
+            id="progress-task", name="Progress Task", func_name="progress_function"
         )
 
         # 初始进度为0

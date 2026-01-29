@@ -6,47 +6,63 @@ Stock Information Tools
 Concrete implementations of mapping, validation and debug tools.
 """
 
-import os
-import re
-import time
 import json
-import logging
-import requests
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict
 
-from .tool_interface import BaseTool, ValidationTool, DebugTool
-from src.core.logger import get_logger
+
 from src.data.mapping import MappingManager
+
+from .tool_interface import BaseTool, DebugTool, ValidationTool
+
 
 class StockMappingTool(BaseTool):
     """
     Tool for managing stock code to OrgID mapping.
     Consolidates logic from orgid_crawler.py and get_stock_name.py.
     """
-    
+
     def __init__(self, config_manager=None):
         super().__init__(config_manager)
-        self.mapping_file = self.config_manager.get('cache_management', {}).get('mapping_file', 'stock_orgid_mapping.json')
+        self.mapping_file = self.config_manager.get("cache_management", {}).get(
+            "mapping_file", "stock_orgid_mapping.json"
+        )
         self.mapping_manager = MappingManager(self.mapping_file)
 
-    def execute(self, action: str = "get", stock_code: str = None, **kwargs) -> Dict[str, Any]:
+    def execute(
+        self, action: str = "get", stock_code: str = None, **kwargs
+    ) -> Dict[str, Any]:
         if action == "get":
             if not stock_code:
-                return {"success": False, "error": "stock_code is required for 'get' action"}
+                return {
+                    "success": False,
+                    "error": "stock_code is required for 'get' action",
+                }
             org_id = self.mapping_manager.get_org_id(stock_code)
             name = self.mapping_manager.get_stock_name(stock_code)
-            return {"success": True, "stock_code": stock_code, "org_id": org_id, "name": name}
-        
+            return {
+                "success": True,
+                "stock_code": stock_code,
+                "org_id": org_id,
+                "name": name,
+            }
+
         elif action == "update":
             if not stock_code:
-                return {"success": False, "error": "stock_code is required for 'update' action"}
+                return {
+                    "success": False,
+                    "error": "stock_code is required for 'update' action",
+                }
             # Logic for updating mapping (crawler)
             return self._run_crawler(stock_code, **kwargs)
-            
+
         elif action == "list":
-            return {"success": True, "count": len(self.mapping_manager.mapping), "mapping": self.mapping_manager.mapping}
-            
+            return {
+                "success": True,
+                "count": len(self.mapping_manager.mapping),
+                "mapping": self.mapping_manager.mapping,
+            }
+
         return {"success": False, "error": f"Unknown action: {action}"}
 
     def _run_crawler(self, stock_code: str, headless: bool = True) -> Dict[str, Any]:
@@ -55,12 +71,20 @@ class StockMappingTool(BaseTool):
         # To avoid massive code duplication here, we could import and use OrgIdCrawler
         # but the goal is to consolidate.
         from orgid_crawler import OrgIdCrawler
+
         crawler = OrgIdCrawler(output_file=self.mapping_file, headless=headless)
         org_id = crawler.get_org_id(stock_code)
         if org_id:
-            name = self.mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
+            name = (
+                self.mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
+            )
             self.mapping_manager.update_mapping(stock_code, org_id, name)
-            return {"success": True, "stock_code": stock_code, "org_id": org_id, "name": name}
+            return {
+                "success": True,
+                "stock_code": stock_code,
+                "org_id": org_id,
+                "name": name,
+            }
         return {"success": False, "error": f"Failed to crawl OrgID for {stock_code}"}
 
 
@@ -70,31 +94,48 @@ class StockValidationTool(ValidationTool):
     Consolidates logic from validate_org_id.py and validate_all_cached.py.
     """
 
-    def execute(self, stock_code: str = None, validate_all: bool = False, **kwargs) -> Dict[str, Any]:
+    def execute(
+        self, stock_code: str = None, validate_all: bool = False, **kwargs
+    ) -> Dict[str, Any]:
         if validate_all:
             return self._validate_all(**kwargs)
         if stock_code:
             return self.validate_page_content(stock_code, **kwargs)
         return {"success": False, "error": "stock_code or validate_all is required"}
 
-    def _perform_validation(self, stock_code: str, org_id: str, **kwargs) -> Dict[str, Any]:
+    def _perform_validation(
+        self, stock_code: str, org_id: str, **kwargs
+    ) -> Dict[str, Any]:
         from validate_org_id import validate_org_id_url
+
         is_valid = validate_org_id_url(stock_code, org_id)
-        return {"success": True, "stock_code": stock_code, "org_id": org_id, "is_valid": is_valid}
+        return {
+            "success": True,
+            "stock_code": stock_code,
+            "org_id": org_id,
+            "is_valid": is_valid,
+        }
 
     def _validate_all(self, **kwargs) -> Dict[str, Any]:
-        mapping_file = self.config_manager.get('cache_management', {}).get('mapping_file', 'stock_orgid_mapping.json')
-        with open(mapping_file, 'r', encoding='utf-8') as f:
+        mapping_file = self.config_manager.get("cache_management", {}).get(
+            "mapping_file", "stock_orgid_mapping.json"
+        )
+        with open(mapping_file, "r", encoding="utf-8") as f:
             mapping = json.load(f)
-        
+
         results = {}
         for code, info in mapping.items():
-            org_id = info.get('orgId')
+            org_id = info.get("orgId")
             if org_id:
                 res = self._perform_validation(code, org_id)
-                results[code] = res.get('is_valid', False)
-        
-        return {"success": True, "results": results, "total": len(mapping), "valid_count": sum(1 for v in results.values() if v)}
+                results[code] = res.get("is_valid", False)
+
+        return {
+            "success": True,
+            "results": results,
+            "total": len(mapping),
+            "valid_count": sum(1 for v in results.values() if v),
+        }
 
 
 class StockDebugTool(DebugTool):
@@ -118,23 +159,30 @@ class StockDebugTool(DebugTool):
     def _debug_flow(self, **kwargs) -> Dict[str, Any]:
         # Simplified flow analysis
         from src.data.mapping import MappingManager
-        mapping_file = self.config_manager.get('cache_management', {}).get('mapping_file', 'stock_orgid_mapping.json')
+
+        mapping_file = self.config_manager.get("cache_management", {}).get(
+            "mapping_file", "stock_orgid_mapping.json"
+        )
         mm = MappingManager(mapping_file)
-        
+
         sample_codes = ["301611", "300470", "000001"]
         flow_results = {}
         for code in sample_codes:
             flow_results[code] = {
                 "name": mm.get_stock_name(code),
-                "org_id": mm.get_org_id(code)
+                "org_id": mm.get_org_id(code),
             }
-        
+
         return {"success": True, "flow_results": flow_results}
 
     def _debug_structure(self, **kwargs) -> Dict[str, Any]:
         root = Path(".")
         structure = {
             "root_files": [f.name for f in root.iterdir() if f.is_file()],
-            "src_dirs": [d.name for d in (root / "src").iterdir() if d.is_dir()] if (root / "src").exists() else []
+            "src_dirs": (
+                [d.name for d in (root / "src").iterdir() if d.is_dir()]
+                if (root / "src").exists()
+                else []
+            ),
         }
         return {"success": True, "structure": structure}

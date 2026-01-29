@@ -13,6 +13,7 @@ flake8>=6.0.0
 mypy>=1.0.0
 black>=23.0.0
 isort>=5.12.0
+pre-commit>=3.5.0
 
 # 安全检查
 bandit>=1.7.0
@@ -32,9 +33,6 @@ sphinx-rtd-theme>=1.2.0
 
 # 代码覆盖率
 coverage>=7.0.0
-
-# 并发测试
-concurrent-futures>=3.1.1
 
 # 依赖检查
 pip-audit>=2.5.0

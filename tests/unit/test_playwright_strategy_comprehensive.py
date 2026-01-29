@@ -6,25 +6,25 @@ Playwright策略全面测试
 测试PlaywrightStrategy的所有公共方法和核心私有方法
 """
 
-import pytest
-import tempfile
 import os
-import time
-import random
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, call
-from typing import Dict, List, Any
-
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.web.playwright_strategy import PlaywrightStrategy, is_test_environment
-from src.web.browser_strategy import BrowserAutomationStrategy
-from src.core.exceptions import (
-    WebDriverInitError, WebDriverTimeoutError, WebDriverCrashError,
-    ErrorCode, ErrorSeverity, RecoveryStrategy
-)
 from src.core.config import ConfigManager
+from src.core.exceptions import (
+    ErrorCode,
+    WebDriverInitError,
+    WebDriverTimeoutError,
+)
+from src.web.browser_strategy import BrowserAutomationStrategy
+from src.utils.browser_utils import is_test_environment
+from src.web.playwright_strategy import PlaywrightStrategy
 
 
 class TestPlaywrightStrategyComprehensive:
@@ -33,12 +33,13 @@ class TestPlaywrightStrategyComprehensive:
     def setup_method(self):
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.download_dir = os.path.join(self.temp_dir, 'downloads')
+        self.download_dir = os.path.join(self.temp_dir, "downloads")
         os.makedirs(self.download_dir, exist_ok=True)
 
     def teardown_method(self):
         """测试清理"""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     # ==================== 初始化测试 ====================
@@ -59,38 +60,34 @@ class TestPlaywrightStrategyComprehensive:
     def test_initialization_with_parameters(self):
         """测试带参数初始化"""
         config = {
-            'window_size': {'width': 1280, 'height': 720},
-            'timeout': 60000,
-            'max_downloads_per_session': 5,
-            'user_agents': ['Test-Agent/1.0']
+            "window_size": {"width": 1280, "height": 720},
+            "timeout": 60000,
+            "max_downloads_per_session": 5,
+            "user_agents": ["Test-Agent/1.0"],
         }
 
         strategy = PlaywrightStrategy(
-            headless=False,
-            download_dir=self.download_dir,
-            config=config
+            headless=False, download_dir=self.download_dir, config=config
         )
 
         assert strategy.headless is False
         assert strategy.download_dir == self.download_dir
         assert strategy.config == config
-        assert strategy.window_size == {'width': 1280, 'height': 720}
+        assert strategy.window_size == {"width": 1280, "height": 720}
         assert strategy.timeout == 60000
         assert strategy.max_downloads_per_session == 5
-        assert strategy._user_agents == ['Test-Agent/1.0']
+        assert strategy._user_agents == ["Test-Agent/1.0"]
 
     def test_initialization_with_config_manager(self):
         """测试配置管理器加载"""
         # 创建临时配置文件
-        config_file = os.path.join(self.temp_dir, 'test_config.json')
+        config_file = os.path.join(self.temp_dir, "test_config.json")
         test_config = {
-            "browser": {
-                "window_size": {"width": 1366, "height": 768},
-                "timeout": 45000
-            }
+            "browser": {"window_size": {"width": 1366, "height": 768}, "timeout": 45000}
         }
         import json
-        with open(config_file, 'w', encoding='utf-8') as f:
+
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(test_config, f, ensure_ascii=False, indent=2)
 
         # ConfigManager会从文件中加载配置
@@ -103,7 +100,7 @@ class TestPlaywrightStrategyComprehensive:
 
     # ==================== 浏览器创建测试 ====================
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_create_driver_success(self, mock_sync_playwright):
         """测试成功创建浏览器驱动"""
         # 设置mock
@@ -136,9 +133,11 @@ class TestPlaywrightStrategyComprehensive:
         mock_playwright_instance.chromium.launch.assert_called_once()
         mock_browser.new_context.assert_called_once()
         mock_context.new_page.assert_called_once()
-        mock_page.goto.assert_called_once_with('about:blank', wait_until='domcontentloaded')
+        mock_page.goto.assert_called_once_with(
+            "about:blank", wait_until="domcontentloaded"
+        )
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_create_driver_import_error(self, mock_sync_playwright):
         """测试导入Playwright失败"""
         mock_sync_playwright.side_effect = ImportError("Playwright not installed")
@@ -152,7 +151,7 @@ class TestPlaywrightStrategyComprehensive:
         assert "Playwright not installed" in str(exc_info.value)
         assert exc_info.value.error_code == ErrorCode.WEBDRIVER_INIT_ERROR
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_create_driver_timeout_error(self, mock_sync_playwright):
         """测试创建浏览器超时"""
         mock_sync_playwright_instance = MagicMock()
@@ -161,7 +160,9 @@ class TestPlaywrightStrategyComprehensive:
         # 模拟超时错误
         mock_playwright_instance = MagicMock()
         mock_sync_playwright_instance.start.return_value = mock_playwright_instance
-        mock_playwright_instance.chromium.launch.side_effect = Exception("timeout: browser launch timeout")
+        mock_playwright_instance.chromium.launch.side_effect = Exception(
+            "timeout: browser launch timeout"
+        )
 
         strategy = PlaywrightStrategy()
 
@@ -172,7 +173,7 @@ class TestPlaywrightStrategyComprehensive:
         assert "timeout" in str(exc_info.value).lower()
         assert exc_info.value.error_code == ErrorCode.WEBDRIVER_TIMEOUT_ERROR
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_create_driver_close_existing(self, mock_sync_playwright):
         """测试创建前关闭现有浏览器"""
         # 设置mock
@@ -195,7 +196,7 @@ class TestPlaywrightStrategyComprehensive:
         strategy.page = MagicMock()
 
         # 验证close会被调用
-        with patch.object(strategy, 'close') as mock_close:
+        with patch.object(strategy, "close") as mock_close:
             strategy.create_driver()
             mock_close.assert_called_once()
 
@@ -209,7 +210,9 @@ class TestPlaywrightStrategyComprehensive:
         result = strategy.navigate("https://example.com")
 
         assert result is True
-        strategy.page.goto.assert_called_once_with("https://example.com", wait_until='domcontentloaded', timeout=180000)
+        strategy.page.goto.assert_called_once_with(
+            "https://example.com", wait_until="domcontentloaded", timeout=180000
+        )
 
     def test_navigate_no_page(self):
         """测试无页面时导航失败"""
@@ -252,7 +255,9 @@ class TestPlaywrightStrategyComprehensive:
         elements = strategy.find_elements("//div[@class='test']", "xpath")
 
         assert elements == mock_elements
-        strategy.page.query_selector_all.assert_called_once_with("xpath=//div[@class='test']")
+        strategy.page.query_selector_all.assert_called_once_with(
+            "xpath=//div[@class='test']"
+        )
 
     def test_find_elements_no_page(self):
         """测试无页面时查找元素"""
@@ -317,7 +322,9 @@ class TestPlaywrightStrategyComprehensive:
 
         text = strategy.get_text(mock_element)
         assert text == "Sample Text"
-        mock_element.evaluate.assert_called_once_with('element => element.textContent?.trim() || ""')
+        mock_element.evaluate.assert_called_once_with(
+            'element => element.textContent?.trim() || ""'
+        )
 
     def test_get_text_no_element(self):
         """测试获取空元素文本"""
@@ -370,7 +377,9 @@ class TestPlaywrightStrategyComprehensive:
 
         result = strategy.wait_for_element(".test", timeout=5, condition="visible")
         assert result is True
-        strategy.page.wait_for_selector.assert_called_once_with(".test", state='visible', timeout=5000)
+        strategy.page.wait_for_selector.assert_called_once_with(
+            ".test", state="visible", timeout=5000
+        )
 
     def test_wait_for_element_hidden(self):
         """测试等待元素隐藏"""
@@ -379,7 +388,9 @@ class TestPlaywrightStrategyComprehensive:
 
         result = strategy.wait_for_element(".test", timeout=3, condition="hidden")
         assert result is True
-        strategy.page.wait_for_selector.assert_called_once_with(".test", state='hidden', timeout=3000)
+        strategy.page.wait_for_selector.assert_called_once_with(
+            ".test", state="hidden", timeout=3000
+        )
 
     def test_wait_for_element_default(self):
         """测试等待元素默认条件"""
@@ -388,7 +399,9 @@ class TestPlaywrightStrategyComprehensive:
 
         result = strategy.wait_for_element(".test", timeout=10)
         assert result is True
-        strategy.page.wait_for_selector.assert_called_once_with(".test", state='visible', timeout=10000)
+        strategy.page.wait_for_selector.assert_called_once_with(
+            ".test", state="visible", timeout=10000
+        )
 
     def test_wait_for_element_no_page(self):
         """测试无页面时等待元素"""
@@ -479,7 +492,7 @@ class TestPlaywrightStrategyComprehensive:
         strategy.user_data_dir = None
 
         # Mock time.sleep to speed up test
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             strategy.close()
 
         # 验证资源被关闭 (使用存储的mock引用)
@@ -505,7 +518,7 @@ class TestPlaywrightStrategyComprehensive:
         strategy.user_data_dir = None
 
         # Mock time.sleep to speed up test
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             strategy.close()
 
         # 只有browser应该被关闭 (使用存储的mock引用)
@@ -524,7 +537,7 @@ class TestPlaywrightStrategyComprehensive:
         strategy.user_data_dir = None
 
         # Mock time.sleep to speed up test
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             # 应该不会抛出异常
             strategy.close()
 
@@ -562,7 +575,7 @@ class TestPlaywrightStrategyComprehensive:
         # 根据实现，异常会被捕获并返回False
         assert result is False
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_restart_success(self, mock_sync_playwright):
         """测试重启成功"""
         # 设置mock
@@ -582,14 +595,14 @@ class TestPlaywrightStrategyComprehensive:
         strategy = PlaywrightStrategy()
 
         # 验证close会被调用
-        with patch.object(strategy, 'close') as mock_close:
+        with patch.object(strategy, "close") as mock_close:
             result = strategy.restart()
             assert result is True
             mock_close.assert_called_once()
             # create_driver会被调用，因为我们在mock中
             # 实际测试中，由于mock了sync_playwright，create_driver会成功
 
-    @patch('src.web.playwright_strategy.sync_playwright')
+    @patch("src.web.playwright_strategy.sync_playwright")
     def test_restart_failure(self, mock_sync_playwright):
         """测试重启失败"""
         mock_sync_playwright.side_effect = ImportError("Playwright not installed")
@@ -623,7 +636,7 @@ class TestPlaywrightStrategyComprehensive:
         save_path = os.path.join(self.temp_dir, "screenshot.png")
 
         # Mock open函数
-        with patch('builtins.open', create=True) as mock_open:
+        with patch("builtins.open", create=True) as mock_open:
             mock_file = MagicMock()
             mock_open.return_value.__enter__.return_value = mock_file
 
@@ -631,7 +644,7 @@ class TestPlaywrightStrategyComprehensive:
 
             assert result == screenshot_data
             strategy.page.screenshot.assert_called_once()
-            mock_open.assert_called_once_with(save_path, 'wb')
+            mock_open.assert_called_once_with(save_path, "wb")
             mock_file.write.assert_called_once_with(screenshot_data)
 
     def test_take_screenshot_no_page(self):
@@ -651,17 +664,21 @@ class TestPlaywrightStrategyComprehensive:
         mock_download = MagicMock()
 
         # Mock导航
-        with patch.object(strategy, 'navigate', return_value=True):
+        with patch.object(strategy, "navigate", return_value=True):
             # Mock查找元素
             mock_button = MagicMock()
-            with patch.object(strategy, 'find_element', return_value=mock_button):
+            with patch.object(strategy, "find_element", return_value=mock_button):
                 # Mock点击
-                with patch.object(strategy, 'click', return_value=True):
+                with patch.object(strategy, "click", return_value=True):
                     # Mock等待下载事件
-                    strategy.page.expect_download.return_value.__enter__.return_value.value = mock_download
+                    strategy.page.expect_download.return_value.__enter__.return_value.value = (
+                        mock_download
+                    )
 
                     save_path = os.path.join(self.download_dir, "test.pdf")
-                    result = strategy.download_file("https://example.com/file.pdf", save_path)
+                    result = strategy.download_file(
+                        "https://example.com/file.pdf", save_path
+                    )
 
                     assert result is True
                     mock_download.save_as.assert_called_once_with(save_path)
@@ -682,8 +699,10 @@ class TestPlaywrightStrategyComprehensive:
         # 模拟goto抛出异常（非下载触发）
         strategy.page.goto.side_effect = Exception("Navigation failed")
         # 模拟find_element也失败
-        with patch.object(strategy, 'find_element', return_value=None):
-            result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
+        with patch.object(strategy, "find_element", return_value=None):
+            result = strategy.download_file(
+                "https://example.com/file.pdf", "/tmp/test.pdf"
+            )
             assert result is False
 
     def test_download_file_find_element_failure(self):
@@ -695,9 +714,11 @@ class TestPlaywrightStrategyComprehensive:
         strategy.page.goto.return_value = None
         # 模拟expect_download超时
         strategy.page.expect_download.side_effect = Exception("Timeout")
-        
-        with patch.object(strategy, 'find_element', return_value=None):
-            result = strategy.download_file("https://example.com/file.pdf", "/tmp/test.pdf")
+
+        with patch.object(strategy, "find_element", return_value=None):
+            result = strategy.download_file(
+                "https://example.com/file.pdf", "/tmp/test.pdf"
+            )
             assert result is False
 
     # ==================== 翻页功能测试 ====================
@@ -714,7 +735,9 @@ class TestPlaywrightStrategyComprehensive:
         result = strategy.go_to_next_page()
         assert result is True
         mock_button.click.assert_called_once()
-        strategy.page.wait_for_load_state.assert_called_once_with('domcontentloaded', timeout=10000)
+        strategy.page.wait_for_load_state.assert_called_once_with(
+            "domcontentloaded", timeout=10000
+        )
 
     def test_go_to_next_page_no_page(self):
         """测试无页面时跳转下一页"""
@@ -778,17 +801,17 @@ class TestPlaywrightStrategyComprehensive:
         strategy = PlaywrightStrategy(
             headless=False,
             config={
-                'window_size': {'width': 1280, 'height': 720},
-                'user_agents': ['Test-Agent/1.0']
-            }
+                "window_size": {"width": 1280, "height": 720},
+                "user_agents": ["Test-Agent/1.0"],
+            },
         )
 
         options = strategy._build_launch_options()
 
-        assert options['headless'] is False
-        assert '--window-size=1280,720' in options['args']
-        assert any('--user-agent=Test-Agent/1.0' in arg for arg in options['args'])
-        assert '--no-sandbox' in options['args']
+        assert options["headless"] is False
+        assert "--window-size=1280,720" in options["args"]
+        assert any("--user-agent=Test-Agent/1.0" in arg for arg in options["args"])
+        assert "--no-sandbox" in options["args"]
 
     def test_build_context_options_with_download_dir(self):
         """测试构建带下载目录的上下文选项"""
@@ -796,9 +819,9 @@ class TestPlaywrightStrategyComprehensive:
 
         options = strategy._build_context_options()
 
-        assert options['viewport'] == {'width': 1920, 'height': 1080}
-        assert options['accept_downloads'] is True
-        assert 'user_agent' in options
+        assert options["viewport"] == {"width": 1920, "height": 1080}
+        assert options["accept_downloads"] is True
+        assert "user_agent" in options
 
     def test_build_context_options_no_download_dir(self):
         """测试无下载目录的上下文选项"""
@@ -806,7 +829,7 @@ class TestPlaywrightStrategyComprehensive:
 
         options = strategy._build_context_options()
 
-        assert 'accept_downloads' not in options
+        assert "accept_downloads" not in options
 
     # ==================== 环境检测测试 ====================
 
@@ -818,29 +841,29 @@ class TestPlaywrightStrategyComprehensive:
 
         try:
             # 测试正常环境
-            sys.argv = ['normal_script.py']
-            os.environ.pop('TEST_ENV', None)
-            os.environ.pop('PYTEST_CURRENT_TEST', None)
+            sys.argv = ["normal_script.py"]
+            os.environ.pop("TEST_ENV", None)
+            os.environ.pop("PYTEST_CURRENT_TEST", None)
             assert is_test_environment() is False
 
             # 测试TEST_ENV环境变量
-            os.environ['TEST_ENV'] = 'true'
+            os.environ["TEST_ENV"] = "true"
             assert is_test_environment() is True
 
             # 清理
-            os.environ.pop('TEST_ENV', None)
+            os.environ.pop("TEST_ENV", None)
 
             # 测试包含test的脚本名
-            sys.argv = ['test_script.py']
+            sys.argv = ["test_script.py"]
             assert is_test_environment() is True
 
             # 测试包含pytest的脚本名
-            sys.argv = ['pytest_runner.py']
+            sys.argv = ["pytest_runner.py"]
             assert is_test_environment() is True
 
             # 测试PYTEST_CURRENT_TEST环境变量
-            sys.argv = ['normal_script.py']
-            os.environ['PYTEST_CURRENT_TEST'] = 'test_function'
+            sys.argv = ["normal_script.py"]
+            os.environ["PYTEST_CURRENT_TEST"] = "test_function"
             assert is_test_environment() is True
 
         finally:
@@ -872,8 +895,8 @@ class TestPlaywrightStrategyComprehensive:
 
     # ==================== 集成测试 ====================
 
-    @patch('src.web.playwright_strategy.sync_playwright')
-    @patch('tempfile.mkdtemp')
+    @patch("src.web.playwright_strategy.sync_playwright")
+    @patch("tempfile.mkdtemp")
     def test_full_workflow(self, mock_mkdtemp, mock_sync_playwright):
         """测试完整工作流程"""
         # 设置mock
@@ -886,7 +909,9 @@ class TestPlaywrightStrategyComprehensive:
         mock_sync_playwright.return_value = mock_sync_playwright_instance
 
         # Mock persistent context (since download_dir is provided)
-        mock_playwright_instance.chromium.launch_persistent_context.return_value = mock_context
+        mock_playwright_instance.chromium.launch_persistent_context.return_value = (
+            mock_context
+        )
         mock_context.pages = [mock_page]
         mock_mkdtemp.return_value = "/tmp/playwright_user_test"
 
@@ -901,7 +926,9 @@ class TestPlaywrightStrategyComprehensive:
         # 2. 导航
         result = strategy.navigate("https://example.com")
         assert result is True
-        mock_page.goto.assert_called_with("https://example.com", wait_until='domcontentloaded', timeout=180000)
+        mock_page.goto.assert_called_with(
+            "https://example.com", wait_until="domcontentloaded", timeout=180000
+        )
 
         # 3. 查找元素
         mock_elements = [MagicMock(), MagicMock()]
@@ -914,7 +941,7 @@ class TestPlaywrightStrategyComprehensive:
         assert strategy.get_current_url() == "https://example.com"
 
         # 5. 关闭
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             strategy.close()
         assert strategy.browser is None
         assert strategy.page is None
@@ -925,6 +952,7 @@ class TestPlaywrightStrategyComprehensive:
     def test_performance_initialization(self):
         """测试初始化性能"""
         import time
+
         start_time = time.time()
         strategy = PlaywrightStrategy()
         end_time = time.time()
@@ -939,6 +967,7 @@ class TestPlaywrightStrategyComprehensive:
         strategy.page = MagicMock()
 
         import time
+
         iterations = 100
 
         # 测试简单方法调用性能

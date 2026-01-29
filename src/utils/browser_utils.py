@@ -5,8 +5,7 @@
 
 import os
 import sys
-from typing import List, Dict, Any
-from pathlib import Path
+from typing import Any, Dict, List
 
 
 def is_test_environment() -> bool:
@@ -17,10 +16,10 @@ def is_test_environment() -> bool:
         bool: True if in test environment, False otherwise
     """
     return (
-        os.environ.get('TEST_ENV') == 'true' or
-        'test' in sys.argv[0].lower() or
-        'pytest' in sys.argv[0].lower() or
-        os.environ.get('PYTEST_CURRENT_TEST') is not None
+        os.environ.get("TEST_ENV") == "true"
+        or "test" in sys.argv[0].lower()
+        or "pytest" in sys.argv[0].lower()
+        or os.environ.get("PYTEST_CURRENT_TEST") is not None
     )
 
 
@@ -32,11 +31,11 @@ def get_default_user_agents() -> List[str]:
         List[str]: List of user agent strings
     """
     return [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     ]
 
 
@@ -69,29 +68,29 @@ def get_common_chrome_args() -> List[str]:
         List[str]: List of Chrome launch arguments
     """
     return [
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-extensions',
-        '--disable-blink-features=AutomationControlled',
-        '--remote-debugging-port=0',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-sync',
-        '--disable-translate',
-        '--disable-default-apps',
-        '--disable-notifications',
-        '--disable-popup-blocking',
-        '--log-level=3',
-        '--disable-features=TranslateUI',
-        '--disable-component-extensions-with-background-pages',
-        '--disable-domain-reliability',
-        '--disable-setuid-sandbox',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-ipc-flooding-protection',
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-extensions",
+        "--disable-blink-features=AutomationControlled",
+        "--remote-debugging-port=0",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-sync",
+        "--disable-translate",
+        "--disable-default-apps",
+        "--disable-notifications",
+        "--disable-popup-blocking",
+        "--log-level=3",
+        "--disable-features=TranslateUI",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-domain-reliability",
+        "--disable-setuid-sandbox",
+        "--disable-features=VizDisplayCompositor",
+        "--disable-ipc-flooding-protection",
     ]
 
 
@@ -132,7 +131,7 @@ def get_temp_file_extensions() -> List[str]:
     Returns:
         List[str]: List of temporary file extensions
     """
-    return ['.tmp', '.crdownload']
+    return [".tmp", ".crdownload"]
 
 
 def get_pdf_extension() -> str:
@@ -142,7 +141,7 @@ def get_pdf_extension() -> str:
     Returns:
         str: PDF extension
     """
-    return '.pdf'
+    return ".pdf"
 
 
 def get_default_window_size() -> Dict[str, int]:
@@ -242,11 +241,7 @@ def get_retry_config() -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Retry configuration parameters
     """
-    return {
-        'max_retries': 3,
-        'base_delay': 1.0,
-        'backoff_factor': 2.0
-    }
+    return {"max_retries": 3, "base_delay": 1.0, "backoff_factor": 2.0}
 
 
 def get_anti_crawler_config() -> Dict[str, Any]:
@@ -257,11 +252,11 @@ def get_anti_crawler_config() -> Dict[str, Any]:
         Dict[str, Any]: Anti-crawler configuration parameters
     """
     return {
-        'min_delay': 2.0,
-        'max_delay': 8.0,
-        'max_downloads': 5,
-        'scroll_range': [200, 600],
-        'behavior_delay': [0.5, 1.5]
+        "min_delay": 2.0,
+        "max_delay": 8.0,
+        "max_downloads": 5,
+        "scroll_range": [200, 600],
+        "behavior_delay": [0.5, 1.5],
     }
 
 
@@ -272,8 +267,4 @@ def get_pagination_config() -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Pagination configuration parameters
     """
-    return {
-        'max_pages': 3,
-        'pagination_wait': 2,
-        'human_behavior_delay': 3
-    }
+    return {"max_pages": 3, "pagination_wait": 2, "human_behavior_delay": 3}

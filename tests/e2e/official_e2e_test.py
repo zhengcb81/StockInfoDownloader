@@ -7,16 +7,14 @@ Reserves the "e2e" term for this specific verification suite.
 Strictly implements all features required by the project specifications.
 """
 
-import sys
-import os
-import json
-import time
-import shutil
-import hashlib
-import subprocess
 import argparse
-from pathlib import Path
+import hashlib
+import json
+import os
+import shutil
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Path management
 current_file = Path(__file__).resolve()
@@ -28,6 +26,7 @@ legacy_tools_path = project_root / "src" / "tools" / "legacy"
 if str(legacy_tools_path) not in sys.path:
     sys.path.insert(0, str(legacy_tools_path))
 
+
 def log(message):
     """Simple log output, handling encoding issues"""
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -35,31 +34,43 @@ def log(message):
         print(f"[{timestamp}] {message}")
     except UnicodeEncodeError:
         try:
-            print(f"[{timestamp}] {message.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding)}")
+            print(
+                f"[{timestamp}] {message.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding)}"
+            )
         except:
-            print(f"[{timestamp}] {message.encode('ascii', errors='replace').decode('ascii')}")
+            print(
+                f"[{timestamp}] {message.encode('ascii', errors='replace').decode('ascii')}"
+            )
+
 
 def get_real_stock_name(stock_code):
     """Get real stock name using the legacy tool."""
     try:
         from get_stock_name import get_stock_name
+
         stock_name = get_stock_name(stock_code)
-        if not stock_name or stock_name.startswith('错误') or stock_name.startswith('网络'):
+        if (
+            not stock_name
+            or stock_name.startswith("错误")
+            or stock_name.startswith("网络")
+        ):
             return f"股票{stock_code}"
         return stock_name
     except Exception as e:
         log(f"Error getting stock name: {e}")
         return f"股票{stock_code}"
 
+
 def calculate_file_hash(file_path):
     """Calculate file MD5"""
     if not os.path.exists(file_path):
         return ""
     hasher = hashlib.md5()
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
+
 
 def compare_files(file1, file2):
     """Compare if two files are identical."""
@@ -69,25 +80,27 @@ def compare_files(file1, file2):
         return False
     return calculate_file_hash(file1) == calculate_file_hash(file2)
 
+
 def run_test_with_new_downloader(test_case, config, browser_strategy="playwright"):
-    """Run test with the unified downloader via adapter."""
+    """Run test with the unified downloader directly."""
     stock_code = test_case["stock_code"]
     log(f"\nTesting Official E2E: {stock_code} ({browser_strategy})")
-    
-    from src.factory.downloader_factory import downloader_factory
+
+    from src.services.unified_downloader import UnifiedDownloader
     from src.interfaces.downloader_interface import DownloadRequest
 
     try:
-        downloader = downloader_factory.create_legacy_adapter(
-            'download_service_v2',
-            save_dir=config["save_dir"],
-            browser_strategy=browser_strategy
-        )
+        # Create UnifiedDownloader directly
+        downloader_config = {
+            "save_dir": config["save_dir"],
+            "browser_strategy": browser_strategy,
+        }
+        downloader = UnifiedDownloader(downloader_config)
 
         stock_name = get_real_stock_name(stock_code)
-        
-        # Execute
-        result = downloader.download_stock_pdfs(
+
+        # Create DownloadRequest
+        request = DownloadRequest(
             stock_code=stock_code,
             stock_name=stock_name,
             suffix=test_case.get("suffix", "research"),
@@ -95,40 +108,35 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
             max_pages=test_case.get("max_pages", 5),
             timeout_seconds=test_case.get("timeout_seconds", 180),
             save_dir=config["save_dir"],
-            delete_later=False # Test script handles cleanup
         )
-        
-        # Handle different result types from adapters
+
+        # Execute download
+        result = downloader.download_stock_pdfs(request)
+
+        # Handle result from UnifiedDownloader
         success = False
         downloaded_count = 0
 
-        if isinstance(result, dict):
-            # Dictionary result (from BaseLegacyAdapter)
-            success = result.get('success', False)
-            downloaded_files = result.get('downloaded_files', [])
-            downloaded_count = len(downloaded_files) if downloaded_files else 0
-        elif isinstance(result, list):
-            # List result (from DownloadServiceV2Adapter)
-            # If we get here without exception, download was successful
-            success = True
-            downloaded_count = len(result) if result else 0
-        elif hasattr(result, 'success'):
-            # Object with success attribute
+        if hasattr(result, "success"):
             success = result.success
-            if hasattr(result, 'downloaded_files'):
-                downloaded_files = result.downloaded_files
-                downloaded_count = len(downloaded_files) if downloaded_files else 0
+            if hasattr(result, "downloaded_files"):
+                downloaded_count = len(result.downloaded_files)
+        elif isinstance(result, dict):
+            success = result.get("success", False)
+            downloaded_files = result.get("downloaded_files", [])
+            downloaded_count = len(downloaded_files) if downloaded_files else 0
 
         return {
             "stock_code": stock_code,
             "stock_name": stock_name,
             "success": success,
             "downloaded_files": downloaded_count,
-            "duration": 0 # Simplified
+            "duration": 0,  # Simplified
         }
     finally:
-        if 'downloader' in locals():
+        if "downloader" in locals():
             downloader.cleanup()
+
 
 def compare_directories(actual_dir, expected_dir):
     """
@@ -140,7 +148,7 @@ def compare_directories(actual_dir, expected_dir):
     """
     actual_path = Path(actual_dir)
     expected_path = Path(expected_dir)
-    
+
     if not actual_path.exists():
         return False, f"Actual directory does not exist: {actual_dir}"
     if not expected_path.exists():
@@ -148,7 +156,9 @@ def compare_directories(actual_dir, expected_dir):
 
     # Get all PDF files recursively
     actual_files = {f.relative_to(actual_path): f for f in actual_path.rglob("*.pdf")}
-    expected_files = {f.relative_to(expected_path): f for f in expected_path.rglob("*.pdf")}
+    expected_files = {
+        f.relative_to(expected_path): f for f in expected_path.rglob("*.pdf")
+    }
 
     # Get all subdirectories
     actual_subdirs = {d.name for d in actual_path.iterdir() if d.is_dir()}
@@ -170,19 +180,28 @@ def compare_directories(actual_dir, expected_dir):
 
     if extra_files or missing_files or extra_dirs:
         error_msg = []
-        if extra_files: error_msg.append(f"{len(extra_files)} extra file(s)")
-        if missing_files: error_msg.append(f"{len(missing_files)} missing file(s)")
-        if extra_dirs: error_msg.append(f"{len(extra_dirs)} extra directory(ies)")
+        if extra_files:
+            error_msg.append(f"{len(extra_files)} extra file(s)")
+        if missing_files:
+            error_msg.append(f"{len(missing_files)} missing file(s)")
+        if extra_dirs:
+            error_msg.append(f"{len(extra_dirs)} extra directory(ies)")
         return False, "Mismatch: " + " and ".join(error_msg)
 
-    return True, f"Perfect match: all {len(actual_rel_paths)} file(s) and directory structures are correct"
+    return (
+        True,
+        f"Perfect match: all {len(actual_rel_paths)} file(s) and directory structures are correct",
+    )
+
 
 def check_and_restore_expected_results(config):
     """
     Check if expected_results directory has been modified and restore if necessary.
     Returns True if directory is clean or was successfully restored.
     """
-    expected_dir = Path(config.get("expected_result_dir", "end2end_test/expected_results"))
+    expected_dir = Path(
+        config.get("expected_result_dir", "end2end_test/expected_results")
+    )
     test_cases = config.get("test_cases", [])
 
     if not expected_dir.exists():
@@ -191,10 +210,7 @@ def check_and_restore_expected_results(config):
 
     # Simple local mapping to avoid external dependencies
     def get_company_name_from_stock_code(stock_code):
-        mapping = {
-            "301611": "珂玛科技",
-            "300470": "中密控股"
-        }
+        mapping = {"301611": "珂玛科技", "300470": "中密控股"}
         return mapping.get(stock_code, f"股票{stock_code}")
 
     # Get expected company names from stock codes
@@ -307,23 +323,28 @@ def check_and_restore_expected_results(config):
         log("Expected_results directory is clean.")
         return True
 
+
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Official End-to-End Test')
-    parser.add_argument('--browser-strategy', choices=['selenium', 'playwright', 'both'],
-                       default='playwright', help='Browser strategy to use (default: playwright)')
+    parser = argparse.ArgumentParser(description="Official End-to-End Test")
+    parser.add_argument(
+        "--browser-strategy",
+        choices=["selenium", "playwright", "both"],
+        default="playwright",
+        help="Browser strategy to use (default: playwright)",
+    )
     args = parser.parse_args()
 
     browser_strategy = args.browser_strategy
     log(f"Starting Official End-to-End Test (browser strategy: {browser_strategy})")
 
-    config_file = 'config_e2e_official.json'
+    config_file = "config_e2e_official.json"
     if not os.path.exists(config_file):
         # Fallback to the one in root if not found (though it should be there)
-        config_file = 'config_e2e_official.json'
+        config_file = "config_e2e_official.json"
 
     try:
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
     except Exception as e:
         log(f"Failed to load config: {e}")
@@ -335,9 +356,10 @@ def main():
         log("Tests may fail due to missing expected files.")
 
     save_dir = Path(config["save_dir"])
-    
+
     # Use CleanerTool to prepare directory (preserving specific files)
     from tests.utils.cleaner_tool import CleanerTool
+
     log(f"Preparing test directory: {save_dir}")
     if save_dir.exists():
         cleaner = CleanerTool(str(save_dir))
@@ -351,19 +373,22 @@ def main():
         results.append(res)
 
     # Final Verification
-    comp_ok, msg = compare_directories(config["save_dir"], config["expected_result_dir"])
+    comp_ok, msg = compare_directories(
+        config["save_dir"], config["expected_result_dir"]
+    )
     log(f"Verification: {msg}")
-    
+
     # Generate official report
     report = {
         "timestamp": datetime.now().isoformat(),
         "overall_success": comp_ok,
-        "results": results
+        "results": results,
     }
     with open("e2e_official_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
-    
+
     return 0 if comp_ok else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

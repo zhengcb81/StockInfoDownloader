@@ -4,16 +4,16 @@
 """
 
 import sys
-from pathlib import Path
-from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.core.logger import get_logger
 from src.core.config import ConfigManager
+from src.core.logger import get_logger
 
 
 class BaseTool(ABC):
@@ -40,7 +40,6 @@ class BaseTool(ABC):
         Returns:
             Dict[str, Any]: 执行结果
         """
-        pass
 
     def validate_params(self, **kwargs) -> bool:
         """
@@ -79,18 +78,20 @@ class ValidationTool(BaseTool):
             Dict[str, Any]: 验证结果
         """
         # 统一的页面内容验证逻辑
-        org_id = kwargs.get('org_id')
+        org_id = kwargs.get("org_id")
         if not org_id:
             test_stock = self.config_manager.get_test_stock(stock_code)
-            org_id = test_stock.get('org_id')
+            org_id = test_stock.get("org_id")
 
         if not org_id:
-            return {'success': False, 'error': '无法获取组织ID'}
+            return {"success": False, "error": "无法获取组织ID"}
 
         return self._perform_validation(stock_code, org_id, **kwargs)
 
     @abstractmethod
-    def _perform_validation(self, stock_code: str, org_id: str, **kwargs) -> Dict[str, Any]:
+    def _perform_validation(
+        self, stock_code: str, org_id: str, **kwargs
+    ) -> Dict[str, Any]:
         """
         执行具体的验证操作
 
@@ -102,7 +103,6 @@ class ValidationTool(BaseTool):
         Returns:
             Dict[str, Any]: 验证结果
         """
-        pass
 
 
 class MonitoringTool(BaseTool):
@@ -119,18 +119,20 @@ class MonitoringTool(BaseTool):
         Returns:
             Dict[str, Any]: 监控结果
         """
-        org_id = kwargs.get('org_id')
+        org_id = kwargs.get("org_id")
         if not org_id:
             test_stock = self.config_manager.get_test_stock(stock_code)
-            org_id = test_stock.get('org_id')
+            org_id = test_stock.get("org_id")
 
         if not org_id:
-            return {'success': False, 'error': '无法获取组织ID'}
+            return {"success": False, "error": "无法获取组织ID"}
 
         return self._perform_monitoring(stock_code, org_id, **kwargs)
 
     @abstractmethod
-    def _perform_monitoring(self, stock_code: str, org_id: str, **kwargs) -> Dict[str, Any]:
+    def _perform_monitoring(
+        self, stock_code: str, org_id: str, **kwargs
+    ) -> Dict[str, Any]:
         """
         执行具体的监控操作
 
@@ -142,7 +144,6 @@ class MonitoringTool(BaseTool):
         Returns:
             Dict[str, Any]: 监控结果
         """
-        pass
 
 
 class DebugTool(BaseTool):
@@ -171,7 +172,6 @@ class DebugTool(BaseTool):
         Returns:
             Dict[str, Any]: 调试结果
         """
-        pass
 
 
 class ToolRegistry:
@@ -230,16 +230,16 @@ class ToolRegistry:
         """
         tool = cls.get_tool(name)
         if not tool:
-            return {'success': False, 'error': f'工具 {name} 不存在'}
+            return {"success": False, "error": f"工具 {name} 不存在"}
 
         try:
             if not tool.validate_params(**kwargs):
-                return {'success': False, 'error': '参数验证失败'}
+                return {"success": False, "error": "参数验证失败"}
 
             return tool.execute(**kwargs)
 
         except Exception as e:
-            return {'success': False, 'error': str(e)}
+            return {"success": False, "error": str(e)}
 
 
 class ToolManager:

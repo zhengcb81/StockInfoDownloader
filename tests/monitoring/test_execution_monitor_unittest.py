@@ -6,20 +6,25 @@ TestExecutionMonitor单元测试
 测试测试执行监控系统的核心功能
 """
 
-import time
-import tempfile
 import shutil
+import tempfile
+import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
+
 from src.core.monitoring.test_execution_monitor import (
     TestExecutionMonitor,
     TestExecutionRecord,
     TestStatus,
-    get_global_monitor,
-    start_monitoring_test,
-    end_monitoring_test
+)
+from src.core.monitoring.test_execution_monitor import (
+    end_monitoring_test as end_monitor_func,
+)
+from src.core.monitoring.test_execution_monitor import get_global_monitor
+from src.core.monitoring.test_execution_monitor import (
+    start_monitoring_test as start_monitor_func,
 )
 
 
@@ -32,7 +37,7 @@ class TestTestExecutionRecord:
             test_id="test_1",
             test_name="test_example",
             file_path="test_example.py",
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         assert record.test_id == "test_1"
@@ -49,7 +54,7 @@ class TestTestExecutionRecord:
             test_id="test_1",
             test_name="test_example",
             file_path="test_example.py",
-            start_time=time.time()
+            start_time=time.time(),
         )
 
         # 初始状态为PENDING，未完成
@@ -82,7 +87,7 @@ class TestTestExecutionRecord:
             test_id="test_1",
             test_name="test_example",
             file_path="test_example.py",
-            start_time=start_time
+            start_time=start_time,
         )
 
         # 标记开始
@@ -100,7 +105,7 @@ class TestTestExecutionRecord:
             test_id="test_1",
             test_name="test_example",
             file_path="test_example.py",
-            start_time=start_time
+            start_time=start_time,
         )
 
         # 标记开始
@@ -144,16 +149,14 @@ class TestTestExecutionMonitor:
         assert self.monitor.output_dir == self.temp_dir
         assert self.temp_dir.exists()
         assert len(self.monitor._records) == 0
-        assert self.monitor.stats['total_tests'] == 0
-        assert self.monitor.stats['passed_tests'] == 0
-        assert self.monitor.stats['failed_tests'] == 0
+        assert self.monitor.stats["total_tests"] == 0
+        assert self.monitor.stats["passed_tests"] == 0
+        assert self.monitor.stats["failed_tests"] == 0
 
     def test_start_test(self):
         """测试开始监控测试"""
         test_id = self.monitor.start_test(
-            test_id="test_1",
-            test_name="test_example",
-            file_path="test_example.py"
+            test_id="test_1", test_name="test_example", file_path="test_example.py"
         )
 
         # 应该返回test_id
@@ -171,15 +174,13 @@ class TestTestExecutionMonitor:
         assert record.start_time > 0
 
         # 统计信息应该更新
-        assert self.monitor.stats['total_tests'] == 1
+        assert self.monitor.stats["total_tests"] == 1
 
     def test_end_test(self):
         """测试结束监控测试"""
         # 先开始测试
         test_id = self.monitor.start_test(
-            test_id="test_1",
-            test_name="test_example",
-            file_path="test_example.py"
+            test_id="test_1", test_name="test_example", file_path="test_example.py"
         )
 
         # 等待一小段时间
@@ -188,9 +189,7 @@ class TestTestExecutionMonitor:
         # 结束测试
         error_message = "断言错误"
         self.monitor.end_test(
-            test_id=test_id,
-            status=TestStatus.FAILED,
-            error_message=error_message
+            test_id=test_id, status=TestStatus.FAILED, error_message=error_message
         )
 
         # 获取记录
@@ -203,18 +202,15 @@ class TestTestExecutionMonitor:
         assert record.error_message == error_message
 
         # 验证统计信息
-        assert self.monitor.stats['total_tests'] == 1
-        assert self.monitor.stats['failed_tests'] == 1
-        assert self.monitor.stats['passed_tests'] == 0
+        assert self.monitor.stats["total_tests"] == 1
+        assert self.monitor.stats["failed_tests"] == 1
+        assert self.monitor.stats["passed_tests"] == 0
 
     def test_end_test_nonexistent(self):
         """测试结束不存在的测试"""
         # 应该不会抛出异常，但会记录警告
-        with patch.object(self.monitor.logger, 'warning') as mock_warning:
-            self.monitor.end_test(
-                test_id="nonexistent",
-                status=TestStatus.PASSED
-            )
+        with patch.object(self.monitor.logger, "warning") as mock_warning:
+            self.monitor.end_test(test_id="nonexistent", status=TestStatus.PASSED)
 
             # 应该记录警告
             mock_warning.assert_called()
@@ -223,9 +219,7 @@ class TestTestExecutionMonitor:
         """测试获取测试状态"""
         # 开始并结束测试
         test_id = self.monitor.start_test(
-            test_id="test_1",
-            test_name="test_example",
-            file_path="test_example.py"
+            test_id="test_1", test_name="test_example", file_path="test_example.py"
         )
 
         time.sleep(0.01)
@@ -236,11 +230,11 @@ class TestTestExecutionMonitor:
 
         # 验证状态信息
         assert status is not None
-        assert status['test_id'] == test_id
-        assert status['test_name'] == "test_example"
-        assert status['file_path'] == "test_example.py"
-        assert status['status'] == TestStatus.PASSED.value
-        assert status['execution_time'] > 0
+        assert status["test_id"] == test_id
+        assert status["test_name"] == "test_example"
+        assert status["file_path"] == "test_example.py"
+        assert status["status"] == TestStatus.PASSED.value
+        assert status["execution_time"] > 0
 
     def test_get_test_status_nonexistent(self):
         """测试获取不存在的测试状态"""
@@ -256,7 +250,7 @@ class TestTestExecutionMonitor:
             self.monitor.start_test(
                 test_id=test_id,
                 test_name=f"test_example_{i}",
-                file_path="test_example.py"
+                file_path="test_example.py",
             )
             self.monitor.end_test(test_id, TestStatus.PASSED)
             test_ids.append(test_id)
@@ -269,7 +263,7 @@ class TestTestExecutionMonitor:
 
         # 验证每个状态
         for status in all_status:
-            assert status['test_id'] in test_ids
+            assert status["test_id"] in test_ids
 
     def test_get_stats(self):
         """测试获取统计信息"""
@@ -279,7 +273,7 @@ class TestTestExecutionMonitor:
             self.monitor.start_test(
                 test_id=test_id,
                 test_name=f"test_example_{i}",
-                file_path="test_example.py"
+                file_path="test_example.py",
             )
 
             # 分配不同的状态
@@ -297,21 +291,19 @@ class TestTestExecutionMonitor:
         stats = self.monitor.get_stats()
 
         # 验证统计信息
-        assert stats['total_tests'] == 5
+        assert stats["total_tests"] == 5
         # 成功率计算
-        completed = stats['passed_tests'] + stats['failed_tests']
+        completed = stats["passed_tests"] + stats["failed_tests"]
         if completed > 0:
-            assert stats['success_rate'] == stats['passed_tests'] / completed
+            assert stats["success_rate"] == stats["passed_tests"] / completed
         else:
-            assert stats['success_rate'] == 0.0
+            assert stats["success_rate"] == 0.0
 
     def test_generate_report(self):
         """测试生成报告"""
         # 创建测试数据
         test_id = self.monitor.start_test(
-            test_id="test_1",
-            test_name="test_example",
-            file_path="test_example.py"
+            test_id="test_1", test_name="test_example", file_path="test_example.py"
         )
         self.monitor.end_test(test_id, TestStatus.PASSED)
 
@@ -319,25 +311,23 @@ class TestTestExecutionMonitor:
         report = self.monitor.generate_report()
 
         # 验证报告结构
-        assert 'timestamp' in report
-        assert 'monitor_config' in report
-        assert 'test_statistics' in report
-        assert 'test_records' in report
-        assert 'performance_issues' in report
-        assert 'summary' in report
+        assert "timestamp" in report
+        assert "monitor_config" in report
+        assert "test_statistics" in report
+        assert "test_records" in report
+        assert "performance_issues" in report
+        assert "summary" in report
 
         # 验证统计数据
-        stats = report['test_statistics']
-        assert stats['total_tests'] == 1
-        assert stats['passed_tests'] == 1
+        stats = report["test_statistics"]
+        assert stats["total_tests"] == 1
+        assert stats["passed_tests"] == 1
 
     def test_save_report(self):
         """测试保存报告"""
         # 创建测试数据
         test_id = self.monitor.start_test(
-            test_id="test_1",
-            test_name="test_example",
-            file_path="test_example.py"
+            test_id="test_1", test_name="test_example", file_path="test_example.py"
         )
         self.monitor.end_test(test_id, TestStatus.PASSED)
 
@@ -349,7 +339,7 @@ class TestTestExecutionMonitor:
         assert report_file.exists()
 
         # 验证文件内容
-        with open(report_file, 'r', encoding='utf-8') as f:
+        with open(report_file, "r", encoding="utf-8") as f:
             content = f.read()
             assert '"total_tests"' in content  # 检查JSON内容
 
@@ -361,21 +351,21 @@ class TestTestExecutionMonitor:
             self.monitor.start_test(
                 test_id=test_id,
                 test_name=f"test_example_{i}",
-                file_path="test_example.py"
+                file_path="test_example.py",
             )
             self.monitor.end_test(test_id, TestStatus.PASSED)
 
         # 验证有记录
         assert len(self.monitor._records) == 3
-        assert self.monitor.stats['total_tests'] == 3
+        assert self.monitor.stats["total_tests"] == 3
 
         # 清除记录
         self.monitor.clear_records()
 
         # 验证记录已清除
         assert len(self.monitor._records) == 0
-        assert self.monitor.stats['total_tests'] == 0
-        assert self.monitor.stats['passed_tests'] == 0
+        assert self.monitor.stats["total_tests"] == 0
+        assert self.monitor.stats["passed_tests"] == 0
 
 
 class TestGlobalMonitorFunctions:
@@ -384,8 +374,9 @@ class TestGlobalMonitorFunctions:
     def setup_method(self):
         """每个测试方法前的设置"""
         # 重置全局监控器
-        from src.core.monitoring.test_execution_monitor import _global_monitor
-        _global_monitor = None
+        import src.core.monitoring.test_execution_monitor as monitor_module
+
+        monitor_module._global_monitor = None
 
     def test_get_global_monitor(self):
         """测试获取全局监控器"""
@@ -397,7 +388,7 @@ class TestGlobalMonitorFunctions:
 
     def test_start_monitoring_test(self):
         """测试开始监控测试便捷函数"""
-        test_id = start_monitoring_test("test_example", "test_example.py")
+        test_id = start_monitor_func("test_example", "test_example.py")
 
         # 应该返回test_id
         assert test_id == "test_example.py::test_example"
@@ -408,8 +399,8 @@ class TestGlobalMonitorFunctions:
 
     def test_end_monitoring_test(self):
         """测试结束监控测试便捷函数"""
-        test_id = start_monitoring_test("test_example", "test_example.py")
-        end_monitoring_test(test_id, TestStatus.PASSED)
+        test_id = start_monitor_func("test_example", "test_example.py")
+        end_monitor_func(test_id, TestStatus.PASSED)
 
         # 验证状态更新
         monitor = get_global_monitor()
@@ -419,8 +410,8 @@ class TestGlobalMonitorFunctions:
     def test_save_monitoring_report(self):
         """测试保存监控报告便捷函数"""
         # 创建测试数据
-        test_id = start_monitoring_test("test_example", "test_example.py")
-        end_monitoring_test(test_id, TestStatus.PASSED)
+        test_id = start_monitor_func("test_example", "test_example.py")
+        end_monitor_func(test_id, TestStatus.PASSED)
 
         # 保存报告
         report_path = get_global_monitor().save_report()
@@ -432,15 +423,15 @@ class TestGlobalMonitorFunctions:
     def test_get_monitoring_stats(self):
         """测试获取监控统计信息便捷函数"""
         # 创建测试数据
-        test_id = start_monitoring_test("test_example", "test_example.py")
-        end_monitoring_test(test_id, TestStatus.PASSED)
+        test_id = start_monitor_func("test_example", "test_example.py")
+        end_monitor_func(test_id, TestStatus.PASSED)
 
         # 获取统计信息
         stats = get_global_monitor().get_stats()
 
         # 验证统计信息
-        assert stats['total_tests'] == 1
-        assert stats['passed_tests'] == 1
+        assert stats["total_tests"] == 1
+        assert stats["passed_tests"] == 1
 
 
 if __name__ == "__main__":

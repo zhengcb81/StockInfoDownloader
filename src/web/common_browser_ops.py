@@ -9,42 +9,41 @@
 """
 
 import random
-from typing import Dict, Any, List, Optional
-
+from typing import Any, Dict, List, Optional
 
 # 基础浏览器启动参数（Selenium和Playwright通用）
 BROWSER_BASE_ARGS = [
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--disable-extensions',
-    '--disable-blink-features=AutomationControlled',
-    '--remote-debugging-port=0',
-    '--no-first-run',
-    '--no-default-browser-check',
-    '--disable-background-timer-throttling',
-    '--disable-backgrounding-occluded-windows',
-    '--disable-renderer-backgrounding',
-    '--disable-sync',
-    '--disable-translate',
-    '--disable-default-apps',
-    '--disable-notifications',
-    '--disable-popup-blocking',
-    '--log-level=3',
-    '--disable-features=TranslateUI',
-    '--disable-component-extensions-with-background-pages',
-    '--disable-domain-reliability',
-    '--disable-setuid-sandbox',
-    '--disable-features=VizDisplayCompositor',
-    '--disable-ipc-flooding-protection',
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--disable-blink-features=AutomationControlled",
+    "--remote-debugging-port=0",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-sync",
+    "--disable-translate",
+    "--disable-default-apps",
+    "--disable-notifications",
+    "--disable-popup-blocking",
+    "--log-level=3",
+    "--disable-features=TranslateUI",
+    "--disable-component-extensions-with-background-pages",
+    "--disable-domain-reliability",
+    "--disable-setuid-sandbox",
+    "--disable-features=VizDisplayCompositor",
+    "--disable-ipc-flooding-protection",
 ]
 
 
 # 默认User-Agent列表
 DEFAULT_USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
 ]
 
 
@@ -79,26 +78,26 @@ class CommonBrowserConfig:
             标准化的字典格式 {'width': 1920, 'height': 1080}
         """
         if size is None:
-            return {'width': 1920, 'height': 1080}
+            return {"width": 1920, "height": 1080}
 
         if isinstance(size, str):
             # "1920,1080" -> {'width': 1920, 'height': 1080}
             try:
-                w, h = size.split(',')
-                return {'width': int(w.strip()), 'height': int(h.strip())}
+                w, h = size.split(",")
+                return {"width": int(w.strip()), "height": int(h.strip())}
             except (ValueError, AttributeError):
-                return {'width': 1920, 'height': 1080}
+                return {"width": 1920, "height": 1080}
 
         if isinstance(size, dict):
             # 确保键名正确
-            width = size.get('width', 1920)
-            height = size.get('height', 1080)
-            return {'width': int(width), 'height': int(height)}
+            width = size.get("width", 1920)
+            height = size.get("height", 1080)
+            return {"width": int(width), "height": int(height)}
 
         if isinstance(size, (list, tuple)) and len(size) >= 2:
-            return {'width': int(size[0]), 'height': int(size[1])}
+            return {"width": int(size[0]), "height": int(size[1])}
 
-        return {'width': 1920, 'height': 1080}
+        return {"width": 1920, "height": 1080}
 
     @staticmethod
     def normalize_timeout(timeout: Any) -> int:
@@ -123,7 +122,9 @@ class CommonBrowserConfig:
         return timeout
 
     @staticmethod
-    def build_selenium_preferences(download_dir: Optional[str] = None) -> Dict[str, Any]:
+    def build_selenium_preferences(
+        download_dir: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         构建Selenium下载偏好设置
 
@@ -160,7 +161,9 @@ class CommonBrowserConfig:
         }
 
     @staticmethod
-    def build_playwright_context_options(download_dir: Optional[str] = None) -> Dict[str, Any]:
+    def build_playwright_context_options(
+        download_dir: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         构建Playwright上下文选项
 
@@ -173,14 +176,14 @@ class CommonBrowserConfig:
         import os
 
         options = {
-            'java_script_enabled': True,
-            'ignore_https_errors': False,
+            "java_script_enabled": True,
+            "ignore_https_errors": False,
         }
 
         if download_dir:
             abs_download_dir = os.path.abspath(download_dir)
             os.makedirs(abs_download_dir, exist_ok=True)
-            options['accept_downloads'] = True
+            options["accept_downloads"] = True
 
         return options
 
@@ -218,7 +221,9 @@ class CommonBrowserOperations:
             print(f"[CommonOps] find_and_click失败: {e}")
             return False
 
-    def get_element_text(self, selector: str, by: str = "css", timeout: int = 10) -> str:
+    def get_element_text(
+        self, selector: str, by: str = "css", timeout: int = 10
+    ) -> str:
         """
         获取元素文本（通用操作）
 
@@ -239,7 +244,9 @@ class CommonBrowserOperations:
             print(f"[CommonOps] get_element_text失败: {e}")
             return ""
 
-    def navigate_and_wait(self, url: str, wait_selector: str = "body", timeout: int = 30) -> bool:
+    def navigate_and_wait(
+        self, url: str, wait_selector: str = "body", timeout: int = 30
+    ) -> bool:
         """
         导航到页面并等待加载（通用操作）
 
@@ -253,7 +260,9 @@ class CommonBrowserOperations:
         """
         try:
             if self.strategy.navigate_to_page(url):
-                return self.strategy.wait_for_element(wait_selector, timeout) is not None
+                return (
+                    self.strategy.wait_for_element(wait_selector, timeout) is not None
+                )
             return False
         except Exception as e:
             print(f"[CommonOps] navigate_and_wait失败: {e}")
@@ -339,7 +348,9 @@ class CommonBrowserOperations:
             print(f"[CommonOps] get_page_content失败: {e}")
             return ""
 
-    def is_element_visible(self, selector: str, by: str = "css", timeout: int = 5) -> bool:
+    def is_element_visible(
+        self, selector: str, by: str = "css", timeout: int = 5
+    ) -> bool:
         """
         检查元素是否可见（通用操作）
 
@@ -375,23 +386,29 @@ class BrowserConfigNormalizer:
         normalized = {}
 
         # 窗口大小
-        window_size = CommonBrowserConfig.normalize_window_size(config.get('window_size'))
-        normalized['window_size'] = f"{window_size['width']},{window_size['height']}"
+        window_size = CommonBrowserConfig.normalize_window_size(
+            config.get("window_size")
+        )
+        normalized["window_size"] = f"{window_size['width']},{window_size['height']}"
 
         # 超时
-        timeout = CommonBrowserConfig.normalize_timeout(config.get('timeout'))
-        normalized['timeout'] = timeout
-        normalized['page_load_timeout'] = timeout
-        normalized['implicit_wait'] = config.get('implicit_wait', 3)
+        timeout = CommonBrowserConfig.normalize_timeout(config.get("timeout"))
+        normalized["timeout"] = timeout
+        normalized["page_load_timeout"] = timeout
+        normalized["implicit_wait"] = config.get("implicit_wait", 3)
 
         # User-Agent
-        normalized['user_agents'] = config.get('user_agents', CommonBrowserConfig.get_default_user_agents())
+        normalized["user_agents"] = config.get(
+            "user_agents", CommonBrowserConfig.get_default_user_agents()
+        )
 
         # 下载目录
-        normalized['download_dir'] = config.get('download_dir')
+        normalized["download_dir"] = config.get("download_dir")
 
         # 其他配置
-        normalized['max_downloads_per_session'] = config.get('max_downloads_per_session', 10)
+        normalized["max_downloads_per_session"] = config.get(
+            "max_downloads_per_session", 10
+        )
 
         return normalized
 
@@ -409,20 +426,26 @@ class BrowserConfigNormalizer:
         normalized = {}
 
         # 窗口大小
-        normalized['window_size'] = CommonBrowserConfig.normalize_window_size(config.get('window_size'))
+        normalized["window_size"] = CommonBrowserConfig.normalize_window_size(
+            config.get("window_size")
+        )
 
         # 超时（转换为毫秒）
-        timeout = CommonBrowserConfig.normalize_timeout(config.get('timeout'))
-        normalized['timeout'] = timeout * 1000  # Playwright使用毫秒
+        timeout = CommonBrowserConfig.normalize_timeout(config.get("timeout"))
+        normalized["timeout"] = timeout * 1000  # Playwright使用毫秒
 
         # User-Agent
-        normalized['user_agents'] = config.get('user_agents', CommonBrowserConfig.get_default_user_agents())
+        normalized["user_agents"] = config.get(
+            "user_agents", CommonBrowserConfig.get_default_user_agents()
+        )
 
         # 下载目录
-        normalized['download_dir'] = config.get('download_dir')
+        normalized["download_dir"] = config.get("download_dir")
 
         # 其他配置
-        normalized['max_downloads_per_session'] = config.get('max_downloads_per_session', 10)
+        normalized["max_downloads_per_session"] = config.get(
+            "max_downloads_per_session", 10
+        )
 
         return normalized
 
@@ -449,9 +472,9 @@ def normalize_config_for_engine(engine: str, config: Dict[str, Any]) -> Dict[str
     Returns:
         标准化后的配置
     """
-    if engine == 'selenium':
+    if engine == "selenium":
         return BrowserConfigNormalizer.normalize_for_selenium(config)
-    elif engine == 'playwright':
+    elif engine == "playwright":
         return BrowserConfigNormalizer.normalize_for_playwright(config)
     else:
         raise ValueError(f"不支持的引擎: {engine}")

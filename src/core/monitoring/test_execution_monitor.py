@@ -6,15 +6,16 @@
 监控测试执行时间、资源使用和性能指标
 """
 
-import time
-import psutil
-import threading
 import json
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+import threading
+import time
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 from src.core.logger import get_logger
 
@@ -23,6 +24,7 @@ logger = get_logger(__name__)
 
 class TestStatus(Enum):
     """测试状态枚举"""
+
     PENDING = "pending"
     RUNNING = "running"
     PASSED = "passed"
@@ -34,6 +36,7 @@ class TestStatus(Enum):
 @dataclass
 class TestExecutionRecord:
     """测试执行记录"""
+
     test_id: str
     test_name: str
     file_path: str
@@ -49,7 +52,12 @@ class TestExecutionRecord:
     @property
     def is_completed(self) -> bool:
         """测试是否完成"""
-        return self.status in [TestStatus.PASSED, TestStatus.FAILED, TestStatus.SKIPPED, TestStatus.ERROR]
+        return self.status in [
+            TestStatus.PASSED,
+            TestStatus.FAILED,
+            TestStatus.SKIPPED,
+            TestStatus.ERROR,
+        ]
 
     def mark_started(self):
         """标记测试开始"""
@@ -89,23 +97,23 @@ class TestExecutionMonitor:
 
         # 监控配置
         self.config = {
-            'max_execution_time': 60.0,  # 最大执行时间（秒）
-            'max_memory_usage': 500.0,   # 最大内存使用（MB）
-            'max_cpu_usage': 80.0,       # 最大CPU使用率（%）
-            'enable_resource_monitoring': True
+            "max_execution_time": 60.0,  # 最大执行时间（秒）
+            "max_memory_usage": 500.0,  # 最大内存使用（MB）
+            "max_cpu_usage": 80.0,  # 最大CPU使用率（%）
+            "enable_resource_monitoring": True,
         }
 
         # 统计信息
         self.stats = {
-            'total_tests': 0,
-            'passed_tests': 0,
-            'failed_tests': 0,
-            'skipped_tests': 0,
-            'error_tests': 0,
-            'total_execution_time': 0.0,
-            'average_execution_time': 0.0,
-            'slow_tests': [],
-            'resource_intensive_tests': []
+            "total_tests": 0,
+            "passed_tests": 0,
+            "failed_tests": 0,
+            "skipped_tests": 0,
+            "error_tests": 0,
+            "total_execution_time": 0.0,
+            "average_execution_time": 0.0,
+            "slow_tests": [],
+            "resource_intensive_tests": [],
         }
 
         self.logger.info("测试执行监控器初始化完成")
@@ -117,17 +125,19 @@ class TestExecutionMonitor:
                 test_id=test_id,
                 test_name=test_name,
                 file_path=file_path,
-                start_time=time.time()
+                start_time=time.time(),
             )
             record.mark_started()
             self._records[test_id] = record
 
-            self.stats['total_tests'] += 1
+            self.stats["total_tests"] += 1
 
             self.logger.debug(f"开始监控测试: {test_name}")
             return test_id
 
-    def end_test(self, test_id: str, status: TestStatus, error_message: Optional[str] = None):
+    def end_test(
+        self, test_id: str, status: TestStatus, error_message: Optional[str] = None
+    ):
         """结束监控测试"""
         with self._lock:
             if test_id not in self._records:
@@ -148,49 +158,58 @@ class TestExecutionMonitor:
     def _update_stats(self, record: TestExecutionRecord):
         """更新统计信息"""
         if record.status == TestStatus.PASSED:
-            self.stats['passed_tests'] += 1
+            self.stats["passed_tests"] += 1
         elif record.status == TestStatus.FAILED:
-            self.stats['failed_tests'] += 1
+            self.stats["failed_tests"] += 1
         elif record.status == TestStatus.SKIPPED:
-            self.stats['skipped_tests'] += 1
+            self.stats["skipped_tests"] += 1
         elif record.status == TestStatus.ERROR:
-            self.stats['error_tests'] += 1
+            self.stats["error_tests"] += 1
 
-        self.stats['total_execution_time'] += record.execution_time
+        self.stats["total_execution_time"] += record.execution_time
 
         # 计算平均执行时间
-        completed_tests = (self.stats['passed_tests'] + self.stats['failed_tests'] +
-                          self.stats['error_tests'])
+        completed_tests = (
+            self.stats["passed_tests"]
+            + self.stats["failed_tests"]
+            + self.stats["error_tests"]
+        )
         if completed_tests > 0:
-            self.stats['average_execution_time'] = (
-                self.stats['total_execution_time'] / completed_tests
+            self.stats["average_execution_time"] = (
+                self.stats["total_execution_time"] / completed_tests
             )
 
     def _check_performance_issues(self, record: TestExecutionRecord):
         """检查性能问题"""
         # 检查执行时间过长
-        if record.execution_time > self.config['max_execution_time']:
-            self.stats['slow_tests'].append({
-                'test_name': record.test_name,
-                'execution_time': record.execution_time,
-                'file_path': record.file_path
-            })
+        if record.execution_time > self.config["max_execution_time"]:
+            self.stats["slow_tests"].append(
+                {
+                    "test_name": record.test_name,
+                    "execution_time": record.execution_time,
+                    "file_path": record.file_path,
+                }
+            )
 
         # 检查资源使用过高
-        if self.config['enable_resource_monitoring']:
-            if record.memory_usage > self.config['max_memory_usage']:
-                self.stats['resource_intensive_tests'].append({
-                    'test_name': record.test_name,
-                    'memory_usage': record.memory_usage,
-                    'file_path': record.file_path
-                })
+        if self.config["enable_resource_monitoring"]:
+            if record.memory_usage > self.config["max_memory_usage"]:
+                self.stats["resource_intensive_tests"].append(
+                    {
+                        "test_name": record.test_name,
+                        "memory_usage": record.memory_usage,
+                        "file_path": record.file_path,
+                    }
+                )
 
-            if record.cpu_usage > self.config['max_cpu_usage']:
-                self.stats['resource_intensive_tests'].append({
-                    'test_name': record.test_name,
-                    'cpu_usage': record.cpu_usage,
-                    'file_path': record.file_path
-                })
+            if record.cpu_usage > self.config["max_cpu_usage"]:
+                self.stats["resource_intensive_tests"].append(
+                    {
+                        "test_name": record.test_name,
+                        "cpu_usage": record.cpu_usage,
+                        "file_path": record.file_path,
+                    }
+                )
 
     def get_test_status(self, test_id: str) -> Optional[Dict[str, Any]]:
         """获取测试状态"""
@@ -200,16 +219,16 @@ class TestExecutionMonitor:
                 return None
 
             return {
-                'test_id': record.test_id,
-                'test_name': record.test_name,
-                'file_path': record.file_path,
-                'status': record.status.value,
-                'execution_time': record.execution_time,
-                'memory_usage': record.memory_usage,
-                'cpu_usage': record.cpu_usage,
-                'start_time': record.start_time,
-                'end_time': record.end_time,
-                'error_message': record.error_message
+                "test_id": record.test_id,
+                "test_name": record.test_name,
+                "file_path": record.file_path,
+                "status": record.status.value,
+                "execution_time": record.execution_time,
+                "memory_usage": record.memory_usage,
+                "cpu_usage": record.cpu_usage,
+                "start_time": record.start_time,
+                "end_time": record.end_time,
+                "error_message": record.error_message,
             }
 
     def get_all_test_status(self) -> List[Dict[str, Any]]:
@@ -223,12 +242,17 @@ class TestExecutionMonitor:
             stats_copy = self.stats.copy()
 
             # 计算成功率
-            total_completed = (stats_copy['passed_tests'] + stats_copy['failed_tests'] +
-                             stats_copy['error_tests'])
+            total_completed = (
+                stats_copy["passed_tests"]
+                + stats_copy["failed_tests"]
+                + stats_copy["error_tests"]
+            )
             if total_completed > 0:
-                stats_copy['success_rate'] = stats_copy['passed_tests'] / total_completed
+                stats_copy["success_rate"] = (
+                    stats_copy["passed_tests"] / total_completed
+                )
             else:
-                stats_copy['success_rate'] = 0.0
+                stats_copy["success_rate"] = 0.0
 
             return stats_copy
 
@@ -236,19 +260,19 @@ class TestExecutionMonitor:
         """生成监控报告"""
         with self._lock:
             report = {
-                'timestamp': datetime.now().isoformat(),
-                'monitor_config': self.config,
-                'test_statistics': self.get_stats(),
-                'test_records': [asdict(record) for record in self._records.values()],
-                'performance_issues': {
-                    'slow_tests': self.stats['slow_tests'],
-                    'resource_intensive_tests': self.stats['resource_intensive_tests']
+                "timestamp": datetime.now().isoformat(),
+                "monitor_config": self.config,
+                "test_statistics": self.get_stats(),
+                "test_records": [asdict(record) for record in self._records.values()],
+                "performance_issues": {
+                    "slow_tests": self.stats["slow_tests"],
+                    "resource_intensive_tests": self.stats["resource_intensive_tests"],
                 },
-                'summary': {
-                    'total_tests_monitored': len(self._records),
-                    'monitoring_duration': self._calculate_monitoring_duration(),
-                    'overall_status': self._calculate_overall_status()
-                }
+                "summary": {
+                    "total_tests_monitored": len(self._records),
+                    "monitoring_duration": self._calculate_monitoring_duration(),
+                    "overall_status": self._calculate_overall_status(),
+                },
             }
 
             return report
@@ -259,7 +283,9 @@ class TestExecutionMonitor:
             return 0.0
 
         start_times = [record.start_time for record in self._records.values()]
-        end_times = [record.end_time for record in self._records.values() if record.end_time]
+        end_times = [
+            record.end_time for record in self._records.values() if record.end_time
+        ]
 
         if not end_times:
             return time.time() - min(start_times)
@@ -270,12 +296,12 @@ class TestExecutionMonitor:
         """计算总体状态"""
         stats = self.get_stats()
 
-        if stats['failed_tests'] > 0 or stats['error_tests'] > 0:
-            return 'FAILED'
-        elif stats['passed_tests'] == stats['total_tests']:
-            return 'PASSED'
+        if stats["failed_tests"] > 0 or stats["error_tests"] > 0:
+            return "FAILED"
+        elif stats["passed_tests"] == stats["total_tests"]:
+            return "PASSED"
         else:
-            return 'PARTIAL'
+            return "PARTIAL"
 
     def save_report(self, filename: Optional[str] = None):
         """保存监控报告"""
@@ -301,7 +327,7 @@ class TestExecutionMonitor:
 
             report = convert_enums(report)
 
-            with open(report_path, 'w', encoding='utf-8') as f:
+            with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
 
             self.logger.info(f"测试执行报告已保存到: {report_path}")
@@ -316,15 +342,15 @@ class TestExecutionMonitor:
         with self._lock:
             self._records.clear()
             self.stats = {
-                'total_tests': 0,
-                'passed_tests': 0,
-                'failed_tests': 0,
-                'skipped_tests': 0,
-                'error_tests': 0,
-                'total_execution_time': 0.0,
-                'average_execution_time': 0.0,
-                'slow_tests': [],
-                'resource_intensive_tests': []
+                "total_tests": 0,
+                "passed_tests": 0,
+                "failed_tests": 0,
+                "skipped_tests": 0,
+                "error_tests": 0,
+                "total_execution_time": 0.0,
+                "average_execution_time": 0.0,
+                "slow_tests": [],
+                "resource_intensive_tests": [],
             }
 
 
@@ -347,7 +373,9 @@ def start_monitoring_test(test_name: str, file_path: str) -> str:
     return monitor.start_test(test_id, test_name, file_path)
 
 
-def end_monitoring_test(test_id: str, status: TestStatus, error_message: Optional[str] = None):
+def end_monitoring_test(
+    test_id: str, status: TestStatus, error_message: Optional[str] = None
+):
     """结束监控测试（便捷函数）"""
     monitor = get_global_monitor()
     monitor.end_test(test_id, status, error_message)
@@ -380,15 +408,14 @@ def test_monitor():
         file_path = request.node.fspath.strpath
         test_id = start_monitoring_test(test_name, file_path)
 
-    def _end_monitoring(request, status: TestStatus, error_message: Optional[str] = None):
+    def _end_monitoring(
+        request, status: TestStatus, error_message: Optional[str] = None
+    ):
         nonlocal test_id
         if test_id:
             end_monitoring_test(test_id, status, error_message)
 
-    return {
-        'start': _start_monitoring,
-        'end': _end_monitoring
-    }
+    return {"start": _start_monitoring, "end": _end_monitoring}
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -397,13 +424,13 @@ def pytest_runtest_protocol(item, nextitem):
     # 获取监控fixture
     monitor_fixture = None
     try:
-        monitor_fixture = item.funcargs.get('test_monitor')
+        monitor_fixture = item.funcargs.get("test_monitor")
     except Exception:
         pass
 
     # 开始监控
     if monitor_fixture:
-        monitor_fixture['start'](item)
+        monitor_fixture["start"](item)
 
     # 执行测试
     result = yield
@@ -411,20 +438,20 @@ def pytest_runtest_protocol(item, nextitem):
     # 结束监控
     if monitor_fixture:
         # 根据测试结果确定状态
-        if hasattr(item, '_test_outcome') and item._test_outcome:
+        if hasattr(item, "_test_outcome") and item._test_outcome:
             outcome = item._test_outcome.outcome
-            if outcome == 'passed':
+            if outcome == "passed":
                 status = TestStatus.PASSED
-            elif outcome == 'failed':
+            elif outcome == "failed":
                 status = TestStatus.FAILED
-            elif outcome == 'skipped':
+            elif outcome == "skipped":
                 status = TestStatus.SKIPPED
             else:
                 status = TestStatus.ERROR
         else:
             status = TestStatus.ERROR
 
-        monitor_fixture['end'](item, status)
+        monitor_fixture["end"](item, status)
 
 
 if __name__ == "__main__":

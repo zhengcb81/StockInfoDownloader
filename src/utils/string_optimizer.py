@@ -4,8 +4,7 @@
 """
 
 import re
-from typing import Optional, List, Dict, Any
-from functools import lru_cache
+from typing import Any, Dict, Optional
 
 from src.core.logger import get_logger
 
@@ -29,37 +28,30 @@ class StringOptimizer:
         # 文件名和路径相关模式
         self.patterns = {
             # 文件名非法字符
-            'filename_chars': re.compile(r'[\\/:*?"<>|]'),
-            'path_separator': re.compile(r'[\\\/]+'),
-
+            "filename_chars": re.compile(r'[\\/:*?"<>|]'),
+            "path_separator": re.compile(r"[\\\/]+"),
             # 股票代码验证
-            'stock_code': re.compile(r'^\d{6}$'),
-            'org_id': re.compile(r'^99\d{8}$'),
-
+            "stock_code": re.compile(r"^\d{6}$"),
+            "org_id": re.compile(r"^99\d{8}$"),
             # 公司名称验证
-            'company_name': re.compile(r'^[\u4e00-\u9fa5a-zA-Z0-9\s\(\)（）\-\.·]+$'),
-
+            "company_name": re.compile(r"^[\u4e00-\u9fa5a-zA-Z0-9\s\(\)（）\-\.·]+$"),
             # 分页信息提取
-            'pagination_current': re.compile(r'(\d+)\s*/\s*(\d+)'),
-            'pagination_total': re.compile(r'共\s*(\d+)\s*页'),
-
+            "pagination_current": re.compile(r"(\d+)\s*/\s*(\d+)"),
+            "pagination_total": re.compile(r"共\s*(\d+)\s*页"),
             # 邮箱和电话验证
-            'email': re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'),
-            'phone': re.compile(r'^1[3-9]\d{9}$'),
-            'phone_with_dash': re.compile(r'^\d{3}-\d{4}-\d{4}$'),
-
+            "email": re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"),
+            "phone": re.compile(r"^1[3-9]\d{9}$"),
+            "phone_with_dash": re.compile(r"^\d{3}-\d{4}-\d{4}$"),
             # URL和路径处理
-            'windows_path': re.compile(r'[A-Za-z]:\\[^\\]+\\'),
-            'unix_path': re.compile(r'/[^/\s]+/[^/\s]+/'),
-
+            "windows_path": re.compile(r"[A-Za-z]:\\[^\\]+\\"),
+            "unix_path": re.compile(r"/[^/\s]+/[^/\s]+/"),
             # 文本清理
-            'whitespace': re.compile(r'\s+'),
-            'control_chars': re.compile(r'[\x00-\x1f\x7f-\x9f]'),
-
+            "whitespace": re.compile(r"\s+"),
+            "control_chars": re.compile(r"[\x00-\x1f\x7f-\x9f]"),
             # 日期时间模式
-            'date_cn': re.compile(r'\d{4}年\d{1,2}月\d{1,2}日'),
-            'date_std': re.compile(r'\d{4}-\d{1,2}-\d{1,2}'),
-            'time_std': re.compile(r'\d{1,2}:\d{2}:\d{2}'),
+            "date_cn": re.compile(r"\d{4}年\d{1,2}月\d{1,2}日"),
+            "date_std": re.compile(r"\d{4}-\d{1,2}-\d{1,2}"),
+            "time_std": re.compile(r"\d{1,2}:\d{2}:\d{2}"),
         }
 
         self.logger.debug(f"预编译了 {len(self.patterns)} 个正则表达式模式")
@@ -68,26 +60,32 @@ class StringOptimizer:
         """创建字符转换表"""
         # 文件名安全字符转换表
         translation_map = {
-            ord('/'): ord('_'), ord('\\'): ord('_'), ord(':'): ord('_'),
-            ord('*'): ord('_'), ord('?'): ord('_'), ord('"'): ord('_'),
-            ord('<'): ord('_'), ord('>'): ord('_'), ord('|'): ord('_')
+            ord("/"): ord("_"),
+            ord("\\"): ord("_"),
+            ord(":"): ord("_"),
+            ord("*"): ord("_"),
+            ord("?"): ord("_"),
+            ord('"'): ord("_"),
+            ord("<"): ord("_"),
+            ord(">"): ord("_"),
+            ord("|"): ord("_"),
         }
         self.filename_translation = translation_map
 
         # 路径分隔符统一转换表
-        path_translation = {ord('\\'): ord('/')}
+        path_translation = {ord("\\"): ord("/")}
         self.path_separator_translation = path_translation
 
         # 控制字符移除表
-        control_chars = ''.join(chr(i) for i in range(32))
-        self.control_char_translation = str.maketrans('', '', control_chars)
+        control_chars = "".join(chr(i) for i in range(32))
+        self.control_char_translation = str.maketrans("", "", control_chars)
 
         # 危险路径字符转换表
-        self.dangerous_path_translation = str.maketrans('', '', '')
+        self.dangerous_path_translation = str.maketrans("", "", "")
 
         self.logger.debug("创建了字符转换表")
 
-    def sanitize_filename(self, filename: str, replacement: str = '_') -> str:
+    def sanitize_filename(self, filename: str, replacement: str = "_") -> str:
         """
         高效的文件名清理函数
 
@@ -105,15 +103,15 @@ class StringOptimizer:
         sanitized = filename.translate(self.filename_translation)
 
         # 处理连续的下划线
-        if replacement == '_':
-            sanitized = self.patterns['path_separator'].sub('_', sanitized)
+        if replacement == "_":
+            sanitized = self.patterns["path_separator"].sub("_", sanitized)
 
         # 移除首尾的特殊字符
-        sanitized = sanitized.strip('._- ')
+        sanitized = sanitized.strip("._- ")
 
         # 限制长度
         if len(sanitized) > 200:
-            sanitized = sanitized[:200].rstrip('._- ')
+            sanitized = sanitized[:200].rstrip("._- ")
 
         # 确保不为空
         if not sanitized:
@@ -138,7 +136,7 @@ class StringOptimizer:
         cleaned = stock_code.strip().upper()
 
         # 移除非数字字符
-        cleaned = ''.join(c for c in cleaned if c.isdigit())
+        cleaned = "".join(c for c in cleaned if c.isdigit())
 
         # 补零到6位
         if len(cleaned) == 6:
@@ -162,7 +160,7 @@ class StringOptimizer:
             return ""
 
         # 使用预编译模式
-        return self.patterns['whitespace'].sub(' ', text).strip()
+        return self.patterns["whitespace"].sub(" ", text).strip()
 
     def clean_text_content(self, text: str) -> str:
         """
@@ -195,22 +193,22 @@ class StringOptimizer:
         Returns:
             Dict[str, Optional[int]]: 分页信息字典
         """
-        result = {'current': None, 'total': None}
+        result = {"current": None, "total": None}
 
         if not text:
             return result
 
         # 提取当前页/总页
-        current_match = self.patterns['pagination_current'].search(text)
+        current_match = self.patterns["pagination_current"].search(text)
         if current_match:
-            result['current'] = int(current_match.group(1))
-            result['total'] = int(current_match.group(2))
+            result["current"] = int(current_match.group(1))
+            result["total"] = int(current_match.group(2))
 
         # 如果没找到，尝试提取总页数
-        if result['total'] is None:
-            total_match = self.patterns['pagination_total'].search(text)
+        if result["total"] is None:
+            total_match = self.patterns["pagination_total"].search(text)
             if total_match:
-                result['total'] = int(total_match.group(1))
+                result["total"] = int(total_match.group(1))
 
         return result
 
@@ -228,7 +226,10 @@ class StringOptimizer:
             return False
 
         standardized = self.standardize_stock_code(stock_code)
-        return standardized is not None and self.patterns['stock_code'].match(standardized) is not None
+        return (
+            standardized is not None
+            and self.patterns["stock_code"].match(standardized) is not None
+        )
 
     def validate_org_id(self, org_id: str) -> bool:
         """
@@ -244,7 +245,7 @@ class StringOptimizer:
             return False
 
         cleaned = org_id.strip()
-        return self.patterns['org_id'].match(cleaned) is not None
+        return self.patterns["org_id"].match(cleaned) is not None
 
     def validate_company_name(self, name: str) -> bool:
         """
@@ -260,7 +261,7 @@ class StringOptimizer:
             return False
 
         cleaned = name.strip()
-        return bool(self.patterns['company_name'].match(cleaned))
+        return bool(self.patterns["company_name"].match(cleaned))
 
     def redact_sensitive_paths(self, message: str) -> str:
         """
@@ -276,8 +277,8 @@ class StringOptimizer:
             return ""
 
         # 使用预编译模式进行路径脱敏
-        redacted = self.patterns['windows_path'].sub('[REDACTED_PATH]\\', message)
-        redacted = self.patterns['unix_path'].sub('[REDACTED_PATH]/', redacted)
+        redacted = self.patterns["windows_path"].sub("[REDACTED_PATH]\\", message)
+        redacted = self.patterns["unix_path"].sub("[REDACTED_PATH]/", redacted)
 
         return redacted
 
@@ -291,25 +292,25 @@ class StringOptimizer:
         Returns:
             Dict[str, Optional[str]]: 日期信息字典
         """
-        result = {'date_cn': None, 'date_std': None, 'time': None}
+        result = {"date_cn": None, "date_std": None, "time": None}
 
         if not text:
             return result
 
         # 提取中文日期
-        cn_date_match = self.patterns['date_cn'].search(text)
+        cn_date_match = self.patterns["date_cn"].search(text)
         if cn_date_match:
-            result['date_cn'] = cn_date_match.group()
+            result["date_cn"] = cn_date_match.group()
 
         # 提取标准日期
-        std_date_match = self.patterns['date_std'].search(text)
+        std_date_match = self.patterns["date_std"].search(text)
         if std_date_match:
-            result['date_std'] = std_date_match.group()
+            result["date_std"] = std_date_match.group()
 
         # 提取时间
-        time_match = self.patterns['time_std'].search(text)
+        time_match = self.patterns["time_std"].search(text)
         if time_match:
-            result['time'] = time_match.group()
+            result["time"] = time_match.group()
 
         return result
 
@@ -340,9 +341,9 @@ class StringOptimizer:
             Dict[str, Any]: 统计信息
         """
         return {
-            'compiled_patterns': len(self.patterns),
-            'translation_tables': 4,  # filename, path_separator, control_char, dangerous_path
-            'available_patterns': list(self.patterns.keys())
+            "compiled_patterns": len(self.patterns),
+            "translation_tables": 4,  # filename, path_separator, control_char, dangerous_path
+            "available_patterns": list(self.patterns.keys()),
         }
 
 
@@ -353,6 +354,7 @@ _optimizer_lock = None
 # 延迟导入锁
 try:
     import threading
+
     _optimizer_lock = threading.Lock()
 except ImportError:
     _optimizer_lock = None
@@ -372,7 +374,7 @@ def get_string_optimizer() -> StringOptimizer:
 
 
 # 便捷函数
-def sanitize_filename(filename: str, replacement: str = '_') -> str:
+def sanitize_filename(filename: str, replacement: str = "_") -> str:
     """便捷函数：清理文件名"""
     return get_string_optimizer().sanitize_filename(filename, replacement)
 
