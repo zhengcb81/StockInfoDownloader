@@ -16,7 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from ..core.logger import get_logger
 from ..utils.string_optimizer import standardize_stock_code
-from ..web.anti_crawler import AntiCrawlerStrategy
+from ..web.anti_crawler_py import AntiCrawlerStrategy
 from ..web.driver import WebDriverManager
 
 logger = get_logger(__name__)

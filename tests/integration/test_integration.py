@@ -143,9 +143,11 @@ class TestIntegration:
         stats = mapping.get_statistics()
 
         assert stats["total"] == 3
-        assert stats["preset"] == 1
-        assert stats["auto"] == 1
-        assert stats["manual"] == 1
+        # Source distribution is nested in source_distribution dict
+        source_dist = stats.get("source_distribution", {})
+        assert source_dist.get("preset", 0) == 1
+        assert source_dist.get("auto", 0) == 1
+        assert source_dist.get("manual", 0) == 1
 
     def test_error_handling(self):
         """测试错误处理"""

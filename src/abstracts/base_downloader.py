@@ -83,7 +83,7 @@ class BaseDownloader(IDownloader):
             return
 
         try:
-            from src.web.anti_crawler import AntiCrawlerStrategy
+            from src.web.anti_crawler_py import AntiCrawlerStrategy
 
             self.anti_crawler_strategy = AntiCrawlerStrategy()
             self.logger.info("Anti-crawler strategy initialized successfully")

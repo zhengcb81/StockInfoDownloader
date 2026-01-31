@@ -6,9 +6,10 @@
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TYPE_CHECKING
 
-from ..data.mapping import MappingManager
+if TYPE_CHECKING:
+    from ..data.mapping import MappingManager
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class DirectoryManager:
     """统一的目录管理服务"""
 
-    def __init__(self, mapping_manager: Optional[MappingManager] = None):
+    def __init__(self, mapping_manager: Optional["MappingManager"] = None):
         """初始化目录管理器"""
         self.mapping_manager = mapping_manager
 
@@ -153,7 +154,7 @@ class DirectoryManager:
 
 def create_directory_manager(
     mapping_file: str = "stock_orgid_mapping.json",
-) -> DirectoryManager:
+) -> "DirectoryManager":
     """
     创建目录管理器实例
 
@@ -163,5 +164,7 @@ def create_directory_manager(
     Returns:
         DirectoryManager: 目录管理器实例
     """
+    from ..data.mapping import MappingManager
+
     mapping_manager = MappingManager(mapping_file)
     return DirectoryManager(mapping_manager)

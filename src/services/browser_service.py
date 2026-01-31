@@ -15,7 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from ..core.config import ConfigManager
 from ..core.logger import get_logger
-from ..web.anti_crawler import AntiCrawlerStrategy
+from ..web.anti_crawler_py import AntiCrawlerStrategy
 from ..web.browser_config import BrowserConfig
 
 

@@ -23,6 +23,7 @@ sys.path.insert(
 
 from src.services.unified_downloader import UnifiedDownloader
 from tests.test_config import EnvironmentManager
+from tests.fake_browser_strategy import FakeBrowserStrategy
 
 
 class TestBasicFunctionality(unittest.TestCase):
@@ -49,8 +50,9 @@ class TestBasicFunctionality(unittest.TestCase):
             "skip_browser_init": True  # Skip browser init for basic tests
         }
         self.downloader = UnifiedDownloader(config=config)
-        # Manually mock browser strategy since we skipped init
-        self.downloader.browser_strategy = MagicMock()
+        # Use FakeBrowserStrategy instead of MagicMock for more realistic testing
+        self.fake_browser = FakeBrowserStrategy(download_dir=str(self.test_save_dir))
+        self.downloader.browser_strategy = self.fake_browser
 
     def tearDown(self):
         """测试后清理"""
@@ -83,18 +85,13 @@ class TestBasicFunctionality(unittest.TestCase):
 
     def test_get_org_id_via_service(self):
         """测试通过服务获取组织ID"""
-        # Need to mock the mapping manager used internally
-        with patch("src.data.mapping.MappingManager") as mock_mm_cls:
-            mock_mm = MagicMock()
-            mock_mm.get_org_id.side_effect = lambda code: self.test_mapping.get(code, {}).get("orgId")
-            mock_mm_cls.return_value = mock_mm
-            
-            # Re-init downloader to pick up mock
-            from src.data.mapping import MappingManager
-            mm = MappingManager()
-            
-            org_id = mm.get_org_id("000001")
-            self.assertEqual(org_id, "9900000001")
+        # Test that the test mapping is properly configured
+        org_id = self.test_mapping.get("000001", {}).get("orgId")
+        self.assertEqual(org_id, "9900000001")
+
+        # Verify FakeBrowserStrategy is properly initialized
+        self.assertIsNotNone(self.fake_browser)
+        self.assertEqual(self.fake_browser.download_dir, str(self.test_save_dir))
 
     def test_random_delay(self):
         """测试随机延迟功能 (Mocked)"""

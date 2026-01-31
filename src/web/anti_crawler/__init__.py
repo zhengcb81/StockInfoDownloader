@@ -2,15 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Enhanced anti-crawler protection (backward compatibility wrapper).
-
-This module re-exports all components from the new anti_crawler package
-for backward compatibility.
-
-New code should import directly from src.web.anti_crawler instead.
+Anti-crawler protection package.
+Provides comprehensive protection against bot detection systems.
 """
 
-# Re-export all public components from the new package
 from src.web.anti_crawler.types import (
     FingerprintType,
     BehaviorPattern,
