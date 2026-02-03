@@ -18,6 +18,46 @@ from src.interfaces.downloader_interface import (
 from src.services.unified_downloader import UnifiedDownloader
 
 
+class FakeAntiCrawler:
+    """Fake Anti-Crawler implementation for testing and adapter use"""
+
+    def __init__(self):
+        self.enabled = True
+        self.delay_range = (1.0, 3.0)
+
+    def should_delay(self) -> bool:
+        return False
+
+    def get_delay(self) -> float:
+        import random
+        return random.uniform(*self.delay_range)
+
+    def record_request(self, url: str) -> None:
+        pass
+
+    def is_rate_limited(self, url: str) -> bool:
+        return False
+
+
+class FakeDriverManager:
+    """Fake Driver Manager implementation for testing and adapter use"""
+
+    def __init__(self):
+        self.driver = None
+        self.is_initialized = False
+
+    def initialize(self) -> bool:
+        self.is_initialized = True
+        return True
+
+    def cleanup(self) -> None:
+        self.driver = None
+        self.is_initialized = False
+
+    def is_ready(self) -> bool:
+        return self.is_initialized
+
+
 class BaseLegacyAdapter:
     """
     Base class for all legacy downloader adapters.
@@ -96,10 +136,10 @@ class DownloadServiceV2Adapter(BaseLegacyAdapter):
         )
         self.max_retries = kwargs.get("max_retries", 3)
         self.max_downloads_per_session = kwargs.get("max_downloads_per_session", 100)
-        from unittest.mock import MagicMock
 
-        self.anti_crawler = MagicMock()
-        self.driver_manager = MagicMock()
+        # Use Fake implementations instead of MagicMock for better testability
+        self.anti_crawler = FakeAntiCrawler()
+        self.driver_manager = FakeDriverManager()
         self.logger.info(
             f"DownloadServiceV2 Adapter initialized, strategy: {browser_strategy}"
         )
