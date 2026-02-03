@@ -111,13 +111,31 @@
 
 ---
 
-## 当前覆盖率数据 (参考)
+## 当前覆盖率数据 (已更新)
 
-| 模块 | 当前覆盖率 | 目标覆盖率 |
-|------|-----------|-----------|
-| src/utils/security.py | 11.41% | 50% |
-| src/utils/intelligent_cache.py | 18.58% | 40% |
-| src/web/anti_crawler/ | 6-17% | 30% |
-| src/utils/validation.py | 57.58% | 70% |
-| src/utils/string_optimizer.py | 58.38% | 70% |
-| **总体** | **34.05%** | **45%** |
+| 模块 | 原覆盖率 | 当前覆盖率 | 目标覆盖率 |
+|------|---------|-----------|-----------|
+| src/utils/security.py | 11.41% | **86%** ✅ | 50% |
+| src/utils/intelligent_cache.py | 18.58% | 18.58% | 40% |
+| src/web/anti_crawler/ | 6-17% | 6-17% | 30% |
+| src/utils/validation.py | 57.58% | 57.58% | 70% |
+| src/utils/string_optimizer.py | 58.38% | 58.38% | 70% |
+| **总体** | **34.05%** | **35.23%** ✅ | 45% |
+
+---
+
+## 已完成的改进总结
+
+### Stage 1-4 完成 ✅
+- ✅ 设置覆盖率门槛 (34%)
+- ✅ security.py 覆盖率提升 (11% → 86%)
+- ✅ 替换 MagicMock 为 Fake 实现
+- ✅ 修复被忽略的单元测试
+- ✅ 新增 60+ 单元测试 (566 → 626)
+- ✅ 所有 E2E 测试通过 (Playwright + Selenium)
+
+### 待完成的改进 (Stage 5-8)
+- ⏳ 完善类型注解
+- ⏳ 拆分 ConfigManager
+- ⏳ 解决 Playwright 异步问题
+- ⏳ 统一文档语言
