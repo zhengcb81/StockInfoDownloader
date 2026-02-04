@@ -98,17 +98,10 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             if sync_playwright is None:
                 raise ImportError("Playwright not available")
 
-            # Force cleanup of asyncio event loop to prevent Sync API conflicts
-            import asyncio
-
-            try:
-                # If current thread has an event loop, try to clear it
-                # Note: this only works if the loop is not running
-                asyncio.set_event_loop(None)
-            except Exception:
-                pass
-
             # Create Playwright instance
+            # Note: sync_playwright() handles its own event loop internally
+            # We should not manipulate asyncio.set_event_loop() here as it
+            # can interfere with other async code in the application
             self.playwright = sync_playwright().start()
 
             # Build launch options
