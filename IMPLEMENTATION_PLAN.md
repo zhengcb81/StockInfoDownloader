@@ -67,7 +67,7 @@
 - 核心工具函数都有类型注解
 - mypy 检查通过
 **Tests**: mypy 类型检查通过
-**Status**: Not Started
+**Status**: Complete
 
 ---
 
@@ -77,8 +77,8 @@
 - 拆分为 `ConfigManager`、`CompanyConfigManager`、`TestConfigManager`
 - 所有现有测试通过
 - 代码行数减少，职责更清晰
-**Tests**: 所有配置相关测试通过
-**Status**: Not Started
+**Tests**: 所有配置相关测试通过 (14 passed)
+**Status**: Complete
 
 ---
 
@@ -98,8 +98,8 @@
 **Success Criteria**:
 - 核心模块的日志和注释统一使用英文
 - 代码风格一致
-**Tests**: 无功能变化，所有测试通过
-**Status**: Not Started
+**Tests**: 无功能变化，所有测试通过 (626 passed)
+**Status**: Complete
 
 ---
 
@@ -119,23 +119,23 @@
 | src/utils/intelligent_cache.py | 18.58% | 18.58% | 40% |
 | src/web/anti_crawler/ | 6-17% | 6-17% | 30% |
 | src/utils/validation.py | 57.58% | 57.58% | 70% |
-| src/utils/string_optimizer.py | 58.38% | 58.38% | 70% |
-| **总体** | **34.05%** | **35.23%** ✅ | 45% |
+| src/utils/string_optimizer.py | 58.38% | 61.62% ✅ | 70% |
+| **总体** | **34.05%** | **35.50%** ✅ | 45% |
 
 ---
 
 ## 已完成的改进总结
 
-### Stage 1-4 完成 ✅
+### Stage 1-6, 8 完成 ✅
 - ✅ 设置覆盖率门槛 (34%)
 - ✅ security.py 覆盖率提升 (11% → 86%)
 - ✅ 替换 MagicMock 为 Fake 实现
 - ✅ 修复被忽略的单元测试
 - ✅ 新增 60+ 单元测试 (566 → 626)
 - ✅ 所有 E2E 测试通过 (Playwright + Selenium)
+- ✅ 完善类型注解 - 公共 API
+- ✅ 拆分 ConfigManager (951行 → 3个专用管理器)
+- ✅ 统一文档语言 (中文 → 英文)
 
-### 待完成的改进 (Stage 5-8)
-- ⏳ 完善类型注解
-- ⏳ 拆分 ConfigManager
+### 待完成的改进 (Stage 7)
 - ⏳ 解决 Playwright 异步问题
-- ⏳ 统一文档语言

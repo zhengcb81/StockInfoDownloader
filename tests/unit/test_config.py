@@ -71,7 +71,7 @@ class TestConfigManager:
         with pytest.raises(ConfigError) as exc_info:
             config.load_config("nonexistent.json")
 
-        assert "配置文件不存在" in str(exc_info.value)
+        assert "does not exist" in str(exc_info.value)
 
     def test_load_invalid_json(self):
         """测试加载无效JSON"""
@@ -83,7 +83,7 @@ class TestConfigManager:
         with pytest.raises(ConfigError) as exc_info:
             config.load_config(str(self.config_path))
 
-        assert "配置文件格式错误" in str(exc_info.value)
+        assert "format error" in str(exc_info.value)
 
     def test_get_config_value(self):
         """测试获取配置值"""
@@ -170,7 +170,7 @@ class TestConfigManager:
         # No companies
         valid, errors = config.validate_companies_config()
         assert not valid
-        assert "没有配置任何公司" in errors[0]
+        assert "No companies configured" in errors[0]
         
         # Add valid company
         config.add_company("000001", "平安银行")
@@ -184,7 +184,7 @@ class TestConfigManager:
         
         valid, errors = config.validate_companies_config()
         assert not valid
-        assert "股票代码格式错误" in str(errors)
+        assert "stock code format error" in str(errors).lower()
 
     def test_load_test_config(self):
         """测试加载测试专用配置"""

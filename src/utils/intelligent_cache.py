@@ -1,6 +1,6 @@
 """
-智能缓存策略模块
-提供多级缓存、智能预热、自适应淘汰等功能
+Intelligent Cache Strategy Module
+Provides multi-level caching, smart preloading, and adaptive eviction features
 """
 
 import asyncio
@@ -21,57 +21,57 @@ from src.core.logger import get_logger
 
 
 class CacheLevel(Enum):
-    """缓存级别"""
+    """Cache level enumeration"""
 
-    L1_MEMORY = 1  # 内存缓存
-    L2_DISK = 2  # 磁盘缓存
-    L3_REMOTE = 3  # 远程缓存
+    L1_MEMORY = 1  # In-memory cache
+    L2_DISK = 2  # Disk cache
+    L3_REMOTE = 3  # Remote cache
 
 
 class EvictionPolicy(Enum):
-    """淘汰策略"""
+    """Cache eviction policy enumeration"""
 
-    LRU = "lru"  # 最近最少使用
-    LFU = "lfu"  # 最不经常使用
-    FIFO = "fifo"  # 先进先出
-    ARC = "arc"  # 自适应替换缓存
-    TTL_BASED = "ttl"  # 基于时间的淘汰
+    LRU = "lru"  # Least Recently Used
+    LFU = "lfu"  # Least Frequently Used
+    FIFO = "fifo"  # First In First Out
+    ARC = "arc"  # Adaptive Replacement Cache
+    TTL_BASED = "ttl"  # Time-based eviction
 
 
 @dataclass
 class CacheConfig:
-    """缓存配置"""
+    """Cache configuration"""
 
-    # 容量配置
-    l1_max_size: int = 1000  # L1缓存最大条目数
-    l1_max_memory: int = 100 * 1024 * 1024  # L1缓存最大内存(100MB)
-    l2_max_size: int = 10000  # L2缓存最大条目数
-    l2_max_disk: int = 1024 * 1024 * 1024  # L2缓存最大磁盘空间(1GB)
+    # Capacity settings
+    l1_max_size: int = 1000  # L1 max entries
+    l1_max_memory: int = 100 * 1024 * 1024  # L1 max memory (100MB)
+    l2_max_size: int = 10000  # L2 max entries
+    l2_max_disk: int = 1024 * 1024 * 1024  # L2 max disk space (1GB)
 
-    # 生存时间配置
-    default_ttl: float = 3600.0  # 默认TTL(1小时)
-    l1_ttl: float = 1800.0  # L1缓存TTL(30分钟)
-    l2_ttl: float = 7200.0  # L2缓存TTL(2小时)
+    # TTL settings
+    default_ttl: float = 3600.0  # Default TTL (1 hour)
+    l1_ttl: float = 1800.0  # L1 TTL (30 minutes)
+    l2_ttl: float = 7200.0  # L2 TTL (2 hours)
 
-    # 淘汰策略配置
+    # Eviction policy settings
     l1_eviction_policy: EvictionPolicy = EvictionPolicy.ARC
     l2_eviction_policy: EvictionPolicy = EvictionPolicy.LRU
 
-    # 性能配置
-    compression_enabled: bool = True  # 启用压缩
-    serialization: str = "pickle"  # 序列化方式 (pickle/json)
-    background_cleanup: bool = True  # 后台清理
-    cleanup_interval: float = 300.0  # 清理间隔(5分钟)
+    # Performance settings
+    compression_enabled: bool = True  # Enable compression
+    serialization: str = "pickle"  # Serialization method (pickle/json)
+    background_cleanup: bool = True  # Background cleanup
+    cleanup_interval: float = 300.0  # Cleanup interval (5 minutes)
 
-    # 智能配置
-    preload_enabled: bool = True  # 启用预热
-    adaptive_ttl: bool = True  # 启用自适应TTL
-    hit_rate_threshold: float = 0.8  # 命中率阈值
+    # Smart settings
+    preload_enabled: bool = True  # Enable preloading
+    adaptive_ttl: bool = True  # Enable adaptive TTL
+    hit_rate_threshold: float = 0.8  # Hit rate threshold
 
 
 @dataclass
 class CacheEntry:
-    """缓存条目"""
+    """Cache entry data class"""
 
     key: str
     value: Any
@@ -85,78 +85,78 @@ class CacheEntry:
 
 
 class AdaptiveTTL:
-    """自适应TTL管理器"""
+    """Adaptive TTL manager"""
 
-    def __init__(self, base_ttl: float = 3600.0):
+    def __init__(self, base_ttl: float = 3600.0) -> None:
         self.base_ttl = base_ttl
-        self.access_patterns = defaultdict(list)
-        self.hit_rates = defaultdict(float)
+        self.access_patterns: Dict[str, List[tuple]] = defaultdict(list)
+        self.hit_rates: Dict[str, float] = defaultdict(float)
         self.logger = get_logger(__name__)
 
-    def record_access(self, key: str, is_hit: bool):
-        """记录访问模式"""
+    def record_access(self, key: str, is_hit: bool) -> None:
+        """Record access pattern"""
         current_time = time.time()
         self.access_patterns[key].append((current_time, is_hit))
 
-        # 保持最近100次访问记录
+        # Keep last 100 access records
         if len(self.access_patterns[key]) > 100:
             self.access_patterns[key] = self.access_patterns[key][-100:]
 
-        # 计算命中率
-        recent_accesses = self.access_patterns[key][-20:]  # 最近20次访问
+        # Calculate hit rate
+        recent_accesses = self.access_patterns[key][-20:]  # Last 20 accesses
         if recent_accesses:
             hits = sum(1 for _, hit in recent_accesses if hit)
             self.hit_rates[key] = hits / len(recent_accesses)
 
     def calculate_optimal_ttl(self, key: str) -> float:
-        """计算最优TTL"""
+        """Calculate optimal TTL based on access patterns"""
         hit_rate = self.hit_rates[key]
         access_count = len(self.access_patterns[key])
 
-        if access_count < 5:  # 数据不足，使用默认值
+        if access_count < 5:  # Insufficient data, use default
             return self.base_ttl
 
-        # 基于命中率调整TTL
-        if hit_rate > 0.8:  # 高命中率，延长TTL
+        # Adjust TTL based on hit rate
+        if hit_rate > 0.8:  # High hit rate, extend TTL
             return self.base_ttl * 2.0
-        elif hit_rate > 0.5:  # 中等命中率，保持默认TTL
+        elif hit_rate > 0.5:  # Medium hit rate, keep default TTL
             return self.base_ttl
-        else:  # 低命中率，缩短TTL
+        else:  # Low hit rate, shorten TTL
             return self.base_ttl * 0.5
 
     def get_access_frequency(self, key: str) -> float:
-        """获取访问频率"""
+        """Get access frequency per hour"""
         accesses = self.access_patterns[key]
         if not accesses:
             return 0.0
 
-        # 计算最近一小时的访问频率
+        # Calculate access frequency in last hour
         current_time = time.time()
         recent_accesses = [t for t, _ in accesses if current_time - t < 3600]
         return len(recent_accesses) / 3600.0
 
 
 class IntelligentCache:
-    """智能缓存系统"""
+    """Intelligent caching system"""
 
-    def __init__(self, config: Optional[CacheConfig] = None):
+    def __init__(self, config: Optional[CacheConfig] = None) -> None:
         """
-        初始化智能缓存
+        Initialize intelligent cache
 
         Args:
-            config: 缓存配置
+            config: Cache configuration
         """
         self.config = config or CacheConfig()
         self.logger = get_logger(__name__)
         self.config_manager = ConfigManager()
 
-        # 多级缓存
-        self.l1_cache = OrderedDict()  # L1内存缓存
+        # Multi-level cache
+        self.l1_cache: OrderedDict = OrderedDict()  # L1 in-memory cache
         self.l2_cache_path = Path("cache") / "l2_cache"
         self.l2_cache_path.mkdir(parents=True, exist_ok=True)
 
-        # 统计信息
-        self.stats = {
+        # Statistics
+        self.stats: Dict[str, int] = {
             "l1_hits": 0,
             "l1_misses": 0,
             "l2_hits": 0,
@@ -168,90 +168,90 @@ class IntelligentCache:
             "adaptive_ttl_adjustments": 0,
         }
 
-        # 自适应TTL
+        # Adaptive TTL
         self.adaptive_ttl = AdaptiveTTL(self.config.default_ttl)
 
-        # ARC算法状态
-        self.arc_p = 0  # ARC算法中的p参数
-        self.arc_t1 = OrderedDict()  # T1: 最近只使用一次
-        self.arc_t2 = OrderedDict()  # T2: 最近使用两次或更多
-        self.arc_b1 = OrderedDict()  # B1: 最近淘汰的只使用一次项
-        self.arc_b2 = OrderedDict()  # B2: 最近淘汰的使用多次项
+        # ARC algorithm state
+        self.arc_p = 0  # ARC p parameter
+        self.arc_t1: OrderedDict = OrderedDict()  # T1: recently used once
+        self.arc_t2: OrderedDict = OrderedDict()  # T2: recently used twice or more
+        self.arc_b1: OrderedDict = OrderedDict()  # B1: recently evicted once-used items
+        self.arc_b2: OrderedDict = OrderedDict()  # B2: recently evicted multi-used items
 
-        # 后台任务
-        self.cleanup_task = None
-        self.preload_task = None
+        # Background tasks
+        self.cleanup_task: Optional[threading.Thread] = None
+        self.preload_task: Optional[threading.Thread] = None
         self.running = False
 
-        # 事件循环
+        # Event loop
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
-        # 启动后台任务
+        # Start background tasks
         self._start_background_tasks()
 
         self.logger.info(
-            f"智能缓存初始化完成: L1={self.config.l1_max_size}, "
-            f"L2={self.config.l2_max_size}, 策略={self.config.l1_eviction_policy.value}"
+            f"Intelligent cache initialized: L1={self.config.l1_max_size}, "
+            f"L2={self.config.l2_max_size}, policy={self.config.l1_eviction_policy.value}"
         )
 
-    def _start_background_tasks(self):
-        """启动后台任务"""
+    def _start_background_tasks(self) -> None:
+        """Start background tasks"""
         self.running = True
 
-        # 启动清理任务
+        # Start cleanup task
         if self.config.background_cleanup:
             self.cleanup_task = threading.Thread(
                 target=self._cleanup_worker, daemon=True
             )
             self.cleanup_task.start()
 
-        # 启动预热任务
+        # Start preload task
         if self.config.preload_enabled:
             self.preload_task = threading.Thread(
                 target=self._preload_worker, daemon=True
             )
             self.preload_task.start()
 
-    def _cleanup_worker(self):
-        """后台清理工作线程"""
+    def _cleanup_worker(self) -> None:
+        """Background cleanup worker thread"""
         while self.running:
             try:
                 self._cleanup_expired_entries()
                 self._optimize_cache_size()
                 time.sleep(self.config.cleanup_interval)
             except Exception as e:
-                self.logger.error(f"缓存清理异常: {e}")
-                time.sleep(60)  # 错误后等待1分钟
+                self.logger.error(f"Cache cleanup error: {e}")
+                time.sleep(60)  # Wait 1 minute after error
 
-    def _preload_worker(self):
-        """后台预热工作线程"""
+    def _preload_worker(self) -> None:
+        """Background preload worker thread"""
         while self.running:
             try:
                 self._preload_hot_data()
-                time.sleep(600)  # 每10分钟检查一次
+                time.sleep(600)  # Check every 10 minutes
             except Exception as e:
-                self.logger.error(f"缓存预热异常: {e}")
-                time.sleep(300)  # 错误后等待5分钟
+                self.logger.error(f"Cache preload error: {e}")
+                time.sleep(300)  # Wait 5 minutes after error
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        获取缓存值
+        Get cached value
 
         Args:
-            key: 缓存键
-            default: 默认值
+            key: Cache key
+            default: Default value
 
         Returns:
-            Any: 缓存值或默认值
+            Any: Cached value or default
         """
         self.stats["total_requests"] += 1
 
-        # 记录访问模式
+        # Record access pattern
         is_hit = False
         result = default
 
-        # 尝试L1缓存
+        # Try L1 cache
         if key in self.l1_cache:
             entry = self.l1_cache[key]
             if not self._is_entry_expired(entry):
@@ -263,11 +263,11 @@ class IntelligentCache:
             else:
                 self._remove_from_l1(key)
 
-        # 尝试L2缓存
+        # Try L2 cache
         if result is default:
             l2_entry = self._get_from_l2(key)
             if l2_entry and not self._is_entry_expired(l2_entry):
-                # 提升到L1缓存
+                # Promote to L1 cache
                 self._promote_to_l1(l2_entry)
                 self.stats["l2_hits"] += 1
                 is_hit = True
@@ -281,24 +281,24 @@ class IntelligentCache:
 
     def set(self, key: str, value: Any, ttl: Optional[float] = None) -> bool:
         """
-        设置缓存值
+        Set cache value
 
         Args:
-            key: 缓存键
-            value: 缓存值
-            ttl: 生存时间
+            key: Cache key
+            value: Cache value
+            ttl: Time to live
 
         Returns:
-            bool: 是否成功设置
+            bool: Whether successfully set
         """
         try:
-            # 自适应TTL
+            # Adaptive TTL
             if ttl is None and self.config.adaptive_ttl:
                 ttl = self.adaptive_ttl.calculate_optimal_ttl(key)
             elif ttl is None:
                 ttl = self.config.default_ttl
 
-            # 创建缓存条目
+            # Create cache entry
             entry = CacheEntry(
                 key=key,
                 value=value,
@@ -307,31 +307,31 @@ class IntelligentCache:
                 level=CacheLevel.L1_MEMORY,
             )
 
-            # 计算大小
+            # Calculate size
             entry.size = self._calculate_entry_size(entry)
 
-            # 尝试放入L1缓存
+            # Try to put in L1 cache
             if self._can_fit_in_l1(entry):
                 self._add_to_l1(entry)
                 return True
             else:
-                # L1缓存已满，放入L2缓存
+                # L1 cache full, put in L2 cache
                 self._add_to_l2(entry)
                 return True
 
         except Exception as e:
-            self.logger.error(f"设置缓存失败: {e}")
+            self.logger.error(f"Failed to set cache: {e}")
             return False
 
     def delete(self, key: str) -> bool:
         """
-        删除缓存项
+        Delete cache entry
 
         Args:
-            key: 缓存键
+            key: Cache key
 
         Returns:
-            bool: 是否成功删除
+            bool: Whether successfully deleted
         """
         deleted = False
 
@@ -345,18 +345,18 @@ class IntelligentCache:
 
         return deleted
 
-    def clear(self):
-        """清空所有缓存"""
+    def clear(self) -> None:
+        """Clear all cache"""
         self.l1_cache.clear()
         self._clear_l2_cache()
         self.stats = {k: 0 for k in self.stats.keys()}
 
     def _is_entry_expired(self, entry: CacheEntry) -> bool:
-        """检查条目是否过期"""
+        """Check if entry is expired"""
         return (time.time() - entry.created_at) > entry.ttl
 
     def _calculate_entry_size(self, entry: CacheEntry) -> int:
-        """计算条目大小"""
+        """Calculate entry size"""
         try:
             if self.config.serialization == "pickle":
                 size = len(pickle.dumps(entry.value))
@@ -364,25 +364,25 @@ class IntelligentCache:
                 size = len(json.dumps(entry.value, default=str).encode("utf-8"))
 
             if self.config.compression_enabled:
-                # 估算压缩后的大小
-                entry.compression_ratio = 0.3  # 假设压缩比为70%
+                # Estimate compressed size
+                entry.compression_ratio = 0.3  # Assume 70% compression ratio
                 return int(size * entry.compression_ratio)
             return size
 
         except Exception:
-            return 1024  # 默认1KB
+            return 1024  # Default 1KB
 
     def _can_fit_in_l1(self, entry: CacheEntry) -> bool:
-        """检查是否可以放入L1缓存"""
+        """Check if can fit in L1 cache"""
         if len(self.l1_cache) >= self.config.l1_max_size:
             return False
 
         current_memory = sum(e.size for e in self.l1_cache.values())
         return (current_memory + entry.size) <= self.config.l1_max_memory
 
-    def _add_to_l1(self, entry: CacheEntry):
-        """添加到L1缓存"""
-        # 应用淘汰策略
+    def _add_to_l1(self, entry: CacheEntry) -> None:
+        """Add to L1 cache"""
+        # Apply eviction policy
         if self.config.l1_eviction_policy == EvictionPolicy.ARC:
             self._arc_replace(key=entry.key, in_cache=True)
         elif self.config.l1_eviction_policy == EvictionPolicy.LRU:
@@ -393,8 +393,8 @@ class IntelligentCache:
 
         self.l1_cache[entry.key] = entry
 
-    def _add_to_l2(self, entry: CacheEntry):
-        """添加到L2缓存"""
+    def _add_to_l2(self, entry: CacheEntry) -> None:
+        """Add to L2 cache"""
         if self.config.l2_eviction_policy == EvictionPolicy.LRU:
             self._evict_lru_from_l2()
         elif self.config.l2_eviction_policy == EvictionPolicy.LFU:
@@ -403,68 +403,68 @@ class IntelligentCache:
         entry.level = CacheLevel.L2_DISK
         self._save_to_l2(entry)
 
-    def _promote_to_l1(self, entry: CacheEntry):
-        """提升到L1缓存"""
+    def _promote_to_l1(self, entry: CacheEntry) -> None:
+        """Promote to L1 cache"""
         entry.level = CacheLevel.L1_MEMORY
         if self._can_fit_in_l1(entry):
             self._add_to_l1(entry)
-            # 应用ARC算法
+            # Apply ARC algorithm
             if self.config.l1_eviction_policy == EvictionPolicy.ARC:
                 self._arc_replace(key=entry.key, in_cache=True)
 
-    def _update_access_info(self, entry: CacheEntry, level: CacheLevel):
-        """更新访问信息"""
+    def _update_access_info(self, entry: CacheEntry, level: CacheLevel) -> None:
+        """Update access information"""
         entry.access_count += 1
         entry.last_accessed = time.time()
 
         if level == CacheLevel.L1_MEMORY:
-            # LRU: 移动到末尾
+            # LRU: Move to end
             if self.config.l1_eviction_policy == EvictionPolicy.LRU:
                 self.l1_cache.move_to_end(entry.key)
-            # ARC: 记录访问
+            # ARC: Record access
             elif self.config.l1_eviction_policy == EvictionPolicy.ARC:
                 self._arc_replace(key=entry.key, in_cache=True)
 
-    def _arc_replace(self, key: str, in_cache: bool):
-        """ARC替换算法"""
+    def _arc_replace(self, key: str, in_cache: bool) -> None:
+        """ARC replacement algorithm"""
         if in_cache:
             if key in self.arc_t1:
-                # 从T1移动到T2
+                # Move from T1 to T2
                 self.arc_t2[key] = self.arc_t1.pop(key)
                 if key in self.arc_b1:
                     self.arc_b1.pop(key)
             elif key in self.arc_t2:
-                # 已在T2，更新访问时间
+                # Already in T2, update access time
                 self.arc_t2.move_to_end(key)
         else:
-            # 缓存未命中，调整p参数
+            # Cache miss, adjust p parameter
             if key in self.arc_b1:
                 self.arc_p = min(self.arc_p + 1, len(self.l1_cache))
             elif key in self.arc_b2:
                 self.arc_p = max(self.arc_p - 1, 0)
 
-        # 执行实际的替换
+        # Execute actual replacement
         if len(self.arc_t1) + len(self.arc_t2) > self.config.l1_max_size:
             if len(self.arc_t1) > 0 and (
                 len(self.arc_t1) > self.arc_p
                 or (key in self.arc_b2 and len(self.arc_t2) == 0)
             ):
-                # 从T1淘汰
+                # Evict from T1
                 evicted_key = next(iter(self.arc_t1))
                 self.arc_b1[evicted_key] = self.arc_t1.pop(evicted_key)
                 self.stats["l1_evictions"] += 1
             elif len(self.arc_t2) > 0:
-                # 从T2淘汰
+                # Evict from T2
                 evicted_key = next(iter(self.arc_t2))
                 self.arc_b2[evicted_key] = self.arc_t2.pop(evicted_key)
                 self.stats["l1_evictions"] += 1
 
-    def _evict_lfu_from_l1(self):
-        """从L1缓存淘汰最不常用的项"""
+    def _evict_lfu_from_l1(self) -> None:
+        """Evict least frequently used item from L1 cache"""
         if not self.l1_cache:
             return
 
-        # 找到访问次数最少的项
+        # Find item with minimum access count
         min_access = min(e.access_count for e in self.l1_cache.values())
         candidates = [
             k for k, e in self.l1_cache.items() if e.access_count == min_access
@@ -475,23 +475,23 @@ class IntelligentCache:
             self.l1_cache.pop(evicted_key)
             self.stats["l1_evictions"] += 1
 
-    def _evict_lru_from_l2(self):
-        """从L2缓存淘汰最近最少使用的项"""
+    def _evict_lru_from_l2(self) -> None:
+        """Evict least recently used item from L2 cache"""
         l2_files = list(self.l2_cache_path.glob("*.cache"))
         if len(l2_files) > self.config.l2_max_size:
-            # 按修改时间排序，删除最旧的文件
+            # Sort by modification time, delete oldest files
             l2_files.sort(key=lambda f: f.stat().st_mtime)
             for file in l2_files[: len(l2_files) - self.config.l2_max_size]:
                 file.unlink()
                 self.stats["l2_evictions"] += 1
 
-    def _evict_lfu_from_l2(self):
-        """从L2缓存淘汰最不常用的项"""
-        # 这个实现较复杂，需要维护L2缓存的访问计数
-        self._evict_lru_from_l2()  # 简化实现，使用LRU
+    def _evict_lfu_from_l2(self) -> None:
+        """Evict least frequently used item from L2 cache"""
+        # This implementation is complex, requires maintaining L2 access counts
+        self._evict_lru_from_l2()  # Simplified implementation using LRU
 
     def _get_from_l2(self, key: str) -> Optional[CacheEntry]:
-        """从L2缓存获取"""
+        """Get from L2 cache"""
         cache_file = (
             self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
         )
@@ -511,13 +511,13 @@ class IntelligentCache:
                 return None
 
         except Exception as e:
-            self.logger.warning(f"从L2缓存读取失败: {e}")
+            self.logger.warning(f"Failed to read from L2 cache: {e}")
             if cache_file.exists():
                 cache_file.unlink()
             return None
 
-    def _save_to_l2(self, entry: CacheEntry):
-        """保存到L2缓存"""
+    def _save_to_l2(self, entry: CacheEntry) -> None:
+        """Save to L2 cache"""
         cache_file = (
             self.l2_cache_path / f"{hashlib.md5(entry.key.encode()).hexdigest()}.cache"
         )
@@ -526,36 +526,36 @@ class IntelligentCache:
             with open(cache_file, "wb") as f:
                 pickle.dump(entry.__dict__, f)
         except Exception as e:
-            self.logger.error(f"保存到L2缓存失败: {e}")
+            self.logger.error(f"Failed to save to L2 cache: {e}")
 
     def _exists_in_l2(self, key: str) -> bool:
-        """检查L2缓存中是否存在"""
+        """Check if exists in L2 cache"""
         cache_file = (
             self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
         )
         return cache_file.exists()
 
-    def _remove_from_l2(self, key: str):
-        """从L2缓存删除"""
+    def _remove_from_l2(self, key: str) -> None:
+        """Remove from L2 cache"""
         cache_file = (
             self.l2_cache_path / f"{hashlib.md5(key.encode()).hexdigest()}.cache"
         )
         if cache_file.exists():
             cache_file.unlink()
 
-    def _remove_from_l1(self, key: str):
-        """从L1缓存删除"""
+    def _remove_from_l1(self, key: str) -> None:
+        """Remove from L1 cache"""
         if key in self.l1_cache:
             del self.l1_cache[key]
 
-    def _clear_l2_cache(self):
-        """清空L2缓存"""
+    def _clear_l2_cache(self) -> None:
+        """Clear L2 cache"""
         for cache_file in self.l2_cache_path.glob("*.cache"):
             cache_file.unlink()
 
-    def _cleanup_expired_entries(self):
-        """清理过期条目"""
-        # 清理L1缓存
+    def _cleanup_expired_entries(self) -> None:
+        """Clean up expired entries"""
+        # Clean up L1 cache
         expired_keys = []
         for key, entry in self.l1_cache.items():
             if self._is_entry_expired(entry):
@@ -564,7 +564,7 @@ class IntelligentCache:
         for key in expired_keys:
             self._remove_from_l1(key)
 
-        # 清理L2缓存
+        # Clean up L2 cache
         for cache_file in self.l2_cache_path.glob("*.cache"):
             try:
                 with open(cache_file, "rb") as f:
@@ -575,33 +575,33 @@ class IntelligentCache:
             except Exception:
                 cache_file.unlink()
 
-    def _optimize_cache_size(self):
-        """优化缓存大小"""
-        # 基于命中率调整缓存大小
+    def _optimize_cache_size(self) -> None:
+        """Optimize cache size"""
+        # Adjust cache size based on hit rate
         l1_hit_rate = self.stats["l1_hits"] / max(self.stats["total_requests"], 1)
 
-        if l1_hit_rate < 0.5:  # L1命中率低，考虑增加L1大小
-            # 这里可以动态调整配置，但需要谨慎
+        if l1_hit_rate < 0.5:  # Low L1 hit rate, consider increasing L1 size
+            # Dynamic config adjustment can be done here, but needs caution
             pass
 
-    def _preload_hot_data(self):
-        """预热热门数据"""
-        # 基于访问模式预热数据
+    def _preload_hot_data(self) -> None:
+        """Preload hot data"""
+        # Preload data based on access patterns
         hot_keys = []
         for key, accesses in self.adaptive_ttl.access_patterns.items():
             frequency = self.adaptive_ttl.get_access_frequency(key)
-            if frequency > 0.1:  # 每小时访问超过0.1次的数据
+            if frequency > 0.1:  # Data accessed more than 0.1 times per hour
                 hot_keys.append((key, frequency))
 
-        # 按频率排序，预热最热的数据
+        # Sort by frequency, preload hottest data
         hot_keys.sort(key=lambda x: x[1], reverse=True)
-        for key, frequency in hot_keys[:10]:  # 预热前10个最热的数据
+        for key, frequency in hot_keys[:10]:  # Preload top 10 hottest data
             if key not in self.l1_cache:
-                # 这里需要实现数据的实际预热逻辑
+                # Actual data preload logic needs to be implemented here
                 pass
 
     def get_stats(self) -> Dict[str, Any]:
-        """获取缓存统计信息"""
+        """Get cache statistics"""
         l1_size = len(self.l1_cache)
         l1_memory = sum(e.size for e in self.l1_cache.values())
         l2_files = len(list(self.l2_cache_path.glob("*.cache")))
@@ -640,10 +640,10 @@ class IntelligentCache:
         }
 
     def get_detailed_status(self) -> Dict[str, Any]:
-        """获取详细状态信息"""
+        """Get detailed status information"""
         stats = self.get_stats()
 
-        # 获取热点数据
+        # Get hot data
         hot_keys = []
         for key, accesses in self.adaptive_ttl.access_patterns.items():
             frequency = self.adaptive_ttl.get_access_frequency(key)
@@ -661,7 +661,7 @@ class IntelligentCache:
 
         return {
             **stats,
-            "hot_data": hot_keys[:20],  # 前20个最热的数据
+            "hot_data": hot_keys[:20],  # Top 20 hottest data
             "cache_config": {
                 "l1_max_size": self.config.l1_max_size,
                 "l1_max_memory": self.config.l1_max_memory,
@@ -674,42 +674,42 @@ class IntelligentCache:
             },
         }
 
-    def cleanup(self):
-        """清理资源"""
+    def cleanup(self) -> None:
+        """Clean up resources"""
         self.running = False
         self.clear()
 
 
-# 装饰器模式
+# Decorator pattern
 def cached(
     cache: IntelligentCache,
     ttl: Optional[float] = None,
     key_func: Optional[Callable] = None,
 ):
     """
-    缓存装饰器
+    Cache decorator
 
     Args:
-        cache: 缓存实例
-        ttl: 生存时间
-        key_func: 自定义键生成函数
+        cache: Cache instance
+        ttl: Time to live
+        key_func: Custom key generation function
     """
 
-    def decorator(func):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # 生成缓存键
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            # Generate cache key
             if key_func:
                 cache_key = key_func(*args, **kwargs)
             else:
                 cache_key = f"{func.__name__}:{hashlib.md5(str(args).encode() + str(kwargs).encode()).hexdigest()}"
 
-            # 尝试从缓存获取
+            # Try to get from cache
             result = cache.get(cache_key)
             if result is not None:
                 return result
 
-            # 执行函数并缓存结果
+            # Execute function and cache result
             result = func(*args, **kwargs)
             cache.set(cache_key, result, ttl)
             return result
@@ -719,13 +719,13 @@ def cached(
     return decorator
 
 
-# 全局缓存实例
+# Global cache instance
 _global_cache: Optional[IntelligentCache] = None
 _cache_lock = threading.Lock()
 
 
 def get_global_cache() -> IntelligentCache:
-    """获取全局缓存实例"""
+    """Get global cache instance"""
     global _global_cache
     if _global_cache is None:
         with _cache_lock:
@@ -734,17 +734,17 @@ def get_global_cache() -> IntelligentCache:
     return _global_cache
 
 
-# 便捷函数
+# Convenience functions
 def get_cached(key: str, default: Any = None) -> Any:
-    """便捷函数：获取缓存值"""
+    """Convenience function: get cached value"""
     return get_global_cache().get(key, default)
 
 
 def set_cached(key: str, value: Any, ttl: Optional[float] = None) -> bool:
-    """便捷函数：设置缓存值"""
+    """Convenience function: set cached value"""
     return get_global_cache().set(key, value, ttl)
 
 
 def delete_cached(key: str) -> bool:
-    """便捷函数：删除缓存值"""
+    """Convenience function: delete cached value"""
     return get_global_cache().delete(key)
