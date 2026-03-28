@@ -8,7 +8,7 @@ Concrete implementations of mapping, validation and debug tools.
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 from src.data.mapping import MappingManager
@@ -30,7 +30,7 @@ class StockMappingTool(BaseTool):
         self.mapping_manager = MappingManager(self.mapping_file)
 
     def execute(
-        self, action: str = "get", stock_code: str = None, **kwargs
+        self, action: str = "get", stock_code: Optional[str] = None, **kwargs
     ) -> Dict[str, Any]:
         if action == "get":
             if not stock_code:
@@ -59,8 +59,8 @@ class StockMappingTool(BaseTool):
         elif action == "list":
             return {
                 "success": True,
-                "count": len(self.mapping_manager.mapping),
-                "mapping": self.mapping_manager.mapping,
+                "count": len(self.mapping_manager.mapping_data),
+                "mapping": self.mapping_manager.mapping_data,
             }
 
         return {"success": False, "error": f"Unknown action: {action}"}
@@ -78,7 +78,7 @@ class StockMappingTool(BaseTool):
             name = (
                 self.mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
             )
-            self.mapping_manager.update_mapping(stock_code, org_id, name)
+            self.mapping_manager.add_mapping(stock_code, org_id, name)
             return {
                 "success": True,
                 "stock_code": stock_code,
@@ -95,7 +95,7 @@ class StockValidationTool(ValidationTool):
     """
 
     def execute(
-        self, stock_code: str = None, validate_all: bool = False, **kwargs
+        self, stock_code: Optional[str] = None, validate_all: bool = False, **kwargs
     ) -> Dict[str, Any]:
         if validate_all:
             return self._validate_all(**kwargs)

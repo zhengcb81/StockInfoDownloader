@@ -1,6 +1,6 @@
 """
-结构化错误日志模块
-提供统一的错误记录、分析和监控功能
+Structured Error Logging Module
+Provides unified error logging, analysis, and monitoring functionality
 """
 
 import json
@@ -22,9 +22,9 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 
-# 错误日志级别枚举
+# Error log level enum
 class ErrorLogLevel(Enum):
-    """错误日志级别"""
+    """Error log level"""
 
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -35,7 +35,7 @@ class ErrorLogLevel(Enum):
 
 @dataclass
 class ErrorLogEntry:
-    """错误日志条目"""
+    """Error log entry"""
 
     timestamp: datetime
     error_code: ErrorCode
@@ -55,7 +55,7 @@ class ErrorLogEntry:
     system_state: Optional[Dict[str, Any]]
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         data = asdict(self)
         data["timestamp"] = self.timestamp.isoformat()
         data["error_code"] = self.error_code.value
@@ -64,12 +64,12 @@ class ErrorLogEntry:
         return data
 
     def to_json(self) -> str:
-        """转换为JSON字符串"""
+        """Convert to JSON string"""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
 
 
 class ErrorLogger:
-    """结构化错误日志记录器"""
+    """Structured error logger"""
 
     def __init__(
         self,
@@ -81,15 +81,15 @@ class ErrorLogger:
         enable_json: bool = True,
     ):
         """
-        初始化错误日志记录器
+        Initialize error logger
 
         Args:
-            log_dir: 日志目录
-            max_file_size: 最大文件大小
-            max_backup_count: 最大备份文件数量
-            enable_console: 是否启用控制台输出
-            enable_file: 是否启用文件输出
-            enable_json: 是否启用JSON格式输出
+            log_dir: Log directory
+            max_file_size: Maximum file size
+            max_backup_count: Maximum number of backup files
+            enable_console: Whether to enable console output
+            enable_file: Whether to enable file output
+            enable_json: Whether to enable JSON format output
         """
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
@@ -100,23 +100,23 @@ class ErrorLogger:
         self.enable_file = enable_file
         self.enable_json = enable_json
 
-        # 日志文件路径
+        # Log file paths
         self.text_log_path = self.log_dir / "errors.log"
         self.json_log_path = self.log_dir / "errors.json"
 
-        # 错误统计
+        # Error statistics
         self.error_counts: Dict[str, int] = {}
         self.recovery_stats: Dict[str, Dict[str, int]] = {}
 
-        # 错误模式识别
+        # Error pattern recognition
         self.error_patterns: Dict[str, List[ErrorLogEntry]] = {}
 
-        # 初始化
+        # Initialize
         self._initialize_logger()
 
-    def _initialize_logger(self):
-        """初始化日志记录器"""
-        # 创建基础日志文件
+    def _initialize_logger(self) -> None:
+        """Initialize logger"""
+        # Create base log files
         if self.enable_file and not self.text_log_path.exists():
             self.text_log_path.touch()
             self._write_log_header(self.text_log_path)
@@ -125,22 +125,22 @@ class ErrorLogger:
             self.json_log_path.touch()
             self._write_json_header()
 
-    def _write_log_header(self, file_path: Path):
-        """写入日志文件头"""
-        header = f"""# StockInfoDownloader 错误日志
-# 创建时间: {datetime.now().isoformat()}
-# 格式: [时间戳] [错误代码] [严重级别] 模块:函数(行号) 消息
-# 
+    def _write_log_header(self, file_path: Path) -> None:
+        """Write log file header"""
+        header = f"""# StockInfoDownloader Error Log
+# Created: {datetime.now().isoformat()}
+# Format: [timestamp] [error_code] [severity] module:function(line) message
+#
 """
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(header)
 
-    def _write_json_header(self):
-        """写入JSON日志文件头"""
+    def _write_json_header(self) -> None:
+        """Write JSON log file header"""
         header_data = {
             "version": "1.0",
             "created_at": datetime.now().isoformat(),
-            "description": "StockInfoDownloader 结构化错误日志",
+            "description": "StockInfoDownloader structured error log",
             "entries": [],
         }
         with open(self.json_log_path, "w", encoding="utf-8") as f:
@@ -148,22 +148,22 @@ class ErrorLogger:
 
     def log_error(
         self, error: StockInfoError, additional_context: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """
-        记录错误日志
+        Log an error
 
         Args:
-            error: 错误对象
-            additional_context: 额外上下文信息
+            error: Error object
+            additional_context: Additional context information
         """
         try:
-            # 创建错误日志条目
+            # Create error log entry
             log_entry = self._create_log_entry(error, additional_context)
 
-            # 更新统计信息
+            # Update statistics
             self._update_statistics(log_entry)
 
-            # 记录到不同目标
+            # Log to different destinations
             if self.enable_console:
                 self._log_to_console(log_entry)
 
@@ -173,16 +173,16 @@ class ErrorLogger:
             if self.enable_json:
                 self._log_to_json_file(log_entry)
 
-            # 分析错误模式
+            # Analyze error patterns
             self._analyze_error_pattern(log_entry)
 
         except Exception as e:
-            logger.error(f"记录错误日志失败: {e}")
+            logger.error(f"Failed to log error: {e}")
 
     def _create_log_entry(
         self, error: StockInfoError, additional_context: Optional[Dict[str, Any]] = None
     ) -> ErrorLogEntry:
-        """创建错误日志条目"""
+        """Create error log entry"""
         context = error.context.copy()
         if additional_context:
             context.update(additional_context)
@@ -208,14 +208,14 @@ class ErrorLogger:
             system_state=error.context.get("system_state"),
         )
 
-    def _update_statistics(self, log_entry: ErrorLogEntry):
-        """更新错误统计信息"""
+    def _update_statistics(self, log_entry: ErrorLogEntry) -> None:
+        """Update error statistics"""
         error_key = log_entry.error_code.value
 
-        # 更新错误计数
+        # Update error count
         self.error_counts[error_key] = self.error_counts.get(error_key, 0) + 1
 
-        # 更新恢复统计
+        # Update recovery statistics
         if error_key not in self.recovery_stats:
             self.recovery_stats[error_key] = {"attempted": 0, "successful": 0}
 
@@ -224,8 +224,8 @@ class ErrorLogger:
             if log_entry.recovery_successful:
                 self.recovery_stats[error_key]["successful"] += 1
 
-    def _log_to_console(self, log_entry: ErrorLogEntry):
-        """记录到控制台"""
+    def _log_to_console(self, log_entry: ErrorLogEntry) -> None:
+        """Log to console"""
         timestamp = log_entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         recovery_status = "✓" if log_entry.recovery_successful else "✗"
 
@@ -236,7 +236,7 @@ class ErrorLogger:
             f"{log_entry.message} {recovery_status}"
         )
 
-        # 根据严重级别选择输出方式
+        # Select output method based on severity
         if log_entry.severity in [ErrorSeverity.CRITICAL, ErrorSeverity.FATAL]:
             logger.error(console_msg)
         elif log_entry.severity == ErrorSeverity.ERROR:
@@ -246,8 +246,8 @@ class ErrorLogger:
         else:
             logger.info(console_msg)
 
-    def _log_to_text_file(self, log_entry: ErrorLogEntry):
-        """记录到文本文件"""
+    def _log_to_text_file(self, log_entry: ErrorLogEntry) -> None:
+        """Log to text file"""
         timestamp = log_entry.timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
         recovery_status = "SUCCESS" if log_entry.recovery_successful else "FAILED"
 
@@ -258,90 +258,90 @@ class ErrorLogger:
             f"{log_entry.message} | Recovery: {recovery_status}"
         )
 
-        # 检查文件大小，进行轮转
+        # Check file size and rotate if needed
         self._rotate_log_file(self.text_log_path)
 
         with open(self.text_log_path, "a", encoding="utf-8") as f:
             f.write(log_line + "\n")
 
-            # 如果有堆栈跟踪，也写入文件
+            # If there is a stack trace, write it to file
             if log_entry.stack_trace:
                 f.write("Stack Trace:\n")
                 f.write(log_entry.stack_trace + "\n")
                 f.write("-" * 80 + "\n")
 
-    def _log_to_json_file(self, log_entry: ErrorLogEntry):
-        """记录到JSON文件"""
-        # 检查文件大小，进行轮转
+    def _log_to_json_file(self, log_entry: ErrorLogEntry) -> None:
+        """Log to JSON file"""
+        # Check file size and rotate if needed
         self._rotate_log_file(self.json_log_path)
 
-        # 读取现有数据
+        # Read existing data
         try:
             with open(self.json_log_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             data = {"entries": []}
 
-        # 添加新条目
+        # Add new entry
         data["entries"].append(log_entry.to_dict())
 
-        # 写回文件
+        # Write back to file
         with open(self.json_log_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-    def _rotate_log_file(self, file_path: Path):
-        """轮转日志文件"""
+    def _rotate_log_file(self, file_path: Path) -> None:
+        """Rotate log file"""
         if not file_path.exists():
             return
 
         try:
             file_size = file_path.stat().st_size
             if file_size >= self.max_file_size:
-                # 创建备份文件
+                # Create backup file
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_path = file_path.with_name(
                     f"{file_path.stem}_{timestamp}{file_path.suffix}"
                 )
 
-                # 移动当前文件到备份
+                # Move current file to backup
                 file_path.rename(backup_path)
 
-                # 创建新文件
+                # Create new file
                 if file_path.suffix == ".json":
                     self._write_json_header()
                 else:
                     self._write_log_header(file_path)
 
-                # 清理旧备份文件
+                # Clean up old backup files
                 self._cleanup_old_backups(file_path)
 
         except Exception as e:
-            logger.error(f"轮转日志文件失败: {e}")
+            logger.error(f"Failed to rotate log file: {e}")
 
-    def _cleanup_old_backups(self, file_path: Path):
-        """清理旧备份文件"""
+    def _cleanup_old_backups(self, file_path: Path) -> None:
+        """Clean up old backup files"""
         try:
             pattern = f"{file_path.stem}_*{file_path.suffix}"
             backup_files = list(file_path.parent.glob(pattern))
 
-            # 按修改时间排序
+            # Sort by modification time
             backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
 
-            # 删除超出保留数量的文件
+            # Delete files beyond retention count
             for backup_file in backup_files[self.max_backup_count :]:
                 backup_file.unlink()
 
         except Exception as e:
-            logger.error(f"清理备份文件失败: {e}")
+            logger.error(f"Failed to clean up backup files: {e}")
 
-    def _analyze_error_pattern(self, log_entry: ErrorLogEntry):
-        """分析错误模式"""
+    def _analyze_error_pattern(self, log_entry: ErrorLogEntry) -> None:
+        """Analyze error patterns"""
         error_key = f"{log_entry.module}:{log_entry.function}"
 
         if error_key not in self.error_patterns:
             self.error_patterns[error_key] = []
 
-        # 保持最近100个错误记录
+        # Keep last 100 error records
         self.error_patterns[error_key].append(log_entry)
         if len(self.error_patterns[error_key]) > 100:
             self.error_patterns[error_key] = self.error_patterns[error_key][-100:]
@@ -350,44 +350,44 @@ class ErrorLogger:
         self, hours: int = 24, module: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        获取错误摘要
+        Get error summary
 
         Args:
-            hours: 统计时间范围（小时）
-            module: 指定模块
+            hours: Statistics time range in hours
+            module: Specify module
 
         Returns:
-            错误摘要信息
+            Error summary information
         """
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
-        # 从日志文件读取数据
+        # Read data from log file
         recent_errors = self._load_recent_errors(cutoff_time, module)
 
         if not recent_errors:
             return {"total_errors": 0, "time_range": f"Last {hours} hours"}
 
-        # 统计信息
+        # Statistics
         total_errors = len(recent_errors)
-        error_codes = {}
-        severities = {}
-        modules = {}
-        recovery_rate = 0
+        error_codes: Dict[str, int] = {}
+        severities: Dict[str, int] = {}
+        modules: Dict[str, int] = {}
+        recovery_rate: float = 0.0
 
         for entry in recent_errors:
-            # 错误代码统计
+            # Error code statistics
             code = entry["error_code"]
             error_codes[code] = error_codes.get(code, 0) + 1
 
-            # 严重级别统计
+            # Severity statistics
             severity = entry["severity"]
             severities[severity] = severities.get(severity, 0) + 1
 
-            # 模块统计
+            # Module statistics
             mod = entry["module"]
             modules[mod] = modules.get(mod, 0) + 1
 
-            # 恢复率统计
+            # Recovery rate statistics
             if entry["recovery_attempted"]:
                 recovery_rate += 1 if entry["recovery_successful"] else 0
 
@@ -410,7 +410,7 @@ class ErrorLogger:
     def _load_recent_errors(
         self, cutoff_time: datetime, module: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """加载最近的错误记录"""
+        """Load recent error records"""
         try:
             if not self.json_log_path.exists():
                 return []
@@ -430,18 +430,18 @@ class ErrorLogger:
             return recent_errors
 
         except Exception as e:
-            logger.error(f"加载错误记录失败: {e}")
+            logger.error(f"Failed to load error records: {e}")
             return []
 
     def get_error_trends(self, days: int = 7) -> Dict[str, Any]:
         """
-        获取错误趋势
+        Get error trends
 
         Args:
-            days: 统计天数
+            days: Number of days to analyze
 
         Returns:
-            错误趋势数据
+            Error trend data
         """
         trends = {}
         current_date = datetime.now().date()
@@ -450,7 +450,7 @@ class ErrorLogger:
             date = current_date - timedelta(days=i)
             date_str = date.isoformat()
 
-            # 计算该日期的错误数量
+            # Calculate error count for this date
             day_start = datetime.combine(date, datetime.min.time())
             day_end = datetime.combine(date, datetime.max.time())
 
@@ -472,7 +472,7 @@ class ErrorLogger:
         return trends
 
     def _calculate_recovery_rate(self, errors: List[Dict[str, Any]]) -> float:
-        """计算恢复率"""
+        """Calculate recovery rate"""
         attempted = [e for e in errors if e["recovery_attempted"]]
         if not attempted:
             return 0.0
@@ -482,21 +482,21 @@ class ErrorLogger:
 
     def get_error_patterns(self, min_occurrences: int = 3) -> Dict[str, Any]:
         """
-        获取错误模式
+        Get error patterns
 
         Args:
-            min_occurrences: 最小出现次数
+            min_occurrences: Minimum number of occurrences
 
         Returns:
-            错误模式分析结果
+            Error pattern analysis results
         """
         patterns = {}
 
         for location, entries in self.error_patterns.items():
             if len(entries) >= min_occurrences:
-                # 分析模式特征
-                error_codes = {}
-                severities = {}
+                # Analyze pattern characteristics
+                error_codes: Dict[str, int] = {}
+                severities: Dict[str, int] = {}
 
                 for entry in entries:
                     code = entry.error_code.value
@@ -520,41 +520,41 @@ class ErrorLogger:
 
         return patterns
 
-    def cleanup_old_logs(self, days: int = 30):
+    def cleanup_old_logs(self, days: int = 30) -> None:
         """
-        清理旧日志文件
+        Clean up old log files
 
         Args:
-            days: 保留天数
+            days: Number of days to retain
         """
         try:
             cutoff_time = datetime.now() - timedelta(days=days)
 
-            # 清理日志文件
+            # Clean up log files
             for log_file in self.log_dir.glob("*"):
                 if (
                     log_file.is_file()
                     and log_file.stat().st_mtime < cutoff_time.timestamp()
                 ):
                     log_file.unlink()
-                    logger.info(f"清理旧日志文件: {log_file.name}")
+                    logger.info(f"Cleaned up old log file: {log_file.name}")
 
         except Exception as e:
-            logger.error(f"清理旧日志文件失败: {e}")
+            logger.error(f"Failed to clean up old log files: {e}")
 
     def export_error_report(
         self, output_path: str, hours: int = 24, format_type: str = "json"
     ) -> bool:
         """
-        导出错误报告
+        Export error report
 
         Args:
-            output_path: 输出路径
-            hours: 统计时间范围
-            format_type: 输出格式 ('json' 或 'html')
+            output_path: Output path
+            hours: Statistics time range
+            format_type: Output format ('json' or 'html')
 
         Returns:
-            是否成功
+            Whether successful
         """
         try:
             summary = self.get_error_summary(hours=hours)
@@ -575,42 +575,42 @@ class ErrorLogger:
             elif format_type.lower() == "html":
                 self._generate_html_report(report_data, output_path)
 
-            logger.info(f"错误报告已导出到: {output_path}")
+            logger.info(f"Error report exported to: {output_path}")
             return True
 
         except Exception as e:
-            logger.error(f"导出错误报告失败: {e}")
+            logger.error(f"Failed to export error report: {e}")
             return False
 
     def _generate_recommendations(
         self, summary: Dict[str, Any], patterns: Dict[str, Any]
     ) -> List[str]:
-        """生成错误处理建议"""
+        """Generate error handling recommendations"""
         recommendations = []
 
-        # 基于错误频率的建议
+        # Recommendations based on error frequency
         if summary.get("error_frequency", 0) > 10:
-            recommendations.append("错误频率较高，建议检查系统稳定性和错误处理机制")
+            recommendations.append("High error frequency, suggest checking system stability and error handling mechanism")
 
-        # 基于恢复率的建议
+        # Recommendations based on recovery rate
         recovery_rate = summary.get("recovery_rate", 0)
         if recovery_rate < 0.5:
-            recommendations.append("错误恢复率较低，建议优化错误恢复策略")
+            recommendations.append("Low error recovery rate, suggest optimizing error recovery strategy")
 
-        # 基于错误模式的建议
+        # Recommendations based on error patterns
         for location, pattern in patterns.items():
             if pattern["recovery_rate"] < 0.3:
-                recommendations.append(f"{location} 的错误恢复率较低，需要重点关注")
+                recommendations.append(f"{location} has low error recovery rate and needs attention")
 
         return recommendations
 
-    def _generate_html_report(self, report_data: Dict[str, Any], output_path: str):
-        """生成HTML格式报告"""
+    def _generate_html_report(self, report_data: Dict[str, Any], output_path: str) -> None:
+        """Generate HTML format report"""
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>StockInfoDownloader 错误报告</title>
+            <title>StockInfoDownloader Error Report</title>
             <meta charset="utf-8">
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 20px; }}
@@ -626,19 +626,19 @@ class ErrorLogger:
         </head>
         <body>
             <div class="header">
-                <h1>StockInfoDownloader 错误报告</h1>
-                <p>生成时间: {report_data['generated_at']}</p>
+                <h1>StockInfoDownloader Error Report</h1>
+                <p>Generated at: {report_data['generated_at']}</p>
             </div>
-            
+
             <div class="section">
-                <h2>错误摘要</h2>
-                <p>总错误数: {report_data['summary']['total_errors']}</p>
-                <p>错误频率: {report_data['summary']['error_frequency']:.2f} 错误/小时</p>
-                <p>恢复率: {report_data['summary']['recovery_rate']:.2%}</p>
+                <h2>Error Summary</h2>
+                <p>Total errors: {report_data['summary']['total_errors']}</p>
+                <p>Error frequency: {report_data['summary']['error_frequency']:.2f} errors/hour</p>
+                <p>Recovery rate: {report_data['summary']['recovery_rate']:.2%}</p>
             </div>
-            
+
             <div class="section">
-                <h2>建议</h2>
+                <h2>Recommendations</h2>
                 <ul>
                     {''.join(f'<li>{rec}</li>' for rec in report_data['recommendations'])}
                 </ul>
@@ -651,49 +651,49 @@ class ErrorLogger:
             f.write(html_content)
 
 
-# 全局错误日志记录器实例
+# Global error logger instance
 error_logger = ErrorLogger()
 
 
-# 便捷函数
+# Convenience functions
 def log_error(
     error: StockInfoError, additional_context: Optional[Dict[str, Any]] = None
-):
-    """便捷的错误记录函数"""
+) -> None:
+    """Convenience function for error logging"""
     error_logger.log_error(error, additional_context)
 
 
 def get_error_summary(hours: int = 24, module: Optional[str] = None) -> Dict[str, Any]:
-    """便捷的错误摘要函数"""
+    """Convenience function for error summary"""
     return error_logger.get_error_summary(hours, module)
 
 
 def get_error_trends(days: int = 7) -> Dict[str, Any]:
-    """便捷的错误趋势函数"""
+    """Convenience function for error trends"""
     return error_logger.get_error_trends(days)
 
 
 def export_error_report(
     output_path: str, hours: int = 24, format_type: str = "json"
 ) -> bool:
-    """便捷的错误报告导出函数"""
+    """Convenience function for error report export"""
     return error_logger.export_error_report(output_path, hours, format_type)
 
 
-# 集成到全局错误处理器
-def _integrate_with_error_handler():
-    """集成到全局错误处理器"""
+# Integrate with global error handler
+def _integrate_with_error_handler() -> None:
+    """Integrate with global error handler"""
     original_log_error = error_handler._log_error
 
-    def enhanced_log_error(error: StockInfoError):
-        # 调用原始日志记录
+    def enhanced_log_error(error: StockInfoError) -> None:
+        # Call original logger
         original_log_error(error)
 
-        # 记录到结构化错误日志
+        # Log to structured error log
         log_error(error)
 
-    error_handler._log_error = enhanced_log_error
+    error_handler._log_error = enhanced_log_error  # type: ignore[method-assign]
 
 
-# 自动集成
+# Auto integrate
 _integrate_with_error_handler()

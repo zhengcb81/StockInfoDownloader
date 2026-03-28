@@ -5,7 +5,7 @@
 
 import csv
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import requests
 
@@ -33,6 +33,8 @@ class StockService:
         """
         根据股票代码获取股票名称
 
+        优先使用腾讯财经接口，如果失败则尝试巨潮API
+
         Args:
             stock_code: 股票代码
 
@@ -40,15 +42,77 @@ class StockService:
             Optional[str]: 股票名称，获取失败返回None
         """
         try:
-            stock_code = standardize_stock_code(stock_code)
-            if not stock_code:
+            standardized_code = standardize_stock_code(stock_code)
+            if not standardized_code:
                 return None
 
-            # 使用巨潮资讯网的API
+            # 方法1: 使用腾讯财经接口（更稳定）
+            stock_name = self._get_name_from_tencent(standardized_code)
+            if stock_name:
+                return stock_name
+
+            # 方法2: 使用巨潮资讯网的API
+            stock_name = self._get_name_from_cninfo(standardized_code)
+            if stock_name:
+                return stock_name
+
+            logger.warning(f"未找到股票名称: {standardized_code}")
+            return None
+
+        except Exception as e:
+            logger.error(f"获取股票名称失败: {e}")
+            return None
+
+    def _get_name_from_tencent(self, stock_code: str) -> Optional[str]:
+        """
+        从腾讯财经接口获取股票名称
+
+        Args:
+            stock_code: 6位股票代码
+
+        Returns:
+            Optional[str]: 股票名称
+        """
+        try:
+            # 判断交易所
+            exchange = "sh" if stock_code.startswith(("6", "5", "9")) else "sz"
+
+            # 腾讯财经接口
+            url = f"https://qt.gtimg.cn/q={exchange}{stock_code}"
+
+            response = self.session.get(url, timeout=5)
+            response.encoding = "gbk"
+
+            # 解析返回数据
+            data = response.text
+            parts = data.split("~")
+
+            if len(parts) > 1 and parts[1]:
+                stock_name = parts[1]
+                logger.info(f"从腾讯获取股票名称成功: {stock_code} -> {stock_name}")
+                return stock_name
+
+            return None
+
+        except Exception as e:
+            logger.debug(f"从腾讯获取股票名称失败: {e}")
+            return None
+
+    def _get_name_from_cninfo(self, stock_code: str) -> Optional[str]:
+        """
+        从巨潮资讯网API获取股票名称
+
+        Args:
+            stock_code: 6位股票代码
+
+        Returns:
+            Optional[str]: 股票名称
+        """
+        try:
             url = f"{self.base_url}/new/information/topSearch/query"
             params = {"keyWord": stock_code, "maxNum": 10}
 
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params, timeout=10)  # type: ignore[arg-type]
             response.raise_for_status()
 
             data = response.json()
@@ -56,19 +120,19 @@ class StockService:
             # 查找匹配的股票
             for item in data:
                 if item.get("code") == stock_code:
-                    stock_name = item.get("value", "").split("-")[0].strip()
-                    if stock_name:
-                        logger.info(f"获取股票名称成功: {stock_code} -> {stock_name}")
-                        return stock_name
+                    value = item.get("value", "")
+                    if isinstance(value, str):
+                        stock_name = value.split("-")[0].strip()
+                        if stock_name:
+                            logger.info(
+                                f"从巨潮获取股票名称成功: {stock_code} -> {stock_name}"
+                            )
+                            return stock_name
 
-            logger.warning(f"未找到股票名称: {stock_code}")
             return None
 
-        except requests.RequestException as e:
-            logger.error(f"网络请求失败: {e}")
-            return None
         except Exception as e:
-            logger.error(f"获取股票名称失败: {e}")
+            logger.debug(f"从巨潮获取股票名称失败: {e}")
             return None
 
     def get_stock_info(self, stock_code: str) -> Optional[StockInfo]:
@@ -166,13 +230,13 @@ class StockService:
             list: 股票代码列表
         """
         try:
-            file_path = Path(file_path)
-            if not file_path.exists():
+            path_obj = Path(file_path)
+            if not path_obj.exists():
                 logger.error(f"文件不存在: {file_path}")
                 return []
 
             stock_codes = []
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(path_obj, "r", encoding="utf-8") as f:
                 reader = csv.reader(f)
                 next(reader)  # 跳过表头
                 for row in reader:

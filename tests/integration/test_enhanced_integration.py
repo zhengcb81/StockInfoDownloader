@@ -264,6 +264,7 @@ class TestEnhancedIntegration:
             save_dir=self.temp_dir,
             mapping_file=self.mapping_file,
             browser_strategy="playwright",
+            skip_browser_init=False,
         )
 
         # 测试浏览器策略初始化

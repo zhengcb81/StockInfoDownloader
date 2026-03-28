@@ -7,9 +7,10 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -39,12 +40,12 @@ from ..utils.browser_utils import (
     is_test_environment,
 )
 from ..utils.cleanup_utils import safe_cleanup
-from .browser_strategy import BrowserAutomationStrategy
+from .browser_strategy import BrowserStrategy
 
 logger = get_logger(__name__)
 
 
-class SeleniumStrategy(BrowserAutomationStrategy):
+class SeleniumStrategy(BrowserStrategy):
     """Selenium Browser Automation Strategy"""
 
     def __init__(
@@ -273,16 +274,30 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             logger.error(f"Selenium cleanup failed: {e}")
 
     def navigate(self, url: str) -> bool:
-        """Navigate to specified URL"""
+        """Navigate to specified URL with retry on tab crash"""
         if not self.driver:
             return False
 
-        try:
-            self.driver.get(url)
-            return True
-        except Exception as e:
-            logger.error(f"Failed to navigate to {url}: {e}")
-            return False
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                self.driver.get(url)
+                return True
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "tab crashed" in error_msg and attempt < max_retries:
+                    logger.warning(
+                        f"Tab crashed during navigation, reinitializing WebDriver (attempt {attempt + 1}/{max_retries})"
+                    )
+                    try:
+                        self.cleanup()
+                    except Exception:
+                        pass
+                    if self.initialize():
+                        continue
+                logger.error(f"Failed to navigate to {url}: {e}")
+                return False
+        return False
 
     def navigate_to_page(self, url: str) -> bool:
         """
@@ -331,7 +346,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return element.text
+            return cast(str, element.text)
         except Exception as e:
             logger.error(f"Failed to get element text: {e}")
             return ""
@@ -342,7 +357,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return None
 
         try:
-            return element.get_attribute(attribute)
+            return cast(Optional[str], element.get_attribute(attribute))
         except Exception as e:
             logger.error(f"Failed to get element attribute: {e}")
             return None
@@ -382,7 +397,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
             return True
 
-        except Exception:
+        except WebDriverException:
             return False
 
     def get_page_source(self) -> str:
@@ -392,7 +407,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         try:
             return self.driver.page_source
-        except Exception as e:
+        except WebDriverException as e:
             logger.error(f"Failed to get page source: {e}")
             return ""
 
@@ -403,7 +418,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         try:
             return self.driver.current_url
-        except Exception as e:
+        except WebDriverException as e:
             logger.error(f"Failed to get current URL: {e}")
             return ""
 
@@ -414,7 +429,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         try:
             return self.driver.title
-        except Exception as e:
+        except WebDriverException as e:
             logger.error(f"Failed to get page title: {e}")
             return ""
 
@@ -563,7 +578,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 try:
                     f.unlink()
                     logger.info(f"Cleaned pre-existing orphan PDF in root: {f}")
-                except:
+                except (OSError, PermissionError):
+                    # File may be locked or lack permissions
                     pass
         except Exception as e:
             logger.debug(f"Error during pre-download cleanup: {e}")
@@ -607,14 +623,16 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         # If still on list page or URL mismatch for detail, force reload
         if "/new/disclosure/stock" in current_url and "/new/disclosure/detail" in url:
             logger.info("SPA detected: forcing direct GET for detail page")
-            self.driver.get(url)
+            if self.driver:
+                self.driver.get(url)
             time.sleep(3)
 
         # Wait for page load indicators
         if not self._wait_for_page_ready():
             # Second attempt if indicators missing
             logger.info("Retrying navigation for detail page...")
-            self.driver.get(url)
+            if self.driver:
+                self.driver.get(url)
             if not self._wait_for_page_ready():
                 return False
 
@@ -642,7 +660,9 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             "Download button not appeared immediately, waiting for page indicators"
         )
         start_time = time.time()
-        max_wait = ConfigConstants.get_timeout("page_load_max_attempts") * ConfigConstants.get_timeout("page_load_check_interval")
+        max_wait = ConfigConstants.get_timeout(
+            "page_load_max_attempts"
+        ) * ConfigConstants.get_timeout("page_load_check_interval")
         while time.time() - start_time < max_wait:
             title = self.get_page_title()
             if "巨潮资讯网" in title:
@@ -682,16 +702,20 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 return False
 
             # 3. Ensure element is in view and visible
-            self.driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'});", download_btn
-            )
+            if self.driver:
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center'});", download_btn
+                )
             time.sleep(1)
 
             # 4. Click download button
             if not self.click(download_btn):
                 logger.info("Normal click failed, trying JavaScript click")
                 try:
-                    self.driver.execute_script("arguments[0].click();", download_btn)
+                    if self.driver:
+                        self.driver.execute_script(
+                            "arguments[0].click();", download_btn
+                        )
                 except Exception as je:
                     logger.error(f"JavaScript click also failed: {je}")
                     return False
@@ -778,7 +802,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     if size > max_size:
                         max_size = size
                         downloaded_file = f
-                except:
+                except (OSError, AttributeError):
+                    # File may be inaccessible
                     pass
 
         return downloaded_file
@@ -829,6 +854,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         Delete all files in root and subdirectories with same content or name as target file.
         """
         try:
+            if self.download_dir is None:
+                return
             download_root = Path(self.download_dir)
             target_path = Path(save_path)
 
@@ -1017,7 +1044,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     try:
                         source_file.unlink()
                         logger.debug(f"Cleaned residual source file: {source_file}")
-                    except:
+                    except (OSError, PermissionError):
+                        # File may be locked
                         pass
 
                 return True
@@ -1096,7 +1124,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             try:
                 os.remove(save_path)
                 logger.info(f"Removed partial file: {save_path}")
-            except:
+            except (OSError, PermissionError):
+                # File may be locked
                 pass
 
         # Check download root for potentially orphan files
@@ -1109,9 +1138,11 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                     try:
                         orphan.unlink()
                         logger.info(f"Cleaned orphan PDF during timeout: {orphan}")
-                    except:
+                    except (OSError, PermissionError):
+                        # File may be locked
                         pass
-            except:
+            except (OSError, PermissionError):
+                # Directory access issues
                 pass
 
         return False
@@ -1153,19 +1184,8 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 },
             )
 
-            next_selectors = [
-                # Primary selector - verified by diagnostic results
-                ".el-pager li.number.active + li.number",
-                # Element UI pagination buttons
-                "button.el-pagination__next:not(.is-disabled)",
-                # Alternative Element UI patterns
-                ".el-pager li.active + li.number",
-                ".el-pager li.number.active + li",
-                # Backup selectors
-                "button.el-pagination__next:not([disabled])",
-                ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)",
-            ]
+            # Use shared selector config
+            next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             marker.add_step(
                 "selectors_defined",
@@ -1307,6 +1327,60 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             marker.save()
             logger.error(f"Failed to go to next page: {e}")
             return False
+
+    def get_current_page_info(self) -> dict:
+        """
+        Get current page info including current page and total pages
+
+        Returns:
+            dict: Page info with keys: current_page, total_pages, has_next, has_previous
+        """
+        if not self.driver:
+            logger.error("Browser not initialized, cannot get page info")
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+
+        try:
+            # Get current page from active element
+            current_page = self.driver.execute_script("""
+                const active = document.querySelector('.el-pager li.number.active');
+                return active ? parseInt(active.textContent.trim()) : 1;
+            """)
+
+            # Get total pages from last page number element
+            total_pages = self.driver.execute_script("""
+                const pages = document.querySelectorAll('.el-pager li.number');
+                if (pages.length > 0) {
+                    const lastPage = pages[pages.length - 1];
+                    return parseInt(lastPage.textContent.trim()) || 1;
+                }
+                return 1;
+            """)
+
+            page_info = {
+                "current_page": current_page or 1,
+                "total_pages": total_pages or 1,
+                "has_next": self.has_next_page(),
+                "has_previous": False,
+            }
+
+            logger.info(
+                f"Page info: current={page_info['current_page']}, total={page_info['total_pages']}"
+            )
+            return page_info
+
+        except Exception as e:
+            logger.warning(f"Get page info failed: {e}")
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
 
     def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
         """
@@ -1507,22 +1581,12 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                         ),
                     },
                 )
-            except:
+            except (WebDriverException, AttributeError):
+                # Driver may not be available
                 pass
 
-            next_selectors = [
-                # Primary selector - verified by diagnostic results
-                ".el-pager li.number.active + li.number",
-                # Element UI pagination buttons
-                "button.el-pagination__next:not(.is-disabled)",
-                # Alternative Element UI patterns
-                ".el-pager li.active + li.number",
-                ".el-pager li.number.active + li",
-                # Backup selectors
-                "button.el-pagination__next:not([disabled])",
-                ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)",
-            ]
+            # Use shared selector config
+            next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             marker.add_step(
                 "selectors_defined",

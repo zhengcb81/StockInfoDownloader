@@ -190,6 +190,20 @@ class FakeBrowserStrategy(BrowserAutomationStrategy):
         """
         return False
 
+    def get_current_page_info(self) -> Dict[str, Any]:
+        """
+        Get current page info
+
+        Returns:
+            Dict[str, Any]: Page info with current_page, total_pages, etc.
+        """
+        return {
+            "current_page": 1,
+            "total_pages": 1,
+            "has_next": False,
+            "has_previous": False,
+        }
+
     # Test helper methods
 
     def add_mock_element(self, selector: str, element: Dict[str, Any]) -> None:
@@ -219,3 +233,16 @@ class FakeBrowserStrategy(BrowserAutomationStrategy):
     def is_closed(self) -> bool:
         """Check if browser is closed"""
         return self._is_closed
+
+    def initialize(self) -> bool:
+        """Initialize the fake browser"""
+        self._is_closed = False
+        self._healthy = True
+        return True
+
+    def cleanup(self) -> None:
+        """Cleanup browser resources"""
+        self._is_closed = True
+        self._healthy = False
+        self._downloads.clear()
+        self._elements.clear()

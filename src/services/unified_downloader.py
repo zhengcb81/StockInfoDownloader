@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-统一下载器实现 - 生产级稳定版
+Unified Downloader Implementation - Production Stable Version
 """
 
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
+
+from selenium.common.exceptions import WebDriverException
 
 from src.abstracts.base_downloader import BaseDownloader
 from src.core.config_constants import ConfigConstants
@@ -17,6 +18,7 @@ from src.core.debug_tracker import (
     DebugStep,
     get_debug_marker_manager,
 )
+from src.core.exceptions import OrgIdError
 from src.core.logger import get_logger
 from src.interfaces.downloader_interface import (
     DownloadRequest,
@@ -24,6 +26,13 @@ from src.interfaces.downloader_interface import (
     DownloadStatus,
     IBrowserStrategy,
     IDownloader,
+)
+from src.web.browser_strategy import BrowserStrategy
+from src.services.download_helpers import (
+    DownloadHistoryTracker,
+    KeywordMatcher,
+    LinkExtractor,
+    PaginationHandler,
 )
 
 logger = get_logger(__name__)
@@ -33,7 +42,7 @@ logger = get_logger(__name__)
 
 
 class UnifiedDownloader(BaseDownloader, IDownloader):
-    browser_strategy: Optional[IBrowserStrategy]
+    browser_strategy: Optional[BrowserStrategy]
 
     def __init__(
         self,
@@ -63,26 +72,54 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
         # 兼容性字段
         self.download_count = 0
         self.retry_count = 0
-        self.max_retries = int(self.config.get("retry_count", ConfigConstants.ANTI_CRAWLER_CONFIG["max_retries"]))
-        self.max_downloads_per_session = ConfigConstants.DOWNLOAD_CONFIG["max_downloads_per_session"]
+        # 行为验证字段 (E2E 测试用)
+        self.skipped_files: List[str] = []  # 跳过的已存在文件
+        self.pages_traversed: int = 0  # 实际遍历的页数
+        self.max_retries = int(
+            self.config.get(
+                "retry_count", ConfigConstants.ANTI_CRAWLER_CONFIG["max_retries"]
+            )
+        )
+        self.max_downloads_per_session = ConfigConstants.DOWNLOAD_CONFIG[
+            "max_downloads_per_session"
+        ]
 
         self.logger.info(
             f"Unified Downloader initialized, core driver: {self.config.get('browser_strategy')}"
         )
-        self.history: List[Dict[str, Any]] = []
+        # Initialize helper classes
+        self.history_tracker = DownloadHistoryTracker()
+        self.keyword_matcher = KeywordMatcher()
+        # LinkExtractor and PaginationHandler are initialized with browser_strategy
+        self._link_extractor: Optional[LinkExtractor] = None
+        self._pagination_handler: Optional[PaginationHandler] = None
 
     def get_download_history(self) -> List[Dict[str, Any]]:
         """Get download history"""
-        return self.history
+        return self.history_tracker.get_history()
 
-    def _init_services(self):
+    @property
+    def link_extractor(self) -> Optional[LinkExtractor]:
+        """Get link extractor (lazily initialized with browser_strategy)."""
+        if self._link_extractor is None and self.browser_strategy:
+            self._link_extractor = LinkExtractor(self.browser_strategy)
+        return self._link_extractor
+
+    @property
+    def pagination_handler(self) -> Optional[PaginationHandler]:
+        """Get pagination handler (lazily initialized with browser_strategy)."""
+        if self._pagination_handler is None and self.browser_strategy:
+            self._pagination_handler = PaginationHandler(self.browser_strategy)
+        return self._pagination_handler
+
+    def _init_services(self) -> None:
         from src.services.file_service import FileService
         from src.services.validation_service import ValidationService
 
-        self.file_service = FileService(self.config)
-        self.validation_service = ValidationService(self.config)
+        self.file_service = FileService(None)
+        self.validation_service = ValidationService(None)
 
-    def _init_browser_strategy(self, force: bool = False):
+    def _init_browser_strategy(self, force: bool = False) -> None:
         if self.config.get("skip_browser_init", False) and not force:
             self.logger.info("跳过浏览器策略初始化")
             return
@@ -94,8 +131,9 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
         ).get("strategy", "playwright")
         download_dir = self.config.get("save_dir", "downloads")
         headless = self.config.get("headless", True)
-        if isinstance(self.config.get("browser"), dict):
-            headless = self.config.get("browser").get("headless", headless)
+        browser_config = self.config.get("browser")
+        if isinstance(browser_config, dict):
+            headless = browser_config.get("headless", headless)
 
         self.browser_strategy = BrowserStrategyFactory.create_strategy(
             strategy_type=strategy_type,
@@ -103,7 +141,8 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
             download_dir=download_dir,
             config=self.config,
         )
-        self.browser_strategy.initialize()
+        if self.browser_strategy:
+            self.browser_strategy.initialize()
 
     def _log_debug_marker(
         self,
@@ -111,10 +150,10 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
         success: bool,
         details: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
-    ):
+    ) -> None:
         self.marker_manager.add_marker(step, success, details, error)
 
-    def _debug_step(self, step: DebugStep, func, *args, **kwargs):
+    def _debug_step(self, step: DebugStep, func: Any, *args: Any, **kwargs: Any) -> Any:
         try:
             result = func(*args, **kwargs)
             self._log_debug_marker(
@@ -144,14 +183,14 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
             last_error=None,
         )
 
-    def download_stock_pdfs(  # type: ignore[override]
+    def download_stock_pdfs(
         self,
         request: Union[DownloadRequest, str],
         stock_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Union[DownloadResult, List[str]]:
+    ) -> DownloadResult:
         if isinstance(request, str):
-            # Legacy call format
+            # Legacy call format - convert str to DownloadRequest
             stock_code = request
             request = DownloadRequest(
                 stock_code=stock_code,
@@ -163,8 +202,6 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
                     "save_dir", self.config.get("save_dir", "downloads")
                 ),
             )
-            res = self._download_with_retry(request)
-            return res.downloaded_files
 
         return self._download_with_retry(request)
 
@@ -182,7 +219,8 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
                 self.logger.info(f"Retrying download (attempt {attempt})...")
                 try:
                     self.browser_strategy.restart()
-                except:
+                except (WebDriverException, RuntimeError, AttributeError):
+                    # Browser restart failed, will try again
                     pass
 
             last_res = self._download_internal(request)
@@ -200,23 +238,31 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
     def _download_internal(self, request: DownloadRequest) -> DownloadResult:
         self.logger.info(f"Starting download pipeline for: {request.stock_code}")
         start_time = time.time()
+        # 重置行为验证字段
+        self.skipped_files = []
+        self.pages_traversed = 0
 
         try:
             # 1. Mapping injection
             from src.data.mapping import MappingManager
 
+            # 是否强制从网络获取（用于测试实时爬取能力）
+            force_crawl = self.config.get("force_crawl_mapping", False)
+
             mm = MappingManager()
             if not request.org_id:
-                request.org_id = mm.get_org_id(request.stock_code)
+                request.org_id = mm.get_org_id(
+                    request.stock_code, force_refresh=force_crawl
+                )
                 if not request.org_id:
-                    raise Exception(f"OrgID NotFound: {request.stock_code}")
+                    raise OrgIdError(f"OrgID NotFound: {request.stock_code}")
                 self._log_debug_marker(
                     DebugStep.ORG_ID_MAPPING, True, {"org_id": request.org_id}
                 )
 
             if not request.stock_name:
                 request.stock_name = (
-                    mm.get_stock_name(request.stock_code)
+                    mm.get_stock_name(request.stock_code, auto_crawl=force_crawl)
                     or f"Stock_{request.stock_code}"
                 )
 
@@ -230,16 +276,18 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
                 errors=[],
                 duration_seconds=time.time() - start_time,
                 metadata={},
+                skipped_files=self.skipped_files,
+                pages_traversed=self.pages_traversed,
             )
         except Exception as e:
             self.logger.error(f"Pipeline crashed: {e}")
             return DownloadResult(False, [], 0, [str(e)], time.time() - start_time, {})
 
-    def download_activity_records(self, **kwargs) -> List[str]:
+    def download_activity_records(self, **kwargs: Any) -> List[str]:
         """Best compatibility entry point"""
         stock_code = kwargs.get("stock_code")
         request = DownloadRequest(
-            stock_code=stock_code,
+            stock_code=stock_code or "",
             stock_name=kwargs.get("stock_name"),
             suffix=kwargs.get("suffix", "research"),
             allowed_keywords=kwargs.get("allowed_keywords"),
@@ -249,11 +297,84 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
         res = self._download_internal(request)
         return res.downloaded_files
 
-    def _perform_download(self, request: DownloadRequest) -> List[str]:
+    def _perform_download(self, request: DownloadRequest) -> List[str]:  # type: ignore[override]
         if not self.browser_strategy:
             raise RuntimeError("Browser strategy not initialized")
 
-        # URL 路由
+        self._navigate_to_stock_page(request)
+        self._wait_for_page_load()
+
+        if request.suffix:
+            self._handle_spa_tab_switch(request.suffix)
+
+        all_downloaded: List[str] = []
+
+        # 支持从最后一页开始（用于 latestAnnouncement 等经常更新的页面）
+        if request.reverse_order:
+            # 获取总页数
+            page_info = self.browser_strategy.get_current_page_info()
+            total_pages = page_info.get("total_pages", 1)
+            self.logger.info(f"Reverse order: total_pages={total_pages}")
+
+            # 跳转到最后一页（点击最后一页按钮）
+            self.browser_strategy.execute_script("""
+                (() => {
+                    const pages = document.querySelectorAll('.el-pager li.number');
+                    if (pages.length > 0) {
+                        pages[pages.length - 1].click();
+                    }
+                })()
+            """)
+            time.sleep(3)
+            self._wait_for_page_load()
+
+            # 获取当前页码
+            current_info = self.browser_strategy.get_current_page_info()
+            current_page = current_info.get("current_page", total_pages)
+            self.logger.info(f"Jumped to last page: {current_page}")
+
+            # 从最后一页开始往前遍历
+            pages_to_check = min(request.max_pages, current_page)
+            for i in range(pages_to_check):
+                page = current_page - i
+                self.logger.info(f"Processing page {page}/{total_pages}...")
+                self.pages_traversed = i + 1
+                downloaded = self._download_page_links(request, page)
+                all_downloaded.extend(downloaded)
+
+                # 如果找到目标文件，可以提前结束
+                if len(downloaded) > 0 and request.allowed_keywords:
+                    self.logger.info(f"Found target files on page {page}, stopping")
+                    break
+
+                # 往前翻一页
+                if i < pages_to_check - 1 and page > 1:
+                    # 点击上一页按钮
+                    self.browser_strategy.execute_script("""
+                        (() => {
+                            const prev = document.querySelector('.btn-prev');
+                            if (prev && !prev.disabled) prev.click();
+                        })()
+                    """)
+                    assert self.pagination_handler is not None
+                    self.pagination_handler.wait_after_page_change()  # type: ignore[union-attr]
+                    self._wait_for_page_load()
+        else:
+            # 正常顺序：从第1页开始
+            for page in range(1, request.max_pages + 1):
+                self.logger.info(f"Processing page {page}...")
+                self.pages_traversed = page
+                downloaded = self._download_page_links(request, page)
+                all_downloaded.extend(downloaded)
+
+                if not self.pagination_handler.go_to_next_page():  # type: ignore[union-attr]
+                    break
+                self.pagination_handler.wait_after_page_change()  # type: ignore[union-attr]
+
+        return all_downloaded
+
+    def _navigate_to_stock_page(self, request: DownloadRequest) -> None:
+        """Navigate to the stock page URL."""
         url = ConfigConstants.STOCK_PAGE_URL_TEMPLATE.format(
             stock_code=request.stock_code, org_id=request.org_id
         )
@@ -262,11 +383,11 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
 
         DebugMarker(DebugStep.URL_GENERATION, True, {"url": url}).log()
         self.logger.info(f"Navigating to stock page: {url}")
-        if not self.browser_strategy.navigate(url):
+        if not self.browser_strategy.navigate(url):  # type: ignore[union-attr]
             raise Exception("Failed to navigate to list page")
 
-        # Wait for page load (especially AJAX data)
-        # We wait for the table or list container to appear
+    def _wait_for_page_load(self) -> None:
+        """Wait for page data links to appear via polling."""
         max_attempts = ConfigConstants.get_timeout("page_load_max_attempts")
         check_interval = ConfigConstants.get_timeout("page_load_check_interval")
 
@@ -277,137 +398,87 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
                 break
             self.logger.debug("Waiting for data links to load...")
 
-        # Handle SPA tab switching
-        if request.suffix:
-            time.sleep(ConfigConstants.get_timeout("spa_tab_switch_wait"))
-            # Safely inject script
-            tab_script = (
-                f"document.querySelector('a[href*=\"{request.suffix}\"]')?.click()"
+    def _handle_spa_tab_switch(self, suffix: str) -> None:
+        """Handle SPA tab switching for suffix-based navigation."""
+        time.sleep(ConfigConstants.get_timeout("spa_tab_switch_wait"))
+        tab_script = f"document.querySelector('a[href*=\"{suffix}\"]')?.click()"
+        self.browser_strategy.execute_script(tab_script)  # type: ignore[union-attr]
+        time.sleep(ConfigConstants.get_timeout("content_load_wait"))
+
+    def _download_page_links(self, request: DownloadRequest, page: int) -> List[str]:
+        """Match and download links on the current page."""
+        links = self._get_links_safe()
+        DebugMarker(
+            DebugStep.PDF_VISIBILITY, True, {"page": page, "count": len(links)}
+        ).log()
+
+        if len(links) == 0:
+            self.logger.warning(
+                f"No links found on page {page}, saving debug screenshot..."
             )
-            self.browser_strategy.execute_script(tab_script)
-            # Wait for tab content
-            time.sleep(ConfigConstants.get_timeout("content_load_wait"))
+            self.browser_strategy.take_screenshot(  # type: ignore[union-attr]
+                f"logs/debug_page_{request.stock_code}_p{page}.png"
+            )
 
-        all_downloaded = []
-        for page in range(1, request.max_pages + 1):
-            self.logger.info(f"Processing page {page}...")
+        downloaded: List[str] = []
+        for text, href in links:
+            if self._matches(text, request.allowed_keywords):
+                result = self._download_single_link(request, text, href)
+                if result:
+                    downloaded.append(result)
+        return downloaded
 
-            # Batch fetch to avoid stale references
-            links = self._get_links_safe()
-            DebugMarker(
-                DebugStep.PDF_VISIBILITY, True, {"page": page, "count": len(links)}
-            ).log()
+    def _download_single_link(
+        self, request: DownloadRequest, text: str, href: str
+    ) -> Optional[str]:
+        """Download a single matched link and return the file path on success."""
+        target_name = self.file_service.clean_filename(text)
+        save_dir = (
+            Path(str(request.save_dir)) if request.save_dir else Path("downloads")
+        )
+        dest = (
+            save_dir
+            / (request.stock_name or f"Stock_{request.stock_code}")
+            / f"{target_name}.pdf"
+        )
 
-            if len(links) == 0:
-                self.logger.warning(
-                    f"No links found on page {page}, saving debug screenshot..."
+        if dest.exists() and dest.stat().st_size > 100:
+            self.logger.info(f"File already exists, skipping: {dest}")
+            self.skipped_files.append(str(dest))
+            return str(dest)
+
+        self.logger.info(f"Downloading: {text}")
+        if self.browser_strategy.download_file(href, str(dest)):  # type: ignore[union-attr]
+            if dest.exists() and dest.stat().st_size > 100:
+                self.history_tracker.add_record(
+                    stock_code=request.stock_code,
+                    stock_name=request.stock_name,
+                    file_name=text,
+                    file_path=str(dest),
+                    status="success",
                 )
-                self.browser_strategy.take_screenshot(
-                    f"logs/debug_page_{request.stock_code}_p{page}.png"
+                DebugMarker(DebugStep.DOWNLOAD_SUCCESS, True, {"file": text}).log()
+                time.sleep(1)
+                return str(dest)
+            else:
+                self.logger.error(
+                    f"Download reported success but file missing or invalid: {dest}"
                 )
-
-            for text, href in links:
-                if self._matches(text, request.allowed_keywords):
-                    target_name = self.file_service.clean_filename(text)
-                    save_dir = (
-                        Path(str(request.save_dir))
-                        if request.save_dir
-                        else Path("downloads")
-                    )
-                    dest = (
-                        save_dir
-                        / (request.stock_name or f"Stock_{request.stock_code}")
-                        / f"{target_name}.pdf"
-                    )
-
-                    if dest.exists() and dest.stat().st_size > 100:
-                        self.logger.debug(f"File already exists: {dest}")
-                        all_downloaded.append(str(dest))
-                        continue
-
-                    self.logger.info(f"Downloading: {text}")
-                    if self.browser_strategy.download_file(href, str(dest)):
-                        if dest.exists() and dest.stat().st_size > 100:
-                            all_downloaded.append(str(dest))
-                            self.history.append(
-                                {
-                                    "stock_code": request.stock_code,
-                                    "stock_name": request.stock_name,
-                                    "file_name": text,
-                                    "file_path": str(dest),
-                                    "timestamp": datetime.now().isoformat(),
-                                    "status": "success",
-                                }
-                            )
-                            DebugMarker(
-                                DebugStep.DOWNLOAD_SUCCESS, True, {"file": text}
-                            ).log()
-                        else:
-                            self.logger.error(
-                                f"Download reported success but file missing or invalid: {dest}"
-                            )
-                        time.sleep(1)
-
-            if not self.browser_strategy.go_to_next_page():
-                break
-            time.sleep(ConfigConstants.get_timeout("pagination_wait"))
-
-        return all_downloaded
+            time.sleep(1)
+        return None
 
     def _get_links_safe(self) -> List[tuple]:
         """Fetch link data using the most robust selector"""
-        if not self.browser_strategy:
+        if not self.link_extractor:
             return []
-
-        results = []
-        base = ConfigConstants.BASE_URL
-
-        # Try using configured XPath selector (more precise)
-        from src.core.constants import SelectorConfig
-
-        elements = self.browser_strategy.find_elements(
-            SelectorConfig.DETAIL_LINKS, by="xpath"
-        )
-
-        # Fallback to basic a tags if XPath finds nothing
-        if not elements:
-            elements = self.browser_strategy.find_elements("a")
-
-        for el in elements:
-            try:
-                h = self.browser_strategy.get_attribute(el, "href")
-                if h and "/detail" in h:
-                    t = self.browser_strategy.get_text(el).strip()
-                    if t:
-                        abs_url = h if h.startswith("http") else base + h
-                        results.append((t, abs_url))
-            except:
-                continue
-        return results
+        return self.link_extractor.get_links_safe()
 
     def _matches(self, text: str, keywords: Optional[List[str]]) -> bool:
-        if not keywords:
-            return True
-        ct = "".join(text.split()).lower()
-        for k in keywords:
-            ck = "".join(k.split()).lower()
-            # 1. Try partial match
-            if ck in ct:
-                return True
+        """Check if text matches any of the given keywords."""
+        return self.keyword_matcher.matches(text, keywords)
 
-            # 2. Try date match (for truncated titles)
-            # Extract 8-digit date like 20250725
-            import re
-
-            date_match = re.search(r"\d{8}", k)
-            if date_match:
-                date_str = date_match.group()
-                if date_str in ct:
-                    return True
-        return False
-
-    def cleanup(self):
-        if hasattr(self, "browser_strategy"):
+    def cleanup(self) -> None:
+        if hasattr(self, "browser_strategy") and self.browser_strategy:
             self.browser_strategy.close()
 
     @property
@@ -415,10 +486,10 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
         """Get user agents from config or constants."""
         from src.core.constants import USER_AGENTS
 
-        return self.config.get("user_agents", USER_AGENTS)
+        return self.config.get("user_agents", USER_AGENTS)  # type: ignore[no-any-return]
 
-    def configure(self, config: Dict):
+    def configure(self, config: Dict[str, Any]) -> None:
         self.config.update(config)
 
-    def get_supported_browsers(self):
+    def get_supported_browsers(self) -> List[str]:
         return ["playwright"]

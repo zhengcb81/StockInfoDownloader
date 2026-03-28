@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 from src.core.logger import get_logger
 from src.core.performance_monitor import PerformanceMonitor
@@ -114,7 +114,9 @@ class TaskQueue:
     """任务队列（支持优先级）"""
 
     def __init__(self):
-        self._queue = queue.PriorityQueue()
+        self._queue: queue.PriorityQueue[Tuple[int, float, str, DownloadTask]] = (
+            queue.PriorityQueue()
+        )
         self._tasks: Dict[str, DownloadTask] = {}
         self._lock = threading.RLock()
 
@@ -132,7 +134,7 @@ class TaskQueue:
             _, _, task_id, task = self._queue.get(timeout=timeout)
             with self._lock:
                 if task_id in self._tasks:
-                    return task
+                    return cast(DownloadTask, task)
             return None
         except queue.Empty:
             return None
@@ -219,22 +221,22 @@ class ResourceMonitor:
     def get_cpu_usage(self) -> float:
         """获取CPU使用率"""
         with self._lock:
-            return self._cpu_usage
+            return cast(float, self._cpu_usage)
 
     def get_memory_usage(self) -> float:
         """获取内存使用率"""
         with self._lock:
-            return self._memory_usage
+            return cast(float, self._memory_usage)
 
     def get_network_io(self) -> float:
         """获取网络IO"""
         with self._lock:
-            return self._network_io
+            return cast(float, self._network_io)
 
     def get_disk_usage(self) -> float:
         """获取磁盘使用率"""
         with self._lock:
-            return self._disk_usage
+            return cast(float, self._disk_usage)
 
     def is_resource_available(
         self, max_cpu: float = 80.0, max_memory: float = 80.0
@@ -308,7 +310,7 @@ class ParallelDownloadManager:
         company_name: str,
         target_pages: List[Dict[str, Any]],
         priority: TaskPriority = TaskPriority.NORMAL,
-        max_retries: int = None,
+        max_retries: Optional[int] = None,
         proxy_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """添加下载任务"""
@@ -613,7 +615,11 @@ class ParallelDownloadManager:
     def get_all_tasks_status(self) -> List[Dict[str, Any]]:
         """获取所有任务状态"""
         tasks = self.task_queue.get_all_tasks()
-        return [self.get_task_status(task.task_id) for task in tasks]
+        return [
+            status
+            for task in tasks
+            if (status := self.get_task_status(task.task_id)) is not None
+        ]
 
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
@@ -671,10 +677,14 @@ class ParallelDownloadManager:
 
         return False
 
-    def save_state(self, file_path: str):
+    def save_state(self, file_path: str) -> None:
         """保存状态到文件"""
         try:
-            state = {"timestamp": time.time(), "stats": self.stats, "tasks": []}
+            state: Dict[str, Any] = {
+                "timestamp": time.time(),
+                "stats": self.stats,
+                "tasks": [],
+            }
 
             for task in self.task_queue.get_all_tasks():
                 task_data = {

@@ -19,8 +19,6 @@ from src.core.degradation import (
 from src.core.error_logger import ErrorLogEntry, ErrorLogger
 from src.core.exceptions import (
     ConfigError,
-    DataError,
-    DownloadError,
     ErrorCode,
     ErrorHandler,
     ErrorSeverity,
@@ -73,36 +71,28 @@ class TestStructuredExceptions(unittest.TestCase):
         self.assertIn("caller_info", error_dict)
 
     def test_specific_exception_types(self):
-        """测试特定异常类型"""
-        # WebDriver异常
+        """Test specific exception types"""
+        # WebDriver exception
         webdriver_error = WebDriverError("WebDriver failed")
         self.assertEqual(
             webdriver_error.error_code, ErrorCode.WEBDRIVER_CONNECTION_ERROR
         )
 
-        # 配置异常
+        # Config exception
         config_error = ConfigError("Config failed")
         self.assertEqual(config_error.error_code, ErrorCode.CONFIG_FILE_ERROR)
 
-        # 下载异常
-        download_error = DownloadError("Download failed")
-        self.assertEqual(download_error.error_code, ErrorCode.DOWNLOAD_NETWORK_ERROR)
-
-        # 网络异常
+        # Network exception
         network_error = NetworkError("Network failed")
         self.assertEqual(network_error.error_code, ErrorCode.NETWORK_CONNECTION_ERROR)
 
-        # 文件系统异常
+        # FileSystem exception
         file_error = FileSystemError("File system failed")
         self.assertEqual(file_error.error_code, ErrorCode.FILE_NOT_FOUND_ERROR)
 
-        # 验证异常
+        # Validation exception
         validation_error = ValidationError("Validation failed")
         self.assertEqual(validation_error.error_code, ErrorCode.VALIDATION_INPUT_ERROR)
-
-        # 数据异常
-        data_error = DataError("Data processing failed")
-        self.assertEqual(data_error.error_code, ErrorCode.DATA_PARSING_ERROR)
 
     def test_exception_with_original_exception(self):
         """测试包含原始异常的异常"""

@@ -11,6 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+# 导入 BrowserStrategy 以避免循环导入
+from src.web.browser_strategy import BrowserStrategy
+
 
 @dataclass
 class DownloadRequest:
@@ -25,6 +28,7 @@ class DownloadRequest:
     delete_later: bool = False
     timeout_seconds: int = 180
     save_dir: Optional[Union[str, Path]] = None
+    reverse_order: bool = False  # 是否从最后一页开始（用于latestAnnouncement）
 
 
 @dataclass
@@ -37,6 +41,13 @@ class DownloadResult:
     errors: List[str]
     duration_seconds: float
     metadata: Dict[str, Any]
+    # 行为验证字段 (E2E 测试用)
+    skipped_files: List[str] = None  # type: ignore[assignment]  # 跳过的已存在文件
+    pages_traversed: int = 0  # 实际遍历的页数
+
+    def __post_init__(self) -> None:
+        if self.skipped_files is None:
+            self.skipped_files = []
 
 
 @dataclass
@@ -142,103 +153,17 @@ class IDownloader(ABC):
         return errors
 
 
-class IBrowserStrategy(ABC):
+class IBrowserStrategy(BrowserStrategy):
     """
     浏览器策略接口
     定义浏览器操作的统一接口
+
+    此接口继承自 BrowserStrategy 以保持向后兼容。
+    所有方法签名与 BrowserStrategy 一致。
     """
 
-    @abstractmethod
-    def initialize(self) -> bool:
-        """
-        初始化浏览器
-
-        Returns:
-            bool: 初始化是否成功
-        """
-
-    @abstractmethod
-    def cleanup(self) -> None:
-        """
-        清理浏览器资源
-        """
-
-    def close(self) -> None:
-        """
-        关闭浏览器（cleanup 的别名）
-        """
-        self.cleanup()
-
-    @abstractmethod
-    def navigate(self, url: str) -> bool:
-        """
-        导航到指定页面
-
-        Args:
-            url: 目标URL
-
-        Returns:
-            bool: 导航是否成功
-        """
-
-    def navigate_to_page(self, url: str) -> bool:
-        """兼容旧接口"""
-        return self.navigate(url)
-
-    @abstractmethod
-    def restart(self) -> bool:
-        """重启浏览器"""
-
-    @abstractmethod
-    def find_elements(self, selector: str, by: str = "css") -> List[Any]:
-        """
-        查找页面元素
-
-        Args:
-            selector: 选择器字符串
-            by: 选择策略 ('css' or 'xpath')
-
-        Returns:
-            List[Any]: 元素列表
-        """
-
-    @abstractmethod
-    def wait_for_element(self, selector: str, timeout: int = 10) -> bool:
-        """
-        等待元素出现
-
-        Args:
-            selector: CSS选择器
-            timeout: 超时时间（秒）
-
-        Returns:
-            bool: 是否找到元素
-        """
-
-    @abstractmethod
-    def execute_script(self, script: str) -> Any:
-        """执行JavaScript脚本"""
-
-    @abstractmethod
-    def take_screenshot(self, path: str) -> bool:
-        """截图"""
-
-    @abstractmethod
-    def download_file(self, url: str, save_path: str) -> bool:
-        """下载文件"""
-
-    @abstractmethod
-    def go_to_next_page(self) -> bool:
-        """翻到下一页"""
-
-    @abstractmethod
-    def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
-        """获取元素属性"""
-
-    @abstractmethod
-    def get_text(self, element: Any) -> str:
-        """获取元素文本"""
-
+    # 所有方法都从 BrowserStrategy 继承，无需重新定义
+    pass
 
 
 class IAntiCrawlerStrategy(ABC):

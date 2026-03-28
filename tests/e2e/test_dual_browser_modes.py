@@ -90,6 +90,7 @@ class TestSeleniumModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 验证策略创建（允许有额外的config参数）
@@ -115,6 +116,7 @@ class TestSeleniumModeE2E:
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
                 browser_strategy="selenium",
+                skip_browser_init=False,
             )
             # 验证Selenium特定的配置参数传递
             call_args = mock_create_strategy.call_args
@@ -126,6 +128,7 @@ class TestSeleniumModeE2E:
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
                 browser_strategy="playwright",
+                skip_browser_init=False,
             )
             # 验证Playwright特定的配置参数传递
             call_args = mock_create_strategy.call_args
@@ -152,6 +155,7 @@ class TestSeleniumModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -188,6 +192,7 @@ class TestSeleniumModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载 - UnifiedDownloader 会捕获异常并返回结果字典
@@ -231,6 +236,7 @@ class TestSeleniumModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -261,6 +267,7 @@ class TestSeleniumModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行清理
@@ -284,6 +291,7 @@ class TestSeleniumModeE2E:
             save_dir=config["save_dir"],
             mapping_file=self.mapping_file,
             browser_strategy=config["browser"]["strategy"],
+            skip_browser_init=False,
         )
 
         # 验证配置参数正确传递
@@ -351,6 +359,7 @@ class TestPlaywrightModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 验证策略创建（允许有额外的config参数）
@@ -384,6 +393,7 @@ class TestPlaywrightModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -420,6 +430,7 @@ class TestPlaywrightModeE2E:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载 - UnifiedDownloader 会捕获异常并返回结果字典

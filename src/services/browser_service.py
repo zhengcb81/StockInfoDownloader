@@ -5,7 +5,7 @@
 
 import random
 import time
-from typing import Optional
+from typing import Any, Dict, Optional, cast
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
@@ -32,7 +32,7 @@ class BrowserService:
         self.config_manager = config_manager or ConfigManager()
         self.browser_config = BrowserConfig(self.config_manager)
         self.anti_crawler = AntiCrawlerStrategy()
-        self.driver = None
+        self.driver: Optional[webdriver.Chrome] = None
         self.download_count = 0
 
         # 初始化反爬虫策略
@@ -80,7 +80,8 @@ class BrowserService:
             self.logger.info(
                 f"浏览器初始化成功 - 无头模式: {headless}, 窗口大小: {window_size}"
             )
-            return self.driver
+            # self.driver is guaranteed to be set here
+            return cast(webdriver.Chrome, self.driver)
 
         except Exception as e:
             self.logger.error(f"浏览器初始化失败: {e}")
@@ -137,7 +138,7 @@ class BrowserService:
         """获取下载目录"""
         import os
 
-        download_dir = self.config_manager.get("save_dir", "downloads")
+        download_dir = cast(str, self.config_manager.get("save_dir", "downloads"))
         if not os.path.exists(download_dir):
             os.makedirs(download_dir)
         return os.path.abspath(download_dir)
@@ -193,6 +194,9 @@ class BrowserService:
         """
         if timeout is None:
             timeout = self.browser_config.get_timeout("element_wait")
+
+        if self.driver is None:
+            return False
 
         try:
             WebDriverWait(self.driver, timeout).until(

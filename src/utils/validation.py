@@ -4,9 +4,10 @@ Provides comprehensive data validation and cleaning functionality
 """
 
 import json
+import os
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from ..core.exceptions import (
@@ -24,7 +25,7 @@ class DataValidator:
     """Enhanced Data Validator"""
 
     def __init__(self):
-        self.validation_rules = {
+        self.validation_rules: Dict[str, Callable[..., Any]] = {
             "stock_code": self._validate_stock_code_enhanced,
             "org_id": self._validate_org_id_enhanced,
             "company_name": self._validate_company_name,
@@ -154,7 +155,7 @@ class DataValidator:
             if not (stock_code.isdigit() and len(stock_code) == 6):
                 raise ValidationError(
                     f"Stock code not found or invalid: {stock_code}",
-                    error_code=ErrorCode.VALIDATION_STOCK_CODE_NOT_FOUND,
+                    error_code=ErrorCode.VALIDATION_INPUT_ERROR,
                     severity=ErrorSeverity.WARNING,
                     recovery_strategy=RecoveryStrategy.SKIP,
                 )
@@ -229,7 +230,7 @@ class DataValidator:
     def _validate_url(
         self,
         url: str,
-        allowed_schemes: List[str] = None,
+        allowed_schemes: Optional[List[str]] = None,
         require_https: bool = False,
         allow_empty: bool = False,
     ) -> str:
@@ -316,10 +317,13 @@ class DataValidator:
 
         # Range validation
         today = date.today()
-        if not allow_future and parsed_date > today:
+        if parsed_date is not None and not allow_future and parsed_date > today:
             raise ValidationError("Date cannot be in the future")
-        if not allow_past and parsed_date < today:
+        if parsed_date is not None and not allow_past and parsed_date < today:
             raise ValidationError("Date cannot be in the past")
+
+        if parsed_date is None:
+            raise ValidationError("Invalid date format")
 
         return parsed_date
 
@@ -363,8 +367,8 @@ class DataValidator:
         self,
         file_path: str,
         must_exist: bool = False,
-        allowed_extensions: List[str] = None,
-        max_size_mb: int = None,
+        allowed_extensions: Optional[List[str]] = None,
+        max_size_mb: Optional[int] = None,
         allow_empty: bool = False,
     ) -> str:
         """File path validation"""
@@ -374,8 +378,17 @@ class DataValidator:
         if not file_path:
             raise ValidationError("File path cannot be empty")
 
-        # Sanitize path
-        sanitized_path = sanitize_filename(file_path)
+        # Only sanitize the filename part, not the full path
+        # sanitize_filename replaces path separators which breaks full paths
+        path_obj = Path(file_path)
+        directory = str(path_obj.parent)
+        filename = path_obj.name
+        sanitized_filename = sanitize_filename(filename)
+        sanitized_path = (
+            os.path.join(directory, sanitized_filename)
+            if directory
+            else sanitized_filename
+        )
 
         # Existence validation
         if must_exist:
@@ -442,8 +455,8 @@ class DataValidator:
     def _validate_json_data(
         self,
         json_data: Union[str, dict],
-        required_fields: List[str] = None,
-        optional_fields: List[str] = None,
+        required_fields: Optional[List[str]] = None,
+        optional_fields: Optional[List[str]] = None,
         allow_empty: bool = False,
     ) -> dict:
         """JSON data validation"""
@@ -481,11 +494,11 @@ class DataValidator:
 
     def _validate_numeric_range(
         self,
-        value: Union[int, float],
-        min_val: Union[int, float] = None,
-        max_val: Union[int, float] = None,
+        value: Union[int, float, None],
+        min_val: Optional[Union[int, float]] = None,
+        max_val: Optional[Union[int, float]] = None,
         allow_empty: bool = False,
-    ) -> Union[int, float]:
+    ) -> Optional[Union[int, float]]:
         """Numeric range validation"""
         if allow_empty and value is None:
             return None
@@ -510,7 +523,7 @@ class DataValidator:
         self,
         text: str,
         min_length: int = 0,
-        max_length: int = None,
+        max_length: Optional[int] = None,
         allow_empty: bool = False,
         trim_whitespace: bool = True,
     ) -> str:
@@ -600,7 +613,11 @@ data_validator = DataValidator()
 
 def validate_data(data: Any, validation_type: str, **kwargs) -> Tuple[bool, Any]:
     """Helper validation function"""
-    return data_validator.validate(data, validation_type, **kwargs)
+    result = data_validator.validate(data, validation_type, **kwargs)
+    # Use cast to help mypy understand the return type
+    from typing import cast
+
+    return cast(Tuple[bool, Any], result)
 
 
 def validate_batch_data(

@@ -6,7 +6,7 @@ Provides unified configuration loading and management functionality
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .config_constants import ConfigConstants
 from .config_definitions import (
@@ -14,7 +14,7 @@ from .config_definitions import (
     BrowserConfig,
     AntiCrawlerConfig,
     DownloadConfig,
-    LoggingConfig
+    LoggingConfig,
 )
 from .exceptions import (
     ConfigError,
@@ -33,21 +33,34 @@ class BaseConfigManager:
     _config: Dict[str, Any] = {}
     _global_config: GlobalConfig = GlobalConfig()
 
-    def __new__(cls, config_file=None):
+    def __new__(cls, config_file: Optional[str] = None) -> "BaseConfigManager":
         # Create different instances for different config file paths
         # This allows using different configs in tests without interference
         if config_file:
             instance = super().__new__(cls)
-            instance._is_test_instance = True
+            object.__setattr__(instance, "_is_test_instance", True)
             return instance
         else:
             # Use singleton for default config
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._is_test_instance = False
+                object.__setattr__(cls._instance, "_is_test_instance", False)
             return cls._instance
 
-    def __init__(self, config_file=None, environment="production"):
+    @classmethod
+    def reset_singleton(cls) -> None:
+        """Reset the singleton state - useful for test isolation.
+
+        This method clears the class-level singleton instance and resets
+        class-level mutable state to prevent test pollution.
+        """
+        cls._instance = None
+        cls._config = {}
+        cls._global_config = GlobalConfig()
+
+    def __init__(
+        self, config_file: Optional[str] = None, environment: str = "production"
+    ) -> None:
         if not hasattr(self, "_initialized"):
             self._initialized = True
             self._config_path: Optional[str] = None
@@ -84,15 +97,17 @@ class BaseConfigManager:
             if not config_path_obj.exists():
                 # Try fallback locations
                 if not config_path_obj.is_absolute():
-                     # Try config/ folder
-                     fallback = Path("config") / config_path_obj
-                     if fallback.exists():
-                         config_path_obj = fallback
+                    # Try config/ folder
+                    fallback = Path("config") / config_path_obj
+                    if fallback.exists():
+                        config_path_obj = fallback
 
             if not config_path_obj.exists():
                 # If still not found, create default if it's the main config
                 if config_path == "config.json":
-                    self.logger.warning(f"Config file not found: {config_path}, creating default.")
+                    self.logger.warning(
+                        f"Config file not found: {config_path}, creating default."
+                    )
                     self._config = self.get_default_config()
                     self._config_path = str(config_path_obj)
                     self._sync_to_dataclass()
@@ -141,7 +156,7 @@ class BaseConfigManager:
             data = self._config.copy()
 
             # Helper to update dataclass from dict
-            def update_dc(dc, dc_data):
+            def update_dc(dc: object, dc_data: Dict[str, Any]) -> None:
                 if not dc_data:
                     return
                 for k, v in dc_data.items():
@@ -335,11 +350,13 @@ class BaseConfigManager:
 
         # Return deep copy to prevent external modification
         import copy
+
         return copy.deepcopy(self._config)
 
     def get_environment_overrides(self) -> Dict[str, Any]:
         """Get environment variable overrides"""
         import os
+
         overrides = {}
 
         # Browser strategy override
@@ -351,7 +368,7 @@ class BaseConfigManager:
         timeout = os.getenv("DOWNLOADER_TIMEOUT")
         if timeout:
             try:
-                overrides["timeout"] = int(timeout)
+                overrides["timeout"] = str(int(timeout))
             except ValueError:
                 pass
 
@@ -359,18 +376,15 @@ class BaseConfigManager:
         max_pages = os.getenv("DOWNLOADER_MAX_PAGES")
         if max_pages:
             try:
-                overrides["max_pages"] = int(max_pages)
+                overrides["max_pages"] = str(int(max_pages))
             except ValueError:
                 pass
 
         # Anti-crawler switch
         anti_crawler = os.getenv("DOWNLOADER_ANTI_CRAWLER")
         if anti_crawler:
-            overrides["anti_crawler_enabled"] = anti_crawler.lower() in (
-                "true",
-                "1",
-                "yes",
-            )
+            is_enabled = anti_crawler.lower() in ("true", "1", "yes")
+            overrides["anti_crawler_enabled"] = str(is_enabled)
 
         return overrides
 
@@ -394,70 +408,89 @@ class BaseConfigManager:
 
     def get_base_url(self) -> str:
         """Get base URL"""
-        return self.get("base_url", "https://www.cninfo.com.cn")
+        result = self.get("base_url", "https://www.cninfo.com.cn")
+        return str(result)
 
     def get_timeout(self, timeout_type: str = "page_load") -> int:
         """Get timeout value"""
-        return self.get(f"timeout.{timeout_type}", 60)
+        result = self.get(f"timeout.{timeout_type}", 60)
+        return int(result)
 
     def get_selector(self, selector_name: str) -> str:
         """Get selector"""
-        return self.get(f"selectors.{selector_name}", "")
+        result = self.get(f"selectors.{selector_name}", "")
+        return str(result)
 
     def get_user_agents(self) -> list:
         """Get user agent list"""
-        return self.get(
+        result = self.get(
             "webdriver.user_agents",
             [
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             ],
         )
+        # cast() is safe here: result is always a list when using default,
+        # and self.get() returns Any due to dynamic dict access
+        return cast(list, result)
 
     def get_max_retries(self) -> int:
         """Get max retry count"""
-        return self.get("retries.max_attempts", 3)
+        result = self.get("retries.max_attempts", 3)
+        return int(result)
 
     def is_headless(self) -> bool:
         """Whether to use headless mode"""
-        return self.get("webdriver.headless", True)
+        result = self.get("webdriver.headless", True)
+        return bool(result)
 
     def get_window_size(self) -> str:
         """Get window size"""
-        return self.get("webdriver.window_size", "1920,1080")
+        result = self.get("webdriver.window_size", "1920,1080")
+        return str(result)
 
     def get_page_load_strategy(self) -> str:
         """Get page load strategy"""
-        return self.get("page_load_strategy", "eager")
+        result = self.get("page_load_strategy", "eager")
+        return str(result)
 
     def get_parallel_download_config(self) -> Dict[str, Any]:
         """Get parallel download configuration"""
-        return self.get(
+        result = self.get(
             "parallel_download",
             {"enabled": False, "max_workers": 3, "batch_size": 50, "task_timeout": 300},
         )
+        # cast() is safe here: Dict is the expected type for this config key
+        return cast(Dict[str, Any], result)
 
     def get_proxy_config(self) -> Dict[str, Any]:
         """Get proxy configuration"""
-        return self.get("proxy_management", {"enabled": False, "pools": {}})
+        result = self.get("proxy_management", {"enabled": False, "pools": {}})
+        # cast() is safe here: Dict is the expected type for this config key
+        return cast(Dict[str, Any], result)
 
     def get_anti_crawler_config(self) -> Dict[str, Any]:
         """Get anti-crawler configuration"""
-        return self.get("enhanced_anti_crawler", {"enabled": True, "level": "high"})
+        result = self.get("enhanced_anti_crawler", {"enabled": True, "level": "high"})
+        # cast() is safe here: Dict is the expected type for this config key
+        return cast(Dict[str, Any], result)
 
     def is_parallel_download_enabled(self) -> bool:
         """Check if parallel download is enabled"""
         config = self.get_parallel_download_config()
-        return config.get("enabled", False)
+        result = config.get("enabled", False)
+        return bool(result)
 
     def is_proxy_enabled(self) -> bool:
         """Check if proxy is enabled"""
         config = self.get_proxy_config()
-        return config.get("enabled", False)
+        result = config.get("enabled", False)
+        return bool(result)
 
     def get_max_workers(self) -> int:
         """Get max worker threads"""
         config = self.get_parallel_download_config()
-        return config.get("max_workers", 3)
+        result = config.get("max_workers", 3)
+        return int(result)
 
     def use_constants(self, key: str) -> Any:
         """Use configuration constants"""

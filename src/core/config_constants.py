@@ -1,22 +1,27 @@
 """
-配置常量模块
-提供所有硬编码值的常量定义，实现配置驱动
+Configuration Constants Module
+Provides constant definitions for all hardcoded values, enables configuration-driven approach.
+Shared constants (USER_AGENTS, CHROME_LAUNCH_ARGS) are imported from constants.py to avoid duplication.
 """
 
 import json
+import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional, Tuple, Union
+from .constants import CHROME_LAUNCH_ARGS, USER_AGENTS as _SHARED_USER_AGENTS
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigConstants:
-    """配置常量类，集中管理所有硬编码值"""
+    """Configuration constants class, centralized management of all hardcoded values"""
 
-    # URL常量
+    # URL constants
     BASE_URL = "https://www.cninfo.com.cn"
     DETAIL_URL_PATTERN = "/new/disclosure/detail"
     STOCK_PAGE_URL_TEMPLATE = "https://www.cninfo.com.cn/new/disclosure/stock?stockCode={stock_code}&orgId={org_id}"
 
-    # 超时时间常量（秒）
+    # Timeout constants (seconds)
     DEFAULT_TIMEOUTS = {
         "page_load": 30,
         "element_wait": 10,
@@ -33,38 +38,15 @@ class ConfigConstants:
         "temp_file_check_interval": 2,
     }
 
-    # 浏览器配置常量
+    # Browser configuration constants
     DEFAULT_BROWSER_CONFIG = {
         "headless": True,
         "window_size": "1920,1080",
         "page_load_strategy": "eager",
     }
 
-    BROWSER_LAUNCH_ARGS = [
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-extensions",
-        "--disable-blink-features=AutomationControlled",
-        "--remote-debugging-port=0",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-renderer-backgrounding",
-        "--disable-sync",
-        "--disable-translate",
-        "--disable-default-apps",
-        "--disable-notifications",
-        "--disable-popup-blocking",
-        "--log-level=3",
-        "--disable-features=TranslateUI",
-        "--disable-component-extensions-with-background-pages",
-        "--disable-domain-reliability",
-        "--disable-setuid-sandbox",
-        "--disable-features=VizDisplayCompositor",
-        "--disable-ipc-flooding-protection",
-    ]
+    # Browser launch args - imported from constants.py to avoid duplication
+    BROWSER_LAUNCH_ARGS = CHROME_LAUNCH_ARGS
 
     ANTI_DETECTION_SCRIPT = """
         Object.defineProperty(navigator, 'webdriver', {get: () => undefined})
@@ -74,30 +56,27 @@ class ConfigConstants:
 
     BLANK_PAGE_URL = "about:blank"
 
-    # 文件配置常量
+    # File configuration constants
     FILE_CONFIG = {
         "allowed_extensions": [".pdf", ".doc", ".docx", ".xls", ".xlsx"],
         "mapping_file": "stock_orgid_mapping.json",
         "log_dir": "logs",
         "download_dir": "downloads",
     }
-
-    # 选择器常量
+    # Selector constants
     SELECTORS = {
         "detail_links": "//a[contains(@href, '/new/disclosure/detail')]",
         "download_button": "//button[contains(., '公告下载')]",
         "next_page_button": "//button[contains(@class, 'el-pagination__next')]",
         "table_element": "//table[contains(@class, 'el-table__body')]",
     }
-
-    # 下载配置常量
+    # Download configuration constants
     DOWNLOAD_CONFIG = {
         "max_downloads_per_session": 5,
         "pagination_wait": 2,
         "human_behavior_delay": 3,
     }
-
-    # 测试数据常量
+    # Test data constants
     TEST_DATA = {
         "stocks": [
             {"code": "300470", "name": "中密控股", "org_id": "9900023856"},
@@ -105,15 +84,13 @@ class ConfigConstants:
         ],
         "test_keywords": ["投资者关系", "2023年", "活动记录表", "招股说明书"],
     }
-
-    # 页面类型常量
+    # Page type constants
     PAGE_TYPES = {
         "research": {"name": "调研", "suffix": "research"},
         "periodicReports": {"name": "定期公告", "suffix": "periodicReports"},
         "latestAnnouncement": {"name": "最新公告", "suffix": "latestAnnouncement"},
     }
-
-    # 目录路径常量
+    # Directory path constants
     PATHS = {
         "configs": "configs",
         "logs": "logs",
@@ -122,27 +99,17 @@ class ConfigConstants:
         "tools": "tools",
         "docs": "docs",
     }
-
-    # 用户代理常量
-    USER_AGENTS = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    ]
-
-    # 文件名非法字符
+    # User agent constants - imported from constants.py to avoid duplication
+    USER_AGENTS = _SHARED_USER_AGENTS
+    # Invalid filename characters
     INVALID_FILENAME_CHARS = r'[\\/:*?"<>|]'
-
-    # 日志配置
+    # Logging configuration
     LOGGING_CONFIG = {
         "level": "INFO",
         "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         "encoding": "utf-8",
     }
-
-    # 反爬虫配置
+    # Anti-crawler configuration
     ANTI_CRAWLER_CONFIG = {
         "min_delay": 2.0,
         "max_delay": 8.0,
@@ -152,72 +119,33 @@ class ConfigConstants:
         "max_retries": 3,
     }
 
+    # Lazy loading guard
+    _external_config_loaded: bool = False
+
+    @classmethod
+    def external_config_loaded(cls) -> bool:
+        """Whether external config has been loaded"""
+        return cls._external_config_loaded
+
+    @classmethod
+    def load_external_config(cls) -> None:
+        """Load external configuration from file (placeholder)."""
+        # TODO: Implement external config loading if needed
+        pass
+
+    @classmethod
+    def ensure_loaded(cls) -> None:
+        """Load external config on first access if not already loaded."""
+        if not cls._external_config_loaded:
+            cls.load_external_config()
+            cls._external_config_loaded = True
+
     @classmethod
     def get_base_url(cls) -> str:
-        """获取基础URL"""
+        """Get base URL"""
         return cls.BASE_URL
 
     @classmethod
     def get_timeout(cls, timeout_type: str) -> int:
-        """获取指定类型的超时时间"""
+        """Get timeout for specified type"""
         return cls.DEFAULT_TIMEOUTS.get(timeout_type, 30)
-
-    @classmethod
-    def get_selector(cls, selector_name: str) -> str:
-        """获取指定选择器"""
-        return cls.SELECTORS.get(selector_name, "")
-
-    @classmethod
-    def get_test_stock(cls, stock_code: str) -> Dict[str, str]:
-        """获取测试股票信息"""
-        for stock in cls.TEST_DATA["stocks"]:
-            if stock["code"] == stock_code:
-                return stock
-        return {}
-
-    @classmethod
-    def get_page_type_config(cls, page_type: str) -> Dict[str, str]:
-        """获取页面类型配置"""
-        return cls.PAGE_TYPES.get(page_type, {})
-
-    @classmethod
-    def get_path(cls, path_name: str) -> str:
-        """获取指定路径"""
-        return cls.PATHS.get(path_name, "")
-
-    @classmethod
-    def load_external_config(cls):
-        """从外部JSON文件加载配置"""
-        try:
-            # 计算项目根目录: src/core/config_constants.py -> ../../..
-            project_root = Path(__file__).resolve().parent.parent.parent
-            config_path = project_root / "configs" / "business_rules.json"
-            
-            if config_path.exists():
-                with open(config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    
-                    if "urls" in data:
-                        urls = data["urls"]
-                        if "base_url" in urls:
-                            cls.BASE_URL = urls["base_url"]
-                        if "detail_url_pattern" in urls:
-                            cls.DETAIL_URL_PATTERN = urls["detail_url_pattern"]
-                        if "stock_page_url_template" in urls:
-                            cls.STOCK_PAGE_URL_TEMPLATE = urls["stock_page_url_template"]
-                            
-                    if "selectors" in data:
-                        cls.SELECTORS.update(data["selectors"])
-                        
-                    if "anti_crawler" in data:
-                        cls.ANTI_CRAWLER_CONFIG.update(data["anti_crawler"])
-
-                    if "timeouts" in data:
-                        cls.DEFAULT_TIMEOUTS.update(data["timeouts"])
-                        
-        except Exception as e:
-            print(f"Warning: Failed to load external business rules: {e}")
-
-
-# Load external config on module import
-ConfigConstants.load_external_config()

@@ -19,15 +19,17 @@ logger = get_logger(__name__)
 class MappingManager:
     """映射管理器，管理股票代码与组织ID的映射"""
 
-    def __init__(self, mapping_file: Optional[str] = None):
+    def __init__(self, mapping_file: Optional[str] = None, auto_fetch: bool = True):
         """
         初始化映射管理器
 
         Args:
             mapping_file: 映射文件路径，如果为 None 则使用默认路径
+            auto_fetch: 是否允许从网络自动获取（默认True，单元测试可设为False）
         """
         self.logger = logger
         self._mappings: Dict[str, OrgIdMapping] = {}
+        self._auto_fetch = auto_fetch  # 是否允许从网络获取
 
         # 智能路径解析
         if mapping_file:
@@ -102,7 +104,8 @@ class MappingManager:
                             mapping.last_updated = datetime.fromisoformat(
                                 item["last_updated"]
                             )
-                        except:
+                        except (ValueError, TypeError):
+                            # Invalid date format, keep default datetime
                             pass
 
                     self._mappings[stock_code] = mapping
@@ -126,22 +129,130 @@ class MappingManager:
             raise OrgIdError("无法保存映射数据到存储")
 
     def get_org_id(self, stock_code: str, force_refresh: bool = False) -> Optional[str]:
-        """获取组织ID"""
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
+        """
+        获取组织ID，如果本地没有则尝试从网络爬取
+
+        Args:
+            stock_code: 股票代码
+            force_refresh: 是否强制刷新（从网络重新获取）
+
+        Returns:
+            Optional[str]: 组织ID，获取失败返回None
+        """
+        standardized_code = standardize_stock_code(stock_code)
+        if not standardized_code:
             return None
 
-        if not force_refresh and stock_code in self._mappings:
-            return self._mappings[stock_code].org_id
+        # 1. 先查本地缓存
+        if not force_refresh and standardized_code in self._mappings:
+            result = self._mappings[standardized_code].org_id
+            return result or None
+
+        # 2. 本地没有，且允许从网络获取
+        if self._auto_fetch and (
+            force_refresh or standardized_code not in self._mappings
+        ):
+            self.logger.info(f"本地映射未找到 {standardized_code}，尝试从网络获取...")
+            org_id = self._crawl_org_id_from_web(standardized_code)
+            if org_id:
+                return org_id
+
         return None
 
-    def get_stock_name(self, stock_code: str) -> Optional[str]:
-        """获取股票名称"""
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code:
+    def _crawl_org_id_from_web(self, stock_code: str) -> Optional[str]:
+        """
+        从网络爬取 org_id 并保存到本地映射
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            Optional[str]: 组织ID，爬取失败返回None
+        """
+        try:
+            from ..services.orgid_service import OrgIdService
+
+            org_id_service = OrgIdService()
+            org_id = org_id_service.get_org_id(stock_code, headless=True)
+
+            if org_id:
+                self.logger.info(f"从网络获取到 org_id: {stock_code} -> {org_id}")
+
+                # 尝试获取股票名称
+                stock_name = self._get_stock_name_from_web(stock_code)
+
+                # 保存到本地映射
+                self.add_mapping(
+                    stock_code=stock_code,
+                    org_id=org_id,
+                    stock_name=stock_name or f"Stock_{stock_code}",
+                    source="auto",
+                    confidence=0.7,
+                )
+                return org_id
+            else:
+                self.logger.warning(f"从网络获取 org_id 失败: {stock_code}")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"爬取 org_id 异常: {e}")
             return None
-        if stock_code in self._mappings:
-            return self._mappings[stock_code].stock_name
+
+    def _get_stock_name_from_web(self, stock_code: str) -> Optional[str]:
+        """
+        从网络获取股票名称
+
+        Args:
+            stock_code: 股票代码
+
+        Returns:
+            Optional[str]: 股票名称，获取失败返回None
+        """
+        try:
+            from ..services.stock_service import StockService
+
+            stock_service = StockService()
+            return stock_service.get_stock_name(stock_code)
+        except Exception as e:
+            self.logger.debug(f"从网络获取股票名称失败: {e}")
+            return None
+
+    def get_stock_name(
+        self, stock_code: str, auto_crawl: Optional[bool] = None
+    ) -> Optional[str]:
+        """
+        获取股票名称，如果本地没有则尝试从网络获取
+
+        Args:
+            stock_code: 股票代码
+            auto_crawl: 是否自动从网络获取（None时使用实例的_auto_fetch设置）
+
+        Returns:
+            Optional[str]: 股票名称，获取失败返回None
+        """
+        standardized_code = standardize_stock_code(stock_code)
+        if not standardized_code:
+            return None
+
+        # 1. 先查本地缓存
+        if standardized_code in self._mappings:
+            result = self._mappings[standardized_code].stock_name
+            if result and result != f"Stock_{standardized_code}":
+                return result
+
+        # 2. 确定是否从网络获取
+        should_crawl = auto_crawl if auto_crawl is not None else self._auto_fetch
+
+        # 3. 本地没有或名称不完整，尝试从网络获取
+        if should_crawl:
+            stock_name = self._get_stock_name_from_web(standardized_code)
+            if stock_name:
+                # 如果已有映射，更新名称
+                if standardized_code in self._mappings:
+                    self._mappings[standardized_code].stock_name = stock_name
+                    self._save_mappings()
+                return stock_name
+
         return None
 
     def add_mapping(
@@ -153,8 +264,8 @@ class MappingManager:
         confidence: float = 0.8,
     ) -> bool:
         """添加新映射。如果已存在或保存失败则返回 False。"""
-        stock_code = standardize_stock_code(stock_code)
-        if not stock_code or stock_code in self._mappings:
+        standardized_code = standardize_stock_code(stock_code)
+        if not standardized_code or standardized_code in self._mappings:
             return False
 
         self._mappings[stock_code] = OrgIdMapping(
@@ -167,18 +278,20 @@ class MappingManager:
         try:
             self._save_mappings()
             return True
-        except:
+        except (OSError, IOError, OrgIdError) as e:
+            self.logger.warning(f"保存映射失败: {e}")
             return False
 
     def remove_mapping(self, stock_code: str) -> bool:
         """移除映射"""
-        stock_code = standardize_stock_code(stock_code)
-        if stock_code in self._mappings:
-            del self._mappings[stock_code]
+        standardized_code = standardize_stock_code(stock_code)
+        if standardized_code and standardized_code in self._mappings:
+            del self._mappings[standardized_code]
             try:
                 self._save_mappings()
                 return True
-            except:
+            except (OSError, IOError, OrgIdError) as e:
+                self.logger.warning(f"保存映射失败: {e}")
                 return False
         return False
 
@@ -188,13 +301,13 @@ class MappingManager:
 
     def get_org_info(self, stock_code: str) -> Optional[Dict[str, Any]]:
         """获取组织信息字典"""
-        stock_code = standardize_stock_code(stock_code)
+        standardized_code = standardize_stock_code(stock_code)
         if stock_code in self._mappings:
             m = self._mappings[stock_code]
             return {
-                "org_id": m.org_id,
-                "stock_name": m.stock_name,
-                "source": m.source,
+                "org_id": m.org_id or "",
+                "stock_name": m.stock_name or "",
+                "source": m.source or "",
                 "confidence": m.confidence,
                 "last_updated": m.last_updated.isoformat(),
             }
@@ -228,7 +341,7 @@ class MappingManager:
         Returns:
             Dict: 统计信息
         """
-        sources = {}
+        sources: Dict[str, int] = {}
         for m in self._mappings.values():
             sources[m.source] = sources.get(m.source, 0) + 1
 

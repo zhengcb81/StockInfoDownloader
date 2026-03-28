@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-配置定义模块
-包含所有配置相关的 Dataclass 定义
+Configuration Definitions Module
+Contains all configuration-related Dataclass definitions
 """
 
 from dataclasses import dataclass, field, asdict
@@ -11,9 +11,9 @@ from typing import Dict, List, Optional, Any
 
 @dataclass
 class BrowserConfig:
-    """浏览器配置"""
+    """Browser configuration"""
     strategy: str = "playwright"  # playwright, selenium
-    headless: bool = True # 注意：原config.py默认为True，downloader_config默认为False，统一为True
+    headless: bool = True  # Note: original config.py default True, downloader_config default False, unified to True
     window_size: Dict[str, int] = field(default_factory=lambda: {"width": 1920, "height": 1080})
     timeout: int = 30
     page_load_timeout: int = 60
@@ -30,7 +30,7 @@ class BrowserConfig:
 
 @dataclass
 class AntiCrawlerConfig:
-    """反爬虫配置"""
+    """Anti-crawler configuration"""
     enabled: bool = True
     base_delay: float = 1.0
     random_delay_range: tuple = (0.5, 2.0)
@@ -51,7 +51,7 @@ class AntiCrawlerConfig:
 
 @dataclass
 class DownloadConfig:
-    """下载配置"""
+    """Download configuration"""
     max_pages: int = 5
     timeout: int = 180
     download_delay: float = 0.5
@@ -67,7 +67,7 @@ class DownloadConfig:
 
 @dataclass
 class LoggingConfig:
-    """日志配置"""
+    """Logging configuration"""
     level: str = "INFO"
     log_to_file: bool = True
     log_file: str = "logs/downloader.log"
@@ -81,14 +81,14 @@ class LoggingConfig:
 
 @dataclass
 class GlobalConfig:
-    """全局配置聚合"""
+    """Global configuration aggregation"""
     browser: BrowserConfig = field(default_factory=BrowserConfig)
     anti_crawler: AntiCrawlerConfig = field(default_factory=AntiCrawlerConfig)
     download: DownloadConfig = field(default_factory=DownloadConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     companies: List[Dict[str, Any]] = field(default_factory=list)
-    
-    # 兼容字段，用于直接存储未分类的配置
+
+    # Compatibility field for directly storing unclassified configuration
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

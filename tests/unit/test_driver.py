@@ -21,9 +21,11 @@ from src.web.driver import WebDriverManager
 @pytest.fixture(autouse=True)
 def mock_external_calls():
     """Mock all external calls to prevent hanging in tests"""
-    with patch("src.web.driver.subprocess.run") as mock_run, patch(
-        "src.web.driver.time.sleep"
-    ) as mock_sleep, patch("src.web.driver.ConfigManager") as mock_config:
+    with (
+        patch("src.web.driver.subprocess.run") as mock_run,
+        patch("src.web.driver.time.sleep") as mock_sleep,
+        patch("src.web.driver.ConfigManager") as mock_config,
+    ):
         # Mock ConfigManager to prevent file I/O
         mock_config_instance = MagicMock()
         mock_config_instance.get.side_effect = lambda key, default=None: default
@@ -42,12 +44,12 @@ class TestWebDriverManager:
         """测试设置"""
         self.temp_dir = tempfile.mkdtemp()
         # Mock all external dependencies to prevent any I/O or blocking operations
-        with patch("src.web.driver.ConfigManager") as mock_config, patch(
-            "src.web.driver.subprocess.run"
-        ), patch("src.web.driver.time.sleep"), patch.object(
-            WebDriverManager, "_cleanup_chrome_processes"
+        with (
+            patch("src.web.driver.ConfigManager") as mock_config,
+            patch("src.web.driver.subprocess.run"),
+            patch("src.web.driver.time.sleep"),
+            patch.object(WebDriverManager, "_cleanup_chrome_processes"),
         ):
-
             # Mock ConfigManager instance
             mock_config_instance = MagicMock()
             mock_config_instance.get.side_effect = lambda key, default=None: default
@@ -62,7 +64,7 @@ class TestWebDriverManager:
         """测试清理"""
         try:
             self.driver_manager.close_driver()
-        except:
+        except Exception:
             pass
         import shutil
 

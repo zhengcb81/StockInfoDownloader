@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 class ValidationService:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.config = config or {}
+        self.logger = logger
 
     def validate_pdf(self, file_path: str) -> bool:
         """验证 PDF 文件是否有效"""
@@ -27,7 +28,8 @@ class ValidationService:
             with open(path, "rb") as f:
                 header = f.read(4)
                 return header == b"%PDF"
-        except:
+        except (OSError, IOError) as e:
+            self.logger.debug(f"PDF验证失败: {e}")
             return False
 
     def validate_download_result(

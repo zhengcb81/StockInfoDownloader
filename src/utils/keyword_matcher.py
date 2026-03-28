@@ -19,9 +19,9 @@ class KeywordConfig:
     allowed_keywords: Optional[List[str]] = None
     exclude_keywords: Optional[List[str]] = None
     mode: str = "any"  # any, all, regex
-    fields: List[str] = None  # 匹配的字段列表
+    fields: Optional[List[str]] = None  # 匹配的字段列表
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.fields is None:
             self.fields = ["title", "content"]
 
@@ -29,9 +29,9 @@ class KeywordConfig:
 class KeywordMatcher:
     """关键词匹配器"""
 
-    def __init__(self, config: KeywordConfig):
+    def __init__(self, config: KeywordConfig) -> None:
         self.config = config
-        self.compiled_patterns = {}
+        self.compiled_patterns: Dict[str, re.Pattern] = {}
 
     def matches(self, text: str, title: str = "", date: str = "") -> bool:
         """
@@ -84,20 +84,24 @@ class KeywordMatcher:
 
     def _matches_any_keyword(self, text: str, title: str, date: str) -> bool:
         """匹配任意关键词"""
-        text = " ".join([text, title, date]).lower()
+        if not self.config.allowed_keywords:
+            return True
+        combined_text = " ".join([text, title, date]).lower()
 
         for keyword in self.config.allowed_keywords:
-            if keyword.lower() in text:
+            if keyword.lower() in combined_text:
                 logger.debug(f"关键词匹配成功: {keyword}")
                 return True
         return False
 
     def _matches_all_keywords(self, text: str, title: str, date: str) -> bool:
         """匹配所有关键词"""
-        text = " ".join([text, title, date]).lower()
+        if not self.config.allowed_keywords:
+            return True
+        combined_text = " ".join([text, title, date]).lower()
 
         for keyword in self.config.allowed_keywords:
-            if keyword.lower() not in text:
+            if keyword.lower() not in combined_text:
                 return False
 
         logger.debug("所有关键词匹配成功")
@@ -105,6 +109,8 @@ class KeywordMatcher:
 
     def _matches_regex(self, text: str, title: str, date: str) -> bool:
         """使用正则表达式匹配"""
+        if not self.config.allowed_keywords:
+            return True
         # 过滤空字符串并去除首尾空格
         parts = [part for part in [text, title, date] if part]
         combined_text = " ".join(parts).strip()

@@ -32,7 +32,7 @@ def log(message):
 
 
 @dataclass
-class TestQualityMetric:
+class MetricData:
     """测试质量指标"""
 
     metric_name: str
@@ -45,12 +45,12 @@ class TestQualityMetric:
 
 
 @dataclass
-class TestQualityScore:
+class QualityScore:
     """测试质量评分"""
 
     overall_score: float
     weighted_score: float
-    metrics: List[TestQualityMetric]
+    metrics: List[MetricData]
     quality_level: str
     recommendations: List[str]
 
@@ -61,7 +61,7 @@ class TestQualityMetrics:
     def __init__(self):
         self.logger = get_logger("test_quality_metrics")
 
-    def calculate_test_coverage(self) -> TestQualityMetric:
+    def calculate_test_coverage(self) -> MetricData:
         """计算测试覆盖率"""
         log("计算测试覆盖率...")
 
@@ -111,10 +111,14 @@ class TestQualityMetrics:
             status = (
                 "优秀"
                 if score >= 90
-                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+                else "良好"
+                if score >= 70
+                else "一般"
+                if score >= 50
+                else "需要改进"
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试覆盖率",
                 value=coverage_percentage,
                 target_value=target_coverage,
@@ -129,7 +133,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试覆盖率失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试覆盖率",
                 value=0,
                 target_value=80.0,
@@ -139,7 +143,7 @@ class TestQualityMetrics:
                 description=f"错误: {e}",
             )
 
-    def calculate_test_success_rate(self) -> TestQualityMetric:
+    def calculate_test_success_rate(self) -> MetricData:
         """计算测试成功率"""
         log("计算测试成功率...")
 
@@ -181,10 +185,14 @@ class TestQualityMetrics:
             status = (
                 "优秀"
                 if score >= 95
-                else "良好" if score >= 85 else "一般" if score >= 70 else "需要改进"
+                else "良好"
+                if score >= 85
+                else "一般"
+                if score >= 70
+                else "需要改进"
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试成功率",
                 value=success_rate,
                 target_value=target_success_rate,
@@ -199,7 +207,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试成功率失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试成功率",
                 value=0,
                 target_value=95.0,
@@ -209,7 +217,7 @@ class TestQualityMetrics:
                 description=f"错误: {e}",
             )
 
-    def calculate_test_execution_time(self) -> TestQualityMetric:
+    def calculate_test_execution_time(self) -> MetricData:
         """计算测试执行时间"""
         log("计算测试执行时间...")
 
@@ -256,10 +264,14 @@ class TestQualityMetrics:
             status = (
                 "优秀"
                 if score >= 90
-                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+                else "良好"
+                if score >= 70
+                else "一般"
+                if score >= 50
+                else "需要改进"
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试执行时间",
                 value=avg_time_per_test,
                 target_value=target_avg_time,
@@ -274,7 +286,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试执行时间失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试执行时间",
                 value=999,
                 target_value=2.0,
@@ -284,7 +296,7 @@ class TestQualityMetrics:
                 description=f"错误: {e}",
             )
 
-    def calculate_test_maintainability(self) -> TestQualityMetric:
+    def calculate_test_maintainability(self) -> MetricData:
         """计算测试可维护性"""
         log("计算测试可维护性...")
 
@@ -308,7 +320,7 @@ class TestQualityMetrics:
                             with open(test_file, "r", encoding="utf-8") as f:
                                 lines = f.readlines()
                                 total_test_lines += len(lines)
-                        except:
+                        except Exception:
                             pass
 
             # 计算平均文件大小
@@ -333,10 +345,14 @@ class TestQualityMetrics:
             status = (
                 "优秀"
                 if score >= 90
-                else "良好" if score >= 70 else "一般" if score >= 50 else "需要改进"
+                else "良好"
+                if score >= 70
+                else "一般"
+                if score >= 50
+                else "需要改进"
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试可维护性",
                 value=avg_lines_per_file,
                 target_value=target_avg_lines,
@@ -351,7 +367,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试可维护性失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试可维护性",
                 value=999,
                 target_value=200,
@@ -361,7 +377,7 @@ class TestQualityMetrics:
                 description=f"错误: {e}",
             )
 
-    def calculate_test_diversity(self) -> TestQualityMetric:
+    def calculate_test_diversity(self) -> MetricData:
         """计算测试多样性"""
         log("计算测试多样性...")
 
@@ -417,11 +433,13 @@ class TestQualityMetrics:
                 else (
                     "良好"
                     if diversity_score >= 70
-                    else "一般" if diversity_score >= 50 else "需要改进"
+                    else "一般"
+                    if diversity_score >= 50
+                    else "需要改进"
                 )
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试多样性",
                 value=diversity_score,
                 target_value=target_diversity,
@@ -438,7 +456,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试多样性失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试多样性",
                 value=0,
                 target_value=80.0,
@@ -448,7 +466,7 @@ class TestQualityMetrics:
                 description=f"错误: {e}",
             )
 
-    def calculate_test_reliability(self) -> TestQualityMetric:
+    def calculate_test_reliability(self) -> MetricData:
         """计算测试可靠性"""
         log("计算测试可靠性...")
 
@@ -492,11 +510,13 @@ class TestQualityMetrics:
                 else (
                     "良好"
                     if reliability_score >= 85
-                    else "一般" if reliability_score >= 70 else "需要改进"
+                    else "一般"
+                    if reliability_score >= 70
+                    else "需要改进"
                 )
             )
 
-            metric = TestQualityMetric(
+            metric = MetricData(
                 metric_name="测试可靠性",
                 value=reliability_score,
                 target_value=target_reliability,
@@ -513,7 +533,7 @@ class TestQualityMetrics:
 
         except Exception as e:
             log(f"❌ 计算测试可靠性失败: {e}")
-            return TestQualityMetric(
+            return MetricData(
                 metric_name="测试可靠性",
                 value=0,
                 target_value=95.0,
@@ -524,8 +544,8 @@ class TestQualityMetrics:
             )
 
     def calculate_overall_quality_score(
-        self, metrics: List[TestQualityMetric]
-    ) -> TestQualityScore:
+        self, metrics: List[MetricData]
+    ) -> QualityScore:
         """计算总体质量评分"""
         log("计算总体质量评分...")
 
@@ -563,7 +583,7 @@ class TestQualityMetrics:
         # 生成改进建议
         recommendations = self._generate_recommendations(metrics, weighted_score)
 
-        quality_score = TestQualityScore(
+        quality_score = QualityScore(
             overall_score=overall_score,
             weighted_score=weighted_score,
             metrics=metrics,
@@ -578,7 +598,7 @@ class TestQualityMetrics:
         return quality_score
 
     def _generate_recommendations(
-        self, metrics: List[TestQualityMetric], weighted_score: float
+        self, metrics: List[MetricData], weighted_score: float
     ) -> List[str]:
         """生成改进建议"""
         recommendations = []
@@ -696,7 +716,7 @@ def create_quality_report(result_data: Dict[str, Any], report_file: str):
 
         for metric in quality_score["metrics"]:
             f.write(
-                f"| {metric['metric_name']} | {metric['value']:.1f} | {metric['target_value']:.1f} | {metric['weight']*100:.0f}% | {metric['score']:.1f} | {metric['status']} |\n"
+                f"| {metric['metric_name']} | {metric['value']:.1f} | {metric['target_value']:.1f} | {metric['weight'] * 100:.0f}% | {metric['score']:.1f} | {metric['status']} |\n"
             )
 
         f.write("\n## 改进建议\n\n")

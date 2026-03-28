@@ -7,14 +7,14 @@ Main EnhancedAntiCrawler class that coordinates all protection mechanisms.
 """
 
 import random
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, Optional
 
 from src.core.logger import get_logger
 from src.web.anti_crawler.types import (
     AntiCrawlerLevel,
     BehaviorPattern,
     FingerprintType,
-    FingerprintProfile,
 )
 from src.web.anti_crawler.behavior import BehaviorSimulator
 from src.web.anti_crawler.rate_limiter import AdaptiveRateLimiter
@@ -53,7 +53,7 @@ class EnhancedAntiCrawler:
         )
 
         # Statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             "total_requests": 0,
             "successful_requests": 0,
             "blocked_requests": 0,
@@ -132,7 +132,7 @@ class EnhancedAntiCrawler:
         }
 
     def after_request(
-        self, success: bool, response_data: Dict[str, Any] = None
+        self, success: bool, response_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Post-request processing"""
         if not self.enabled:
@@ -261,7 +261,7 @@ class EnhancedAntiCrawler:
         """Get statistics"""
         stats = self.stats.copy()
         stats.update(self.rate_limiter.get_stats())
-        stats["protection_level"] = self.level.value
+        stats["protection_level"] = str(self.level.value)
         stats["enabled"] = self.enabled
         return stats
 

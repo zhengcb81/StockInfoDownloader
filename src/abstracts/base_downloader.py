@@ -7,7 +7,7 @@ import time
 from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 from src.core.logger import get_logger
 from src.interfaces.downloader_interface import (
@@ -17,6 +17,7 @@ from src.interfaces.downloader_interface import (
     IBrowserStrategy,
     IDownloader,
 )
+from src.web.browser_strategy import BrowserStrategy
 
 
 class BaseDownloader(IDownloader):
@@ -28,7 +29,7 @@ class BaseDownloader(IDownloader):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         self.logger = get_logger(f"{self.__class__.__name__}")
-        self.browser_strategy: Optional[IBrowserStrategy] = None
+        self.browser_strategy: Optional[BrowserStrategy] = None
         self.anti_crawler_strategy: Optional[IAntiCrawlerStrategy] = None
 
         # Default configuration
@@ -60,14 +61,21 @@ class BaseDownloader(IDownloader):
         """Initialize browser strategy"""
         strategy_name = self.config.get("browser_strategy", "playwright")
         try:
+            headless = bool(self.config.get("headless", True))
+            download_dir = self.config.get("download_dir")
+
             if strategy_name == "playwright":
                 from src.web.playwright_strategy import PlaywrightStrategy
 
-                self.browser_strategy = PlaywrightStrategy(self.config)
+                self.browser_strategy = PlaywrightStrategy(
+                    headless=headless, download_dir=download_dir, config=self.config
+                )
             elif strategy_name == "selenium":
                 from src.web.selenium_strategy import SeleniumStrategy
 
-                self.browser_strategy = SeleniumStrategy(self.config)
+                self.browser_strategy = SeleniumStrategy(
+                    headless=headless, download_dir=download_dir, config=self.config
+                )
             else:
                 raise ValueError(f"Unsupported browser strategy: {strategy_name}")
 
@@ -85,7 +93,9 @@ class BaseDownloader(IDownloader):
         try:
             from src.web.anti_crawler_py import AntiCrawlerStrategy
 
-            self.anti_crawler_strategy = AntiCrawlerStrategy()
+            self.anti_crawler_strategy = cast(
+                Optional[IAntiCrawlerStrategy], AntiCrawlerStrategy()
+            )
             self.logger.info("Anti-crawler strategy initialized successfully")
         except Exception as e:
             self.logger.error(f"Anti-crawler strategy initialization failed: {e}")
@@ -104,7 +114,7 @@ class BaseDownloader(IDownloader):
         """Get supported browsers list"""
         return ["playwright", "selenium"]
 
-    def _update_status(self, **kwargs) -> None:
+    def _update_status(self, **kwargs: Any) -> None:
         """Update status"""
         for key, value in kwargs.items():
             if hasattr(self._status, key):
@@ -183,6 +193,16 @@ class BaseDownloader(IDownloader):
                         duration_seconds=0,
                         metadata={"attempts": attempt + 1, "final_error": str(e)},
                     )
+
+        # This should never be reached, but mypy requires a return statement
+        return DownloadResult(
+            success=False,
+            downloaded_files=[],
+            total_files=0,
+            errors=["Unexpected execution path"],
+            duration_seconds=0,
+            metadata={"attempts": retry_count + 1, "final_error": "Unexpected path"},
+        )
 
     @abstractmethod
     def _perform_download(self, request: DownloadRequest) -> DownloadResult:
@@ -283,11 +303,11 @@ class BaseAntiCrawlerStrategy(IAntiCrawlerStrategy):
 
     def _get_base_delay(self) -> float:
         """获取基础延迟时间"""
-        return self.config.get("base_delay", 1.0)
+        return float(self.config.get("base_delay", 1.0))
 
     def _get_session_limit(self) -> int:
         """获取会话请求限制"""
-        return self.config.get("session_limit", 50)
+        return int(self.config.get("session_limit", 50))
 
     def _should_delay_request(self) -> bool:
         """判断是否需要延迟请求"""

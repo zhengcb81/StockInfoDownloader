@@ -278,10 +278,9 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         # 确保没有驱动
         self.service.driver = None
 
-        # 由于实际代码没有检查driver是否为None，这会抛出AttributeError
-        # 我们需要捕获这个异常
-        with pytest.raises(AttributeError):
-            self.service.wait_for_element(("id", "test-element"))
+        # 实际代码现在检查了driver是否为None，返回False而不是抛出异常
+        result = self.service.wait_for_element(("id", "test-element"))
+        assert result is False
 
     @patch("src.services.browser_service.BrowserService.setup_driver")
     def test_restart_driver(self, mock_setup_driver):
@@ -351,9 +350,9 @@ class TestBrowserServiceEnhanced(DependencyInjectionTestBase):
         # 模拟人类行为应该不会抛出异常
         self.service.simulate_human_behavior()
 
-        # 等待元素会抛出AttributeError（因为driver为None）
-        with pytest.raises(AttributeError):
-            self.service.wait_for_element(("id", "test"))
+        # 等待元素应该返回False（因为driver为None）而不是抛出异常
+        result = self.service.wait_for_element(("id", "test"))
+        assert result is False
 
         # 关闭应该不会抛出异常
         self.service.close()

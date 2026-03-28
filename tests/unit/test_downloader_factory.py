@@ -35,6 +35,11 @@ class TestDownloaderFactory(DependencyInjectionTestBase):
 
     def teardown_method(self):
         """测试清理"""
+        # 清理 factory 创建的任何资源
+        if hasattr(self, 'factory'):
+            # 清理可能创建的 UnifiedDownloader 实例
+            for downloader_type in getattr(self.factory, '_downloaders', {}).values():
+                pass  # 这些是类，不是实例，不需要清理
         super().teardown_method()
         self.test_env.cleanup()
 
@@ -50,11 +55,19 @@ class TestDownloaderFactory(DependencyInjectionTestBase):
         }.get(key, default)
 
         # 添加 get_all_config 和 get_environment_overrides 方法
+        # 注意：skip_browser_init 放在 config 键下，因为 _merge_config 从 config 键提取基础配置
         self.mock_config_manager.get_all_config.return_value = {
-            "save_dir": "downloads",
-            "headless": True,
-            "max_retries": 3,
-            "timeout": 30,
+            "config": {
+                "save_dir": "downloads",
+                "headless": True,
+                "max_retries": 3,
+                "timeout": 30,
+                "skip_browser_init": True,  # 避免测试中启动浏览器
+            },
+            "browser": {},
+            "anti_crawler": {},
+            "download": {},
+            "logging": {},
         }
         self.mock_config_manager.get_environment_overrides.return_value = {}
 
@@ -235,7 +248,14 @@ class TestUnifiedDownloader:
         }.get(key, default)
 
         # 创建UnifiedDownloader实例 (strategy is playwright by default)
-        self.unified_downloader = UnifiedDownloader(config={})
+        # 使用 skip_browser_init=True 避免在测试中启动浏览器
+        self.unified_downloader = UnifiedDownloader(config={"skip_browser_init": True})
+
+    def teardown_method(self):
+        """测试清理"""
+        # 清理浏览器资源
+        if hasattr(self, 'unified_downloader') and self.unified_downloader:
+            self.unified_downloader.cleanup()
 
     def test_init(self):
         """测试初始化"""
@@ -245,6 +265,11 @@ class TestUnifiedDownloader:
 
     def test_download_stock_pdfs_success(self, mocker):
         """测试成功下载股票PDF"""
+        # 为 browser_strategy 设置一个 mock，避免 "not initialized" 检查提前返回
+        mock_browser_strategy = Mock()
+        mock_browser_strategy.restart = Mock(return_value=True)
+        self.unified_downloader.browser_strategy = mock_browser_strategy
+
         # 设置mock下载流程
         mocker.patch.object(
             self.unified_downloader,
@@ -264,11 +289,16 @@ class TestUnifiedDownloader:
             max_pages=5,
         )
 
-        # 验证结果
-        assert result == ["file1.pdf", "file2.pdf"]
+        # 验证结果 (download_stock_pdfs 返回 DownloadResult)
+        assert result.downloaded_files == ["file1.pdf", "file2.pdf"]
 
     def test_download_stock_pdfs_fallback_method(self, mocker):
         """测试回退下载方法"""
+        # 为 browser_strategy 设置一个 mock，避免 "not initialized" 检查提前返回
+        mock_browser_strategy = Mock()
+        mock_browser_strategy.restart = Mock(return_value=True)
+        self.unified_downloader.browser_strategy = mock_browser_strategy
+
         # 设置mock下载流程
         mocker.patch.object(
             self.unified_downloader, "_perform_download", return_value=["file1.pdf"]
@@ -282,8 +312,8 @@ class TestUnifiedDownloader:
             "300470", stock_name="测试股票"
         )
 
-        # 验证结果
-        assert result == ["file1.pdf"]
+        # 验证结果 (download_stock_pdfs 返回 DownloadResult)
+        assert result.downloaded_files == ["file1.pdf"]
 
     def test_download_stock_pdfs_no_method_available(self, mocker):
         """测试下载失败场景"""
@@ -299,8 +329,8 @@ class TestUnifiedDownloader:
             "300470", stock_name="测试股票"
         )
 
-        # 验证返回空列表
-        assert result == []
+        # 验证返回空列表 (download_stock_pdfs 返回 DownloadResult)
+        assert result.downloaded_files == []
 
     def test_get_current_downloader_info(self):
         """测试获取状态"""
@@ -321,7 +351,8 @@ class TestUnifiedDownloader:
         )
 
         result = self.unified_downloader.download_stock_pdfs("300470", "测试股票")
-        assert result == []  # 应该返回空列表而不是抛出异常
+        # 应该返回空列表而不是抛出异常 (download_stock_pdfs 返回 DownloadResult)
+        assert result.downloaded_files == []
 
 
 class TestDownloaderFactoryEdgeCases:
@@ -332,10 +363,17 @@ class TestDownloaderFactoryEdgeCases:
         self.mock_config_manager = Mock(spec=ConfigManager)
         self.mock_config_manager.get.side_effect = lambda key, default=None: default
         self.mock_config_manager.get_all_config.return_value = {
-            "save_dir": "downloads",
-            "headless": True,
-            "max_retries": 3,
-            "timeout": 30,
+            "config": {
+                "save_dir": "downloads",
+                "headless": True,
+                "max_retries": 3,
+                "timeout": 30,
+                "skip_browser_init": True,  # 避免测试中启动浏览器
+            },
+            "browser": {},
+            "anti_crawler": {},
+            "download": {},
+            "logging": {},
         }
         self.mock_config_manager.get_environment_overrides.return_value = {}
         self.mock_config_manager.config_path = "config.json"
@@ -382,6 +420,20 @@ class TestDownloaderFactoryExceptionHandling:
         """测试初始化"""
         self.mock_config_manager = Mock(spec=ConfigManager)
         self.mock_config_manager.get.side_effect = lambda key, default=None: default
+        self.mock_config_manager.get_all_config.return_value = {
+            "config": {
+                "save_dir": "downloads",
+                "headless": True,
+                "max_retries": 3,
+                "timeout": 30,
+                "skip_browser_init": True,  # 避免测试中启动浏览器
+            },
+            "browser": {},
+            "anti_crawler": {},
+            "download": {},
+            "logging": {},
+        }
+        self.mock_config_manager.get_environment_overrides.return_value = {}
         self.mock_config_manager.config_path = "config.json"
 
     def test_create_downloader_exception_handling(self):

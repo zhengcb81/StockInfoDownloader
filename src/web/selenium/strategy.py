@@ -7,7 +7,7 @@ Refactored version using modular architecture with driver_factory and download_m
 import os
 import random
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,14 +23,14 @@ from ...core.exceptions import (
 )
 from ...core.logger import get_logger
 from ...utils.cleanup_utils import safe_cleanup
-from ..browser_strategy import BrowserAutomationStrategy
+from ..browser_strategy import BrowserStrategy
 from .driver_factory import ChromeDriverFactory
 from .download_manager import DownloadManager
 
 logger = get_logger(__name__)
 
 
-class SeleniumStrategy(BrowserAutomationStrategy):
+class SeleniumStrategy(BrowserStrategy):
     """Selenium Browser Automation Strategy"""
 
     def __init__(
@@ -152,7 +152,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
 
         try:
             by_method = getattr(By, by.upper(), By.CSS_SELECTOR)
-            return self.driver.find_elements(by_method, selector)
+            return cast(List[Any], self.driver.find_elements(by_method, selector))
         except Exception as e:
             logger.error(f"Failed to find elements: {e}")
             return []
@@ -180,7 +180,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return element.text
+            return cast(str, element.text)
         except Exception as e:
             logger.error(f"Failed to get element text: {e}")
             return ""
@@ -191,7 +191,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return None
 
         try:
-            return element.get_attribute(attribute)
+            return cast(Optional[str], element.get_attribute(attribute))
         except Exception as e:
             logger.error(f"Failed to get element attribute: {e}")
             return None
@@ -240,7 +240,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.driver.page_source
+            return cast(str, self.driver.page_source)
         except Exception as e:
             logger.error(f"Failed to get page source: {e}")
             return ""
@@ -251,9 +251,10 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.driver.current_url
+            return cast(str, self.driver.current_url)
         except Exception as e:
             logger.error(f"Failed to get current URL: {e}")
+            return ""
             return ""
 
     def get_page_title(self) -> str:
@@ -262,7 +263,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.driver.title
+            return cast(str, self.driver.title)
         except Exception as e:
             logger.error(f"Failed to get page title: {e}")
             return ""
@@ -345,7 +346,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             return None
 
         try:
-            screenshot_data = self.driver.get_screenshot_as_png()
+            screenshot_data = cast(bytes, self.driver.get_screenshot_as_png())
 
             if save_path:
                 with open(save_path, "wb") as f:
@@ -367,7 +368,7 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             self.download_count = self._download_manager.download_count
         return success
 
-    def go_to_page(self, page_number: int) -> bool:
+    def go_to_page(self, page_number: int, timeout: int = 30) -> bool:  # type: ignore[override]
         """Navigate to specific page number"""
         if not self.driver:
             return False
@@ -381,14 +382,14 @@ class SeleniumStrategy(BrowserAutomationStrategy):
                 page_input.clear()
                 page_input.send_keys(str(page_number))
                 page_input.send_keys(Keys.RETURN)
-                time.sleep(TimeoutConfig.PAGINATION_WAIT)
+                time.sleep(2)  # Fixed wait time instead of TimeoutConfig.PAGINATION_WAIT
                 return True
             return False
         except Exception as e:
             logger.error(f"Failed to go to page {page_number}: {e}")
             return False
 
-    def go_to_next_page(self) -> bool:
+    def go_to_next_page(self, timeout: int = 30) -> bool:  # type: ignore[override]
         """Navigate to next page"""
         if not self.driver:
             return False
@@ -400,14 +401,14 @@ class SeleniumStrategy(BrowserAutomationStrategy):
             )
             if next_button:
                 self.click(next_button)
-                time.sleep(TimeoutConfig.PAGINATION_WAIT)
+                time.sleep(2)  # Fixed wait time instead of TimeoutConfig.PAGINATION_WAIT
                 return True
             return False
         except Exception as e:
             logger.error(f"Failed to go to next page: {e}")
             return False
 
-    def has_next_page(self) -> bool:
+    def has_next_page(self, timeout: int = 30) -> bool:  # type: ignore[override]
         """Check if there is a next page"""
         if not self.driver:
             return False
@@ -422,6 +423,40 @@ class SeleniumStrategy(BrowserAutomationStrategy):
         except Exception:
             # If no disabled button found, assume there is a next page
             return True
+
+    def get_current_page_info(self) -> Dict[str, Any]:
+        """Get current page info including current page and total pages"""
+        if not self.driver:
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+
+        try:
+            current_page = self.driver.execute_script(
+                "const active = document.querySelector('.el-pager li.number.active');"
+                "return active ? parseInt(active.textContent.trim()) : 1;"
+            )
+            total_pages = self.driver.execute_script(
+                "const pages = document.querySelectorAll('.el-pager li.number');"
+                "return pages.length > 0 ? parseInt(pages[pages.length - 1].textContent.trim()) : 1;"
+            )
+            return {
+                "current_page": current_page or 1,
+                "total_pages": total_pages or 1,
+                "has_next": self.has_next_page(),
+                "has_previous": (current_page or 1) > 1,
+            }
+        except Exception as e:
+            logger.error(f"Failed to get page info: {e}")
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
 
 
 # Backward compatibility - keep the same export name

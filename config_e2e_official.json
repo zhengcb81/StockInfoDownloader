@@ -43,6 +43,17 @@
       "max_pages": 3,
       "delete_later": true,
       "timeout_seconds": 300
+    },
+    {
+      "stock_code": "300470",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": [
+        "上市招股说明书"
+      ],
+      "max_pages": 2,
+      "reverse_order": true,
+      "delete_later": true,
+      "timeout_seconds": 180
     }
   ]
 }

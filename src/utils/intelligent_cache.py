@@ -14,7 +14,7 @@ from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 from src.core.config import ConfigManager
 from src.core.logger import get_logger
@@ -377,8 +377,8 @@ class IntelligentCache:
         if len(self.l1_cache) >= self.config.l1_max_size:
             return False
 
-        current_memory = sum(e.size for e in self.l1_cache.values())
-        return (current_memory + entry.size) <= self.config.l1_max_memory
+        current_memory = sum(int(e.size) for e in self.l1_cache.values())
+        return (current_memory + int(entry.size)) <= self.config.l1_max_memory
 
     def _add_to_l1(self, entry: CacheEntry) -> None:
         """Add to L1 cache"""
@@ -657,7 +657,7 @@ class IntelligentCache:
                 }
             )
 
-        hot_keys.sort(key=lambda x: x["frequency"], reverse=True)
+        hot_keys.sort(key=lambda x: cast(int, x["frequency"]), reverse=True)
 
         return {
             **stats,

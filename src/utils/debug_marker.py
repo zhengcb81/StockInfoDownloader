@@ -9,7 +9,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def _sanitize_for_json(obj: Any) -> Any:
@@ -41,8 +41,10 @@ def _sanitize_for_json(obj: Any) -> Any:
                 "repr": repr(obj)[:200],  # Limit length
             }
         return str(obj)[:200]
-    except:
-        return f"<Unserializable: {obj.__class__.__name__}>"
+    except (AttributeError, TypeError, ValueError):
+        # Object may not be serializable
+        class_name = getattr(obj.__class__, '__name__', 'unknown') if hasattr(obj, '__class__') else 'unknown'
+        return f"<Unserializable: {class_name}>"
 
 
 class DebugMarker:
@@ -60,7 +62,7 @@ class DebugMarker:
         self.start_time = time.time()
         self.marker_id = f"{marker_type}_{int(time.time() * 1000)}"
 
-    def add_step(self, step_id: str, description: str, details: Dict[str, Any] = None):
+    def add_step(self, step_id: str, description: str, details: Optional[Dict[str, Any]] = None) -> None:
         """
         Add step record
 
@@ -121,8 +123,9 @@ class DebugMarker:
                 print(
                     f"[DEBUG_MARKER] Data: {json.dumps(sanitized_data, ensure_ascii=False)}"
                 )
-            except:
-                print(f"[DEBUG_MARKER] Save failed and unable to print data: {e}")
+            except (TypeError, ValueError):
+                # Data may not be JSON serializable
+                print(f"[DEBUG_MARKER] Save failed and unable to serialize data: {e}")
 
     def __repr__(self):
         return f"DebugMarker(type={self.marker_type}, steps={len(self.steps)})"

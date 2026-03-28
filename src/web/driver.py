@@ -9,7 +9,7 @@ import random
 import subprocess
 import sys
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, cast
 
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
@@ -97,7 +97,7 @@ class WebDriverManager:
             else self.config_manager.get("timeout.element_wait", 2)
         )
         self.download_dir = download_dir
-        self.driver = None
+        self.driver: Optional[webdriver.Chrome] = None
         self.download_count = 0
         self.max_downloads_per_session = (
             max_downloads_per_session
@@ -176,7 +176,8 @@ class WebDriverManager:
                 self.driver.get("about:blank")
 
                 logger.info("WebDriver初始化成功")
-                return self.driver
+                # self.driver is guaranteed to be set here
+                return cast(webdriver.Chrome, self.driver)
             except Exception as setup_error:
                 logger.error(f"WebDriver配置失败: {setup_error}")
                 # 如果配置失败，尝试重新启动
@@ -465,7 +466,7 @@ class WebDriverManager:
         else:
             # 简单重启模式：直接创建新的driver
             try:
-                return self.create_driver(custom_options)
+                return cast(Union[webdriver.Chrome, bool], self.create_driver(custom_options))
             except WebDriverError as e:
                 logger.error(f"WebDriver简单重启失败: {e}")
                 if not enhanced_retry:

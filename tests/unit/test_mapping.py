@@ -79,14 +79,28 @@ class TestMappingManager:
         assert org_id is None
 
     def test_get_org_id_empty_mapping(self):
-        """测试空映射的情况"""
+        """测试空映射不从网络获取（禁用auto_fetch）"""
         empty_file = os.path.join(self.temp_dir, "empty.json")
         with open(empty_file, "w", encoding="utf-8") as f:
             json.dump({}, f)
 
-        manager = MappingManager(empty_file)
+        # 禁用自动获取
+        manager = MappingManager(empty_file, auto_fetch=False)
+        # 空映射且禁用auto_fetch时返回None
         org_id = manager.get_org_id("300470")
         assert org_id is None
+
+    @pytest.mark.network
+    def test_get_org_id_empty_mapping_with_network(self):
+        """测试空映射时从网络获取（需要网络）"""
+        empty_file = os.path.join(self.temp_dir, "empty.json")
+        with open(empty_file, "w", encoding="utf-8") as f:
+            json.dump({}, f)
+
+        # 启用自动获取
+        manager = MappingManager(empty_file, auto_fetch=True)
+        org_id = manager.get_org_id("300470")
+        assert org_id == "9900023856"
 
     def test_get_stock_name_success(self):
         """测试成功获取股票名称"""
@@ -143,19 +157,36 @@ class TestMappingManager:
         assert org_id == "9900023856"
 
     def test_remove_mapping(self):
-        """测试删除映射"""
-        manager = MappingManager(self.mapping_file)
+        """测试删除映射（禁用auto_fetch）"""
+        # 禁用自动获取
+        manager = MappingManager(self.mapping_file, auto_fetch=False)
 
         # 删除存在的映射
         success = manager.remove_mapping("300470")
         assert success
 
-        # 验证删除成功
+        # 删除后返回None（不从网络获取）
         org_id = manager.get_org_id("300470")
         assert org_id is None
 
         name = manager.get_stock_name("300470")
         assert name is None
+
+    @pytest.mark.network
+    def test_remove_mapping_with_network(self):
+        """测试删除映射后可从网络重新获取（需要网络）"""
+        manager = MappingManager(self.mapping_file, auto_fetch=True)
+
+        # 删除存在的映射
+        success = manager.remove_mapping("300470")
+        assert success
+
+        # 删除后会从网络重新获取
+        org_id = manager.get_org_id("300470")
+        assert org_id == "9900023856"
+
+        name = manager.get_stock_name("300470")
+        assert name == "中密控股"
 
     def test_remove_nonexistent_mapping(self):
         """测试删除不存在的映射"""

@@ -84,7 +84,13 @@
       "Bash(mypy src/:*)",
       "Bash(mypy src/core/config.py src/interfaces/downloader_interface.py 2>&1:*)",
       "Bash(mypy src/interfaces/downloader_interface.py --ignore-missing-imports 2>&1:*)",
-      "Bash(git stash pop)"
+      "Bash(git stash pop)",
+      "Skill(superpowers:requesting-code-review)",
+      "Bash(git rev-parse:*)",
+      "Bash(test:*)",
+      "Bash(mypy:*)",
+      "Bash(cd:*)",
+      "Skill(planning-with-files)"
     ],
     "deny": [],
     "ask": [],

@@ -148,13 +148,13 @@ class TestConfigManagerMultiCompany:
         assert len(errors) == 0
 
     def test_validate_invalid_config(self, config_manager):
-        """测试验证无效配置"""
-        # 添加无效配置
+        """Test validation of invalid configuration"""
+        # Add invalid configuration
         config_manager.add_company("invalid", "无效公司")
 
         is_valid, errors = config_manager.validate_companies_config()
         assert not is_valid
-        assert any("股票代码格式错误" in error for error in errors)
+        assert any("stock code format error" in error.lower() for error in errors)
 
     def test_get_companies_summary(self, config_manager):
         """测试获取公司配置摘要"""

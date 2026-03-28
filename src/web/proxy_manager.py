@@ -293,7 +293,7 @@ class ProxyPool:
 
         # 权重随机选择
         rand_value = random.uniform(0, total_weight)
-        current_weight = 0
+        current_weight: float = 0.0
 
         for proxy in proxies:
             current_weight += proxy.score
@@ -521,7 +521,8 @@ class ProxyManager:
     def _select_pool(self, requirements: Optional[Dict[str, Any]]) -> Optional[str]:
         """选择代理池"""
         if requirements and "pool" in requirements:
-            return requirements["pool"]
+            pool_name = requirements["pool"]
+            return pool_name if isinstance(pool_name, str) else None
 
         # 根据代理类型选择池
         if requirements and "proxy_type" in requirements:
@@ -573,17 +574,17 @@ class ProxyManager:
 
     def get_stats(self) -> Dict[str, Any]:
         """获取管理器统计信息"""
-        stats = {"total_pools": len(self.pools), "pools": {}}
+        stats: Dict[str, Any] = {"total_pools": len(self.pools), "pools": {}}
 
         for pool_name, pool in self.pools.items():
             stats["pools"][pool_name] = pool.get_stats()
 
         return stats
 
-    def save_state(self, file_path: str):
+    def save_state(self, file_path: str) -> None:
         """保存代理状态到文件"""
         try:
-            state = {"timestamp": time.time(), "pools": {}}
+            state: Dict[str, Any] = {"timestamp": time.time(), "pools": {}}
 
             for pool_name, pool in self.pools.items():
                 state["pools"][pool_name] = {
@@ -613,7 +614,7 @@ class ProxyManager:
         except Exception as e:
             self.logger.error(f"保存代理状态失败: {e}")
 
-    def load_state(self, file_path: str):
+    def load_state(self, file_path: str) -> None:
         """从文件加载代理状态"""
         try:
             if not Path(file_path).exists():
@@ -648,7 +649,7 @@ class ProxyManager:
         except Exception as e:
             self.logger.error(f"加载代理状态失败: {e}")
 
-    def rotate_all_proxies(self):
+    def rotate_all_proxies(self) -> None:
         """轮换所有代理"""
         self.logger.info("开始轮换所有代理...")
 

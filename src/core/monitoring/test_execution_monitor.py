@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-测试执行监控系统
-监控测试执行时间、资源使用和性能指标
+Test Execution Monitoring System
+Monitors test execution time, resource usage, and performance metrics
 """
 
 import json
@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import psutil
 
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 
 
 class TestStatus(Enum):
-    """测试状态枚举"""
+    """Test status enumeration"""
 
     PENDING = "pending"
     RUNNING = "running"
@@ -35,7 +35,7 @@ class TestStatus(Enum):
 
 @dataclass
 class TestExecutionRecord:
-    """测试执行记录"""
+    """Test execution record"""
 
     test_id: str
     test_name: str
@@ -51,7 +51,7 @@ class TestExecutionRecord:
 
     @property
     def is_completed(self) -> bool:
-        """测试是否完成"""
+        """Check if test is completed"""
         return self.status in [
             TestStatus.PASSED,
             TestStatus.FAILED,
@@ -59,33 +59,33 @@ class TestExecutionRecord:
             TestStatus.ERROR,
         ]
 
-    def mark_started(self):
-        """标记测试开始"""
+    def mark_started(self) -> None:
+        """Mark test as started"""
         self.start_time = time.time()
         self.status = TestStatus.RUNNING
 
-    def mark_completed(self, status: TestStatus, error_message: Optional[str] = None):
-        """标记测试完成"""
+    def mark_completed(self, status: TestStatus, error_message: Optional[str] = None) -> None:
+        """Mark test as completed"""
         self.end_time = time.time()
         self.status = status
         self.execution_time = self.end_time - self.start_time
         self.error_message = error_message
 
-        # 记录资源使用情况
+        # Record resource usage
         self._record_resource_usage()
 
-    def _record_resource_usage(self):
-        """记录资源使用情况"""
+    def _record_resource_usage(self) -> None:
+        """Record resource usage"""
         try:
             process = psutil.Process()
             self.memory_usage = process.memory_info().rss / 1024 / 1024  # MB
             self.cpu_usage = process.cpu_percent()
         except Exception as e:
-            logger.warning(f"记录资源使用失败: {e}")
+            logger.warning(f"Failed to record resource usage: {e}")
 
 
 class TestExecutionMonitor:
-    """测试执行监控器"""
+    """Test execution monitor"""
 
     def __init__(self, output_dir: str = "test_reports"):
         self.output_dir = Path(output_dir)
@@ -95,16 +95,16 @@ class TestExecutionMonitor:
         self._records: Dict[str, TestExecutionRecord] = {}
         self._lock = threading.RLock()
 
-        # 监控配置
-        self.config = {
-            "max_execution_time": 60.0,  # 最大执行时间（秒）
-            "max_memory_usage": 500.0,  # 最大内存使用（MB）
-            "max_cpu_usage": 80.0,  # 最大CPU使用率（%）
+        # Monitoring configuration
+        self.config: Dict[str, Any] = {
+            "max_execution_time": 60.0,  # Maximum execution time (seconds)
+            "max_memory_usage": 500.0,  # Maximum memory usage (MB)
+            "max_cpu_usage": 80.0,  # Maximum CPU usage (%)
             "enable_resource_monitoring": True,
         }
 
-        # 统计信息
-        self.stats = {
+        # Statistics
+        self.stats: Dict[str, Any] = {
             "total_tests": 0,
             "passed_tests": 0,
             "failed_tests": 0,
@@ -116,10 +116,10 @@ class TestExecutionMonitor:
             "resource_intensive_tests": [],
         }
 
-        self.logger.info("测试执行监控器初始化完成")
+        self.logger.info("Test execution monitor initialized")
 
     def start_test(self, test_id: str, test_name: str, file_path: str) -> str:
-        """开始监控测试"""
+        """Start monitoring a test"""
         with self._lock:
             record = TestExecutionRecord(
                 test_id=test_id,
@@ -132,31 +132,31 @@ class TestExecutionMonitor:
 
             self.stats["total_tests"] += 1
 
-            self.logger.debug(f"开始监控测试: {test_name}")
+            self.logger.debug(f"Started monitoring test: {test_name}")
             return test_id
 
     def end_test(
         self, test_id: str, status: TestStatus, error_message: Optional[str] = None
-    ):
-        """结束监控测试"""
+    ) -> None:
+        """End monitoring a test"""
         with self._lock:
             if test_id not in self._records:
-                self.logger.warning(f"未找到测试记录: {test_id}")
+                self.logger.warning(f"Test record not found: {test_id}")
                 return
 
             record = self._records[test_id]
             record.mark_completed(status, error_message)
 
-            # 更新统计信息
+            # Update statistics
             self._update_stats(record)
 
-            # 检查性能问题
+            # Check for performance issues
             self._check_performance_issues(record)
 
-            self.logger.debug(f"测试完成: {record.test_name} - {status.value}")
+            self.logger.debug(f"Test completed: {record.test_name} - {status.value}")
 
-    def _update_stats(self, record: TestExecutionRecord):
-        """更新统计信息"""
+    def _update_stats(self, record: TestExecutionRecord) -> None:
+        """Update statistics"""
         if record.status == TestStatus.PASSED:
             self.stats["passed_tests"] += 1
         elif record.status == TestStatus.FAILED:
@@ -168,7 +168,7 @@ class TestExecutionMonitor:
 
         self.stats["total_execution_time"] += record.execution_time
 
-        # 计算平均执行时间
+        # Calculate average execution time
         completed_tests = (
             self.stats["passed_tests"]
             + self.stats["failed_tests"]
@@ -179,11 +179,13 @@ class TestExecutionMonitor:
                 self.stats["total_execution_time"] / completed_tests
             )
 
-    def _check_performance_issues(self, record: TestExecutionRecord):
-        """检查性能问题"""
-        # 检查执行时间过长
-        if record.execution_time > self.config["max_execution_time"]:
-            self.stats["slow_tests"].append(
+    def _check_performance_issues(self, record: TestExecutionRecord) -> None:
+        """Check for performance issues"""
+        # Check for long execution time
+        max_execution_time = cast(float, self.config.get("max_execution_time", 60.0))
+        if record.execution_time > max_execution_time:
+            slow_tests = cast(List[Dict[str, Any]], self.stats.get("slow_tests"))
+            slow_tests.append(
                 {
                     "test_name": record.test_name,
                     "execution_time": record.execution_time,
@@ -191,10 +193,13 @@ class TestExecutionMonitor:
                 }
             )
 
-        # 检查资源使用过高
-        if self.config["enable_resource_monitoring"]:
-            if record.memory_usage > self.config["max_memory_usage"]:
-                self.stats["resource_intensive_tests"].append(
+        # Check for high resource usage
+        enable_resource_monitoring = cast(bool, self.config.get("enable_resource_monitoring", True))
+        if enable_resource_monitoring:
+            max_memory_usage = cast(float, self.config.get("max_memory_usage", 500.0))
+            if record.memory_usage > max_memory_usage:
+                resource_tests = cast(List[Dict[str, Any]], self.stats.get("resource_intensive_tests"))
+                resource_tests.append(
                     {
                         "test_name": record.test_name,
                         "memory_usage": record.memory_usage,
@@ -202,8 +207,10 @@ class TestExecutionMonitor:
                     }
                 )
 
-            if record.cpu_usage > self.config["max_cpu_usage"]:
-                self.stats["resource_intensive_tests"].append(
+            max_cpu_usage = cast(float, self.config.get("max_cpu_usage", 80.0))
+            if record.cpu_usage > max_cpu_usage:
+                resource_tests = cast(List[Dict[str, Any]], self.stats.get("resource_intensive_tests"))
+                resource_tests.append(
                     {
                         "test_name": record.test_name,
                         "cpu_usage": record.cpu_usage,
@@ -212,7 +219,7 @@ class TestExecutionMonitor:
                 )
 
     def get_test_status(self, test_id: str) -> Optional[Dict[str, Any]]:
-        """获取测试状态"""
+        """Get test status"""
         with self._lock:
             record = self._records.get(test_id)
             if record is None:
@@ -232,16 +239,18 @@ class TestExecutionMonitor:
             }
 
     def get_all_test_status(self) -> List[Dict[str, Any]]:
-        """获取所有测试状态"""
+        """Get all test statuses"""
         with self._lock:
-            return [self.get_test_status(test_id) for test_id in self._records.keys()]
+            result = [self.get_test_status(test_id) for test_id in self._records.keys()]
+            # Filter out None values
+            return [r for r in result if r is not None]  # type: ignore[list-item]
 
     def get_stats(self) -> Dict[str, Any]:
-        """获取统计信息"""
+        """Get statistics"""
         with self._lock:
             stats_copy = self.stats.copy()
 
-            # 计算成功率
+            # Calculate success rate
             total_completed = (
                 stats_copy["passed_tests"]
                 + stats_copy["failed_tests"]
@@ -257,7 +266,7 @@ class TestExecutionMonitor:
             return stats_copy
 
     def generate_report(self) -> Dict[str, Any]:
-        """生成监控报告"""
+        """Generate monitoring report"""
         with self._lock:
             report = {
                 "timestamp": datetime.now().isoformat(),
@@ -278,7 +287,7 @@ class TestExecutionMonitor:
             return report
 
     def _calculate_monitoring_duration(self) -> float:
-        """计算监控持续时间"""
+        """Calculate monitoring duration"""
         if not self._records:
             return 0.0
 
@@ -293,7 +302,7 @@ class TestExecutionMonitor:
         return max(end_times) - min(start_times)
 
     def _calculate_overall_status(self) -> str:
-        """计算总体状态"""
+        """Calculate overall status"""
         stats = self.get_stats()
 
         if stats["failed_tests"] > 0 or stats["error_tests"] > 0:
@@ -303,8 +312,8 @@ class TestExecutionMonitor:
         else:
             return "PARTIAL"
 
-    def save_report(self, filename: Optional[str] = None):
-        """保存监控报告"""
+    def save_report(self, filename: Optional[str] = None) -> Optional[str]:
+        """Save monitoring report"""
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"test_execution_report_{timestamp}.json"
@@ -314,8 +323,8 @@ class TestExecutionMonitor:
         try:
             report = self.generate_report()
 
-            # 确保所有枚举值都转换为字符串
-            def convert_enums(obj):
+            # Ensure all enum values are converted to strings
+            def convert_enums(obj: Any) -> Any:
                 if isinstance(obj, dict):
                     return {k: convert_enums(v) for k, v in obj.items()}
                 elif isinstance(obj, list):
@@ -330,15 +339,15 @@ class TestExecutionMonitor:
             with open(report_path, "w", encoding="utf-8") as f:
                 json.dump(report, f, indent=2, ensure_ascii=False)
 
-            self.logger.info(f"测试执行报告已保存到: {report_path}")
+            self.logger.info(f"Test execution report saved to: {report_path}")
             return str(report_path)
 
         except Exception as e:
-            self.logger.error(f"保存测试执行报告失败: {e}")
+            self.logger.error(f"Failed to save test execution report: {e}")
             return None
 
-    def clear_records(self):
-        """清除所有记录"""
+    def clear_records(self) -> None:
+        """Clear all records"""
         with self._lock:
             self._records.clear()
             self.stats = {
@@ -354,20 +363,20 @@ class TestExecutionMonitor:
             }
 
 
-# 全局监控器实例
+# Global monitor instance
 _global_monitor: Optional[TestExecutionMonitor] = None
 
 
 def get_global_monitor() -> TestExecutionMonitor:
-    """获取全局监控器实例"""
+    """Get the global monitor instance"""
     global _global_monitor
     if _global_monitor is None:
         _global_monitor = TestExecutionMonitor()
     return _global_monitor
 
 
-def start_monitoring_test(test_name: str, file_path: str) -> str:
-    """开始监控测试（便捷函数）"""
+def start_monitoring_test(test_name: str, file_path: str, test_id: Optional[str] = None) -> str:
+    """Start monitoring a test (convenience function)"""
     monitor = get_global_monitor()
     test_id = f"{file_path}::{test_name}"
     return monitor.start_test(test_id, test_name, file_path)
@@ -375,42 +384,42 @@ def start_monitoring_test(test_name: str, file_path: str) -> str:
 
 def end_monitoring_test(
     test_id: str, status: TestStatus, error_message: Optional[str] = None
-):
-    """结束监控测试（便捷函数）"""
+) -> None:
+    """End monitoring a test (convenience function)"""
     monitor = get_global_monitor()
     monitor.end_test(test_id, status, error_message)
 
 
 def save_monitoring_report() -> Optional[str]:
-    """保存监控报告（便捷函数）"""
+    """Save monitoring report (convenience function)"""
     monitor = get_global_monitor()
     return monitor.save_report()
 
 
 def get_monitoring_stats() -> Dict[str, Any]:
-    """获取监控统计信息（便捷函数）"""
+    """Get monitoring statistics (convenience function)"""
     monitor = get_global_monitor()
     return monitor.get_stats()
 
 
-# pytest集成钩子
+# Pytest integration hooks
 import pytest
 
 
 @pytest.fixture(scope="function")
-def test_monitor():
-    """pytest测试监控fixture"""
+def test_monitor() -> Dict[str, Any]:
+    """Pytest test monitoring fixture"""
     test_id = None
 
-    def _start_monitoring(request):
+    def _start_monitoring(request: Any) -> None:
         nonlocal test_id
         test_name = request.node.name
         file_path = request.node.fspath.strpath
         test_id = start_monitoring_test(test_name, file_path)
 
     def _end_monitoring(
-        request, status: TestStatus, error_message: Optional[str] = None
-    ):
+        request: Any, status: TestStatus, error_message: Optional[str] = None
+    ) -> None:
         nonlocal test_id
         if test_id:
             end_monitoring_test(test_id, status, error_message)
@@ -419,25 +428,25 @@ def test_monitor():
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_protocol(item, nextitem):
-    """pytest测试协议钩子"""
-    # 获取监控fixture
+def pytest_runtest_protocol(item: Any, nextitem: Any) -> Any:
+    """Pytest test protocol hook"""
+    # Get monitoring fixture
     monitor_fixture = None
     try:
         monitor_fixture = item.funcargs.get("test_monitor")
     except Exception:
         pass
 
-    # 开始监控
+    # Start monitoring
     if monitor_fixture:
         monitor_fixture["start"](item)
 
-    # 执行测试
+    # Execute test
     result = yield
 
-    # 结束监控
+    # End monitoring
     if monitor_fixture:
-        # 根据测试结果确定状态
+        # Determine status based on test result
         if hasattr(item, "_test_outcome") and item._test_outcome:
             outcome = item._test_outcome.outcome
             if outcome == "passed":
@@ -455,10 +464,10 @@ def pytest_runtest_protocol(item, nextitem):
 
 
 if __name__ == "__main__":
-    # 示例用法
+    # Example usage
     monitor = TestExecutionMonitor()
 
-    # 模拟测试执行
+    # Simulate test execution
     test_id1 = monitor.start_test("test1", "test_example_1", "test_example.py")
     time.sleep(1)
     monitor.end_test(test_id1, TestStatus.PASSED)
@@ -467,10 +476,10 @@ if __name__ == "__main__":
     time.sleep(2)
     monitor.end_test(test_id2, TestStatus.FAILED, "Assertion error")
 
-    # 生成报告
+    # Generate report
     report_path = monitor.save_report()
-    print(f"报告已保存到: {report_path}")
+    print(f"Report saved to: {report_path}")
 
-    # 打印统计信息
+    # Print statistics
     stats = monitor.get_stats()
-    print(f"统计信息: {json.dumps(stats, indent=2)}")
+    print(f"Statistics: {json.dumps(stats, indent=2)}")

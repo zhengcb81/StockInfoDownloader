@@ -6,7 +6,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 from src.core.logger import get_logger
 
@@ -138,7 +138,7 @@ def cleanup_multiple_paths(paths: list) -> bool:
     return all(results)
 
 
-def cleanup_temp_files(directory: Optional[str], extensions: list = None) -> bool:
+def cleanup_temp_files(directory: Optional[str], extensions: Optional[List[str]] = None) -> bool:
     """
     清理指定目录中的临时文件
 

@@ -105,6 +105,7 @@ class TestBrowserStrategiesIntegration:
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
                 browser_strategy=strategy_type,
+                skip_browser_init=False,
             )
 
             # 验证下载器正确配置了策略
@@ -137,6 +138,7 @@ class TestBrowserStrategiesIntegration:
                     save_dir=self.save_dir,
                     mapping_file=self.mapping_file,
                     browser_strategy=strategy_type,
+                    skip_browser_init=False,  # 集成测试需要初始化浏览器
                 )
 
                 # 验证当前策略

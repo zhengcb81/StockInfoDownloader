@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-30T23:05:02.970772",
+  "timestamp": "2026-03-28T21:20:56.771352",
   "overall_success": true,
   "results": [
     {
@@ -7,21 +7,36 @@
       "stock_name": "珂玛科技",
       "success": true,
       "downloaded_files": 1,
-      "duration": 0
+      "duration": 0,
+      "skipped_files": 1,
+      "pages_traversed": 1
     },
     {
       "stock_code": "300470",
       "stock_name": "中密控股",
       "success": true,
       "downloaded_files": 1,
-      "duration": 0
+      "duration": 0,
+      "skipped_files": 0,
+      "pages_traversed": 3
     },
     {
       "stock_code": "300470",
       "stock_name": "中密控股",
       "success": true,
       "downloaded_files": 1,
-      "duration": 0
+      "duration": 0,
+      "skipped_files": 0,
+      "pages_traversed": 3
+    },
+    {
+      "stock_code": "300470",
+      "stock_name": "中密控股",
+      "success": true,
+      "downloaded_files": 1,
+      "duration": 0,
+      "skipped_files": 0,
+      "pages_traversed": 2
     }
   ]
 }

@@ -33,7 +33,7 @@ class TestDownloaderIntegration:
         self.mapping_file = os.path.join(self.temp_dir, "test_mapping.json")
 
         # 从配置文件读取测试数据，不硬编码
-        config_file = "config_end2end_test.json"
+        config_file = "configs/config_end2end_test.json"
         try:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -65,6 +65,7 @@ class TestDownloaderIntegration:
             save_dir=self.temp_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,  # 集成测试需要初始化浏览器
         )
 
         # 保存测试股票代码供后续使用
@@ -74,7 +75,7 @@ class TestDownloaderIntegration:
         """测试清理"""
         try:
             self.downloader.cleanup()
-        except:
+        except Exception:
             pass
         import shutil
 

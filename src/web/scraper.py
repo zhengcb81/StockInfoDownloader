@@ -5,14 +5,15 @@ Provides general web data scraping functionality
 
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 from urllib.parse import urljoin
 
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from ..core.constants import SelectorConfig
 from ..core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -124,7 +125,7 @@ class WebScraper:
         return element.get_attribute(attribute) if element else None
 
     def extract_links(
-        self, css_selector: str = "a", base_url: str = None
+        self, css_selector: str = "a", base_url: Optional[str] = None
     ) -> List[Dict[str, str]]:
         """
         Extract links from page
@@ -266,7 +267,7 @@ class WebScraper:
             str: Page source
         """
         try:
-            return self.driver.page_source
+            return cast(str, self.driver.page_source)
         except Exception as e:
             logger.error(f"Failed to get page source: {e}")
             return ""
@@ -282,14 +283,8 @@ class WebScraper:
             bool: Whether next page exists
         """
         try:
-            # CNINFO pagination selectors
-            next_selectors = [
-                "button.el-pagination__next:not(.is-disabled)",
-                ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)",
-                ".el-pager li.number.active + li.number",
-                "button[aria-label='Next page']:not([disabled])",
-            ]
+            # Use shared selector config
+            next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             for selector in next_selectors:
                 try:
@@ -316,13 +311,8 @@ class WebScraper:
             bool: Whether successful
         """
         try:
-            next_selectors = [
-                "button.el-pagination__next:not(.is-disabled)",
-                ".pagination .next:not(.disabled)",
-                "a[aria-label='下一页']:not(.disabled)",
-                ".el-pager li.number.active + li.number",
-                "button[aria-label='Next page']:not([disabled])",
-            ]
+            # Use shared selector config
+            next_selectors = SelectorConfig.NEXT_PAGE_SELECTORS
 
             for selector in next_selectors:
                 try:
@@ -525,7 +515,8 @@ class WebScraper:
                                             ".el-table__body, .table-body, tbody",
                                         )
                                         initial_table_content = table.text[:300]
-                                    except:
+                                    except (NoSuchElementException, WebDriverException):
+                                        # Table not found, fall back to body content
                                         initial_table_content = (
                                             self.driver.find_element(
                                                 By.TAG_NAME, "body"
@@ -574,7 +565,8 @@ class WebScraper:
                     By.CSS_SELECTOR, ".el-table__body, .table-body, tbody"
                 )
                 current_content = table.text[:300]
-            except:
+            except (NoSuchElementException, WebDriverException):
+                # Table not found, fall back to body content
                 current_content = self.driver.find_element(By.TAG_NAME, "body").text[
                     :300
                 ]
@@ -584,7 +576,7 @@ class WebScraper:
             if length_change > len(initial_content) * 0.1:
                 return True
 
-            return current_content != initial_content
+            return bool(current_content != initial_content)
 
         except Exception as e:
             logger.debug(f"Check content change failed: {e}")

@@ -113,7 +113,6 @@ from .enhanced_error_handler import (
     ErrorCategory,
     RetryStrategy,
     ErrorInfo,
-    RetryConfig,
     CircuitBreakerState,
     CircuitBreakerConfig,
     EnhancedErrorHandler,
@@ -122,6 +121,7 @@ from .enhanced_error_handler import (
     execute_with_protection,
     error_protected,
     error_protected_async,
+    RetryConfig as EnhancedRetryConfig,
 )
 
 # Intelligent cache

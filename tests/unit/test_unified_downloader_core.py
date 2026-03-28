@@ -213,13 +213,17 @@ class TestUnifiedDownloaderCore:
         assert status.downloaded_count == 0
 
     def test_legacy_call_compatibility(self, downloader):
-        """Test backward compatibility with legacy call style"""
-        downloader._download_with_retry = MagicMock(return_value=MagicMock(downloaded_files=["f1.pdf"]))
-        
-        # Call with string stock_code
+        """Test backward compatibility with legacy call style - returns DownloadResult"""
+        mock_result = MagicMock()
+        mock_result.downloaded_files = ["f1.pdf"]
+        mock_result.success = True
+        downloader._download_with_retry = MagicMock(return_value=mock_result)
+
+        # Call with string stock_code - now returns DownloadResult
         res = downloader.download_stock_pdfs("000001", stock_name="Bank")
-        
-        assert res == ["f1.pdf"]
+
+        assert res.downloaded_files == ["f1.pdf"]
+        assert res.success is True
         # Verify request object was constructed correctly
         call_args = downloader._download_with_retry.call_args[0][0]
         assert isinstance(call_args, DownloadRequest)

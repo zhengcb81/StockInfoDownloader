@@ -27,24 +27,30 @@ import stat
 from pathlib import Path
 from typing import Set, Dict, List, Optional
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="保护expected_results目录")
-    parser.add_argument('--config', default='config_e2e_official.json',
-                       help='配置文件路径（默认：config_e2e_official.json）')
-    parser.add_argument('--dry-run', action='store_true',
-                       help='只显示将要进行的操作，不实际执行')
-    parser.add_argument('--lock', action='store_true',
-                       help='设置目录只读权限')
+    parser.add_argument(
+        "--config",
+        default="config_e2e_official.json",
+        help="配置文件路径（默认：config_e2e_official.json）",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="只显示将要进行的操作，不实际执行"
+    )
+    parser.add_argument("--lock", action="store_true", help="设置目录只读权限")
     return parser.parse_args()
+
 
 def load_config(config_path: Path) -> dict:
     """加载配置文件"""
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"错误：加载配置文件失败: {e}")
         raise
+
 
 def get_stock_name_from_code(stock_code: str, mapping_manager=None) -> Optional[str]:
     """
@@ -58,31 +64,32 @@ def get_stock_name_from_code(stock_code: str, mapping_manager=None) -> Optional[
             name = mapping_manager.get_stock_name(stock_code)
             if name:
                 return name
-    except:
+    except Exception:
         pass
 
     # 备选方案：直接读取映射文件
     mapping_files = [
         Path("configs/stock_orgid_mapping.json"),
         Path("src/data/stock_orgid_mapping.json"),
-        Path("stock_orgid_mapping.json")
+        Path("stock_orgid_mapping.json"),
     ]
 
     for mapping_file in mapping_files:
         if mapping_file.exists():
             try:
-                with open(mapping_file, 'r', encoding='utf-8') as f:
+                with open(mapping_file, "r", encoding="utf-8") as f:
                     mapping_data = json.load(f)
                     if stock_code in mapping_data:
                         item = mapping_data[stock_code]
                         # 兼容不同字段名
-                        return item.get('name') or item.get('stock_name') or stock_code
-            except:
+                        return item.get("name") or item.get("stock_name") or stock_code
+            except Exception:
                 continue
 
     # 如果找不到映射，返回股票代码作为备用
     print(f"警告：找不到股票代码 {stock_code} 的映射，使用代码作为目录名")
     return stock_code
+
 
 def analyze_configuration(config: dict) -> dict:
     """
@@ -92,14 +99,17 @@ def analyze_configuration(config: dict) -> dict:
         expected_result_dir: Path - 预期结果目录路径
         expected_structure: Dict[str, List[str]] - 预期目录结构和文件模式
     """
-    expected_result_dir = Path(config.get('expected_result_dir', 'end2end_test/expected_results'))
-    test_cases = config.get('test_cases', [])
+    expected_result_dir = Path(
+        config.get("expected_result_dir", "end2end_test/expected_results")
+    )
+    test_cases = config.get("test_cases", [])
 
     # 尝试导入MappingManager（可选）
     mapping_manager = None
     try:
         sys.path.insert(0, str(Path.cwd()))
         from src.data.mapping import MappingManager
+
         mapping_manager = MappingManager()
         print("[OK] 已加载映射管理器")
     except ImportError as e:
@@ -109,7 +119,7 @@ def analyze_configuration(config: dict) -> dict:
     expected_structure = {}
 
     for test_case in test_cases:
-        stock_code = test_case.get('stock_code')
+        stock_code = test_case.get("stock_code")
         if not stock_code:
             print("警告：测试用例缺少stock_code字段")
             continue
@@ -120,7 +130,7 @@ def analyze_configuration(config: dict) -> dict:
             company_name = stock_code
 
         # 获取允许的关键词
-        allowed_keywords = test_case.get('allowed_keywords', [])
+        allowed_keywords = test_case.get("allowed_keywords", [])
 
         # 添加到预期结构
         if company_name not in expected_structure:
@@ -131,12 +141,14 @@ def analyze_configuration(config: dict) -> dict:
             expected_structure[company_name].append(keyword)
 
     return {
-        'expected_result_dir': expected_result_dir,
-        'expected_structure': expected_structure
+        "expected_result_dir": expected_result_dir,
+        "expected_structure": expected_structure,
     }
 
-def validate_directory_structure(expected_dir: Path, expected_structure: Dict[str, List[str]],
-                                dry_run: bool = False) -> bool:
+
+def validate_directory_structure(
+    expected_dir: Path, expected_structure: Dict[str, List[str]], dry_run: bool = False
+) -> bool:
     """
     验证目录结构是否符合预期。
 
@@ -199,7 +211,7 @@ def validate_directory_structure(expected_dir: Path, expected_structure: Dict[st
         # 获取目录中所有文件
         try:
             all_files = [f for f in company_dir.iterdir() if f.is_file()]
-        except:
+        except Exception:
             print(f"警告：无法读取目录 {company_dir}")
             continue
 
@@ -216,7 +228,9 @@ def validate_directory_structure(expected_dir: Path, expected_structure: Dict[st
                 extra_files.append(file_path)
 
         if extra_files:
-            print(f"在目录 {expected_company} 中发现 {len(extra_files)} 个不匹配的文件:")
+            print(
+                f"在目录 {expected_company} 中发现 {len(extra_files)} 个不匹配的文件:"
+            )
             for f in extra_files:
                 print(f"  - {f.name}")
             all_valid = False
@@ -235,6 +249,7 @@ def validate_directory_structure(expected_dir: Path, expected_structure: Dict[st
 
     return all_valid
 
+
 def set_directory_lock(directory: Path, dry_run: bool = False) -> bool:
     """
     设置目录为只读（如果平台支持）。
@@ -251,7 +266,7 @@ def set_directory_lock(directory: Path, dry_run: bool = False) -> bool:
 
     try:
         # 在Unix-like系统上设置只读权限
-        if hasattr(os, 'chmod'):
+        if hasattr(os, "chmod"):
             # 移除所有写权限
             current_mode = directory.stat().st_mode
             new_mode = current_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
@@ -262,13 +277,17 @@ def set_directory_lock(directory: Path, dry_run: bool = False) -> bool:
                 for name in dirs:
                     dirpath = Path(root) / name
                     dir_mode = dirpath.stat().st_mode
-                    dir_new_mode = dir_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+                    dir_new_mode = (
+                        dir_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+                    )
                     os.chmod(str(dirpath), dir_new_mode)
 
                 for name in files:
                     filepath = Path(root) / name
                     file_mode = filepath.stat().st_mode
-                    file_new_mode = file_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+                    file_new_mode = (
+                        file_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
+                    )
                     os.chmod(str(filepath), file_new_mode)
 
             print(f"[OK] 已设置目录只读权限: {directory}")
@@ -280,6 +299,7 @@ def set_directory_lock(directory: Path, dry_run: bool = False) -> bool:
     except Exception as e:
         print(f"[ERROR] 设置只读权限失败: {e}")
         return False
+
 
 def main():
     args = parse_arguments()
@@ -299,8 +319,8 @@ def main():
     # 分析配置
     try:
         analysis = analyze_configuration(config)
-        expected_dir = analysis['expected_result_dir']
-        expected_structure = analysis['expected_structure']
+        expected_dir = analysis["expected_result_dir"]
+        expected_structure = analysis["expected_structure"]
     except Exception as e:
         print(f"错误：分析配置失败: {e}")
         return 1
@@ -336,5 +356,6 @@ def main():
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

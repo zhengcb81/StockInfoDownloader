@@ -1,6 +1,10 @@
 """
 Exception Handling Best Practices Module
-Provides unified exception handling patterns and tools
+Provides unified exception handling patterns and tools.
+
+Note: This module provides a SIMPLE error handling stack (ErrorHandler, with_error_handling)
+suitable for general-purpose use. For StockInfoError-based handling with retry/recovery,
+use src.core.exceptions instead.
 """
 
 import sys
@@ -14,7 +18,7 @@ from .logger import get_logger
 class ErrorHandler:
     """Error Handler"""
 
-    def __init__(self, logger=None):
+    def __init__(self, logger: Optional[Any] = None) -> None:
         """
         Initialize ErrorHandler
 
@@ -105,7 +109,7 @@ def with_error_handling(
     reraise: bool = True,
     default_return: Any = None,
     log_level: str = "error",
-):
+) -> Callable[[Callable], Callable]:
     """
     Error handling decorator
 
@@ -122,7 +126,7 @@ def with_error_handling(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             error_handler = ErrorHandler()
             error_context = context or {}
             error_context["function"] = func.__name__
@@ -156,7 +160,7 @@ class RetryHandler:
         max_attempts: int = 3,
         delay: float = 1.0,
         backoff_factor: float = 2.0,
-        exceptions: tuple = (Exception,),
+        exceptions: tuple[type[BaseException], ...] = (Exception,),
     ):
         """
         Initialize RetryHandler
@@ -185,8 +189,8 @@ class RetryHandler:
         """
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception: BaseException | None = None
 
             for attempt in range(1, self.max_attempts + 1):
                 try:
@@ -198,7 +202,7 @@ class RetryHandler:
                         self.logger.error(
                             f"Function {func.__name__} still failed after {self.max_attempts} attempts"
                         )
-                        raise
+                        raise e
 
                     # Calculate delay
                     current_delay = self.delay * (self.backoff_factor ** (attempt - 1))
@@ -212,6 +216,10 @@ class RetryHandler:
                     time.sleep(current_delay)
 
             # Raise last exception if all attempts fail
+            if last_exception is None:
+                raise RuntimeError(
+                    "Unexpected state: retry loop completed without exception"
+                )
             raise last_exception
 
         return wrapper
@@ -220,9 +228,9 @@ class RetryHandler:
 class ResourceGuard:
     """Resource Guard ensures resources are properly released"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize ResourceGuard"""
-        self.resources = []
+        self.resources: list = []
         self.logger = get_logger(__name__)
 
     def add_resource(self, resource: Any, cleanup_func: Callable) -> None:
@@ -251,16 +259,18 @@ class ResourceGuard:
 
         self.resources.clear()
 
-    def __enter__(self):
+    def __enter__(self) -> "ResourceGuard":
         """Context manager entry"""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit"""
         self.cleanup()
 
 
-def safe_execute(func: Callable, *args, default_return: Any = None, **kwargs) -> Any:
+def safe_execute(
+    func: Callable, *args: Any, default_return: Any = None, **kwargs: Any
+) -> Any:
     """
     Safely execute a function
 
@@ -281,7 +291,7 @@ def safe_execute(func: Callable, *args, default_return: Any = None, **kwargs) ->
         return default_return
 
 
-def validate_params(**param_validators):
+def validate_params(**param_validators: Any) -> Callable[[Callable], Callable]:
     """
     Parameter validation decorator
 
@@ -294,7 +304,7 @@ def validate_params(**param_validators):
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get function parameters
             import inspect
 
@@ -324,7 +334,7 @@ def validate_non_empty(value: str) -> bool:
     return isinstance(value, str) and value.strip() != ""
 
 
-def validate_positive_number(value: (int, float)) -> bool:
+def validate_positive_number(value: float) -> bool:
     """Validate positive number"""
     return isinstance(value, (int, float)) and value > 0
 

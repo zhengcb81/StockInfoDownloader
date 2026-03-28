@@ -10,6 +10,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.core.exceptions import OrgIdError
 from src.core.logger import get_logger
 from src.interfaces.downloader_interface import (
     DownloadRequest,
@@ -30,6 +31,7 @@ class FakeAntiCrawler:
 
     def get_delay(self) -> float:
         import random
+
         return random.uniform(*self.delay_range)
 
     def record_request(self, url: str) -> None:
@@ -43,8 +45,8 @@ class FakeDriverManager:
     """Fake Driver Manager implementation for testing and adapter use"""
 
     def __init__(self):
-        self.driver = None
-        self.is_initialized = False
+        self.driver: Any = None
+        self.is_initialized: bool = False
 
     def initialize(self) -> bool:
         self.is_initialized = True
@@ -73,10 +75,14 @@ class BaseLegacyAdapter:
         self.save_dir = Path(save_dir_val)
 
         # Merge all configuration
-        config = {"save_dir": self.save_dir}
+        config: Dict[str, Any] = {"save_dir": self.save_dir}
         if "config" in kwargs and isinstance(kwargs["config"], dict):
             config.update(kwargs["config"])
         config.update({k: v for k, v in kwargs.items() if k != "config"})
+
+        # Ensure skip_browser_init is set to avoid browser initialization in tests
+        if "skip_browser_init" not in config:
+            config["skip_browser_init"] = True
 
         self.config = config
         self._unified_downloader = UnifiedDownloader(config)
@@ -159,7 +165,11 @@ class DownloadServiceV2Adapter(BaseLegacyAdapter):
     @property
     def browser_strategy_type(self) -> str:
         """Get current strategy type."""
-        return self._unified_downloader.config.get("browser_strategy", "playwright")
+        from typing import cast
+
+        return cast(
+            str, self._unified_downloader.config.get("browser_strategy", "playwright")
+        )
 
     def _build_disclosure_url(self, stock_code: str, org_id: str) -> str:
         return f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={org_id}&stockCode={stock_code}#research"
@@ -171,7 +181,7 @@ class DownloadServiceV2Adapter(BaseLegacyAdapter):
         return Path(file_path).exists() and Path(file_path).stat().st_size > 100
 
     def _clean_filename(self, filename: str) -> str:
-        return "".join([c for c in filename if c not in '<>:\"/\\|?*']).strip()
+        return "".join([c for c in filename if c not in '<>:"/\\|?*']).strip()
 
     def _matches_keywords(self, text: str, keywords: List[str]) -> bool:
         if not keywords:
@@ -202,7 +212,11 @@ class DownloadServiceV2Adapter(BaseLegacyAdapter):
         mm = MappingManager()
         org_id = mm.get_org_id(stock_code)
         stock_name = mm.get_stock_name(stock_code)
-        return {"stock_code": stock_code, "org_id": org_id, "stock_name": stock_name}
+        return {
+            "stock_code": stock_code,
+            "org_id": org_id or "",
+            "stock_name": stock_name or "",
+        }
 
     def _build_page_url(self, stock_info: Dict[str, str], suffix: str) -> str:
         return f"https://www.cninfo.com.cn/new/disclosure/stock?orgId={stock_info['org_id']}&stockCode={stock_info['stock_code']}#{suffix}"
@@ -232,7 +246,8 @@ class DownloadServiceV2Adapter(BaseLegacyAdapter):
                         mapping_manager.get_stock_name(stock_code)
                         or f"Stock{stock_code}"
                     )
-                except:
+                except (OSError, KeyError, OrgIdError):
+                    # Mapping not found or unable to load
                     stock_name = f"Stock{stock_code}"
 
             if max_retries is not None:
@@ -318,11 +333,20 @@ class RefactoredDownloaderAdapter(BaseLegacyAdapter):
                 save_dir=kwargs.get("save_dir", self.save_dir),
                 **kwargs,
             )
-            return self._unified_downloader.download_stock_pdfs(request)
+            from typing import cast
+
+            return cast(
+                DownloadResult, self._unified_downloader.download_stock_pdfs(request)
+            )
         except Exception as e:
             self.logger.error(f"Download failed: {e}")
             return DownloadResult(
-                success=False, downloaded_files=[], total_files=0, errors=[str(e)]
+                success=False,
+                downloaded_files=[],
+                total_files=0,
+                errors=[str(e)],
+                duration_seconds=0.0,
+                metadata={},
             )
 
 
@@ -365,6 +389,7 @@ class UniversalDownloaderWrapper:
             **kwargs: Constructor arguments
         """
         self.logger = get_logger("UniversalDownloaderWrapper")
+        self._downloader: BaseLegacyAdapter
 
         if downloader_type == "auto":
             # Automatically detect which adapter to use

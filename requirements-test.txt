@@ -29,5 +29,6 @@ pytest-html>=3.0.0
 pytest-cov>=3.0.0
 
 # Mock和测试工具
+pytest-mock>=3.6.0
 responses>=0.18.0
 freezegun>=1.2.0 

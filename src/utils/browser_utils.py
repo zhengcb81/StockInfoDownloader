@@ -91,6 +91,7 @@ def get_common_chrome_args() -> List[str]:
         "--disable-setuid-sandbox",
         "--disable-features=VizDisplayCompositor",
         "--disable-ipc-flooding-protection",
+        "--window-size=1920,1080",
     ]
 
 

@@ -12,10 +12,29 @@ import os
 import time
 from typing import Optional
 
-try:
-    from .get_stock_name import get_stock_name
-except ImportError:
-    from get_stock_name import get_stock_name
+
+def _get_stock_name_from_mapping(
+    stock_code: str, mapping_file: str = "stock_orgid_mapping.json"
+) -> str:
+    """
+    从映射文件获取股票名称
+
+    Args:
+        stock_code: 股票代码
+        mapping_file: 映射文件路径
+
+    Returns:
+        str: 股票名称
+    """
+    try:
+        if os.path.exists(mapping_file):
+            with open(mapping_file, "r", encoding="utf-8") as f:
+                mapping = json.load(f)
+            if stock_code in mapping and "name" in mapping[stock_code]:
+                return mapping[stock_code]["name"]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        pass
+    return f"Stock_{stock_code}"
 
 
 def get_org_id_by_code(
@@ -86,14 +105,15 @@ def _crawl_org_id(stock_code: str, mapping_file: str, headless: bool) -> Optiona
         org_id = crawler.get_org_id(stock_code)
         crawler.close_driver()
         return org_id
-    except Exception:
+    except (ImportError, Exception) as e:
+        logger.error(f"Error crawling org_id: {e}")
         return None
 
 
 def _save_to_mapping(stock_code: str, org_id: str, mapping: dict, mapping_file: str):
     """保存到映射文件"""
     try:
-        name = get_stock_name(stock_code, mapping_file)
+        name = _get_stock_name_from_mapping(stock_code, mapping_file)
         mapping[stock_code] = {"orgId": org_id, "name": name, "timestamp": time.time()}
         with open(mapping_file, "w", encoding="utf-8") as f:
             json.dump(mapping, f, ensure_ascii=False, indent=4)

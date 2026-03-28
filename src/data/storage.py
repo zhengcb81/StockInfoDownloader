@@ -28,7 +28,8 @@ class JsonStorage:
             return {}
         try:
             with open(self.file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                from typing import cast
+                return cast(Dict[str, Any], json.load(f))
         except Exception as e:
             logger.error(f"加载 JSON 失败 {self.file_path}: {e}")
             return None
@@ -251,8 +252,8 @@ class StorageManager:
     def export_to_json(self, file_path: str, data_type: str = "mappings") -> None:
         """导出数据到JSON文件"""
         try:
-            file_path = Path(file_path)
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path_obj = Path(file_path)
+            file_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
             if data_type == "mappings":
                 mappings = self.get_orgid_mappings()
@@ -263,7 +264,7 @@ class StorageManager:
             else:
                 raise ValueError(f"不支持的数据类型: {data_type}")
 
-            with open(file_path, "w", encoding="utf-8") as f:
+            with open(file_path_obj, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
             logger.info(f"数据已导出到: {file_path}")
@@ -275,8 +276,8 @@ class StorageManager:
     def export_to_csv(self, file_path: str, data_type: str = "mappings") -> None:
         """导出数据到CSV文件"""
         try:
-            file_path = Path(file_path)
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path_obj = Path(file_path)
+            file_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
             if data_type == "mappings":
                 mappings = self.get_orgid_mappings()

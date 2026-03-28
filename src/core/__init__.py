@@ -20,7 +20,6 @@ from .constants import (
 )
 from .exceptions import (
     ConfigError,
-    DownloadError,
     OrgIdError,
     StockInfoError,
     WebDriverError,
@@ -48,6 +47,5 @@ __all__ = [
     "StockInfoError",
     "WebDriverError",
     "ConfigError",
-    "DownloadError",
     "OrgIdError",
 ]

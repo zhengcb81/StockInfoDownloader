@@ -1,6 +1,6 @@
 """
-优雅降级策略模块
-提供网络和文件系统错误的优雅降级处理机制
+Graceful Degradation Strategy Module
+Provides graceful degradation handling for network and file system errors
 """
 
 import shutil
@@ -25,10 +25,10 @@ logger = get_logger(__name__)
 
 @dataclass
 class DegradationLevel:
-    """降级级别"""
+    """Degradation level"""
 
     name: str
-    priority: int  # 优先级，数字越小优先级越高
+    priority: int  # Priority, smaller number means higher priority
     description: str
     is_available: bool = True
     last_failure: Optional[datetime] = None
@@ -37,12 +37,12 @@ class DegradationLevel:
     cooldown_period: timedelta = timedelta(minutes=5)
 
 
-# 定义降级级别
+# Define degradation levels
 DEGRADATION_LEVELS = {
     "full": DegradationLevel(
         name="full",
         priority=1,
-        description="完整功能",
+        description="Full functionality",
         is_available=True,
         max_consecutive_failures=5,
         cooldown_period=timedelta(minutes=1),
@@ -50,7 +50,7 @@ DEGRADATION_LEVELS = {
     "cache_only": DegradationLevel(
         name="cache_only",
         priority=2,
-        description="仅使用缓存",
+        description="Cache only",
         is_available=True,
         max_consecutive_failures=3,
         cooldown_period=timedelta(minutes=2),
@@ -58,7 +58,7 @@ DEGRADATION_LEVELS = {
     "offline_mode": DegradationLevel(
         name="offline_mode",
         priority=3,
-        description="离线模式",
+        description="Offline mode",
         is_available=True,
         max_consecutive_failures=5,
         cooldown_period=timedelta(minutes=5),
@@ -66,7 +66,7 @@ DEGRADATION_LEVELS = {
     "minimal": DegradationLevel(
         name="minimal",
         priority=4,
-        description="最小功能",
+        description="Minimal functionality",
         is_available=True,
         max_consecutive_failures=10,
         cooldown_period=timedelta(minutes=10),
@@ -74,7 +74,7 @@ DEGRADATION_LEVELS = {
     "emergency": DegradationLevel(
         name="emergency",
         priority=5,
-        description="紧急模式",
+        description="Emergency mode",
         is_available=True,
         max_consecutive_failures=20,
         cooldown_period=timedelta(minutes=30),
@@ -83,21 +83,21 @@ DEGRADATION_LEVELS = {
 
 
 class NetworkDegradationManager:
-    """网络降级管理器"""
+    """Network degradation manager"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.current_level = DEGRADATION_LEVELS["full"]
         self.connection_history: List[Dict[str, Any]] = []
         self.fallback_strategies: Dict[str, Callable] = {}
         self.circuit_breaker_open = False
-        self.circuit_breaker_timeout = None
+        self.circuit_breaker_timeout: Optional[datetime] = None
         self.max_history_size = 100
 
-        # 注册默认的降级策略
+        # Register default degradation strategies
         self._register_default_strategies()
 
-    def _register_default_strategies(self):
-        """注册默认降级策略"""
+    def _register_default_strategies(self) -> None:
+        """Register default degradation strategies"""
         self.fallback_strategies = {
             "timeout_increase": self._increase_timeout,
             "cache_fallback": self._use_cache_data,
@@ -108,19 +108,19 @@ class NetworkDegradationManager:
 
     def check_network_health(self) -> bool:
         """
-        检查网络健康状态
+        Check network health status
 
         Returns:
-            bool: 网络是否健康
+            bool: Whether network is healthy
         """
         try:
             import requests
 
-            # 测试基本连接
+            # Test basic connection
             test_urls = [
                 "https://www.cninfo.com.cn",
                 "https://www.baidu.com",
-                "https://www.google.com",  # 作为连通性测试
+                "https://www.google.com",  # As connectivity test
             ]
 
             for url in test_urls:
@@ -129,34 +129,35 @@ class NetworkDegradationManager:
                     if response.status_code == 200:
                         self._record_success()
                         return True
-                except:
+                except (requests.RequestException, OSError, TimeoutError):
+                    # Network or timeout error, try next URL
                     continue
 
             self._record_failure()
             return False
 
         except Exception as e:
-            logger.warning(f"网络健康检查失败: {e}")
+            logger.warning(f"Network health check failed: {e}")
             self._record_failure()
             return False
 
-    def _record_success(self):
-        """记录成功连接"""
+    def _record_success(self) -> None:
+        """Record successful connection"""
         self.connection_history.append(
             {"timestamp": datetime.now(), "success": True, "response_time": 0.0}
         )
 
-        # 重置熔断器
+        # Reset circuit breaker
         if self.circuit_breaker_open:
             self.circuit_breaker_open = False
             self.circuit_breaker_timeout = None
-            logger.info("熔断器已重置")
+            logger.info("Circuit breaker reset")
 
-        # 清理历史记录
+        # Clean up history
         self._cleanup_history()
 
-    def _record_failure(self):
-        """记录连接失败"""
+    def _record_failure(self) -> None:
+        """Record connection failure"""
         self.connection_history.append(
             {
                 "timestamp": datetime.now(),
@@ -165,17 +166,17 @@ class NetworkDegradationManager:
             }
         )
 
-        # 检查是否需要打开熔断器
+        # Check if circuit breaker needs to be opened
         self._check_circuit_breaker()
 
-        # 调整降级级别
+        # Adjust degradation level
         self._adjust_degradation_level()
 
-        # 清理历史记录
+        # Clean up history
         self._cleanup_history()
 
-    def _check_circuit_breaker(self):
-        """检查熔断器状态"""
+    def _check_circuit_breaker(self) -> None:
+        """Check circuit breaker status"""
         recent_failures = [
             entry
             for entry in self.connection_history[-10:]
@@ -186,17 +187,17 @@ class NetworkDegradationManager:
         if len(recent_failures) >= 5:
             self.circuit_breaker_open = True
             self.circuit_breaker_timeout = datetime.now() + timedelta(minutes=5)
-            logger.warning("网络熔断器已打开，将在5分钟后重试")
+            logger.warning("Network circuit breaker opened, will retry in 5 minutes")
 
-    def _adjust_degradation_level(self):
-        """调整降级级别"""
+    def _adjust_degradation_level(self) -> None:
+        """Adjust degradation level"""
         recent_failures = [
             entry for entry in self.connection_history[-20:] if not entry["success"]
         ]
 
         failure_rate = len(recent_failures) / min(len(self.connection_history), 20)
 
-        # 根据失败率调整降级级别
+        # Adjust degradation level based on failure rate
         if failure_rate >= 0.8:
             self._set_degradation_level("emergency")
         elif failure_rate >= 0.6:
@@ -208,16 +209,16 @@ class NetworkDegradationManager:
         else:
             self._set_degradation_level("full")
 
-    def _set_degradation_level(self, level_name: str):
-        """设置降级级别"""
+    def _set_degradation_level(self, level_name: str) -> None:
+        """Set degradation level"""
         if level_name in DEGRADATION_LEVELS:
             new_level = DEGRADATION_LEVELS[level_name]
             if new_level.priority > self.current_level.priority:
-                logger.info(f"网络降级级别已调整为: {level_name}")
+                logger.info(f"Network degradation level adjusted to: {level_name}")
                 self.current_level = new_level
 
-    def _cleanup_history(self):
-        """清理历史记录"""
+    def _cleanup_history(self) -> None:
+        """Clean up history records"""
         if len(self.connection_history) > self.max_history_size:
             self.connection_history = self.connection_history[-self.max_history_size :]
 
@@ -228,23 +229,23 @@ class NetworkDegradationManager:
         context: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """
-        使用降级策略执行操作
+        Execute operation with degradation strategies
 
         Args:
-            primary_operation: 主要操作
-            fallback_strategies: 降级策略列表
-            context: 操作上下文
+            primary_operation: Primary operation
+            fallback_strategies: List of fallback strategies
+            context: Operation context
 
         Returns:
-            操作结果
+            Operation result
         """
         context = context or {}
 
-        # 检查熔断器状态
+        # Check circuit breaker status
         if self.circuit_breaker_open:
-            if datetime.now() < self.circuit_breaker_timeout:
+            if self.circuit_breaker_timeout is not None and datetime.now() < self.circuit_breaker_timeout:
                 raise NetworkError(
-                    "网络熔断器已打开，暂时无法执行操作",
+                    "Network circuit breaker is open, cannot execute operation temporarily",
                     error_code=ErrorCode.NETWORK_CONNECTION_ERROR,
                     severity=ErrorSeverity.WARNING,
                     recovery_strategy=RecoveryStrategy.NONE,
@@ -254,50 +255,50 @@ class NetworkDegradationManager:
                     },
                 )
             else:
-                # 尝试重置熔断器
+                # Try to reset circuit breaker
                 if self.check_network_health():
-                    logger.info("熔断器重置成功")
+                    logger.info("Circuit breaker reset successful")
                 else:
                     raise NetworkError(
-                        "熔断器重置失败，网络仍不可用",
+                        "Circuit breaker reset failed, network still unavailable",
                         error_code=ErrorCode.NETWORK_CONNECTION_ERROR,
                         severity=ErrorSeverity.WARNING,
                         recovery_strategy=RecoveryStrategy.NONE,
                         context={"circuit_breaker": "reset_failed"},
                     )
 
-        # 尝试主要操作
+        # Try primary operation
         try:
             result = primary_operation()
             self._record_success()
             return result
 
         except Exception as e:
-            logger.warning(f"主要操作失败: {e}")
+            logger.warning(f"Primary operation failed: {e}")
             self._record_failure()
 
-            # 尝试降级策略
+            # Try fallback strategies
             for strategy_name in fallback_strategies:
                 if strategy_name in self.fallback_strategies:
                     try:
-                        logger.info(f"尝试降级策略: {strategy_name}")
+                        logger.info(f"Trying fallback strategy: {strategy_name}")
                         fallback_result = self.fallback_strategies[strategy_name](
                             context
                         )
 
                         if fallback_result is not None:
-                            logger.info(f"降级策略 {strategy_name} 执行成功")
+                            logger.info(f"Fallback strategy {strategy_name} executed successfully")
                             return fallback_result
 
                     except Exception as fallback_error:
                         logger.warning(
-                            f"降级策略 {strategy_name} 失败: {fallback_error}"
+                            f"Fallback strategy {strategy_name} failed: {fallback_error}"
                         )
                         continue
 
-            # 所有策略都失败
+            # All strategies failed
             raise NetworkError(
-                f"所有操作策略都失败，最后错误: {e}",
+                f"All operation strategies failed, last error: {e}",
                 error_code=ErrorCode.NETWORK_CONNECTION_ERROR,
                 severity=ErrorSeverity.ERROR,
                 recovery_strategy=RecoveryStrategy.NONE,
@@ -308,40 +309,40 @@ class NetworkDegradationManager:
             )
 
     def _increase_timeout(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """增加超时时间"""
+        """Increase timeout duration"""
         base_timeout = context.get("timeout", 30)
-        new_timeout = min(base_timeout * 2, 300)  # 最大5分钟
+        new_timeout = min(base_timeout * 2, 300)  # Max 5 minutes
 
-        logger.info(f"增加超时时间: {base_timeout}s -> {new_timeout}s")
+        logger.info(f"Increasing timeout: {base_timeout}s -> {new_timeout}s")
         context["timeout"] = new_timeout
         context["strategy_used"] = "timeout_increase"
 
         return context
 
     def _use_cache_data(self, context: Dict[str, Any]) -> Optional[Any]:
-        """使用缓存数据"""
+        """Use cached data"""
         cache_key = context.get("cache_key")
         if not cache_key:
             return None
 
-        # 这里应该集成缓存系统
-        logger.info(f"尝试使用缓存数据: {cache_key}")
+        # Should integrate with cache system here
+        logger.info(f"Trying to use cached data: {cache_key}")
         context["strategy_used"] = "cache_fallback"
 
-        # 返回缓存数据或None
+        # Return cached data or None
         return context.get("cached_data")
 
     def _retry_with_exponential_backoff(self, context: Dict[str, Any]) -> Optional[Any]:
-        """指数退避重试"""
+        """Retry with exponential backoff"""
         retry_count = context.get("retry_count", 0)
         max_retries = context.get("max_retries", 3)
 
         if retry_count >= max_retries:
             return None
 
-        # 计算退避时间
-        backoff_time = min(2**retry_count, 60)  # 最大60秒
-        logger.info(f"指数退避重试: 等待 {backoff_time}s")
+        # Calculate backoff time
+        backoff_time = min(2**retry_count, 60)  # Max 60 seconds
+        logger.info(f"Exponential backoff retry: waiting {backoff_time}s")
 
         time.sleep(backoff_time)
         context["retry_count"] = retry_count + 1
@@ -350,12 +351,12 @@ class NetworkDegradationManager:
         return context
 
     def _use_alternative_endpoint(self, context: Dict[str, Any]) -> Optional[Any]:
-        """使用备用端点"""
+        """Use alternative endpoint"""
         original_url = context.get("url")
         if not original_url:
             return None
 
-        # 这里应该有备用端点的配置
+        # Should have alternative endpoint configuration here
         alternative_endpoints = {
             "https://www.cninfo.com.cn": [
                 "https://backup1.cninfo.com.cn",
@@ -367,7 +368,7 @@ class NetworkDegradationManager:
             if domain in original_url:
                 for alt_domain in alternatives:
                     alt_url = original_url.replace(domain, alt_domain)
-                    logger.info(f"尝试备用端点: {alt_url}")
+                    logger.info(f"Trying alternative endpoint: {alt_url}")
 
                     context["url"] = alt_url
                     context["strategy_used"] = "alternative_endpoint"
@@ -376,19 +377,19 @@ class NetworkDegradationManager:
         return None
 
     def _switch_to_offline_mode(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """切换到离线模式"""
-        logger.info("切换到离线模式")
+        """Switch to offline mode"""
+        logger.info("Switching to offline mode")
         context["strategy_used"] = "offline_mode"
         context["offline_mode"] = True
 
         return context
 
     def get_network_status(self) -> Dict[str, Any]:
-        """获取网络状态"""
+        """Get network status"""
         recent_history = self.connection_history[-20:]
 
         if not recent_history:
-            return {"status": "unknown", "message": "无历史数据"}
+            return {"status": "unknown", "message": "No historical data"}
 
         success_count = sum(1 for entry in recent_history if entry["success"])
         success_rate = success_count / len(recent_history)
@@ -408,46 +409,45 @@ class NetworkDegradationManager:
 
 
 class FileSystemDegradationManager:
-    """文件系统降级管理器"""
+    """File system degradation manager"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.temp_dir = Path(tempfile.gettempdir()) / "stockinfo_downloader"
         self.temp_dir.mkdir(exist_ok=True)
-        self.fallback_directories = []
+        self.fallback_directories: List[Path] = []
         self.space_thresholds = {
             "minimal": 100 * 1024 * 1024,  # 100MB
             "warning": 500 * 1024 * 1024,  # 500MB
             "critical": 1 * 1024 * 1024 * 1024,  # 1GB
         }
 
-        # 注册备用目录
+        # Register fallback directories
         self._register_fallback_directories()
 
-    def _register_fallback_directories(self):
-        """注册备用目录"""
-        # 系统临时目录
+    def _register_fallback_directories(self) -> None:
+        """Register fallback directories"""
+        # System temp directory
         self.fallback_directories.append(Path(tempfile.gettempdir()))
 
-        # 用户目录
-
+        # User directories
         user_dir = Path.home()
         self.fallback_directories.extend(
             [user_dir / "Downloads", user_dir / "Documents", user_dir / "Desktop"]
         )
 
-        # 程序目录
+        # Program directory
         program_dir = Path.cwd()
         self.fallback_directories.append(program_dir / "temp")
 
     def check_disk_space(self, path: Union[str, Path]) -> Dict[str, Any]:
         """
-        检查磁盘空间
+        Check disk space
 
         Args:
-            path: 检查路径
+            path: Path to check
 
         Returns:
-            磁盘空间信息
+            Disk space information
         """
         try:
             path = Path(path)
@@ -464,7 +464,7 @@ class FileSystemDegradationManager:
                 "status": "healthy",
             }
 
-            # 根据可用空间设置状态
+            # Set status based on available space
             if disk_usage.free < self.space_thresholds["minimal"]:
                 space_info["status"] = "critical"
             elif disk_usage.free < self.space_thresholds["warning"]:
@@ -473,30 +473,30 @@ class FileSystemDegradationManager:
             return space_info
 
         except Exception as e:
-            logger.error(f"检查磁盘空间失败: {e}")
+            logger.error(f"Failed to check disk space: {e}")
             return {"status": "error", "error": str(e)}
 
     def ensure_directory_exists(
         self, path: Union[str, Path], create_fallback: bool = True
     ) -> Path:
         """
-        确保目录存在，如果失败则使用备用目录
+        Ensure directory exists, use fallback if fails
 
         Args:
-            path: 目标路径
-            create_fallback: 是否创建备用目录
+            path: Target path
+            create_fallback: Whether to create fallback directory
 
         Returns:
-            实际使用的目录路径
+            Actual directory path used
         """
         original_path = Path(path)
 
         try:
-            # 首先尝试原始路径
+            # Try original path first
             if not original_path.exists():
                 original_path.mkdir(parents=True, exist_ok=True)
 
-            # 检查写入权限
+            # Check write permission
             test_file = original_path / "test_write.tmp"
             test_file.touch()
             test_file.unlink()
@@ -504,40 +504,40 @@ class FileSystemDegradationManager:
             return original_path
 
         except Exception as e:
-            logger.warning(f"无法访问原始目录 {original_path}: {e}")
+            logger.warning(f"Cannot access original directory {original_path}: {e}")
 
             if not create_fallback:
                 raise FileSystemError(
-                    f"无法访问目录: {original_path}",
+                    f"Cannot access directory: {original_path}",
                     error_code=ErrorCode.FILE_PERMISSION_ERROR,
                     severity=ErrorSeverity.ERROR,
                     recovery_strategy=RecoveryStrategy.FALLBACK,
                     context={"original_path": str(original_path), "error": str(e)},
                 )
 
-            # 尝试备用目录
+            # Try fallback directory
             for fallback_dir in self.fallback_directories:
                 try:
                     fallback_path = fallback_dir / original_path.name
                     fallback_path.mkdir(parents=True, exist_ok=True)
 
-                    # 检查写入权限
+                    # Check write permission
                     test_file = fallback_path / "test_write.tmp"
                     test_file.touch()
                     test_file.unlink()
 
-                    logger.info(f"使用备用目录: {fallback_path}")
+                    logger.info(f"Using fallback directory: {fallback_path}")
                     return fallback_path
 
                 except Exception as fallback_error:
                     logger.warning(
-                        f"备用目录 {fallback_dir} 也不可用: {fallback_error}"
+                        f"Fallback directory {fallback_dir} also unavailable: {fallback_error}"
                     )
                     continue
 
-            # 所有备用目录都失败
+            # All fallback directories failed
             raise FileSystemError(
-                f"所有目录都不可用，原始路径: {original_path}",
+                f"All directories unavailable, original path: {original_path}",
                 error_code=ErrorCode.FILE_PERMISSION_ERROR,
                 severity=ErrorSeverity.CRITICAL,
                 recovery_strategy=RecoveryStrategy.NONE,
@@ -554,30 +554,30 @@ class FileSystemDegradationManager:
         encoding: str = "utf-8",
     ) -> bool:
         """
-        安全写入文件
+        Safe file writing
 
         Args:
-            file_path: 文件路径
-            content: 文件内容
-            encoding: 编码格式
+            file_path: File path
+            content: File content
+            encoding: Encoding format
 
         Returns:
-            是否成功
+            Whether successful
         """
         try:
             file_path = Path(file_path)
 
-            # 确保目录存在
+            # Ensure directory exists
             directory = self.ensure_directory_exists(file_path.parent)
             actual_path = directory / file_path.name
 
-            # 检查磁盘空间
+            # Check disk space
             space_info = self.check_disk_space(directory)
             if space_info["status"] == "critical":
-                logger.warning("磁盘空间严重不足")
+                logger.warning("Disk space critically low")
                 return False
 
-            # 原子写入：先写入临时文件，然后重命名
+            # Atomic write: write to temp file first, then rename
             temp_path = actual_path.with_suffix(actual_path.suffix + ".tmp")
 
             if isinstance(content, str):
@@ -587,30 +587,30 @@ class FileSystemDegradationManager:
                 with open(temp_path, "wb") as f:
                     f.write(content)
 
-            # 重命名到目标位置
+            # Rename to target location
             temp_path.replace(actual_path)
 
-            logger.info(f"文件写入成功: {actual_path}")
+            logger.info(f"File written successfully: {actual_path}")
             return True
 
         except Exception as e:
-            logger.error(f"文件写入失败: {e}")
+            logger.error(f"File write failed: {e}")
             return False
 
-    def cleanup_temp_files(self, max_age_hours: int = 24):
+    def cleanup_temp_files(self, max_age_hours: int = 24) -> None:
         """
-        清理临时文件
+        Clean up temporary files
 
         Args:
-            max_age_hours: 最大保留时间（小时）
+            max_age_hours: Maximum retention time in hours
         """
         try:
             cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
 
-            # 清理主临时目录
+            # Clean up main temp directory
             self._cleanup_directory(self.temp_dir, cutoff_time)
 
-            # 清理备用目录中的临时文件
+            # Clean up temp files in fallback directories
             for fallback_dir in self.fallback_directories:
                 if fallback_dir.exists():
                     temp_files = fallback_dir.glob("*.tmp")
@@ -618,15 +618,15 @@ class FileSystemDegradationManager:
                         try:
                             if temp_file.stat().st_mtime < cutoff_time.timestamp():
                                 temp_file.unlink()
-                                logger.info(f"清理临时文件: {temp_file}")
+                                logger.info(f"Cleaned up temp file: {temp_file}")
                         except Exception as e:
-                            logger.warning(f"清理临时文件失败 {temp_file}: {e}")
+                            logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
 
         except Exception as e:
-            logger.error(f"清理临时文件失败: {e}")
+            logger.error(f"Failed to clean up temp files: {e}")
 
-    def _cleanup_directory(self, directory: Path, cutoff_time: datetime):
-        """清理指定目录"""
+    def _cleanup_directory(self, directory: Path, cutoff_time: datetime) -> None:
+        """Clean up specified directory"""
         if not directory.exists():
             return
 
@@ -637,33 +637,34 @@ class FileSystemDegradationManager:
                     and file_path.stat().st_mtime < cutoff_time.timestamp()
                 ):
                     file_path.unlink()
-                    logger.info(f"清理文件: {file_path}")
+                    logger.info(f"Cleaned up file: {file_path}")
                 elif file_path.is_dir():
-                    # 递归清理子目录
+                    # Recursively clean subdirectories
                     self._cleanup_directory(file_path, cutoff_time)
-                    # 如果目录为空，删除目录
+                    # Delete directory if empty
                     try:
                         if not any(file_path.iterdir()):
                             file_path.rmdir()
-                            logger.info(f"清理空目录: {file_path}")
-                    except:
+                            logger.info(f"Cleaned up empty directory: {file_path}")
+                    except (OSError, PermissionError):
+                        # Directory may not be empty or lack permissions
                         pass
             except Exception as e:
-                logger.warning(f"清理失败 {file_path}: {e}")
+                logger.warning(f"Cleanup failed {file_path}: {e}")
 
 
-# 全局实例
+# Global instances
 network_degradation_manager = NetworkDegradationManager()
 file_system_degradation_manager = FileSystemDegradationManager()
 
 
-# 便捷函数
+# Convenience functions
 def execute_with_network_fallback(
     primary_operation: Callable,
     fallback_strategies: List[str],
     context: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    """便捷的网络降级执行函数"""
+    """Convenience function for network fallback execution"""
     return network_degradation_manager.execute_with_fallback(
         primary_operation, fallback_strategies, context
     )
@@ -672,7 +673,7 @@ def execute_with_network_fallback(
 def ensure_directory_exists(
     path: Union[str, Path], create_fallback: bool = True
 ) -> Path:
-    """便捷的目录确保函数"""
+    """Convenience function for directory existence"""
     return file_system_degradation_manager.ensure_directory_exists(
         path, create_fallback
     )
@@ -681,15 +682,15 @@ def ensure_directory_exists(
 def safe_write_file(
     file_path: Union[str, Path], content: Union[str, bytes], encoding: str = "utf-8"
 ) -> bool:
-    """便捷的安全文件写入函数"""
+    """Convenience function for safe file writing"""
     return file_system_degradation_manager.safe_write_file(file_path, content, encoding)
 
 
 def get_network_status() -> Dict[str, Any]:
-    """便捷的网络状态获取函数"""
+    """Convenience function for getting network status"""
     return network_degradation_manager.get_network_status()
 
 
 def check_disk_space(path: Union[str, Path]) -> Dict[str, Any]:
-    """便捷的磁盘空间检查函数"""
+    """Convenience function for checking disk space"""
     return file_system_degradation_manager.check_disk_space(path)

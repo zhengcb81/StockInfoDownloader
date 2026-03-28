@@ -6,7 +6,7 @@
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, cast
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
@@ -177,10 +177,10 @@ class DebugTool(BaseTool):
 class ToolRegistry:
     """工具注册表"""
 
-    _tools: Dict[str, BaseTool] = {}
+    _tools: Dict[str, Type[BaseTool]] = {}
 
     @classmethod
-    def register(cls, name: str, tool_class: type) -> None:
+    def register(cls, name: str, tool_class: Type[BaseTool]) -> None:
         """
         注册工具
 
@@ -203,7 +203,7 @@ class ToolRegistry:
         """
         tool_class = cls._tools.get(name)
         if tool_class:
-            return tool_class()
+            return cast(BaseTool, tool_class())
         return None
 
     @classmethod
@@ -236,7 +236,7 @@ class ToolRegistry:
             if not tool.validate_params(**kwargs):
                 return {"success": False, "error": "参数验证失败"}
 
-            return tool.execute(**kwargs)
+            return cast(Dict[str, Any], tool.execute(**kwargs))
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -250,7 +250,7 @@ class ToolManager:
         self.registry = ToolRegistry()
         self.logger = get_logger(self.__class__.__name__)
 
-    def register_tool(self, name: str, tool_class: type) -> None:
+    def register_tool(self, name: str, tool_class: Type[BaseTool]) -> None:
         """
         注册工具
 
@@ -273,8 +273,9 @@ class ToolManager:
             Dict[str, Any]: 执行结果
         """
         result = self.registry.execute_tool(name, **kwargs)
-        self.logger.info(f"工具 {name} 执行结果: {result.get('success', False)}")
-        return result
+        success = result.get("success", False) if isinstance(result, dict) else False
+        self.logger.info(f"工具 {name} 执行结果: {success}")
+        return cast(Dict[str, Any], result)
 
     def get_tool_help(self, name: str) -> str:
         """
@@ -288,7 +289,7 @@ class ToolManager:
         """
         tool = self.registry.get_tool(name)
         if tool:
-            return tool.get_help()
+            return cast(str, tool.get_help())
         return f"工具 {name} 不存在"
 
     def list_available_tools(self) -> List[str]:
@@ -298,7 +299,7 @@ class ToolManager:
         Returns:
             List[str]: 可用工具列表
         """
-        return self.registry.list_tools()
+        return cast(List[str], self.registry.list_tools())
 
 
 # 全局工具管理器实例

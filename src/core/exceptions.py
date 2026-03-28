@@ -215,7 +215,8 @@ class StockInfoError(Exception):
                         "file_path": filename,
                     }
                 frame = frame.f_back  # type: ignore
-        except:
+        except (AttributeError, ValueError):
+            # Frame object may not have expected attributes during certain error conditions
             pass
         return {
             "module": "unknown",
@@ -249,7 +250,7 @@ class StockInfoError(Exception):
 class WebDriverError(StockInfoError):
     """WebDriver related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.WEBDRIVER_CONNECTION_ERROR),
@@ -263,7 +264,7 @@ class WebDriverError(StockInfoError):
 class WebDriverInitError(WebDriverError):
     """WebDriver initialization error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.WEBDRIVER_INIT_ERROR,
@@ -277,7 +278,7 @@ class WebDriverInitError(WebDriverError):
 class WebDriverTimeoutError(WebDriverError):
     """WebDriver timeout error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.WEBDRIVER_TIMEOUT_ERROR,
@@ -291,7 +292,7 @@ class WebDriverTimeoutError(WebDriverError):
 class WebDriverCrashError(WebDriverError):
     """WebDriver crash error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.WEBDRIVER_CRASH_ERROR,
@@ -307,7 +308,7 @@ class WebDriverCrashError(WebDriverError):
 class BrowserStrategyError(WebDriverError):
     """Browser strategy error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.WEBDRIVER_STRATEGY_ERROR,
@@ -322,7 +323,7 @@ class BrowserStrategyError(WebDriverError):
 class ConfigError(StockInfoError):
     """Configuration related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.CONFIG_FILE_ERROR),
@@ -336,7 +337,7 @@ class ConfigError(StockInfoError):
 class ConfigValidationError(ConfigError):
     """Configuration validation error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.CONFIG_VALIDATION_ERROR,
@@ -347,54 +348,11 @@ class ConfigValidationError(ConfigError):
         )
 
 
-# Download Related Exceptions
-class DownloadError(StockInfoError):
-    """Download related exceptions"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=kwargs.get("error_code", ErrorCode.DOWNLOAD_NETWORK_ERROR),
-            severity=kwargs.get("severity", ErrorSeverity.ERROR),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.RETRY),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
-class DownloadTimeoutError(DownloadError):
-    """Download timeout error"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.DOWNLOAD_TIMEOUT_ERROR,
-            severity=kwargs.get("severity", ErrorSeverity.WARNING),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.RETRY),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
-class DownloadRateLimitError(DownloadError):
-    """Download rate limit error"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.DOWNLOAD_RATE_LIMIT_ERROR,
-            severity=kwargs.get("severity", ErrorSeverity.WARNING),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.RETRY),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
 # Org ID Related Exceptions
 class OrgIdError(StockInfoError):
     """Org ID related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.ORGID_FETCH_ERROR),
@@ -410,7 +368,7 @@ class OrgIdError(StockInfoError):
 class OrgIdValidationError(OrgIdError):
     """Org ID validation error"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=ErrorCode.ORGID_VALIDATION_ERROR,
@@ -425,7 +383,7 @@ class OrgIdValidationError(OrgIdError):
 class NetworkError(StockInfoError):
     """Network related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.NETWORK_CONNECTION_ERROR),
@@ -436,25 +394,11 @@ class NetworkError(StockInfoError):
         )
 
 
-class NetworkTimeoutError(NetworkError):
-    """Network timeout error"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.NETWORK_TIMEOUT_ERROR,
-            severity=kwargs.get("severity", ErrorSeverity.WARNING),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.RETRY),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
 # File System Related Exceptions
 class FileSystemError(StockInfoError):
     """File system related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.FILE_NOT_FOUND_ERROR),
@@ -467,54 +411,14 @@ class FileSystemError(StockInfoError):
         )
 
 
-class FilePermissionError(FileSystemError):
-    """File permission error"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.FILE_PERMISSION_ERROR,
-            severity=kwargs.get("severity", ErrorSeverity.ERROR),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.NONE),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
 # Data Processing Related Exceptions
-class DataError(StockInfoError):
-    """Data processing related exceptions"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=kwargs.get("error_code", ErrorCode.DATA_PARSING_ERROR),
-            severity=kwargs.get("severity", ErrorSeverity.ERROR),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.SKIP),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
-
-
-class DataValidationError(DataError):
-    """Data validation error"""
-
-    def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_code=ErrorCode.DATA_VALIDATION_ERROR,
-            severity=kwargs.get("severity", ErrorSeverity.WARNING),
-            recovery_strategy=kwargs.get("recovery_strategy", RecoveryStrategy.SKIP),
-            context=kwargs.get("context", {}),
-            original_exception=kwargs.get("original_exception"),
-        )
 
 
 # Validation Related Exceptions
 class ValidationError(StockInfoError):
     """Validation related exceptions"""
 
-    def __init__(self, message: str, **kwargs):
+    def __init__(self, message: str, **kwargs: Any) -> None:
         super().__init__(
             message=message,
             error_code=kwargs.get("error_code", ErrorCode.VALIDATION_INPUT_ERROR),
@@ -529,12 +433,15 @@ class ValidationError(StockInfoError):
 class ErrorHandler:
     """Error Handler"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.error_history: List[ErrorContext] = []
-        self.recovery_handlers: Dict[ErrorCode, Callable] = {}
+        self.recovery_handlers: Dict[ErrorCode, Callable[[StockInfoError], bool]] = {}
         self.max_history_size = 1000
+        self.logger = logger
 
-    def register_recovery_handler(self, error_code: ErrorCode, handler: Callable):
+    def register_recovery_handler(
+        self, error_code: ErrorCode, handler: Callable[[StockInfoError], bool]
+    ) -> None:
         """Register error recovery handler"""
         self.recovery_handlers[error_code] = handler
 
@@ -560,11 +467,11 @@ class ErrorHandler:
             return recovery_success
 
         except Exception as e:
-            # Error handler itself failed
-            print(f"Error handler failed: {e}")
+            # Error handler itself failed - use logger instead of print
+            logger.error(f"Error handler failed: {e}")
             return False
 
-    def _record_error(self, error: StockInfoError):
+    def _record_error(self, error: StockInfoError) -> None:
         """Record error history"""
         self.error_history.append(error.error_context)
 
@@ -584,7 +491,7 @@ class ErrorHandler:
             return self._default_recovery(error)
 
         except Exception as e:
-            print(f"Recovery attempt failed: {e}")
+            logger.error(f"Recovery attempt failed: {e}")
             return False
 
     def _default_recovery(self, error: StockInfoError) -> bool:
@@ -603,11 +510,11 @@ class ErrorHandler:
             return True
         elif strategy == RecoveryStrategy.TERMINATE:
             # Terminate program
-            sys.exit(1)
+            raise SystemExit(1)
 
         return False
 
-    def _log_error(self, error: StockInfoError):
+    def _log_error(self, error: StockInfoError) -> None:
         """Log error"""
         try:
             # Here can integrate with logging system
@@ -615,16 +522,16 @@ class ErrorHandler:
 
             # Choose output method based on severity
             if error.severity in [ErrorSeverity.CRITICAL, ErrorSeverity.FATAL]:
-                print(f"CRITICAL ERROR: {error_dict}")
+                logger.critical(f"CRITICAL ERROR: {error_dict}")
             elif error.severity == ErrorSeverity.ERROR:
-                print(f"ERROR: {error_dict}")
+                logger.error(f"ERROR: {error_dict}")
             elif error.severity == ErrorSeverity.WARNING:
-                print(f"WARNING: {error_dict}")
+                logger.warning(f"WARNING: {error_dict}")
             else:
-                print(f"INFO: {error_dict}")
+                logger.info(f"INFO: {error_dict}")
 
         except Exception as e:
-            print(f"Failed to log error: {e}")
+            logger.error(f"Failed to log error: {e}")
 
     def get_error_statistics(self) -> Dict[str, Any]:
         """Get error statistics"""
@@ -670,7 +577,7 @@ def handle_error(error: StockInfoError) -> bool:
     return error_handler.handle_error(error)
 
 
-def register_recovery_handler(error_code: ErrorCode, handler: Callable):
+def register_recovery_handler(error_code: ErrorCode, handler: Callable) -> None:
     """Helper recovery handler registration function"""
     error_handler.register_recovery_handler(error_code, handler)
 
@@ -686,7 +593,7 @@ def with_error_handling(
     severity: ErrorSeverity = ErrorSeverity.ERROR,
     recovery_strategy: RecoveryStrategy = RecoveryStrategy.NONE,
     max_retries: int = 0,
-):
+) -> Callable[[Callable], Callable]:
     """
     Enhanced error handling decorator
 
@@ -707,8 +614,12 @@ def with_error_handling(
         Decorated function
     """
 
-    def decorator(func):
-        def wrapper(*args, **kwargs):
+    from typing import Callable, TypeVar, cast
+
+    F = TypeVar("F", bound=Callable[..., Any])
+
+    def decorator(func: F) -> F:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             last_error = None
             start_time = time.time()
             attempt_details = []
@@ -830,6 +741,6 @@ def with_error_handling(
             # If max_retries is 0 and no exception, return normally
             return None
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator

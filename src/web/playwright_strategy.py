@@ -5,13 +5,13 @@ Playwright Browser Automation Strategy Implementation
 import os
 import random
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 # Playwright import (for testing mock)
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
-    sync_playwright = None
+    sync_playwright = None  # type: ignore[assignment]
 
 from ..core.config import ConfigManager
 from ..core.config_constants import ConfigConstants
@@ -35,12 +35,12 @@ from ..utils.browser_utils import (
     validate_and_normalize_timeout,
 )
 from ..utils.cleanup_utils import cleanup_directory, safe_cleanup
-from .browser_strategy import BrowserAutomationStrategy
+from .browser_strategy import BrowserStrategy
 
 logger = get_logger(__name__)
 
 
-class PlaywrightStrategy(BrowserAutomationStrategy):
+class PlaywrightStrategy(BrowserStrategy):
     """Playwright Browser Automation Strategy"""
 
     def __init__(
@@ -151,7 +151,9 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             self.page.add_init_script(ConfigConstants.ANTI_DETECTION_SCRIPT)
 
             # Test page
-            self.page.goto(ConfigConstants.BLANK_PAGE_URL, wait_until="domcontentloaded")
+            self.page.goto(
+                ConfigConstants.BLANK_PAGE_URL, wait_until="domcontentloaded"
+            )
 
             logger.info("Playwright browser initialized successfully")
             # Return browser or persistent context (as browser handle)
@@ -187,20 +189,21 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
 
     def _build_launch_options(self) -> Dict[str, Any]:
         """Build browser launch options"""
-        launch_options = {
+        args_list: List[str] = ConfigConstants.BROWSER_LAUNCH_ARGS.copy()
+        launch_options: Dict[str, Any] = {
             "headless": self.headless,
-            "args": ConfigConstants.BROWSER_LAUNCH_ARGS.copy(),
+            "args": args_list,
         }
 
         # Add window size
         if isinstance(self.window_size, dict):
-            launch_options["args"].append(
-                f'--window-size={self.window_size["width"]},{self.window_size["height"]}'
+            args_list.append(
+                f"--window-size={self.window_size['width']},{self.window_size['height']}"
             )
 
         # Random User-Agent
         user_agent = random.choice(self._user_agents)
-        launch_options["args"].append(f"--user-agent={user_agent}")
+        args_list.append(f"--user-agent={user_agent}")
 
         return launch_options
 
@@ -288,9 +291,11 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         try:
             # Playwright mainly uses CSS selectors, also supports XPath
             if by.lower() == "xpath":
-                return self.page.query_selector_all(f"xpath={selector}")
+                return cast(
+                    List[Any], self.page.query_selector_all(f"xpath={selector}")
+                )
             else:
-                return self.page.query_selector_all(selector)
+                return cast(List[Any], self.page.query_selector_all(selector))
         except Exception as e:
             logger.error(f"Find elements failed: {e}")
             return []
@@ -343,7 +348,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return None
 
         try:
-            return element.get_attribute(attribute)
+            return cast(Optional[str], element.get_attribute(attribute))
         except Exception as e:
             logger.error(f"Get element attribute failed: {e}")
             return None
@@ -395,7 +400,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.page.content()
+            return cast(str, self.page.content())
         except Exception as e:
             logger.error(f"Get page source failed: {e}")
             return ""
@@ -406,7 +411,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.page.url
+            return cast(str, self.page.url)
         except Exception as e:
             logger.error(f"Get current URL failed: {e}")
             return ""
@@ -417,7 +422,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return ""
 
         try:
-            return self.page.title()
+            return cast(str, self.page.title())
         except Exception as e:
             logger.error(f"Get page title failed: {e}")
             return ""
@@ -434,10 +439,10 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
         if self.browser:
             safe_cleanup(self.browser.close, "Failed to close browser")
 
-        if hasattr(self, "playwright") and self.playwright:
+        if self.playwright is not None:
 
             def _stop():
-                self.playwright.stop()
+                self.playwright.stop()  # type: ignore[union-attr]
                 time.sleep(0.5)
 
             safe_cleanup(_stop, "Failed to stop Playwright")
@@ -502,7 +507,7 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             return None
 
         try:
-            screenshot_data = self.page.screenshot()
+            screenshot_data = cast(bytes, self.page.screenshot())
 
             if save_path:
                 with open(save_path, "wb") as f:
@@ -724,6 +729,60 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             logger.warning(f"Check next page failed: {e}")
             return False
 
+    def get_current_page_info(self) -> dict:
+        """
+        Get current page info including current page and total pages
+
+        Returns:
+            dict: Page info with keys: current_page, total_pages, has_next, has_previous
+        """
+        if not self.page:
+            logger.error("Page not initialized, cannot get page info")
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+
+        try:
+            # Get current page from active element
+            current_page = self.page.evaluate("""() => {
+                const active = document.querySelector('.el-pager li.number.active');
+                return active ? parseInt(active.textContent.trim()) : 1;
+            }""")
+
+            # Get total pages from last page number element
+            total_pages = self.page.evaluate("""() => {
+                const pages = document.querySelectorAll('.el-pager li.number');
+                if (pages.length > 0) {
+                    const lastPage = pages[pages.length - 1];
+                    return parseInt(lastPage.textContent.trim()) || 1;
+                }
+                return 1;
+            }""")
+
+            page_info = {
+                "current_page": current_page or 1,
+                "total_pages": total_pages or 1,
+                "has_next": self.has_next_page(),
+                "has_previous": False,
+            }
+
+            logger.info(
+                f"Page info: current={page_info['current_page']}, total={page_info['total_pages']}"
+            )
+            return page_info
+
+        except Exception as e:
+            logger.warning(f"Get page info failed: {e}")
+            return {
+                "current_page": 1,
+                "total_pages": 1,
+                "has_next": False,
+                "has_previous": False,
+            }
+
     def download_file(self, url: str, save_path: str, timeout: int = 30) -> bool:
         """
         Download file to specified path
@@ -766,7 +825,8 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
                         download.save_as(save_path)
                         logger.info(f"Captured started download: {save_path}")
                         return True
-                    except:
+                    except (TimeoutError, Exception):
+                        # Download event not triggered, continue to button search
                         pass
 
                 # Continue to button search if no direct download
@@ -777,7 +837,8 @@ class PlaywrightStrategy(BrowserAutomationStrategy):
             # 2. Search for download button if direct download failed
             try:
                 self.page.wait_for_load_state("domcontentloaded", timeout=5000)
-            except:
+            except (TimeoutError, Exception):
+                # Page load timeout, continue anyway
                 pass
 
             time.sleep(2)

@@ -41,7 +41,9 @@ class DownloaderConfigManager:
         )
         self.logger = logger
         # Delegate to the singleton ConfigManager
-        self._manager = ConfigManager(config_file)
+        # Convert Path to str for ConfigManager compatibility
+        config_file_str = str(config_file) if config_file is not None else None
+        self._manager = ConfigManager(config_file_str)
         
         # Expose properties for compatibility
         self.browser = self._manager.browser_config
@@ -129,7 +131,8 @@ class DownloaderConfigManager:
             if self.download.max_pages <= 0:
                 return False
             return True
-        except:
+        except (AttributeError, TypeError):
+            # Config object may not have expected attributes
             return False
 
     def get_environment_overrides(self) -> Dict[str, Any]:

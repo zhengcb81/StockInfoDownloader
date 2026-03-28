@@ -2,12 +2,22 @@
 # -*- coding: utf-8 -*-
 
 """
-Adaptive rate limiter module.
-Adjusts request rates based on success/error rates.
+Adaptive rate limiter module for anti-crawler protection.
+Adjusts request rates based on success/error rates with protection mode.
+
+NOTE: This is a specialized rate limiter for anti-crawler scenarios.
+For general-purpose rate limiting, use src.web.rate_limiter.RateLimiter instead.
+
+Differences from general RateLimiter:
+- Built-in protection mode for high error rate scenarios
+- Returns (can_make, wait_time) tuple instead of blocking
+- Requires explicit record_request() calls
+- Designed for anti-crawler integration
 """
 
 import time
-from typing import Any, Dict, List, Tuple
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.core.logger import get_logger
 
@@ -28,9 +38,9 @@ class AdaptiveRateLimiter:
 
         # Dynamic parameters
         self.current_rate_limit = self.initial_requests_per_minute
-        self.request_history = []
-        self.success_history = []
-        self.error_history = []
+        self.request_history: List[float] = []
+        self.success_history: List[float] = []
+        self.error_history: List[float] = []
 
         # Statistics window
         self.window_size = 60  # 60-second window
@@ -38,14 +48,14 @@ class AdaptiveRateLimiter:
 
         # Protection mechanism
         self.protection_mode = False
-        self.protection_start_time = None
+        self.protection_start_time: Optional[float] = None
         self.protection_duration = 300  # 5-minute protection mode
 
         self.logger.info(
             f"Adaptive rate limiter initialized, initial rate: {self.initial_requests_per_minute}/minute"
         )
 
-    def record_request(self, success: bool = True):
+    def record_request(self, success: bool = True) -> None:
         """Record request result"""
         current_time = time.time()
 
@@ -63,7 +73,7 @@ class AdaptiveRateLimiter:
         if current_time - self.last_adjustment > 30:  # Adjust every 30 seconds
             self._adjust_rate_limit()
 
-    def _cleanup_history(self):
+    def _cleanup_history(self) -> None:
         """Clean up expired history records"""
         cutoff_time = time.time() - self.window_size
 
@@ -71,14 +81,13 @@ class AdaptiveRateLimiter:
         self.success_history = [t for t in self.success_history if t > cutoff_time]
         self.error_history = [t for t in self.error_history if t > cutoff_time]
 
-    def _adjust_rate_limit(self):
+    def _adjust_rate_limit(self) -> None:
         """Adjust rate limit"""
         current_time = time.time()
-        self.last_adjustment = current_time
-
-        # Check if should exit protection mode
+        self.last_adjustment = current_time        # Check if should exit protection mode
         if (
             self.protection_mode
+            and self.protection_start_time is not None
             and (current_time - self.protection_start_time) > self.protection_duration
         ):
             self.protection_mode = False

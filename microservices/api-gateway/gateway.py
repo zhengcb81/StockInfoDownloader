@@ -22,6 +22,7 @@ import redis.asyncio as redis
 # 导入微服务基础类
 import sys
 from pathlib import Path
+
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -33,6 +34,7 @@ from src.core.logger import get_logger
 # 请求和响应模型
 class ServiceInfo(BaseModel):
     """服务信息"""
+
     name: str
     url: str
     health_check_url: str
@@ -43,6 +45,7 @@ class ServiceInfo(BaseModel):
 
 class RouteConfig(BaseModel):
     """路由配置"""
+
     path: str
     target_service: str
     methods: List[str] = ["GET", "POST", "PUT", "DELETE"]
@@ -52,6 +55,7 @@ class RouteConfig(BaseModel):
 
 class GatewayStats(BaseModel):
     """网关统计"""
+
     total_requests: int
     active_connections: int
     requests_by_service: Dict[str, int]
@@ -72,15 +76,21 @@ class APIGateway(MicroserviceBase):
             "active_connections": 0,
             "requests_by_service": {},
             "response_times": {},
-            "errors": {}
+            "errors": {},
         }
 
         # 自定义指标
         self.gateway_requests = self.add_metric(
-            "gateway_requests_total", "counter", "Total gateway requests", ["service", "method", "status"]
+            "gateway_requests_total",
+            "counter",
+            "Total gateway requests",
+            ["service", "method", "status"],
         )
         self.gateway_response_time = self.add_metric(
-            "gateway_response_time_seconds", "histogram", "Gateway response time", ["service"]
+            "gateway_response_time_seconds",
+            "histogram",
+            "Gateway response time",
+            ["service"],
         )
         self.active_connections = self.add_metric(
             "gateway_active_connections", "gauge", "Active connections"
@@ -99,7 +109,7 @@ class APIGateway(MicroserviceBase):
                 db=redis_config.db,
                 password=redis_config.password,
                 decode_responses=redis_config.decode_responses,
-                max_connections=redis_config.max_connections
+                max_connections=redis_config.max_connections,
             )
             await self.redis_client.ping()
             self.logger.info("Redis connection established")
@@ -123,13 +133,13 @@ class APIGateway(MicroserviceBase):
         # 从环境变量获取服务地址，默认值为 localhost
         download_host = os.getenv("DOWNLOAD_SERVICE_HOST", "localhost")
         download_port = os.getenv("DOWNLOAD_SERVICE_PORT", "8001")
-        
+
         cache_host = os.getenv("CACHE_SERVICE_HOST", "localhost")
         cache_port = os.getenv("CACHE_SERVICE_PORT", "8002")
-        
+
         error_host = os.getenv("ERROR_SERVICE_HOST", "localhost")
         error_port = os.getenv("ERROR_SERVICE_PORT", "8003")
-        
+
         config_host = os.getenv("CONFIG_SERVICE_HOST", "localhost")
         config_port = os.getenv("CONFIG_SERVICE_PORT", "8004")
 
@@ -138,26 +148,26 @@ class APIGateway(MicroserviceBase):
                 name="download-service",
                 url=f"http://{download_host}:{download_port}",
                 health_check_url=f"http://{download_host}:{download_port}/health",
-                weight=1
+                weight=1,
             ),
             "cache-service": ServiceInfo(
                 name="cache-service",
                 url=f"http://{cache_host}:{cache_port}",
                 health_check_url=f"http://{cache_host}:{cache_port}/health",
-                weight=1
+                weight=1,
             ),
             "error-service": ServiceInfo(
                 name="error-service",
                 url=f"http://{error_host}:{error_port}",
                 health_check_url=f"http://{error_host}:{error_port}/health",
-                weight=1
+                weight=1,
             ),
             "config-service": ServiceInfo(
                 name="config-service",
                 url=f"http://{config_host}:{config_port}",
                 health_check_url=f"http://{config_host}:{config_port}/health",
-                weight=1
-            )
+                weight=1,
+            ),
         }
 
         self.services = services_config
@@ -169,23 +179,23 @@ class APIGateway(MicroserviceBase):
             "/api/v1/download": RouteConfig(
                 path="/api/v1/download",
                 target_service="download-service",
-                methods=["GET", "POST", "PUT", "DELETE"]
+                methods=["GET", "POST", "PUT", "DELETE"],
             ),
             "/api/v1/cache": RouteConfig(
                 path="/api/v1/cache",
                 target_service="cache-service",
-                methods=["GET", "POST", "PUT", "DELETE"]
+                methods=["GET", "POST", "PUT", "DELETE"],
             ),
             "/api/v1/errors": RouteConfig(
                 path="/api/v1/errors",
                 target_service="error-service",
-                methods=["GET", "POST"]
+                methods=["GET", "POST"],
             ),
             "/api/v1/config": RouteConfig(
                 path="/api/v1/config",
                 target_service="config-service",
-                methods=["GET", "POST", "PUT", "DELETE"]
-            )
+                methods=["GET", "POST", "PUT", "DELETE"],
+            ),
         }
 
         self.routes = routes_config
@@ -204,7 +214,7 @@ class APIGateway(MicroserviceBase):
                         "url": service.url,
                         "healthy": service.healthy,
                         "last_health_check": service.last_health_check,
-                        "weight": service.weight
+                        "weight": service.weight,
                     }
                     for service in self.services.values()
                 ]
@@ -220,7 +230,7 @@ class APIGateway(MicroserviceBase):
                         "target_service": route.target_service,
                         "methods": route.methods,
                         "strip_path": route.strip_path,
-                        "timeout": route.timeout
+                        "timeout": route.timeout,
                     }
                     for route in self.routes.values()
                 ]
@@ -234,7 +244,7 @@ class APIGateway(MicroserviceBase):
                 active_connections=self.request_stats["active_connections"],
                 requests_by_service=self.request_stats["requests_by_service"],
                 response_times=self.request_stats["response_times"],
-                error_rates=self._calculate_error_rates()
+                error_rates=self._calculate_error_rates(),
             )
 
         @self.app.post("/gateway/services/{service_name}/health")
@@ -249,14 +259,16 @@ class APIGateway(MicroserviceBase):
             return {
                 "service_name": service_name,
                 "healthy": is_healthy,
-                "last_check": datetime.now()
+                "last_check": datetime.now(),
             }
 
         @self.app.post("/gateway/routes")
         async def add_route(route_config: RouteConfig):
             """添加路由"""
             self.routes[route_config.path] = route_config
-            self.logger.info(f"Added route: {route_config.path} -> {route_config.target_service}")
+            self.logger.info(
+                f"Added route: {route_config.path} -> {route_config.target_service}"
+            )
             return {"status": "added", "route": route_config.dict()}
 
         @self.app.delete("/gateway/routes/{path}")
@@ -272,7 +284,9 @@ class APIGateway(MicroserviceBase):
         @self.app.get("/gateway/health")
         async def gateway_health():
             """网关健康检查"""
-            healthy_services = sum(1 for service in self.services.values() if service.healthy)
+            healthy_services = sum(
+                1 for service in self.services.values() if service.healthy
+            )
             total_services = len(self.services)
 
             return {
@@ -280,7 +294,7 @@ class APIGateway(MicroserviceBase):
                 "healthy_services": healthy_services,
                 "total_services": total_services,
                 "active_routes": len(self.routes),
-                "timestamp": datetime.now()
+                "timestamp": datetime.now(),
             }
 
         # 请求中间件
@@ -309,7 +323,7 @@ class APIGateway(MicroserviceBase):
                 self.logger.error(f"Gateway middleware error: {e}")
                 return JSONResponse(
                     status_code=500,
-                    content={"error": "Internal Gateway Error", "message": str(e)}
+                    content={"error": "Internal Gateway Error", "message": str(e)},
                 )
             finally:
                 # 减少活跃连接数
@@ -323,29 +337,29 @@ class APIGateway(MicroserviceBase):
             route_config = self._find_matching_route(request)
             if not route_config:
                 return JSONResponse(
-                    status_code=404,
-                    content={"error": "Route not found"}
+                    status_code=404, content={"error": "Route not found"}
                 )
 
             # 获取目标服务
             target_service = self.services.get(route_config.target_service)
             if not target_service or not target_service.healthy:
                 return JSONResponse(
-                    status_code=503,
-                    content={"error": "Service unavailable"}
+                    status_code=503, content={"error": "Service unavailable"}
                 )
 
             # 构建目标URL
             target_url = self._build_target_url(request, route_config, target_service)
 
             # 转发请求
-            return await self._forward_request(request, target_url, route_config, target_service)
+            return await self._forward_request(
+                request, target_url, route_config, target_service
+            )
 
         except Exception as e:
             self.logger.error(f"Proxy request error: {e}")
             return JSONResponse(
                 status_code=500,
-                content={"error": "Gateway proxy error", "message": str(e)}
+                content={"error": "Gateway proxy error", "message": str(e)},
             )
 
     def _find_matching_route(self, request: Request) -> Optional[RouteConfig]:
@@ -358,11 +372,13 @@ class APIGateway(MicroserviceBase):
 
         return None
 
-    def _build_target_url(self, request: Request, route_config: RouteConfig, target_service: ServiceInfo) -> str:
+    def _build_target_url(
+        self, request: Request, route_config: RouteConfig, target_service: ServiceInfo
+    ) -> str:
         """构建目标URL"""
         target_path = request.url.path
         if route_config.strip_path:
-            target_path = target_path[len(route_config.path):] or "/"
+            target_path = target_path[len(route_config.path) :] or "/"
 
         target_url = f"{target_service.url}{target_path}"
         if request.url.query:
@@ -370,7 +386,13 @@ class APIGateway(MicroserviceBase):
 
         return target_url
 
-    async def _forward_request(self, request: Request, target_url: str, route_config: RouteConfig, target_service: ServiceInfo) -> Response:
+    async def _forward_request(
+        self,
+        request: Request,
+        target_url: str,
+        route_config: RouteConfig,
+        target_service: ServiceInfo,
+    ) -> Response:
         """转发请求"""
         try:
             # 准备请求头
@@ -384,14 +406,15 @@ class APIGateway(MicroserviceBase):
             body = await request.body()
 
             # 转发请求
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=route_config.timeout)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=route_config.timeout)
+            ) as session:
                 async with session.request(
                     method=request.method,
                     url=target_url,
                     headers=headers,
-                    data=body if body else None
+                    data=body if body else None,
                 ) as response:
-
                     # 读取响应体
                     response_body = await response.read()
 
@@ -400,23 +423,21 @@ class APIGateway(MicroserviceBase):
                         content=response_body,
                         status_code=response.status,
                         headers=dict(response.headers),
-                        media_type=response.content_type
+                        media_type=response.content_type,
                     )
 
         except asyncio.TimeoutError:
-            self.logger.warning(f"Request timeout to {target_service.name}: {target_url}")
-            return JSONResponse(
-                status_code=504,
-                content={"error": "Gateway timeout"}
+            self.logger.warning(
+                f"Request timeout to {target_service.name}: {target_url}"
             )
+            return JSONResponse(status_code=504, content={"error": "Gateway timeout"})
         except aiohttp.ClientError as e:
             self.logger.error(f"Client error forwarding to {target_service.name}: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"error": "Bad gateway"}
-            )
+            return JSONResponse(status_code=502, content={"error": "Bad gateway"})
 
-    def _record_request_stats(self, request: Request, response: Response, start_time: datetime):
+    def _record_request_stats(
+        self, request: Request, response: Response, start_time: datetime
+    ):
         """记录请求统计"""
         # 更新总请求数
         self.request_stats["total_requests"] += 1
@@ -427,8 +448,9 @@ class APIGateway(MicroserviceBase):
             service_name = route_config.target_service
 
             # 按服务统计请求数
-            self.request_stats["requests_by_service"][service_name] = \
+            self.request_stats["requests_by_service"][service_name] = (
                 self.request_stats["requests_by_service"].get(service_name, 0) + 1
+            )
 
             # 记录响应时间
             response_time = (datetime.now() - start_time).total_seconds()
@@ -444,18 +466,22 @@ class APIGateway(MicroserviceBase):
 
             # 记录Prometheus指标
             self.gateway_requests.labels(
-                service=service_name,
-                method=request.method,
-                status=response.status_code
+                service=service_name, method=request.method, status=response.status_code
             ).inc()
-            self.gateway_response_time.labels(service=service_name).observe(response_time)
+            self.gateway_response_time.labels(service=service_name).observe(
+                response_time
+            )
 
     def _calculate_error_rates(self) -> Dict[str, float]:
         """计算错误率"""
         error_rates = {}
-        for service_name, requests_count in self.request_stats["requests_by_service"].items():
+        for service_name, requests_count in self.request_stats[
+            "requests_by_service"
+        ].items():
             errors_count = self.request_stats["errors"].get(service_name, 0)
-            error_rate = (errors_count / requests_count * 100) if requests_count > 0 else 0
+            error_rate = (
+                (errors_count / requests_count * 100) if requests_count > 0 else 0
+            )
             error_rates[service_name] = round(error_rate, 2)
         return error_rates
 
@@ -491,16 +517,18 @@ class APIGateway(MicroserviceBase):
     async def _check_single_service_health(self, service: ServiceInfo) -> bool:
         """检查单个服务健康状态"""
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=5)
+            ) as session:
                 async with session.get(service.health_check_url) as response:
                     if response.status == 200:
                         try:
                             health_data = await response.json()
                             return health_data.get("status") == "healthy"
-                        except:
+                        except Exception:
                             return True
                     return False
-        except:
+        except Exception:
             return False
 
     async def _cleanup(self):
@@ -519,7 +547,7 @@ def create_api_gateway():
         enable_metrics=True,
         enable_health_check=True,
         log_level="INFO",
-        cors_origins=["*"]
+        cors_origins=["*"],
     )
 
     return APIGateway(config_dict)

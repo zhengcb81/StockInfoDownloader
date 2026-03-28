@@ -21,11 +21,6 @@ current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# Legacy path for get_stock_name
-legacy_tools_path = project_root / "src" / "tools" / "legacy"
-if str(legacy_tools_path) not in sys.path:
-    sys.path.insert(0, str(legacy_tools_path))
-
 
 def log(message):
     """Simple log output, handling encoding issues"""
@@ -37,25 +32,19 @@ def log(message):
             print(
                 f"[{timestamp}] {message.encode(sys.stdout.encoding, errors='replace').decode(sys.stdout.encoding)}"
             )
-        except:
+        except Exception:
             print(
                 f"[{timestamp}] {message.encode('ascii', errors='replace').decode('ascii')}"
             )
 
 
 def get_real_stock_name(stock_code):
-    """Get real stock name using the legacy tool."""
+    """Get real stock name from mapping."""
     try:
-        from get_stock_name import get_stock_name
+        from src.data.mapping import MappingManager
 
-        stock_name = get_stock_name(stock_code)
-        if (
-            not stock_name
-            or stock_name.startswith("错误")
-            or stock_name.startswith("网络")
-        ):
-            return f"股票{stock_code}"
-        return stock_name
+        mapping_manager = MappingManager()
+        return mapping_manager.get_stock_name(stock_code) or f"股票{stock_code}"
     except Exception as e:
         log(f"Error getting stock name: {e}")
         return f"股票{stock_code}"
@@ -108,6 +97,7 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
             max_pages=test_case.get("max_pages", 5),
             timeout_seconds=test_case.get("timeout_seconds", 180),
             save_dir=config["save_dir"],
+            reverse_order=test_case.get("reverse_order", False),
         )
 
         # Execute download
@@ -116,15 +106,30 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
         # Handle result from UnifiedDownloader
         success = False
         downloaded_count = 0
+        skipped_files = []
+        pages_traversed = 0
 
         if hasattr(result, "success"):
             success = result.success
             if hasattr(result, "downloaded_files"):
                 downloaded_count = len(result.downloaded_files)
+            # 获取行为验证字段
+            if hasattr(result, "skipped_files"):
+                skipped_files = result.skipped_files
+            if hasattr(result, "pages_traversed"):
+                pages_traversed = result.pages_traversed
         elif isinstance(result, dict):
             success = result.get("success", False)
             downloaded_files = result.get("downloaded_files", [])
             downloaded_count = len(downloaded_files) if downloaded_files else 0
+            skipped_files = result.get("skipped_files", [])
+            pages_traversed = result.get("pages_traversed", 0)
+
+        # 记录行为验证信息
+        if skipped_files:
+            log(f"  Skipped files: {len(skipped_files)}")
+        if pages_traversed > 0:
+            log(f"  Pages traversed: {pages_traversed}")
 
         return {
             "stock_code": stock_code,
@@ -132,6 +137,9 @@ def run_test_with_new_downloader(test_case, config, browser_strategy="playwright
             "success": success,
             "downloaded_files": downloaded_count,
             "duration": 0,  # Simplified
+            # 行为验证字段
+            "skipped_files": len(skipped_files),
+            "pages_traversed": pages_traversed,
         }
     finally:
         if "downloader" in locals():
@@ -227,7 +235,7 @@ def check_and_restore_expected_results(config):
         expected_companies.add(company_name)
 
         # Get allowed keywords for file matching
-        allowed_keywords = test_case.get("allowed_keywords", [])
+        allowed_keywords = test_case.get("allowed_keywords") or []
         if company_name not in expected_files:
             expected_files[company_name] = []
         expected_files[company_name].extend(allowed_keywords)

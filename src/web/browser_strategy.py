@@ -11,8 +11,12 @@ from ..core.logger import get_logger
 logger = get_logger(__name__)
 
 
-class BrowserAutomationStrategy(ABC):
-    """浏览器自动化策略抽象基类"""
+class BrowserStrategy(ABC):
+    """
+    浏览器策略抽象基类
+
+    统一的浏览器策略接口，合并了原有的 IBrowserStrategy 和 BrowserAutomationStrategy。
+    """
 
     @abstractmethod
     def __init__(
@@ -22,6 +26,15 @@ class BrowserAutomationStrategy(ABC):
         config: Optional[Dict[str, Any]] = None,
     ):
         """初始化浏览器自动化策略"""
+
+    @abstractmethod
+    def initialize(self) -> bool:
+        """
+        初始化浏览器
+
+        Returns:
+            bool: 初始化是否成功
+        """
 
     @abstractmethod
     def create_driver(self) -> Any:
@@ -78,8 +91,12 @@ class BrowserAutomationStrategy(ABC):
         """获取当前URL"""
 
     @abstractmethod
+    def cleanup(self) -> None:
+        """清理浏览器资源"""
+
     def close(self) -> None:
-        """关闭浏览器"""
+        """关闭浏览器（cleanup 的别名）"""
+        self.cleanup()
 
     @abstractmethod
     def is_healthy(self) -> bool:
@@ -144,14 +161,21 @@ class BrowserAutomationStrategy(ABC):
             bool: 是否有下一页
         """
 
+    @abstractmethod
+    def get_current_page_info(self) -> Dict[str, Any]:
+        """
+        获取当前页面信息
+
+        Returns:
+            Dict[str, Any]: 包含当前页码和总页数的字典
+        """
+
 
 class BrowserStrategyFactory:
     """浏览器策略工厂"""
 
     @staticmethod
-    def create_strategy(
-        strategy_type: str = "selenium", **kwargs
-    ) -> BrowserAutomationStrategy:
+    def create_strategy(strategy_type: str = "selenium", **kwargs) -> BrowserStrategy:
         """
         创建浏览器自动化策略实例
 
@@ -160,7 +184,7 @@ class BrowserStrategyFactory:
             **kwargs: 传递给策略构造函数的参数
 
         Returns:
-            BrowserAutomationStrategy: 浏览器自动化策略实例
+            BrowserStrategy: 浏览器策略实例
         """
         if strategy_type.lower() == "selenium":
             from .selenium_strategy import SeleniumStrategy
@@ -175,4 +199,4 @@ class BrowserStrategyFactory:
 
 
 # 向后兼容性别名
-BrowserStrategy = BrowserAutomationStrategy
+BrowserAutomationStrategy = BrowserStrategy

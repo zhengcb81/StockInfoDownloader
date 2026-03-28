@@ -30,7 +30,7 @@ class ConfigManager(BaseConfigManager):
         test: TestConfigManager instance for test-related operations
     """
 
-    def __init__(self, config_file=None, environment="production"):
+    def __init__(self, config_file: Optional[str] = None, environment: str = "production") -> None:
         super().__init__(config_file, environment)
         self.logger = get_logger(self.__class__.__name__)
 

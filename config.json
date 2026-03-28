@@ -104,17 +104,17 @@
   },
   "pages": [
     {
-      "name": "调研",
+      "name": "Research",
       "suffix": "research",
       "allowed_keywords": null
     },
     {
-      "name": "定期公告",
+      "name": "Periodic Reports",
       "suffix": "periodicReports",
       "allowed_keywords": null
     },
     {
-      "name": "最新公告",
+      "name": "Latest Announcements",
       "suffix": "latestAnnouncement",
       "allowed_keywords": [
         "招股说明书"

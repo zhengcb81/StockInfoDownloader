@@ -11,7 +11,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, cast
 
 import psutil
 from selenium import webdriver
@@ -78,9 +78,13 @@ class EnhancedWebDriverPool:
             config: 连接池配置
         """
         self.config = config or PoolConfig()
-        self.pool = queue.PriorityQueue(maxsize=self.config.max_pool_size)
-        self.active_drivers = {}  # {driver: DriverMetrics}
-        self.priority_queue = {priority: queue.Queue() for priority in DriverPriority}
+        self.pool: queue.PriorityQueue = queue.PriorityQueue(
+            maxsize=self.config.max_pool_size
+        )
+        self.active_drivers: Dict[Any, DriverMetrics] = {}  # {driver: DriverMetrics}
+        self.priority_queue: Dict[DriverPriority, queue.Queue] = {
+            priority: queue.Queue() for priority in DriverPriority
+        }
         self.lock = threading.RLock()
         self.config_manager = ConfigManager()
         self.logger = get_logger(__name__)
@@ -97,9 +101,9 @@ class EnhancedWebDriverPool:
         }
 
         # 健康监控
-        self.health_monitor_thread = None
+        self.health_monitor_thread: Optional[threading.Thread] = None
         self.health_monitor_running = False
-        self.last_health_check = {}
+        self.last_health_check: Dict[Any, float] = {}
 
         # 异步事件循环
         self.loop = asyncio.new_event_loop()
@@ -141,6 +145,10 @@ class EnhancedWebDriverPool:
             chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--disable-web-security")
             chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+
+            # 处理 window_size 可能为 dict 或 str 的情况
+            if isinstance(window_size, dict):
+                window_size = f"{window_size.get('width', 1920)},{window_size.get('height', 1080)}"
             chrome_options.add_argument("--window-size=" + window_size)
 
             # 性能优化选项
@@ -276,7 +284,8 @@ class EnhancedWebDriverPool:
                 try:
                     process = psutil.Process()
                     metrics.memory_usage = process.memory_percent()
-                except:
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # Process not accessible
                     pass
 
                 # 检查响应时间
@@ -340,7 +349,6 @@ class EnhancedWebDriverPool:
                     or metrics.success_rate < 0.5  # 成功率低于50%
                     or metrics.consecutive_failures > 0
                 ):
-
                     self.logger.info(
                         f"WebDriver达到重启条件，重新创建: "
                         f"请求次数={metrics.total_requests}, "
@@ -443,6 +451,7 @@ class EnhancedWebDriverPool:
         self.health_monitor_thread = threading.Thread(
             target=health_monitor, daemon=True
         )
+        assert self.health_monitor_thread is not None
         self.health_monitor_thread.start()
         self.logger.info("健康监控线程已启动")
 
@@ -506,7 +515,7 @@ class EnhancedWebDriverPool:
     def get_pool_status(self) -> Dict[str, Any]:
         """获取连接池状态"""
         with self.lock:
-            health_distribution = {}
+            health_distribution: Dict[str, int] = {}
             for driver, metrics in self.active_drivers.items():
                 if metrics.success_rate >= 0.9:
                     health_distribution["healthy"] = (
@@ -633,7 +642,8 @@ class EnhancedWebDriverPool:
         """析构函数"""
         try:
             self.cleanup_all()
-        except:
+        except (AttributeError, RuntimeError):
+            # Object may be partially destroyed during cleanup
             pass
 
 
@@ -665,7 +675,7 @@ class EnhancedWebDriverManager:
             config: 连接池配置
         """
         self.driver_pool = create_enhanced_driver_pool(config)
-        self.current_driver = None
+        self.current_driver: Optional[webdriver.Chrome] = None
         self.logger = get_logger(__name__)
 
     def get_driver(
@@ -674,7 +684,8 @@ class EnhancedWebDriverManager:
         """获取WebDriver实例"""
         if self.current_driver is None:
             self.current_driver = self.driver_pool.get_driver(priority)
-        return self.current_driver
+        # At this point, current_driver is guaranteed to be set
+        return self.current_driver  # type: ignore[return-value]
 
     def release_driver(self, success: bool = True):
         """释放当前WebDriver实例"""

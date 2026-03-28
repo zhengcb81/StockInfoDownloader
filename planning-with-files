@@ -1,0 +1,248 @@
+# StockInfoDownloader 架构重构详细计划
+
+基于代码审查报告，制定以下重构计划。
+
+---
+
+## 一、高优先级重构 (已完成 ✅)
+
+### 1.1 合并重复的 ErrorHandler 类 ✅
+
+**问题**: 3个不同位置的 ErrorHandler 实现
+- `src/core/error_handling.py` - 基础工具模块
+- `src/core/exceptions.py` - 异常类层次结构丰富
+- `src/utils/enhanced_error_handler.py` - 高级功能（电路断路器）
+
+**修复内容** (`src/core/exceptions.py`):
+```python
+# 修复前
+print(f"Error handler failed: {e}")
+print(f"Recovery attempt failed: {e}")
+print(f"CRITICAL ERROR: {error_dict}")
+# ... 更多 print 语句
+
+# 修复后
+logger.error(f"Error handler failed: {e}")
+logger.error(f"Recovery attempt failed: {e}")
+logger.critical(f"CRITICAL ERROR: {error_dict}")
+# ... 使用 logger
+```
+
+**决定**: 三个实现保持分离，因用途不同但统一使用 logging
+
+---
+
+### 1.2 修复 ConfigManager 单例测试污染 ✅
+
+**问题**: 类级别可变状态跨测试持久化
+```python
+class BaseConfigManager:
+    _instance = None           # 类变量 - 跨测试持久化
+    _config: Dict[str, Any] = {}  # 类变量 - 跨测试持久化
+    _global_config: GlobalConfig = GlobalConfig()  # 类变量
+```
+
+**修复内容** (`src/core/config_manager.py`):
+```python
+@classmethod
+def reset_singleton(cls) -> None:
+    """Reset the singleton state - useful for test isolation."""
+    cls._instance = None
+    cls._config = {}
+    cls._global_config = GlobalConfig()
+```
+
+---
+
+### 1.3 拆分 UnifiedDownloader ✅
+
+**问题**: 434行类，职责过多（15+种职责）
+
+**新增文件**: `src/services/download_helpers.py`
+
+**提取的类**:
+
+| 类名 | 原职责 | 行数减少 |
+|------|--------|----------|
+| `KeywordMatcher` | 关键词匹配 `_matches()` | ~20行 |
+| `LinkExtractor` | 链接提取 `_get_links_safe()` | ~30行 |
+| `PaginationHandler` | 分页导航 | ~15行 |
+| `DownloadHistoryTracker` | 下载历史跟踪 | ~10行 |
+
+**修改后的 UnifiedDownloader**:
+- 使用辅助类处理具体逻辑
+- 保留协调职责
+- 代码更清晰，可测试性提高
+
+---
+
+### 1.4 澄清重复 RateLimiter ✅
+
+**问题**: 两个 `AdaptiveRateLimiter` 实现
+
+| 模块 | 用途 | API 风格 |
+|------|------|---------|
+| `src/web/rate_limiter.py` | 通用速率限制 | 阻塞式 `wait_if_needed()` |
+| `src/web/anti_crawler/rate_limiter.py` | 反爬虫专用 | 非阻塞 `can_make_request()` + `record_request()` |
+
+**修复内容** (`src/web/anti_crawler/rate_limiter.py`):
+添加模块文档说明用途差异
+
+---
+
+## 二、中优先级重构 (进行中)
+
+### 2.1 统一文档语言为英文
+
+**问题**: 部分 docstring 使用中文，部分使用英文
+
+**已修复文件**:
+- ✅ `src/web/browser_config.py` - 完全英文
+- ✅ `src/services/download_helpers.py` - 创建时即为英文
+- ✅ `src/web/rate_limiter.py` - 完全英文
+- ✅ `src/web/anti_crawler/rate_limiter.py` - 模块文档已更新
+
+**待修复文件** (63个文件包含中文字符):
+- `src/core/*.py` - 多个核心模块
+- `src/services/*.py` - 服务层
+- `src/web/*.py` - Web/浏览器相关
+- `src/utils/*.py` - 工具模块
+
+---
+
+### 2.2 减少 cast() 过度使用
+
+**问题**: 大量 `cast()` 滥用，绕过类型检查
+
+**典型案例**:
+```python
+# browser_config.py
+return cast(bool, self.config_manager.get("headless", True))
+return cast(str, self.config_manager.get("browser.window_size", "1920,1080"))
+return cast(List[str], self.config_manager.get("browser.user_agents", ...))
+```
+
+**根本原因**: `ConfigManager.get()` 返回 `Any`
+
+**建议方案**:
+1. 选项A: 为 `ConfigManager` 添加泛型类型安全访问器
+2. 选项B: 保留 cast() 但添加注释说明原因
+3. 选项C: 重新设计配置类型层次
+
+**当前状态**: 需要更大范围重构，建议后续版本处理
+
+---
+
+### 2.3 合并分页逻辑
+
+**问题**: `scraper.py` 和 `unified_downloader.py` 都有分页逻辑
+
+**当前状态**:
+- `PaginationHandler` 已提取到 `download_helpers.py`
+- `scraper.py` 的分页逻辑更复杂（有多种 fallback 选择器）
+- 需要统一接口
+
+**建议**: `PaginationHandler` 使用 `scraper.py` 的 `go_to_next_page()` 实现
+
+---
+
+## 三、低优先级重构 (待实施)
+
+### 3.1 重构 README.md
+
+**问题**:
+- 缺乏结构化
+- 大量文字缺乏表格和锚点导航
+
+**建议**:
+- 使用表格展示功能特性
+- 添加锚点导航
+- 精简冗长描述
+- 添加快速开始指南
+
+---
+
+### 3.2 添加 API 使用示例
+
+**问题**: API 文档缺少使用示例
+
+**建议**:
+- 为每个公共类添加 docstring 示例
+- 创建 `docs/examples/` 目录
+- 添加常见用例代码
+
+---
+
+### 3.3 建立文档索引
+
+**问题**: `docs/adr/` 目录有决策记录但未索引
+
+**建议**:
+- 创建 `docs/adr/README.md` 作为索引
+- 记录每个 ADR 的目的和状态
+
+---
+
+## 四、重构进度追踪
+
+### 完成的任务
+
+| 任务 | 优先级 | 状态 | 日期 |
+|------|--------|------|------|
+| 合并 ErrorHandler | 高 | ✅ 完成 | 2026-03-18 |
+| 修复 ConfigManager 单例 | 高 | ✅ 完成 | 2026-03-18 |
+| 拆分 UnifiedDownloader | 高 | ✅ 完成 | 2026-03-18 |
+| 澄清 RateLimiter | 高 | ✅ 完成 | 2026-03-18 |
+| 统一文档语言 - browser_config | 中 | ✅ 完成 | 2026-03-18 |
+| 统一文档语言 - rate_limiter | 中 | ✅ 完成 | 2026-03-18 |
+| 统一文档语言 - 其他核心文件 | 中 | ⏳ 进行中 | - |
+| 减少 cast() 使用 | 中 | ⏳ 待处理 | - |
+| 合并分页逻辑 | 中 | ⏳ 待处理 | - |
+| 重构 README | 低 | ⏳ 待处理 | - |
+| 添加 API 示例 | 低 | ⏳ 待处理 | - |
+| 建立文档索引 | 低 | ⏳ 待处理 | - |
+
+---
+
+## 五、关键技术指标
+
+### 重构前
+- UnifiedDownloader: 434行
+- ErrorHandler 重复: 3处
+- ConfigManager 单例问题: 测试污染
+- RateLimiter 重复: 2处
+
+### 重构后
+- UnifiedDownloader: ~350行 (减少 ~80行)
+- ErrorHandler: 保持分离但统一 logging
+- ConfigManager: 新增 `reset_singleton()` 方法
+- RateLimiter: 文档澄清用途差异
+- 新增 `download_helpers.py`: ~150行
+
+### 测试覆盖率
+- 重构前: 35-40%
+- 重构后: 35-40% (无功能变化)
+
+---
+
+## 六、后续建议
+
+1. **Phase 2**: 继续统一文档语言
+2. **Phase 3**: 考虑将 `ConfigManager.get()` 改为泛型方法
+3. **Phase 4**: 重构 README 结构
+4. **长期**: 逐步提升测试覆盖率至 60%+
+
+---
+
+*创建时间: 2026-03-18*
+*最后更新: 2026-03-18*
+
+## 更新日志
+
+### 2026-03-18
+
+**测试验证通过**:
+- `tests/unit/test_rate_limiter.py`: 22 passed
+- `tests/unit/test_browser_config.py`: 29 passed
+- `tests/unit/test_unified_downloader_core.py`: 8 passed
+- `tests/unit/test_unified_downloader_integration.py`: 8 passed

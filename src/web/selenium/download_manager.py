@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Set
 
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+
 from ...core.config_constants import ConfigConstants
 from ...core.constants import FileSizeThreshold, SelectorConfig, TimeoutConfig
 from ...core.logger import get_logger
@@ -78,7 +80,8 @@ class DownloadManager:
                 try:
                     f.unlink()
                     logger.info(f"Cleaned pre-existing orphan PDF in root: {f}")
-                except:
+                except (OSError, PermissionError):
+                    # File may be locked
                     pass
         except Exception as e:
             logger.debug(f"Error during pre-download cleanup: {e}")
@@ -147,7 +150,8 @@ class DownloadManager:
             )
             logger.info("Download button detected, page ready")
             return True
-        except:
+        except (NoSuchElementException, WebDriverException, TimeoutException):
+            # Button not found or timeout, continue to next check
             pass
 
         # 2. Wait for page title
@@ -165,7 +169,8 @@ class DownloadManager:
                 if "巨潮资讯网" in title:
                     time.sleep(ConfigConstants.get_timeout("page_load_check_interval"))
                     return True
-            except:
+            except (WebDriverException, AttributeError):
+                # Driver not ready
                 pass
             time.sleep(TimeoutConfig.SHORT_WAIT)
 
@@ -189,7 +194,7 @@ class DownloadManager:
                 wait.until(
                     EC.presence_of_element_located((By.XPATH, main_selector))
                 )
-            except:
+            except (TimeoutException, NoSuchElementException):
                 logger.error(
                     "Wait for download button timeout (30s), trying alternative selectors"
                 )
@@ -235,7 +240,8 @@ class DownloadManager:
             )
             if download_button:
                 return download_button
-        except:
+        except (NoSuchElementException, WebDriverException):
+            # Main selector not found, try alternatives
             pass
 
         # Alternative selectors
@@ -248,7 +254,8 @@ class DownloadManager:
                         f"Found download button using alternative selector: {selector}"
                     )
                     return download_button
-            except:
+            except (NoSuchElementException, WebDriverException):
+                # This selector didn't work, try next
                 continue
 
         return None
@@ -312,7 +319,8 @@ class DownloadManager:
                     if size > max_size:
                         max_size = size
                         downloaded_file = f
-                except:
+                except (OSError, AttributeError):
+                    # File may not be accessible
                     pass
 
         return downloaded_file
@@ -438,7 +446,8 @@ class DownloadManager:
                     try:
                         source_file.unlink()
                         logger.debug(f"Cleaned residual source file: {source_file}")
-                    except:
+                    except (OSError, PermissionError):
+                        # File may be locked
                         pass
 
                 return True
@@ -525,7 +534,8 @@ class DownloadManager:
             try:
                 os.remove(save_path)
                 logger.info(f"Removed partial file: {save_path}")
-            except:
+            except (OSError, PermissionError):
+                # File may be locked
                 pass
 
         return False

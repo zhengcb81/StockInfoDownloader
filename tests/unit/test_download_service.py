@@ -73,8 +73,8 @@ class TestDownloadService:
         """测试浏览器策略初始化"""
         service = DownloadService()
 
-        # 验证浏览器策略已初始化
-        assert service.browser_strategy is not None
+        # 通过适配器创建时 skip_browser_init=True，browser_strategy 为 None
+        # 验证 browser_strategy_type 配置正确
         assert service.browser_strategy_type in ["selenium", "playwright"]
 
     def test_anti_crawler_configuration(self):

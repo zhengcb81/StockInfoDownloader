@@ -52,7 +52,7 @@ def main():
         try:
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        except:
+        except Exception:
             pass
 
     # 读取配置文件

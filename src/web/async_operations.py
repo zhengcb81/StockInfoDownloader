@@ -10,9 +10,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
-import aiofiles
+import aiofiles  # type: ignore[import-untyped]
 import aiohttp
 
 from src.core.config import ConfigManager
@@ -79,10 +79,10 @@ class AsyncTaskManager:
         """
         self.max_concurrent_tasks = max_concurrent_tasks
         self.max_workers = max_workers
-        self.task_queue = asyncio.PriorityQueue()
-        self.active_tasks = {}
-        self.completed_tasks = {}
-        self.session_pool = None
+        self.task_queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        self.active_tasks: Dict[str, Any] = {}
+        self.completed_tasks: Dict[str, Any] = {}
+        self.session_pool: Optional[Any] = None
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.logger = get_logger(__name__)
         self.config_manager = ConfigManager()
@@ -237,9 +237,11 @@ class AsyncTaskManager:
             self.logger.debug(f"开始执行任务: {task_id}")
 
             # 应用速率限制
-            await self.rate_limiter.wait_if_needed_async(
+            wait_time = self.rate_limiter.wait_if_needed(
                 task.url, f"download_{task_id}"
             )
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
 
             # 创建保存目录
             save_dir = Path(task.save_path).parent
@@ -307,6 +309,8 @@ class AsyncTaskManager:
         """下载文件"""
         for attempt in range(task.retry_count + 1):
             try:
+                if self.session_pool is None:
+                    raise Exception("Session pool not initialized")
                 async with self.session_pool.get(task.url) as response:
                     response.raise_for_status()
 
@@ -375,7 +379,7 @@ class AsyncTaskManager:
         while True:
             # 检查是否已完成
             if task_id in self.completed_tasks:
-                return self.completed_tasks[task_id]
+                return cast(TaskResult, self.completed_tasks[task_id])
 
             # 检查超时
             if timeout and (time.time() - start_time) > timeout:
@@ -439,7 +443,10 @@ class AsyncTaskManager:
             Optional[TaskStatus]: 任务状态
         """
         if task_id in self.completed_tasks:
-            return self.completed_tasks[task_id].status
+            task_result = self.completed_tasks[task_id]
+            if isinstance(task_result, TaskResult):
+                return task_result.status
+            return None
         elif task_id in self.active_tasks:
             return TaskStatus.RUNNING
         else:

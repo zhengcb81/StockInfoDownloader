@@ -28,19 +28,14 @@ if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    except:
+    except Exception:
         pass
 
 
-def get_real_stock_name(stock_code, mapping_file="stock_orgid_mapping.json"):
-    """Get stock name from mapping or external tool"""
-    try:
-        from get_stock_name import get_stock_name
-
-        return get_stock_name(stock_code, mapping_file)
-    except ImportError:
-        mapping_manager = MappingManager(mapping_file)
-        return mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
+def get_real_stock_name(stock_code, mapping_file="configs/stock_orgid_mapping.json"):
+    """Get stock name from mapping"""
+    mapping_manager = MappingManager(mapping_file)
+    return mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
 
 
 class UnifiedRunner:

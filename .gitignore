@@ -17,6 +17,10 @@ cache/
 *.cache
 temp/
 tmp/
+temp_debug/
+temp_download/
+temp_reverse/
+temp_*/
 
 # Test artifacts
 *.tmp

@@ -326,7 +326,8 @@ class CommonBrowserOperations:
                 current_url = self.strategy.get_current_url()
                 if substring in current_url:
                     return True
-            except:
+            except (WebDriverException, OSError, AttributeError):
+                # Driver may not be ready or URL not available
                 pass
             time.sleep(0.5)
         return False
@@ -365,7 +366,8 @@ class CommonBrowserOperations:
         try:
             element = self.strategy.wait_for_element(selector, timeout, by)
             return element is not None
-        except:
+        except (NoSuchElementException, TimeoutException, WebDriverException):
+            # Element not found or timeout
             return False
 
 

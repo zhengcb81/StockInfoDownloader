@@ -116,6 +116,7 @@ class TestSeleniumModeIntegration:
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
                 browser_strategy="selenium",
+                skip_browser_init=False,
             )
             # 验证Selenium特定的配置参数传递
             call_args = mock_create_strategy.call_args
@@ -127,6 +128,7 @@ class TestSeleniumModeIntegration:
                 save_dir=self.save_dir,
                 mapping_file=self.mapping_file,
                 browser_strategy="playwright",
+                skip_browser_init=False,
             )
             # 验证Playwright特定的配置参数传递
             call_args = mock_create_strategy.call_args
@@ -153,6 +155,7 @@ class TestSeleniumModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -189,6 +192,7 @@ class TestSeleniumModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载 - UnifiedDownloader 会捕获异常并返回结果字典
@@ -232,6 +236,7 @@ class TestSeleniumModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -251,8 +256,8 @@ class TestSeleniumModeIntegration:
         assert "download_count" in status_data or "retry_count" in status_data
 
     @patch("src.web.browser_strategy.BrowserStrategyFactory.create_strategy")
-    def test_resource_cleanup(self, mock_create_strategy):
-        """测试资源清理"""
+    def test_browser_strategy_initialization(self, mock_create_strategy):
+        """测试浏览器策略初始化"""
         # 设置mock策略
         mock_strategy = MagicMock()
         mock_create_strategy.return_value = mock_strategy
@@ -262,6 +267,7 @@ class TestSeleniumModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,  # 集成测试需要初始化浏览器
         )
 
         # 执行清理
@@ -285,6 +291,7 @@ class TestSeleniumModeIntegration:
             save_dir=config["save_dir"],
             mapping_file=self.mapping_file,
             browser_strategy=config["browser"]["strategy"],
+            skip_browser_init=False,
         )
 
         # 验证配置参数正确传递
@@ -353,6 +360,7 @@ class TestPlaywrightModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 验证策略创建（允许有额外的config参数）
@@ -386,6 +394,7 @@ class TestPlaywrightModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载
@@ -422,6 +431,7 @@ class TestPlaywrightModeIntegration:
             save_dir=self.save_dir,
             mapping_file=self.mapping_file,
             browser_strategy=self.browser_strategy,
+            skip_browser_init=False,
         )
 
         # 执行下载 - UnifiedDownloader 会捕获异常并返回结果字典

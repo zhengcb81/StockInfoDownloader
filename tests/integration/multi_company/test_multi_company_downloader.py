@@ -19,7 +19,7 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 os.chdir(project_root)
 
-from main_parallel import CompanyConfig, MultiCompanyDownloader
+from src.tools.legacy.main_parallel import CompanyConfig, MultiCompanyDownloader
 
 
 class TestMultiCompanyDownloader:
@@ -63,7 +63,7 @@ class TestMultiCompanyDownloader:
 
             # 关键修复：拦截 main_parallel 中的 downloader_factory 实例方法
             with patch(
-                "main_parallel.downloader_factory.create_legacy_adapter"
+                "src.tools.legacy.main_parallel.downloader_factory.create_legacy_adapter"
             ) as mock_factory:
                 mock_adapter_instance = Mock()
 
@@ -157,7 +157,7 @@ class TestMultiCompanyDownloader:
         assert "成功下载公司数: 2" in log_text
         assert "下载文件总数: 5" in log_text
 
-    @patch("main_parallel.get_stock_name")
+    @patch("src.tools.legacy.main_parallel.get_stock_name")
     def test_main_functionality(self, mock_get_stock_name, downloader_config, capsys):
         """测试主要功能"""
         # 模拟股票名称获取
@@ -168,7 +168,7 @@ class TestMultiCompanyDownloader:
 
             # 关键修复：使用工厂模式mock
             with patch(
-                "main_parallel.downloader_factory.create_legacy_adapter"
+                "src.tools.legacy.main_parallel.downloader_factory.create_legacy_adapter"
             ) as mock_factory:
                 mock_adapter_instance = Mock()
                 # 创建DownloadResult对象（适配main_parallel.py的期望）
@@ -189,7 +189,7 @@ class TestMultiCompanyDownloader:
                 mock_factory.return_value = mock_adapter_instance
 
                 # 娴嬭瘯涓荤▼搴
-                from main_parallel import main
+                from src.tools.legacy.main_parallel import main
 
                 with patch(
                     "sys.argv", ["main_parallel.py", "--config", "test_config.json"]

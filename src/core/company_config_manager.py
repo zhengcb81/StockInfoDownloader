@@ -6,6 +6,7 @@ Provides multi-company configuration management functionality
 from typing import Any, Dict, List, Optional, Tuple
 
 from .config_manager import BaseConfigManager
+from .exceptions import OrgIdError
 from .logger import get_logger
 
 
@@ -34,7 +35,8 @@ class CompanyConfigManager:
             try:
                 mapping_manager = MappingManager()
                 company_name = mapping_manager.get_stock_name(stock_code)
-            except:
+            except (OSError, KeyError, OrgIdError):
+                # Mapping not found or unable to load
                 company_name = f"Stock {stock_code}"
 
             companies = [
@@ -118,7 +120,8 @@ class CompanyConfigManager:
                     try:
                         mapping_manager = MappingManager()
                         company_name = mapping_manager.get_stock_name(stock_code)
-                    except:
+                    except (OSError, KeyError, OrgIdError):
+                        # Mapping not found or unable to load
                         company_name = f"Stock {stock_code}"
 
                 companies.append(

@@ -6,9 +6,10 @@ WebDriver连接池模块
 import queue
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional, cast
 
 from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
 
 from src.core.config import ConfigManager
@@ -28,8 +29,10 @@ class WebDriverPool:
         """
         self.pool_size = pool_size
         self.max_session_downloads = max_session_downloads
-        self.pool = queue.Queue(maxsize=pool_size)
-        self.active_drivers = {}  # {driver: {'downloads': 0, 'created_at': time}}
+        self.pool: queue.Queue = queue.Queue(maxsize=pool_size)
+        self.active_drivers: Dict[
+            Any, Dict[str, Any]
+        ] = {}  # {driver: {'downloads': 0, 'created_at': time}}
         self.lock = threading.RLock()
         self.config_manager = ConfigManager()
         self.logger = get_logger(__name__)
@@ -64,6 +67,10 @@ class WebDriverPool:
             chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--disable-web-security")
             chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+
+            # 处理 window_size 可能为 dict 或 str 的情况
+            if isinstance(window_size, dict):
+                window_size = f"{window_size.get('width', 1920)},{window_size.get('height', 1080)}"
             chrome_options.add_argument("--window-size=" + window_size)
 
             # 添加反检测设置
@@ -94,7 +101,7 @@ class WebDriverPool:
             driver.current_url
             driver.title
             return True
-        except Exception:
+        except WebDriverException:
             return False
 
     def _cleanup_driver(self, driver: webdriver.Chrome):
@@ -116,7 +123,7 @@ class WebDriverPool:
         """获取一个可用的WebDriver实例"""
         try:
             # 尝试从池中获取
-            driver = self.pool.get_nowait()
+            driver = cast(webdriver.Chrome, self.pool.get_nowait())
 
             # 检查driver是否健康
             if self._is_driver_healthy(driver):
@@ -129,8 +136,10 @@ class WebDriverPool:
         except queue.Empty:
             self.logger.debug("连接池为空，创建新的WebDriver")
 
-        # 创建新的driver
-        return self._create_driver()
+        # 创建新的driver并添加到active_drivers
+        driver = self._create_driver()
+        self.active_drivers[driver] = {"downloads": 0, "created_at": time.time()}
+        return driver
 
     def return_driver(self, driver: webdriver.Chrome):
         """归还WebDriver到连接池"""
@@ -154,19 +163,31 @@ class WebDriverPool:
                     )
                     self._cleanup_driver(driver)
                     new_driver = self._create_driver()
-                    self.pool.put(new_driver)
+                    try:
+                        self.pool.put_nowait(new_driver)
+                    except queue.Full:
+                        self.logger.warning("连接池已满，清理新创建的WebDriver")
+                        self._cleanup_driver(new_driver)
                 else:
                     # 检查健康状态
                     if self._is_driver_healthy(driver):
-                        self.pool.put(driver)
-                        self.logger.debug(
-                            f"WebDriver归还到池中，剩余: {self.pool.qsize()}"
-                        )
+                        try:
+                            self.pool.put_nowait(driver)
+                            self.logger.debug(
+                                f"WebDriver归还到池中，剩余: {self.pool.qsize()}"
+                            )
+                        except queue.Full:
+                            self.logger.warning("连接池已满，清理归还的WebDriver")
+                            self._cleanup_driver(driver)
                     else:
                         self.logger.warning("WebDriver不健康，重新创建")
                         self._cleanup_driver(driver)
                         new_driver = self._create_driver()
-                        self.pool.put(new_driver)
+                        try:
+                            self.pool.put_nowait(new_driver)
+                        except queue.Full:
+                            self.logger.warning("连接池已满，清理新创建的WebDriver")
+                            self._cleanup_driver(new_driver)
 
         except Exception as e:
             self.logger.error(f"归还WebDriver失败: {e}")
@@ -228,14 +249,15 @@ class EnhancedWebDriverManager:
             max_session_downloads: 每个会话最大下载次数
         """
         self.driver_pool = WebDriverPool(pool_size, max_session_downloads)
-        self.current_driver = None
+        self.current_driver: Optional[webdriver.Chrome] = None
         self.logger = get_logger(__name__)
 
     def get_driver(self) -> webdriver.Chrome:
         """获取WebDriver实例"""
         if self.current_driver is None:
             self.current_driver = self.driver_pool.get_driver()
-        return self.current_driver
+        # At this point, current_driver is guaranteed to be set
+        return self.current_driver  # type: ignore[return-value]
 
     def release_driver(self):
         """释放当前WebDriver实例"""

@@ -13,7 +13,7 @@ import pytest
 
 # Legacy import now handled by conftest.py path injection
 try:
-    from main_parallel import MultiCompanyDownloader
+    from src.tools.legacy.main_parallel import MultiCompanyDownloader
 except ImportError:
     MultiCompanyDownloader = None
 

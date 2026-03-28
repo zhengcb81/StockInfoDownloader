@@ -6,7 +6,10 @@ String Optimizer 模块测试
 """
 
 import pytest
-from src.utils.string_optimizer import standardize_stock_code, sanitize_filename, clean_text_content, normalize_whitespace
+from src.utils.string_optimizer import (
+    standardize_stock_code, sanitize_filename, clean_text_content, normalize_whitespace,
+    validate_stock_code, validate_org_id, get_string_optimizer, StringOptimizer
+)
 
 
 class TestStandardizeStockCode:

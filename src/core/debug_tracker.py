@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.core.logger import get_logger
 
@@ -30,7 +30,7 @@ class DebugStep(Enum):
 
 class DebugMarker:
     def __init__(
-        self, step: DebugStep, success: bool, details: Dict = None, error: str = None
+        self, step: DebugStep, success: bool, details: Optional[Dict[str, Any]] = None, error: Optional[str] = None
     ):
         self.step = step
         self.success = success
@@ -39,7 +39,7 @@ class DebugMarker:
         self.timestamp = datetime.now()
         self.marker_id = f"{step.value}_{int(self.timestamp.timestamp() * 1000)}"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "step": self.step.value,
             "step_name": self.step.name,
@@ -58,23 +58,24 @@ class DebugMarker:
             msg += f" | Error: {self.error}"
         return msg
 
-    def log(self):
+    def log(self) -> None:
         logger.info(self.to_log_string())
 
 
 class DebugMarkerManager:
-    _instance = None
+    _instance: Optional["DebugMarkerManager"] = None
+    _initialized: bool = False
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> "DebugMarkerManager":
         if not cls._instance:
             cls._instance = super(DebugMarkerManager, cls).__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, log_dir: str = "logs/debug_markers"):
+    def __init__(self, log_dir: str = "logs/debug_markers") -> None:
         if self._initialized:
             return
-        self.markers = []
+        self.markers: List[DebugMarker] = []
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -82,11 +83,11 @@ class DebugMarkerManager:
         self._initialized = True
 
     @classmethod
-    def reset_instance(cls):
+    def reset_instance(cls) -> None:
         cls._instance = None
 
     def add_marker(
-        self, step: DebugStep, success: bool, details: Dict = None, error: str = None
+        self, step: DebugStep, success: bool, details: Optional[Dict[str, Any]] = None, error: Optional[str] = None
     ) -> DebugMarker:
         marker = DebugMarker(step, success, details, error)
         self.markers.append(marker)
@@ -98,12 +99,12 @@ class DebugMarkerManager:
 
         return marker
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> Dict[str, Any]:
         total = len(self.markers)
         successful = len([m for m in self.markers if m.success])
         failed = total - successful
 
-        steps_summary = {}
+        steps_summary: Dict[str, Dict[str, int]] = {}
         for m in self.markers:
             step_val = m.step.value
             if step_val not in steps_summary:
@@ -120,10 +121,10 @@ class DebugMarkerManager:
             "steps": steps_summary,
         }
 
-    def get_markers_for_e2e_test(self) -> List[Dict]:
+    def get_markers_for_e2e_test(self) -> List[Dict[str, Any]]:
         return [m.to_dict() for m in self.markers]
 
-    def clear(self):
+    def clear(self) -> None:
         self.markers = []
 
 

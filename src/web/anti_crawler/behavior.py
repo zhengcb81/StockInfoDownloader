@@ -8,7 +8,7 @@ Simulates realistic human interactions to evade bot detection.
 
 import random
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
 
 from src.core.logger import get_logger
 from src.web.anti_crawler.types import BehaviorPattern
@@ -41,7 +41,7 @@ class BehaviorSimulator:
         }
 
     def simulate_behavior(
-        self, pattern: BehaviorPattern, duration: float = None
+        self, pattern: BehaviorPattern, duration: Optional[float] = None
     ) -> float:
         """Simulate specified behavior"""
         if pattern not in self.patterns:
@@ -50,7 +50,7 @@ class BehaviorSimulator:
 
         try:
             func = self.patterns[pattern]
-            return func(duration)
+            return func(duration or 0.0)
         except Exception as e:
             self.logger.error(f"Behavior simulation failed: {e}")
             return 0.0
@@ -83,7 +83,7 @@ class BehaviorSimulator:
 
         return results
 
-    def _simulate_mouse_movement(self, duration: float = None) -> float:
+    def _simulate_mouse_movement(self, duration: Optional[float] = None) -> float:
         """Simulate mouse movement"""
         if duration is None:
             duration = random.uniform(2, 5)
@@ -126,7 +126,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_scrolling(self, duration: float = None) -> float:
+    def _simulate_scrolling(self, duration: Optional[float] = None) -> float:
         """Simulate scrolling behavior"""
         if duration is None:
             duration = random.uniform(1, 3)
@@ -134,7 +134,7 @@ class BehaviorSimulator:
         start_time = time.time()
         end_time = start_time + duration
 
-        current_scroll = 0
+        current_scroll = 0.0
 
         while time.time() < end_time:
             # Random scroll distance
@@ -150,7 +150,7 @@ class BehaviorSimulator:
 
                 # Add random variation
                 variation = random.uniform(-5, 5)
-                current_scroll += variation
+                current_scroll = float(current_scroll + variation)
 
                 time.sleep(scroll_time / steps)
 
@@ -161,7 +161,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_typing(self, duration: float = None) -> float:
+    def _simulate_typing(self, duration: Optional[float] = None) -> float:
         """Simulate typing behavior"""
         if duration is None:
             duration = random.uniform(3, 8)
@@ -198,7 +198,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_tab_switching(self, duration: float = None) -> float:
+    def _simulate_tab_switching(self, duration: Optional[float] = None) -> float:
         """Simulate tab switching"""
         if duration is None:
             duration = random.uniform(2, 5)
@@ -223,7 +223,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_idle_time(self, duration: float = None) -> float:
+    def _simulate_idle_time(self, duration: Optional[float] = None) -> float:
         """Simulate idle time"""
         if duration is None:
             duration = random.uniform(*self.idle_time_range)
@@ -239,7 +239,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - (time.time() - duration)
         return actual_duration
 
-    def _simulate_form_filling(self, duration: float = None) -> float:
+    def _simulate_form_filling(self, duration: Optional[float] = None) -> float:
         """Simulate form filling"""
         if duration is None:
             duration = random.uniform(5, 15)
@@ -268,7 +268,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_click_pattern(self, duration: float = None) -> float:
+    def _simulate_click_pattern(self, duration: Optional[float] = None) -> float:
         """Simulate click pattern"""
         if duration is None:
             duration = random.uniform(2, 6)
@@ -294,7 +294,7 @@ class BehaviorSimulator:
         actual_duration = time.time() - start_time
         return actual_duration
 
-    def _simulate_drag_drop(self, duration: float = None) -> float:
+    def _simulate_drag_drop(self, duration: Union[float, None] = None) -> float:
         """Simulate drag and drop behavior"""
         if duration is None:
             duration = random.uniform(3, 8)

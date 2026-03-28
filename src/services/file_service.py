@@ -52,7 +52,8 @@ class FileService:
                 )
             else:
                 invalid_chars = default_pattern
-        except:
+        except (AttributeError, KeyError, TypeError):
+            # Config manager may not have expected structure
             invalid_chars = default_pattern
 
         return re.sub(invalid_chars, "_", filename)

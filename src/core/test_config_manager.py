@@ -5,7 +5,7 @@ Provides test environment specific configuration management
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .config_constants import ConfigConstants
 from .exceptions import ConfigError, ErrorCode, ErrorSeverity, RecoveryStrategy
@@ -15,7 +15,7 @@ from .logger import get_logger
 class TestConfigManager:
     """Test configuration manager for test environment"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = get_logger(self.__class__.__name__)
         self._test_config: Optional[Dict[str, Any]] = None
         self._config_path: Optional[str] = None
@@ -95,7 +95,7 @@ class TestConfigManager:
 
         return value
 
-    def get_test_stock(self, stock_code: str) -> Dict[str, str]:
+    def get_test_stock(self, stock_code: str) -> Dict[str, Any]:
         """
         Get test stock information
 
@@ -103,13 +103,13 @@ class TestConfigManager:
             stock_code: Stock code
 
         Returns:
-            Dict[str, str]: Stock information dictionary
+            Dict[str, Any]: Stock information dictionary
         """
         test_stocks = self.get_test_config("test_data.stocks", [])
         for stock in test_stocks:
             if stock.get("code") == stock_code:
-                return stock
-        return {}
+                return cast(Dict[str, Any], stock)
+        return cast(Dict[str, Any], {})
 
     def get_test_timeout(self, timeout_type: str = "validation") -> int:
         """
@@ -121,9 +121,12 @@ class TestConfigManager:
         Returns:
             int: Timeout value
         """
-        return self.get_test_config(
-            f"test_environment.{timeout_type}",
-            ConfigConstants.get_timeout(timeout_type),
+        return cast(
+            int,
+            self.get_test_config(
+                f"test_environment.{timeout_type}",
+                ConfigConstants.get_timeout(timeout_type),
+            ),
         )
 
     def get_test_directory(self, dir_name: str) -> str:
@@ -136,7 +139,7 @@ class TestConfigManager:
         Returns:
             str: Directory path
         """
-        return self.get_test_config(f"test_directories.{dir_name}", "")
+        return cast(str, self.get_test_config(f"test_directories.{dir_name}", ""))
 
     def is_test_environment(self, environment: str) -> bool:
         """Check if test environment"""

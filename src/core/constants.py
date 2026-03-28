@@ -1,135 +1,135 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""系统常量配置
+"""System Constants Configuration
 
-提供统一的常量管理，消除硬编码，提高配置的可维护性和可扩展性
+Provides unified constant management, eliminates hardcoding, improves maintainability and extensibility
 """
 
 
 # =============================================================================
-# 超时时间配置（秒）
+# Timeout Configuration (seconds)
 # =============================================================================
 class TimeoutConfig:
-    """超时时间配置"""
+    """Timeout configuration"""
 
-    PAGE_LOAD = 30  # 页面加载超时
-    ELEMENT_WAIT = 10  # 元素等待超时
-    DOWNLOAD = 300  # 下载超时（5分钟）
-    SCRIPT = 30  # 脚本执行超时
-    VALIDATION = 10  # 验证超时
-    NAVIGATION = 10  # 导航超时
-    BUTTON_CLICK = 5  # 按钮点击超时
-    INITIALIZATION = 180  # 浏览器初始化超时
-    RETRY_DELAY = 2  # 重试延迟时间（秒）
-    BROWSER_CLOSE = 0.5  # 浏览器关闭等待时间（秒）
-    PAGE_STABILITY = 1.0  # 页面稳定等待时间（秒）
-    DOM_READY = 2.0  # DOM就绪等待时间（秒）
-    SHORT_WAIT = 0.5  # 短等待时间（秒）
-    MEDIUM_WAIT = 1.0  # 中等等待时间（秒）
-    LONG_WAIT = 3.0  # 长等待时间（秒）
-    SCROLL_DELAY = 0.5  # 滚动后等待时间（秒）
-    CLICK_STABILIZATION = 2.0  # 点击后页面稳定时间（秒）
-    SELECTOR_RETRY = 0.2  # 选择器重试间隔（秒）
+    PAGE_LOAD = 30  # Page load timeout
+    ELEMENT_WAIT = 10  # Element wait timeout
+    DOWNLOAD = 300  # Download timeout (5 minutes)
+    SCRIPT = 30  # Script execution timeout
+    VALIDATION = 10  # Validation timeout
+    NAVIGATION = 10  # Navigation timeout
+    BUTTON_CLICK = 5  # Button click timeout
+    INITIALIZATION = 180  # Browser initialization timeout
+    RETRY_DELAY = 2  # Retry delay (seconds)
+    BROWSER_CLOSE = 0.5  # Browser close wait time (seconds)
+    PAGE_STABILITY = 1.0  # Page stability wait time (seconds)
+    DOM_READY = 2.0  # DOM ready wait time (seconds)
+    SHORT_WAIT = 0.5  # Short wait time (seconds)
+    MEDIUM_WAIT = 1.0  # Medium wait time (seconds)
+    LONG_WAIT = 3.0  # Long wait time (seconds)
+    SCROLL_DELAY = 0.5  # Post-scroll wait time (seconds)
+    CLICK_STABILIZATION = 2.0  # Post-click page stability time (seconds)
+    SELECTOR_RETRY = 0.2  # Selector retry interval (seconds)
 
 
 # =============================================================================
-# 文件大小阈值（字节）
+# File Size Thresholds (bytes)
 # =============================================================================
 class FileSizeThreshold:
-    """文件大小阈值配置"""
+    """File size threshold configuration"""
 
-    MIN_VALID_PDF = 10 * 1024  # 最小有效PDF文件大小：10KB
-    DOWNLOAD_CHECK_INTERVAL = 0.5  # 下载检查间隔（秒）
-    DOWNLOAD_STABILITY_WAIT = 1  # 文件稳定性等待时间（秒）
-    TEMP_FILE_MIN_SIZE = 10 * 1024  # 临时文件最小大小：10KB
+    MIN_VALID_PDF = 10 * 1024  # Minimum valid PDF file size: 10KB
+    DOWNLOAD_CHECK_INTERVAL = 0.5  # Download check interval (seconds)
+    DOWNLOAD_STABILITY_WAIT = 1  # File stability wait time (seconds)
+    TEMP_FILE_MIN_SIZE = 10 * 1024  # Temp file minimum size: 10KB
 
 
 # =============================================================================
-# 重试配置
+# Retry Configuration
 # =============================================================================
 class RetryConfig:
-    """重试策略配置"""
+    """Retry strategy configuration"""
 
-    MAX_RETRIES = 3  # 最大重试次数
-    BASE_DELAY = 1.0  # 基础延迟时间（秒）
-    BACKOFF_FACTOR = 2.0  # 指数退避因子
-    MAX_DELAY = 30  # 最大延迟时间（秒）
+    MAX_RETRIES = 3  # Maximum retry attempts
+    BASE_DELAY = 1.0  # Base delay time (seconds)
+    BACKOFF_FACTOR = 2.0  # Exponential backoff factor
+    MAX_DELAY = 30  # Maximum delay time (seconds)
 
 
 # =============================================================================
-# 浏览器配置
+# Browser Configuration
 # =============================================================================
 class BrowserConfig:
-    """浏览器相关配置"""
+    """Browser-related configuration"""
 
-    DEFAULT_WINDOW_SIZE = "1920,1080"  # 字符串格式
-    DEFAULT_WINDOW_SIZE_DICT = {"width": 1920, "height": 1080}  # 字典格式
-    MAX_DOWNLOADS_PER_SESSION = 10  # 每个会话最大下载数
-    IMPLICIT_WAIT = 3  # 隐式等待时间（秒）
-    PAGE_LOAD_TIMEOUT = 30  # 页面加载超时（秒）
+    DEFAULT_WINDOW_SIZE = "1920,1080"  # String format
+    DEFAULT_WINDOW_SIZE_DICT = {"width": 1920, "height": 1080}  # Dict format
+    MAX_DOWNLOADS_PER_SESSION = 10  # Maximum downloads per session
+    IMPLICIT_WAIT = 3  # Implicit wait time (seconds)
+    PAGE_LOAD_TIMEOUT = 30  # Page load timeout (seconds)
 
 
 # =============================================================================
-# 反爬虫配置
+# Anti-Crawler Configuration
 # =============================================================================
 class AntiCrawlerConfig:
-    """反爬虫策略配置"""
+    """Anti-crawler strategy configuration"""
 
-    MIN_DELAY = 2.0  # 最小延迟（秒）
-    MAX_DELAY = 8.0  # 最大延迟（秒）
-    MAX_DOWNLOADS = 5  # 最大下载次数
-    SCROLL_RANGE = [200, 600]  # 滚动范围（像素）
-    BEHAVIOR_DELAY = [0.5, 1.5]  # 行为延迟范围（秒）
+    MIN_DELAY = 2.0  # Minimum delay (seconds)
+    MAX_DELAY = 8.0  # Maximum delay (seconds)
+    MAX_DOWNLOADS = 5  # Maximum download count
+    SCROLL_RANGE = [200, 600]  # Scroll range (pixels)
+    BEHAVIOR_DELAY = [0.5, 1.5]  # Behavior delay range (seconds)
 
 
 # =============================================================================
-# 分页配置
+# Pagination Configuration
 # =============================================================================
 class PaginationConfig:
-    """分页操作配置"""
+    """Pagination operation configuration"""
 
-    MAX_PAGES = 3  # 最大页数
-    PAGINATION_WAIT = 2  # 分页等待时间（秒）
-    HUMAN_BEHAVIOR_DELAY = 3  # 模拟人类行为延迟（秒）
-    DOM_STABILITY_WAIT = 1  # DOM稳定等待时间（秒）
-    CLICK_DELAY = 0.5  # 点击后等待时间（秒）
-    SELECTOR_RETRY_DELAY = 0.2  # 选择器重试延迟（秒）
+    MAX_PAGES = 3  # Maximum page count
+    PAGINATION_WAIT = 2  # Pagination wait time (seconds)
+    HUMAN_BEHAVIOR_DELAY = 3  # Simulated human behavior delay (seconds)
+    DOM_STABILITY_WAIT = 1  # DOM stability wait time (seconds)
+    CLICK_DELAY = 0.5  # Post-click wait time (seconds)
+    SELECTOR_RETRY_DELAY = 0.2  # Selector retry delay (seconds)
 
 
 # =============================================================================
-# 文件配置
+# File Configuration
 # =============================================================================
 class FileConfig:
-    """文件相关配置"""
+    """File-related configuration"""
 
-    MIN_FILE_SIZE = 10 * 1024  # 最小文件大小：10KB
-    TEMP_EXTENSIONS = [".tmp", ".crdownload", ".partial", ".download"]  # 临时文件扩展名
-    PDF_EXTENSION = ".pdf"  # PDF文件扩展名
-    MAX_FILE_AGE = 300  # 最大文件年龄（秒）
-    DOWNLOAD_CHECK_INTERVAL = 0.5  # 下载检查间隔（秒）
-    DOWNLOAD_STABILITY_WAIT = 1  # 文件稳定性等待时间（秒）
+    MIN_FILE_SIZE = 10 * 1024  # Minimum file size: 10KB
+    TEMP_EXTENSIONS = [".tmp", ".crdownload", ".partial", ".download"]  # Temp file extensions
+    PDF_EXTENSION = ".pdf"  # PDF file extension
+    MAX_FILE_AGE = 300  # Maximum file age (seconds)
+    DOWNLOAD_CHECK_INTERVAL = 0.5  # Download check interval (seconds)
+    DOWNLOAD_STABILITY_WAIT = 1  # File stability wait time (seconds)
 
 
 # =============================================================================
-# 选择器配置（CSS/XPath）
+# Selector Configuration (CSS/XPath)
 # =============================================================================
 class SelectorConfig:
-    """浏览器元素选择器配置"""
+    """Browser element selector configuration"""
 
-    # 详情页链接
+    # Detail page links
     DETAIL_LINKS = "//a[contains(@href, '/new/disclosure/detail')]"
 
-    # 下载按钮
+    # Download button
     DOWNLOAD_BUTTON = "//button[contains(., '公告下载')]"
 
-    # 下一页按钮
+    # Next page button
     NEXT_PAGE_BUTTON = "//button[contains(@class, 'el-pagination__next')]"
 
-    # 表格元素
+    # Table element
     TABLE_ELEMENT = "//table[contains(@class, 'el-table__body')]"
 
-    # 备选下载按钮选择器（按优先级排序）
+    # Alternative download button selectors (sorted by priority)
     DOWNLOAD_BUTTON_ALTERNATIVES = [
         "//button[contains(., '公告下载')]",
         "//button[contains(., '下载')]",
@@ -146,19 +146,19 @@ class SelectorConfig:
         "a.download",
     ]
 
-    # 下一页选择器（按优先级排序）
+    # Next page selectors (sorted by priority)
     NEXT_PAGE_SELECTORS = [
-        ".el-pager li.number.active + li.number",  # Element UI 主要选择器
-        "button.el-pagination__next:not(.is-disabled)",  # Element UI 下一页按钮
-        ".el-pager li.active + li.number",  # Element UI 备用选择器
-        ".el-pager li.number.active + li",  # Element UI 另一种模式
-        "button.el-pagination__next:not([disabled])",  # 通用下一页按钮
-        ".pagination .next:not(.disabled)",  # 通用分页样式
-        "a[aria-label='下一页']:not(.disabled)",  # ARIA标签
-        "button[aria-label='Next page']:not([disabled])",  # 英文标签
+        ".el-pager li.number.active + li.number",  # Element UI primary selector
+        "button.el-pagination__next:not(.is-disabled)",  # Element UI next page button
+        ".el-pager li.active + li.number",  # Element UI alternative selector
+        ".el-pager li.number.active + li",  # Element UI another pattern
+        "button.el-pagination__next:not([disabled])",  # Generic next page button
+        ".pagination .next:not(.disabled)",  # Generic pagination style
+        "a[aria-label='下一页']:not(.disabled)",  # ARIA label
+        "button[aria-label='Next page']:not([disabled])",  # English label
     ]
 
-    # 页码输入和跳转
+    # Page input and jump
     PAGE_INPUT_SELECTORS = [
         "input.el-pagination__editor",
         "input.page-input",
@@ -173,7 +173,7 @@ class SelectorConfig:
         "button:contains('Go')",
     ]
 
-    # 页码按钮
+    # Page number buttons
     PAGE_BUTTON_SELECTORS = [
         ".el-pager li.number:not(.active)",
         ".pagination li:not(.active)",
@@ -195,35 +195,35 @@ USER_AGENTS = [
 
 
 # =============================================================================
-# Chrome启动参数
+# Chrome Launch Arguments
 # =============================================================================
 CHROME_LAUNCH_ARGS = [
-    # 沙箱和共享内存
+    # Sandbox and shared memory
     "--no-sandbox",
     "--disable-dev-shm-usage",
-    # 硬件加速
+    # Hardware acceleration
     "--disable-gpu",
-    # 扩展和自动化检测
+    # Extensions and automation detection
     "--disable-extensions",
     "--disable-blink-features=AutomationControlled",
-    # 调试和端口
+    # Debug and port
     "--remote-debugging-port=0",
-    # 首次运行检查
+    # First run check
     "--no-first-run",
     "--no-default-browser-check",
-    # 性能优化
+    # Performance optimization
     "--disable-background-timer-throttling",
     "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding",
-    # 功能禁用
+    # Feature disable
     "--disable-sync",
     "--disable-translate",
     "--disable-default-apps",
     "--disable-notifications",
     "--disable-popup-blocking",
-    # 日志级别
+    # Log level
     "--log-level=3",
-    # 特性开关
+    # Feature switches
     "--disable-features=TranslateUI",
     "--disable-component-extensions-with-background-pages",
     "--disable-domain-reliability",
@@ -234,12 +234,12 @@ CHROME_LAUNCH_ARGS = [
 
 
 # =============================================================================
-# Playwright特定配置
+# Playwright-Specific Configuration
 # =============================================================================
 class PlaywrightConfig:
-    """Playwright浏览器配置"""
+    """Playwright browser configuration"""
 
-    # 上下文选项
+    # Context options
     CONTEXT_OPTIONS = {
         "viewport": {"width": 1920, "height": 1080},
         "java_script_enabled": True,
@@ -247,38 +247,38 @@ class PlaywrightConfig:
         "accept_downloads": True,
     }
 
-    # 反检测脚本
+    # Anti-detection script
     ANTI_DETECTION_SCRIPT = """
         Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
         Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
         Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
     """
 
-    # 等待状态
+    # Wait state
     WAIT_STATE = "domcontentloaded"
 
-    # 下载事件超时（毫秒）
+    # Download event timeout (milliseconds)
     DOWNLOAD_TIMEOUT = 30000
 
 
 # =============================================================================
-# Selenium特定配置
+# Selenium-Specific Configuration
 # =============================================================================
 class SeleniumConfig:
-    """Selenium浏览器配置"""
+    """Selenium browser configuration"""
 
-    # 反检测脚本
+    # Anti-detection script
     ANTI_DETECTION_SCRIPT = (
         "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     )
 
-    # 实验选项
+    # Experimental options
     EXPERIMENTAL_OPTIONS = {
         "excludeSwitches": ["enable-automation"],
         "useAutomationExtension": False,
     }
 
-    # 下载偏好设置
+    # Download preferences
     DOWNLOAD_PREFERENCES = {
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
@@ -294,15 +294,15 @@ class SeleniumConfig:
 
 
 # =============================================================================
-# 环境配置
+# Environment Configuration
 # =============================================================================
 class EnvironmentConfig:
-    """环境相关配置"""
+    """Environment-related configuration"""
 
-    # 测试环境检测
+    # Test environment detection
     TEST_ENVIRONMENT_INDICATORS = ["TEST_ENV", "PYTEST_CURRENT_TEST", "pytest", "test"]
 
-    # 日志级别
+    # Log levels
     LOG_LEVEL_DEBUG = "DEBUG"
     LOG_LEVEL_INFO = "INFO"
     LOG_LEVEL_WARNING = "WARNING"
@@ -311,134 +311,134 @@ class EnvironmentConfig:
 
 
 # =============================================================================
-# 错误配置
+# Error Configuration
 # =============================================================================
 class ErrorConfig:
-    """错误处理配置"""
+    """Error handling configuration"""
 
-    # 错误历史最大记录数
+    # Maximum error history records
     MAX_ERROR_HISTORY = 1000
 
-    # 错误恢复策略
+    # Error recovery strategies
     RECOVERY_STRATEGIES = {
-        "NONE": "无恢复",
-        "RETRY": "重试",
-        "FALLBACK": "降级",
-        "SKIP": "跳过",
-        "TERMINATE": "终止",
-        "MANUAL": "手动处理",
+        "NONE": "No recovery",
+        "RETRY": "Retry",
+        "FALLBACK": "Degrade",
+        "SKIP": "Skip",
+        "TERMINATE": "Terminate",
+        "MANUAL": "Manual handling",
     }
 
-    # 严重级别
+    # Severity levels
     SEVERITY_LEVELS = {
-        "DEBUG": "调试",
-        "INFO": "信息",
-        "WARNING": "警告",
-        "ERROR": "错误",
-        "CRITICAL": "严重",
-        "FATAL": "致命",
+        "DEBUG": "Debug",
+        "INFO": "Info",
+        "WARNING": "Warning",
+        "ERROR": "Error",
+        "CRITICAL": "Critical",
+        "FATAL": "Fatal",
     }
 
 
 # =============================================================================
-# 性能监控配置
+# Performance Monitoring Configuration
 # =============================================================================
 class PerformanceConfig:
-    """性能监控配置"""
+    """Performance monitoring configuration"""
 
-    # 基准测试超时
+    # Benchmark timeout
     BENCHMARK_TIMEOUT = 60
 
-    # 性能阈值
+    # Performance thresholds
     THRESHOLDS = {
-        "initialization_time": 2.0,  # 秒
-        "config_loading_time": 0.5,  # 秒
-        "constant_access_time": 0.1,  # 1000次访问秒
-        "method_execution_time": 5.0,  # 秒
+        "initialization_time": 2.0,  # seconds
+        "config_loading_time": 0.5,  # seconds
+        "constant_access_time": 0.1,  # 1000 access seconds
+        "method_execution_time": 5.0,  # seconds
     }
 
-    # 监控间隔
-    MONITOR_INTERVAL = 10  # 秒
+    # Monitor interval
+    MONITOR_INTERVAL = 10  # seconds
 
 
 # =============================================================================
-# 配置验证规则
+# Configuration Validation Rules
 # =============================================================================
 class ValidationRules:
-    """配置验证规则"""
+    """Configuration validation rules"""
 
-    # 超时验证
+    # Timeout validation
     TIMEOUT_MIN = 1
     TIMEOUT_MAX = 3600
 
-    # 文件大小验证
+    # File size validation
     FILE_SIZE_MIN = 1024  # 1KB
     FILE_SIZE_MAX = 1024 * 1024 * 1024  # 1GB
 
-    # 重试次数验证
+    # Retry count validation
     RETRY_MIN = 0
     RETRY_MAX = 10
 
-    # 窗口大小验证
+    # Window size validation
     WINDOW_WIDTH_MIN = 800
     WINDOW_HEIGHT_MIN = 600
     WINDOW_WIDTH_MAX = 7680
     WINDOW_HEIGHT_MAX = 4320
 
-    # 字符串长度验证
+    # String length validation
     MAX_STRING_LENGTH = 1000
     MAX_PATH_LENGTH = 4096
 
 
 # =============================================================================
-# 全局常量
+# Global Constants
 # =============================================================================
 class GlobalConstants:
-    """全局常量配置"""
+    """Global constants configuration"""
 
-    # 项目名称
+    # Project name
     PROJECT_NAME = "StockInfoDownloader"
 
-    # 版本信息
+    # Version information
     VERSION = "2.0.0"
 
-    # 编码
+    # Encoding
     ENCODING = "utf-8"
 
-    # 文件路径
+    # File paths
     DEFAULT_CONFIG_PATH = "config.json"
     DEFAULT_LOG_DIR = "logs"
     DEFAULT_DOWNLOAD_DIR = "downloads"
 
-    # 时间格式
+    # Date time format
     DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
     FILENAME_DATETIME_FORMAT = "%Y%m%d_%H%M%S"
 
-    # 最大值
+    # Maximum values
     MAX_CONCURRENT_DOWNLOADS = 5
     MAX_RETRIES_PER_DOWNLOAD = 3
 
-    # 验证阈值
+    # Validation thresholds
     VALIDATION_RETRY_COUNT = 3
-    VALIDATION_RETRY_DELAY = 2  # 秒
+    VALIDATION_RETRY_DELAY = 2  # seconds
 
 
 # =============================================================================
-# 业务相关常量
+# Business-Related Constants
 # =============================================================================
 class BusinessConfig:
-    """业务相关配置"""
+    """Business-related configuration"""
 
-    # 巨潮资讯网相关
+    # CNINFO (cninfo.com.cn) related
     CNINFO_BASE_URL = "http://www.cninfo.com.cn"
     CNINFO_NEW_DISCLOSURE = "/new/disclosure"
     CNINFO_DETAIL_PATH = "/new/disclosure/detail"
 
-    # 文件命名模式
+    # File naming pattern
     FILENAME_PATTERN = "{stock_code}_{company_name}_{date}_{doc_type}.pdf"
 
-    # 支持的文档类型
+    # Supported document types
     SUPPORTED_DOC_TYPES = ["公告", "报告", "摘要"]
 
-    # 默认查询参数
+    # Default query parameters
     DEFAULT_SEARCH_PARAMS = {"pageNum": 1, "pageSize": 30, "category": "announcement"}

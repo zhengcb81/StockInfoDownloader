@@ -1,6 +1,6 @@
 """
-性能监控模块
-提供性能监控、统计和报告功能
+Performance monitoring module
+Provides performance monitoring, statistics, and reporting functionality
 """
 
 import functools
@@ -9,14 +9,16 @@ import time
 from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, TypeVar
+
+F = TypeVar('F', bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class PerformanceMetric:
-    """性能指标数据类"""
+    """Performance metric data class"""
 
     operation: str
     duration: float
@@ -25,9 +27,9 @@ class PerformanceMetric:
 
 
 class PerformanceMonitor:
-    """性能监控器"""
+    """Performance monitor"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metrics: List[PerformanceMetric] = []
         self.operation_stats: Dict[str, Dict[str, float]] = defaultdict(
             lambda: {
@@ -39,12 +41,12 @@ class PerformanceMonitor:
             }
         )
 
-    def record_metric(self, operation: str, duration: float, **metadata):
-        """记录性能指标"""
+    def record_metric(self, operation: str, duration: float, **metadata: Any) -> None:
+        """Record a performance metric"""
         metric = PerformanceMetric(operation, duration, **metadata)
         self.metrics.append(metric)
 
-        # 更新统计信息
+        # Update statistics
         stats = self.operation_stats[operation]
         stats["count"] += 1
         stats["total_time"] += duration
@@ -52,16 +54,16 @@ class PerformanceMonitor:
         stats["max_time"] = max(stats["max_time"], duration)
         stats["avg_time"] = stats["total_time"] / stats["count"]
 
-        logger.debug(f"性能指标: {operation} 耗时 {duration:.3f}秒")
+        logger.debug(f"Performance metric: {operation} took {duration:.3f}s")
 
     def get_stats(self, operation: Optional[str] = None) -> Dict[str, Any]:
-        """获取性能统计"""
+        """Get performance statistics"""
         if operation:
             return dict(self.operation_stats[operation])
         return {op: dict(stats) for op, stats in self.operation_stats.items()}
 
     def get_summary(self) -> Dict[str, Any]:
-        """获取性能摘要"""
+        """Get performance summary"""
         total_operations = sum(
             stats["count"] for stats in self.operation_stats.values()
         )
@@ -83,47 +85,47 @@ class PerformanceMonitor:
             )[0],
         }
 
-    def clear(self):
-        """清除所有指标"""
+    def clear(self) -> None:
+        """Clear all metrics"""
         self.metrics.clear()
         self.operation_stats.clear()
 
-    def log_report(self):
-        """输出性能报告"""
+    def log_report(self) -> None:
+        """Output performance report"""
         summary = self.get_summary()
-        logger.info("=== 性能报告 ===")
-        logger.info(f"总操作数: {summary['total_operations']}")
-        logger.info(f"总耗时: {summary['total_time']:.3f}秒")
+        logger.info("=== Performance Report ===")
+        logger.info(f"Total operations: {summary['total_operations']}")
+        logger.info(f"Total time: {summary['total_time']:.3f}s")
         logger.info(
-            f"平均耗时: {summary['total_time'] / max(summary['total_operations'], 1):.3f}秒"
+            f"Average time: {summary['total_time'] / max(summary['total_operations'], 1):.3f}s"
         )
-        logger.info(f"最慢操作: {summary['slowest_operation']}")
-        logger.info(f"最快操作: {summary['fastest_operation']}")
+        logger.info(f"Slowest operation: {summary['slowest_operation']}")
+        logger.info(f"Fastest operation: {summary['fastest_operation']}")
 
-        logger.info("\n=== 各操作详情 ===")
+        logger.info("\n=== Operation Details ===")
         for operation, stats in sorted(
             self.operation_stats.items(), key=lambda x: x[1]["avg_time"], reverse=True
         ):
             logger.info(
-                f"{operation}: 平均 {stats['avg_time']:.3f}秒 "
-                f"(最小 {stats['min_time']:.3f}秒, "
-                f"最大 {stats['max_time']:.3f}秒, "
-                f"执行 {stats['count']}次)"
+                f"{operation}: avg {stats['avg_time']:.3f}s "
+                f"(min {stats['min_time']:.3f}s, "
+                f"max {stats['max_time']:.3f}s, "
+                f"count {stats['count']})"
             )
 
 
-# 全局性能监控器实例
+# Global performance monitor instance
 performance_monitor = PerformanceMonitor()
 
 
-def monitor_performance(operation_name: Optional[str] = None):
-    """性能监控装饰器"""
+def monitor_performance(operation_name: Optional[str] = None) -> Callable[[F], F]:
+    """Performance monitoring decorator"""
 
-    def decorator(func):
+    def decorator(func: F) -> F:
         name = operation_name or f"{func.__module__}.{func.__name__}"
 
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
@@ -132,14 +134,14 @@ def monitor_performance(operation_name: Optional[str] = None):
                 duration = time.time() - start_time
                 performance_monitor.record_metric(name, duration)
 
-        return wrapper
+        return wrapper  # type: ignore
 
     return decorator
 
 
 @contextmanager
-def monitor_operation(operation: str, **metadata):
-    """上下文管理器形式的性能监控"""
+def monitor_operation(operation: str, **metadata: Any) -> Iterator[None]:
+    """Performance monitoring as a context manager"""
     start_time = time.time()
     try:
         yield
@@ -148,16 +150,16 @@ def monitor_operation(operation: str, **metadata):
         performance_monitor.record_metric(operation, duration, **metadata)
 
 
-def log_performance_stats():
-    """记录性能统计的便捷函数"""
+def log_performance_stats() -> None:
+    """Convenience function to log performance statistics"""
     performance_monitor.log_report()
 
 
 def get_performance_stats() -> Dict[str, Any]:
-    """获取性能统计的便捷函数"""
+    """Convenience function to get performance statistics"""
     return performance_monitor.get_stats()
 
 
-def clear_performance_stats():
-    """清除性能统计的便捷函数"""
+def clear_performance_stats() -> None:
+    """Convenience function to clear performance statistics"""
     performance_monitor.clear()

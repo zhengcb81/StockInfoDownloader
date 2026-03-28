@@ -12,7 +12,7 @@ import traceback
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, cast
 
 from src.core.logger import get_logger
 
@@ -248,7 +248,7 @@ class RetryManager:
         self.config = config or RetryConfig()
         self.logger = get_logger(__name__)
         self.error_classifier = ErrorClassifier()
-        self.retry_stats = defaultdict(int)
+        self.retry_stats: Dict[str, int] = defaultdict(int)
 
     def calculate_delay(self, attempt: int, error_info: ErrorInfo) -> float:
         """
@@ -378,7 +378,9 @@ class RetryManager:
 
         # 重试次数用完，抛出最后一个错误
         self.retry_stats["max_retries_exceeded"] += 1
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("All retry attempts failed but no exception was captured")
 
     async def execute_with_retry_async(self, func: Callable, *args, **kwargs) -> Any:
         """
@@ -431,7 +433,9 @@ class RetryManager:
                     await asyncio.sleep(delay)
 
         self.retry_stats["max_retries_exceeded"] += 1
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("All retry attempts failed but no exception was captured")
 
     def _log_error(self, error_info: ErrorInfo):
         """记录错误日志"""
@@ -478,7 +482,7 @@ class CircuitBreaker:
         self.config = config or CircuitBreakerConfig()
         self.state = CircuitBreakerState.CLOSED
         self.failure_count = 0
-        self.last_failure_time = 0
+        self.last_failure_time: float = 0.0
         self.half_open_calls = 0
         self.lock = threading.Lock()
         self.logger = get_logger(__name__)
@@ -574,7 +578,7 @@ class EnhancedErrorHandler:
         self.error_classifier = ErrorClassifier()
         self.retry_manager = RetryManager()
         self.circuit_breakers = {}
-        self.error_history = deque(maxlen=1000)  # 保留最近1000个错误
+        self.error_history: deque[ErrorInfo] = deque(maxlen=1000)  # 保留最近1000个错误
         self.error_stats = defaultdict(int)
         self.lock = threading.Lock()
 
@@ -609,7 +613,7 @@ class EnhancedErrorHandler:
         # 触发错误处理策略
         self._trigger_error_handlers(error_info)
 
-        return error_info
+        return cast(ErrorInfo, error_info)
 
     def execute_with_protection(
         self,
@@ -697,7 +701,7 @@ class EnhancedErrorHandler:
 
         async def protected_func():
             if circuit_breaker:
-                return await self.loop.run_in_executor(
+                return await asyncio.get_event_loop().run_in_executor(
                     None, circuit_breaker.call, func, *args, **kwargs
                 )
             else:

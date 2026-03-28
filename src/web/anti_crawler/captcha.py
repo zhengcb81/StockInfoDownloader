@@ -8,7 +8,7 @@ Detects and handles various types of CAPTCHA challenges.
 
 import random
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.core.logger import get_logger
 
@@ -38,7 +38,7 @@ class CaptchaHandler:
         ]
 
     def detect_captcha(
-        self, page_content: str, response_headers: Dict[str, str] = None
+        self, page_content: str, response_headers: Optional[Dict[str, str]] = None
     ) -> bool:
         """Detect if CAPTCHA is encountered"""
         # Check page content

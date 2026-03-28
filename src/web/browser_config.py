@@ -1,32 +1,32 @@
 """
-浏览器配置管理模块
-统一管理所有浏览器相关配置参数
+Browser Configuration Management Module
+Unified management of all browser-related configuration parameters.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from ..core.config import ConfigManager
 from ..core.config_constants import ConfigConstants
 
 
 class BrowserConfig:
-    """浏览器配置管理类"""
+    """Browser configuration management class"""
 
     def __init__(self, config_manager: Optional[ConfigManager] = None):
         """
-        初始化浏览器配置
+        Initialize browser configuration.
 
         Args:
-            config_manager: 配置管理器实例
+            config_manager: Configuration manager instance
         """
         self.config_manager = config_manager or ConfigManager()
 
     def get_browser_config(self) -> Dict[str, Any]:
         """
-        获取完整的浏览器配置
+        Get complete browser configuration.
 
         Returns:
-            Dict[str, Any]: 浏览器配置字典
+            Dict[str, Any]: Browser configuration dictionary
         """
         return {
             "headless": self.is_headless(),
@@ -39,57 +39,57 @@ class BrowserConfig:
 
     def is_headless(self) -> bool:
         """
-        获取是否使用无头模式
+        Get whether to use headless mode.
 
         Returns:
-            bool: 是否使用无头模式
+            bool: Whether to use headless mode
         """
-        return self.config_manager.get("headless", True)
+        return cast(bool, self.config_manager.get("headless", True))
 
     def get_window_size(self) -> str:
         """
-        获取窗口大小
+        Get window size.
 
         Returns:
-            str: 窗口大小字符串，如 "1920,1080"
+            str: Window size string, e.g. "1920,1080"
         """
-        return self.config_manager.get("browser.window_size", "1920,1080")
+        return cast(str, self.config_manager.get("browser.window_size", "1920,1080"))
 
     def get_page_load_strategy(self) -> str:
         """
-        获取页面加载策略
+        Get page load strategy.
 
         Returns:
-            str: 页面加载策略
+            str: Page load strategy
         """
-        return self.config_manager.get("page_load_strategy", "eager")
+        return cast(str, self.config_manager.get("page_load_strategy", "eager"))
 
     def get_user_agents(self) -> List[str]:
         """
-        获取用户代理列表
+        Get user agent list.
 
         Returns:
-            List[str]: 用户代理字符串列表
+            List[str]: User agent string list
         """
-        return self.config_manager.get(
+        return cast(List[str], self.config_manager.get(
             "browser.user_agents", ConfigConstants.USER_AGENTS
-        )
+        ))
 
     def get_browser_strategy(self) -> str:
         """
-        获取浏览器策略
+        Get browser strategy.
 
         Returns:
-            str: 浏览器策略类型
+            str: Browser strategy type
         """
-        return self.config_manager.get("browser.strategy", "playwright")
+        return cast(str, self.config_manager.get("browser.strategy", "playwright"))
 
     def get_all_timeouts(self) -> Dict[str, int]:
         """
-        获取所有超时设置
+        Get all timeout settings.
 
         Returns:
-            Dict[str, int]: 超时设置字典
+            Dict[str, int]: Timeout settings dictionary
         """
         return {
             "page_load": self.get_timeout("page_load"),
@@ -100,24 +100,24 @@ class BrowserConfig:
 
     def get_timeout(self, timeout_type: str) -> int:
         """
-        获取指定类型的超时时间
+        Get timeout for specified type.
 
         Args:
-            timeout_type: 超时类型
+            timeout_type: Timeout type
 
         Returns:
-            int: 超时时间（秒）
+            int: Timeout in seconds
         """
-        return self.config_manager.get(
+        return cast(int, self.config_manager.get(
             f"timeout.{timeout_type}", ConfigConstants.get_timeout(timeout_type)
-        )
+        ))
 
     def get_test_browser_config(self) -> Dict[str, Any]:
         """
-        获取测试环境的浏览器配置
+        Get browser configuration for test environment.
 
         Returns:
-            Dict[str, Any]: 测试浏览器配置
+            Dict[str, Any]: Test browser configuration
         """
         return {
             "headless": self.config_manager.get_test_config(
@@ -137,10 +137,10 @@ class BrowserConfig:
 
     def get_selenium_options(self) -> Dict[str, Any]:
         """
-        获取Selenium特定的选项配置
+        Get Selenium-specific option configuration.
 
         Returns:
-            Dict[str, Any]: Selenium选项配置
+            Dict[str, Any]: Selenium options configuration
         """
         return {
             "headless": self.is_headless(),
@@ -151,10 +151,10 @@ class BrowserConfig:
 
     def get_playwright_options(self) -> Dict[str, Any]:
         """
-        获取Playwright特定的选项配置
+        Get Playwright-specific option configuration.
 
         Returns:
-            Dict[str, Any]: Playwright选项配置
+            Dict[str, Any]: Playwright options configuration
         """
         return {
             "headless": self.is_headless(),
@@ -164,10 +164,10 @@ class BrowserConfig:
 
     def get_random_user_agent(self) -> str:
         """
-        获取随机用户代理
+        Get random user agent.
 
         Returns:
-            str: 随机用户代理字符串
+            str: Random user agent string
         """
         import random
 
@@ -176,10 +176,10 @@ class BrowserConfig:
 
     def _parse_window_size(self) -> Dict[str, int]:
         """
-        解析窗口大小字符串
+        Parse window size string.
 
         Returns:
-            Dict[str, int]: 视口尺寸
+            Dict[str, int]: Viewport dimensions
         """
         try:
             window_size = self.get_window_size()
@@ -190,45 +190,45 @@ class BrowserConfig:
 
     def update_config(self, **kwargs) -> None:
         """
-        更新浏览器配置
+        Update browser configuration.
 
         Args:
-            **kwargs: 配置键值对
+            **kwargs: Configuration key-value pairs
         """
         for key, value in kwargs.items():
             if "." in key:
-                # 支持嵌套配置，如 'browser.window_size'
+                # Support nested config, e.g. 'browser.window_size'
                 self.config_manager.set(key, value)
             else:
-                # 顶级配置
+                # Top-level config
                 self.config_manager.set(key, value)
 
     def validate_config(self) -> List[str]:
         """
-        验证浏览器配置的有效性
+        Validate browser configuration.
 
         Returns:
-            List[str]: 错误消息列表，如果为空则配置有效
+            List[str]: Error message list, empty if configuration is valid
         """
         errors = []
 
-        # 验证超时设置
+        # Validate timeout settings
         for timeout_type in ["page_load", "element_wait", "download", "script"]:
             timeout = self.get_timeout(timeout_type)
             if timeout <= 0:
                 errors.append(f"Invalid timeout for {timeout_type}: {timeout}")
 
-        # 验证窗口大小
+        # Validate window size
         try:
             self._parse_window_size()
         except Exception:
             errors.append("Invalid window size format")
 
-        # 验证用户代理
+        # Validate user agents
         if not self.get_user_agents():
             errors.append("No user agents configured")
 
-        # 验证浏览器策略
+        # Validate browser strategy
         strategy = self.get_browser_strategy()
         if strategy not in ["selenium", "playwright"]:
             errors.append(f"Invalid browser strategy: {strategy}")

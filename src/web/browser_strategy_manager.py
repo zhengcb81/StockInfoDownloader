@@ -94,7 +94,7 @@ class BrowserStrategyManager:
             else:
                 raise BrowserStrategyError(
                     f"不支持的浏览器类型: {browser_type}",
-                    error_code=ErrorCode.BROWSER_STRATEGY_ERROR,
+                    error_code=ErrorCode.WEBDRIVER_STRATEGY_ERROR,
                     severity=ErrorSeverity.ERROR,
                 )
 
@@ -109,7 +109,7 @@ class BrowserStrategyManager:
             else:
                 raise BrowserStrategyError(
                     f"无法初始化浏览器策略: {e}",
-                    error_code=ErrorCode.BROWSER_STRATEGY_ERROR,
+                    error_code=ErrorCode.WEBDRIVER_STRATEGY_ERROR,
                     severity=ErrorSeverity.CRITICAL,
                 )
 

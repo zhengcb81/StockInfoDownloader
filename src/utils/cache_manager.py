@@ -8,7 +8,7 @@ import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union, cast
 
 from src.core.logger import get_logger
 
@@ -103,7 +103,7 @@ class CacheManager:
                 cache_data = self._file_exists_cache[cache_key]
                 if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"缓存命中: {file_path}")
-                    return cache_data["exists"]
+                    return bool(cache_data["exists"])
                 else:
                     # 缓存过期，移除
                     del self._file_exists_cache[cache_key]
@@ -139,7 +139,10 @@ class CacheManager:
         return result
 
     def cached_stock_info(
-        self, stock_code: str, info_fetcher_func, custom_ttl: Optional[int] = None
+        self,
+        stock_code: str,
+        info_fetcher_func: Callable[[str], Optional[Dict[str, Any]]],
+        custom_ttl: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
         缓存的股票信息获取
@@ -160,7 +163,8 @@ class CacheManager:
                 cache_data = self._stock_info_cache[stock_code]
                 if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"股票信息缓存命中: {stock_code}")
-                    return cache_data["info"]
+                    info = cache_data["info"]
+                    return cast(Optional[Dict[str, Any]], info)
                 else:
                     # 缓存过期，移除
                     del self._stock_info_cache[stock_code]
@@ -191,14 +195,17 @@ class CacheManager:
             else:
                 self.logger.warning(f"无法获取股票信息: {stock_code}")
 
-            return stock_info
+            return cast(Optional[Dict[str, Any]], stock_info)
 
         except Exception as e:
             self.logger.error(f"获取股票信息失败 {stock_code}: {e}")
             return None
 
     def cached_page_content(
-        self, url: str, content_fetcher_func, custom_ttl: Optional[int] = None
+        self,
+        url: str,
+        content_fetcher_func: Callable[[str], Optional[str]],
+        custom_ttl: Optional[int] = None
     ) -> Optional[str]:
         """
         缓存的页面内容获取
@@ -219,7 +226,8 @@ class CacheManager:
                 cache_data = self._page_content_cache[url]
                 if time.time() - cache_data["timestamp"] < ttl:
                     self.logger.debug(f"页面内容缓存命中: {url}")
-                    return cache_data["content"]
+                    content = cache_data["content"]
+                    return cast(Optional[str], content)
                 else:
                     # 缓存过期，移除
                     del self._page_content_cache[url]
@@ -250,7 +258,7 @@ class CacheManager:
             else:
                 self.logger.warning(f"无法获取页面内容: {url}")
 
-            return content
+            return cast(Optional[str], content)
 
         except Exception as e:
             self.logger.error(f"获取页面内容失败 {url}: {e}")
@@ -379,7 +387,10 @@ def cached_file_exists(file_path: Union[str, Path], min_size: int = 1024) -> boo
     return get_cache_manager().cached_file_exists(file_path, min_size)
 
 
-def cached_stock_info(stock_code: str, info_fetcher_func) -> Optional[Dict[str, Any]]:
+def cached_stock_info(
+    stock_code: str,
+    info_fetcher_func: Callable[[str], Optional[Dict[str, Any]]]
+) -> Optional[Dict[str, Any]]:
     """便捷函数：缓存的股票信息获取"""
     return get_cache_manager().cached_stock_info(stock_code, info_fetcher_func)
 
