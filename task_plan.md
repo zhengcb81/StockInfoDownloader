@@ -583,6 +583,103 @@ src/services/downloader/
 
 ---
 
+### Phase 49: OrgIdService 浏览器策略解耦 (P1) 🟡
+- **Status:** Complete
+- **Date:** 2026-04-13
+- **目标:** 将 OrgIdService 从硬编码 Selenium 依赖解耦，支持 Selenium/Playwright 可配置
+- **预期收益:** 一致性+100%（org id 爬取与下载使用同一浏览器策略）
+
+**当前问题:**
+- `OrgIdService` (orgid_service.py) 直接依赖 `WebDriverManager`（Selenium），无法使用 Playwright
+- 项目已有完善的 `BrowserStrategy` 抽象体系，但 OrgIdService 未使用
+- `MappingManager` 创建 `OrgIdService` 时没有传递浏览器策略
+- `UnifiedDownloader` 持有用户选择的 `browser_strategy` 配置，但没有传递给下游
+
+**调用链:**
+```
+UnifiedDownloader._download_internal()  (unified_downloader.py:247)
+  └─ MappingManager.get_org_id()        (mapping.py:131)
+       └─ _crawl_org_id_from_web()      (mapping.py:162)
+            └─ OrgIdService()            (orgid_service.py:25)  ← 硬编码 Selenium
+                 └─ WebDriverManager()   (driver.py:50)
+```
+
+**改进方案:**
+
+#### Phase 49.1: OrgIdService 核心解耦
+- **文件:** `src/services/orgid_service.py`
+- **改动:**
+  - 构造函数接受 `browser_strategy: Optional[BrowserStrategy] = None` 或 `strategy_type: str = "selenium"`
+  - 优先使用传入的 `BrowserStrategy` 实例；否则用 `BrowserStrategyFactory.create_strategy(strategy_type)` 创建
+  - 移除对 `WebDriverManager` 的直接依赖和 Selenium import
+  - `_crawl_org_id` 使用 `BrowserStrategy` 抽象 API 替代 Selenium 原生 API
+  - 反爬虫处理：BrowserStrategy 内置反检测脚本，跳过 `apply_anti_detection` 和 `simulate_human_behavior`
+  - 保留 `random_delay`（无 driver 依赖）
+
+**API Mapping (Selenium → BrowserStrategy):**
+
+| Current (Selenium) | Target (BrowserStrategy) |
+|---|---|
+| `driver.get(url)` | `strategy.navigate(url)` |
+| `WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.TAG_NAME, "body")))` | `strategy.wait_for_element("body", by="tag", timeout=15)` |
+| `WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.XPATH, xpath)))` | `strategy.find_elements(xpath, by="xpath")` + sleep fallback |
+| `link.get_attribute("href")` | `strategy.get_attribute(link, "href")` |
+| `driver.page_source` | `strategy.get_page_source()` |
+| `with driver_manager as driver:` | `strategy.initialize()` + try/finally + `strategy.cleanup()` |
+| `anti_crawler.apply_anti_detection(driver)` | 跳过（BrowserStrategy 内置） |
+| `anti_crawler.simulate_human_behavior(driver)` | 跳过（BrowserStrategy 内置） |
+| `anti_crawler.random_delay(2, 4)` | 保留（无 driver 依赖） |
+
+#### Phase 49.2: MappingManager 传递策略
+- **文件:** `src/data/mapping.py`
+- **改动:**
+  - 构造函数新增 `browser_strategy_type: str = "selenium"` 参数
+  - `_crawl_org_id_from_web` 创建 `OrgIdService` 时传入 `strategy_type`
+
+#### Phase 49.3: UnifiedDownloader 联动配置
+- **文件:** `src/services/unified_downloader.py`
+- **改动:**
+  - `_download_internal` 创建 `MappingManager` 时传入 `browser_strategy_type=self.config.get("browser_strategy", "selenium")`
+
+#### Phase 49.4: 测试适配
+- **文件:** `tests/unit/test_orgid_service.py`
+- **改动:**
+  - 更新 mock：从 `WebDriverManager` 改为 mock `BrowserStrategy`
+  - 验证 `strategy_type` 参数传递正确
+  - 补充 Playwright 策略的 mock 测试
+
+**Tasks:**
+- [x] Phase 49.1: 改造 OrgIdService 使用 BrowserStrategy 接口
+- [x] Phase 49.2: 改造 MappingManager 传递浏览器策略类型
+- [x] Phase 49.3: 改造 UnifiedDownloader 联动配置
+- [x] Phase 49.4: 适配单元测试
+- [x] 运行 `pytest tests/unit/ --no-cov -q` → **1830 passed, 1 skipped, 0 failed**
+- [x] 运行 `pytest tests/integration/ --no-cov -q` → **93 passed, 0 failed**
+- [x] E2E Playwright: `python tests/e2e/official_e2e_test.py --browser-strategy=playwright` → **Perfect match**
+- [x] E2E Selenium: `python tests/e2e/official_e2e_test.py --browser-strategy=selenium` → **Perfect match**
+
+**⚠️ E2E Gate:** 每个阶段结束前必须运行端到端测试（Selenium和Playwright都要），保证100%通过，不然不能进入下一个阶段。
+
+**Files to Modify:**
+
+| File | Change Type | Description |
+|------|------------|-------------|
+| `src/services/orgid_service.py` | **Major Refactor** | 解耦 Selenium 依赖，使用 BrowserStrategy 接口 |
+| `src/data/mapping.py` | **Minor** | 新增 browser_strategy_type 参数 |
+| `src/services/unified_downloader.py` | **Minor** | 传递 browser_strategy 配置 |
+| `tests/unit/test_orgid_service.py` | **Medium** | 适配新的依赖注入方式 |
+
+**Files NOT Modified:**
+
+| File | Reason |
+|------|--------|
+| `src/web/browser_strategy.py` | 抽象接口已满足需求 |
+| `src/web/selenium_strategy.py` | 实现稳定，无需改动 |
+| `src/web/playwright_strategy.py` | 实现稳定，无需改动 |
+| `src/web/anti_crawler_py.py` | OrgIdService 层面绕过，不修改 |
+
+---
+
 ## Key Questions
 
 1. ConfigManager 拆分后，如何保持向后兼容？

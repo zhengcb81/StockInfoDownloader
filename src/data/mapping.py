@@ -19,17 +19,25 @@ logger = get_logger(__name__)
 class MappingManager:
     """映射管理器，管理股票代码与组织ID的映射"""
 
-    def __init__(self, mapping_file: Optional[str] = None, auto_fetch: bool = True):
+    def __init__(
+        self,
+        mapping_file: Optional[str] = None,
+        auto_fetch: bool = True,
+        browser_strategy_type: str = "selenium",
+    ):
         """
         初始化映射管理器
 
         Args:
             mapping_file: 映射文件路径，如果为 None 则使用默认路径
             auto_fetch: 是否允许从网络自动获取（默认True，单元测试可设为False）
+            browser_strategy_type: 浏览器策略类型（"selenium" 或 "playwright"），
+                                   传递给 OrgIdService 使用
         """
         self.logger = logger
         self._mappings: Dict[str, OrgIdMapping] = {}
         self._auto_fetch = auto_fetch  # 是否允许从网络获取
+        self._browser_strategy_type = browser_strategy_type
 
         # 智能路径解析
         if mapping_file:
@@ -172,7 +180,7 @@ class MappingManager:
         try:
             from ..services.orgid_service import OrgIdService
 
-            org_id_service = OrgIdService()
+            org_id_service = OrgIdService(strategy_type=self._browser_strategy_type)
             org_id = org_id_service.get_org_id(stock_code, headless=True)
 
             if org_id:

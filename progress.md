@@ -177,3 +177,37 @@ Selenium测试遇到Chrome 146.0.7680.165的"tab crashed"错误：
 - 这是Chrome浏览器的稳定性问题，不是代码问题
 - Playwright测试完全正常，验证了核心功能
 - 可能原因：Chrome版本问题、内存压力、GPU加速冲突
+
+---
+
+## Session: 2026-04-13 - Phase 49: OrgIdService 浏览器策略解耦
+
+### 目标
+将 OrgIdService 从硬编码 Selenium 依赖解耦，支持 Selenium/Playwright 可配置，与用户选择的下载方式保持一致。
+
+### Phase Exit Requirements
+> 每个阶段结束前必须运行端到端测试（Selenium和Playwright都要），保证100%通过，不然不能进入下一个阶段。
+
+### 进度
+- [x] Phase 49.1: OrgIdService 核心解耦
+- [x] Phase 49.2: MappingManager 传递策略
+- [x] Phase 49.3: UnifiedDownloader 联动配置
+- [x] Phase 49.4: 测试适配
+- [x] 单元测试验证 → **1830 passed, 1 skipped, 0 failed**
+- [x] 集成测试验证 → **93 passed, 0 failed**
+- [x] E2E Playwright → **Perfect match**
+- [x] E2E Selenium → **Perfect match**
+
+### 改动文件清单
+| 文件 | 改动 |
+|------|------|
+| `src/services/orgid_service.py` | 移除 Selenium 依赖，改用 BrowserStrategy 抽象接口 |
+| `src/data/mapping.py` | 新增 `browser_strategy_type` 参数，传递给 OrgIdService |
+| `src/services/unified_downloader.py` | 将 `browser_strategy` 配置传递给 MappingManager |
+| `tests/unit/test_orgid_service.py` | 从 mock WebDriverManager 改为 mock BrowserStrategy（14个测试） |
+
+### 移除的代码
+- Selenium imports (`TimeoutException`, `By`, `EC`, `WebDriverWait`)
+- `WebDriverManager` 依赖
+- `_extract_org_id_from_page` 方法（直接依赖 Selenium API，功能已被 `_crawl_org_id` 方法2覆盖）
+- 原文件第 133-135 行的重复 `except Exception` 子句（bug fix）

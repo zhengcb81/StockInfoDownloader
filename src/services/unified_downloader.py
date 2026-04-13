@@ -249,7 +249,9 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
             # 是否强制从网络获取（用于测试实时爬取能力）
             force_crawl = self.config.get("force_crawl_mapping", False)
 
-            mm = MappingManager()
+            mm = MappingManager(
+                browser_strategy_type=self.config.get("browser_strategy", "selenium")
+            )
             if not request.org_id:
                 request.org_id = mm.get_org_id(
                     request.stock_code, force_refresh=force_crawl

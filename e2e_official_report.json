@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-28T21:20:56.771352",
+  "timestamp": "2026-04-13T23:17:49.015065",
   "overall_success": true,
   "results": [
     {
@@ -18,7 +18,7 @@
       "downloaded_files": 1,
       "duration": 0,
       "skipped_files": 0,
-      "pages_traversed": 3
+      "pages_traversed": 1
     },
     {
       "stock_code": "300470",

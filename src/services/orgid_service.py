@@ -4,30 +4,50 @@
 """
 组织ID服务模块
 提供组织ID获取和管理功能
+支持通过 BrowserStrategy 抽象接口使用 Selenium 或 Playwright
 """
 
 import re
-from typing import Optional, cast
-
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+import time
+from typing import Any, Dict, Optional
 
 from ..core.logger import get_logger
 from ..utils.string_optimizer import standardize_stock_code
 from ..web.anti_crawler_py import AntiCrawlerStrategy
-from ..web.driver import WebDriverManager
+from ..web.browser_strategy import BrowserStrategy, BrowserStrategyFactory
 
 logger = get_logger(__name__)
 
 
 class OrgIdService:
-    """组织ID获取服务"""
+    """
+    组织ID获取服务
 
-    def __init__(self):
-        """初始化组织ID服务"""
-        self.driver_manager = WebDriverManager()
+    支持通过 BrowserStrategy 抽象接口使用 Selenium 或 Playwright。
+    配置的选择与用户选择的下载方式保持一致。
+    """
+
+    def __init__(
+        self,
+        browser_strategy: Optional[BrowserStrategy] = None,
+        strategy_type: str = "selenium",
+        config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        初始化组织ID服务
+
+        Args:
+            browser_strategy: 浏览器策略实例，优先使用
+            strategy_type: 浏览器策略类型（"selenium" 或 "playwright"），
+                           仅在 browser_strategy 为 None 时使用
+            config: 传递给 BrowserStrategy 的配置
+        """
+        if browser_strategy is not None:
+            self._strategy = browser_strategy
+        else:
+            self._strategy = BrowserStrategyFactory.create_strategy(
+                strategy_type, headless=True, config=config or {}
+            )
         self.anti_crawler = AntiCrawlerStrategy()
         self.base_url = "https://www.cninfo.com.cn"
 
@@ -37,7 +57,7 @@ class OrgIdService:
 
         Args:
             stock_code: 股票代码
-            headless: 是否使用无头模式
+            headless: 是否使用无头模式（仅在通过工厂创建策略时生效）
 
         Returns:
             Optional[str]: 组织ID，获取失败返回None
@@ -49,50 +69,54 @@ class OrgIdService:
                 return None
             stock_code = standardized_code
 
-            # 设置WebDriver参数
-            self.driver_manager.headless = headless
+            # 初始化浏览器
+            self._strategy.initialize()
 
-            with self.driver_manager as driver:
-                self.anti_crawler.apply_anti_detection(driver)
-
-                return self._crawl_org_id(driver, stock_code)
+            try:
+                return self._crawl_org_id(stock_code)
+            finally:
+                self._strategy.cleanup()
 
         except Exception as e:
             logger.error(f"获取组织ID失败: {e}")
             return None
 
-    def _crawl_org_id(self, driver, stock_code: str) -> Optional[str]:
+    def _crawl_org_id(self, stock_code: str) -> Optional[str]:
         """
         从巨潮资讯网爬取组织ID
 
-        使用搜索页面查找公司介绍链接，从中提取orgId
+        使用搜索页面查找公司介绍链接，从中提取orgId。
+        通过 BrowserStrategy 抽象接口操作浏览器。
         """
         try:
             # 访问搜索结果页
             search_url = f"{self.base_url}/new/fulltextSearch?notautosubmit=&keyWord={stock_code}"
 
             logger.info(f"访问搜索页面: {search_url}")
-            driver.get(search_url)
+            if not self._strategy.navigate(search_url):
+                logger.error(f"导航到搜索页面失败: {search_url}")
+                return None
 
             # 等待页面加载
-            WebDriverWait(driver, 15).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
+            self._strategy.wait_for_element("body", by="tag", timeout=15)
 
-            # 应用反爬虫策略
+            # 应用反爬虫延迟（仅使用无 driver 依赖的方法）
             self.anti_crawler.random_delay(2, 4)
-            self.anti_crawler.simulate_human_behavior(driver)
 
             # 方法1: 从"公司介绍"链接中提取orgId
             try:
-                company_links = WebDriverWait(driver, 10).until(
-                    EC.presence_of_all_elements_located(
-                        (By.XPATH, "//a[contains(text(), '公司介绍')]")
-                    )
+                # 等待元素出现，然后查找所有匹配的链接
+                self._strategy.wait_for_element(
+                    "//a[contains(text(), '公司介绍')]",
+                    by="xpath",
+                    timeout=10,
+                )
+                company_links = self._strategy.find_elements(
+                    "//a[contains(text(), '公司介绍')]", by="xpath"
                 )
 
                 for link in company_links:
-                    href = link.get_attribute("href")
+                    href = self._strategy.get_attribute(link, "href")
                     if href and "orgId=" in href:
                         org_id_match = re.search(r"orgId=([^&]+)", href)
                         if org_id_match:
@@ -104,32 +128,27 @@ class OrgIdService:
                 logger.debug(f"从链接提取orgId失败: {e}")
 
             # 方法2: 从页面源代码中提取
-            page_source = driver.page_source
-            patterns = [
-                r'orgId["\s:=]+([0-9a-zA-Z]+)',
-                r'"orgId"\s*:\s*"?([0-9a-zA-Z]+)"?',
-                r"orgId=([0-9a-zA-Z]+)",
-            ]
+            page_source = self._strategy.get_page_source()
+            if page_source:
+                patterns = [
+                    r'orgId["\s:=]+([0-9a-zA-Z]+)',
+                    r'"orgId"\s*:\s*"?([0-9a-zA-Z]+)"?',
+                    r"orgId=([0-9a-zA-Z]+)",
+                ]
 
-            for pattern in patterns:
-                match = re.search(pattern, page_source)
-                if match:
-                    org_id = match.group(1)
-                    if (org_id.isdigit() and len(org_id) >= 8) or org_id.startswith(
-                        "gssz"
-                    ):
-                        logger.info(f"从页面源代码中提取到组织ID: {org_id}")
-                        return org_id
+                for pattern in patterns:
+                    match = re.search(pattern, page_source)
+                    if match:
+                        org_id = match.group(1)
+                        if (org_id.isdigit() and len(org_id) >= 8) or org_id.startswith(
+                            "gssz"
+                        ):
+                            logger.info(f"从页面源代码中提取到组织ID: {org_id}")
+                            return org_id
 
             logger.warning(f"未能从页面提取到组织ID: {stock_code}")
             return None
 
-        except TimeoutException:
-            logger.error("页面加载超时")
-            return None
-        except Exception as e:
-            logger.error(f"爬取组织ID失败: {e}")
-            return None
         except Exception as e:
             logger.error(f"爬取组织ID失败: {e}")
             return None
@@ -149,41 +168,4 @@ class OrgIdService:
 
         except Exception as e:
             logger.error(f"提取组织ID失败: {e}")
-            return None
-
-    def _extract_org_id_from_page(self, driver) -> Optional[str]:
-        """从页面内容中提取组织ID"""
-        try:
-            # 查找包含组织ID的脚本或隐藏字段
-            scripts = driver.find_elements(By.TAG_NAME, "script")
-
-            for script in scripts:
-                script_content = script.get_attribute("innerHTML")
-                if script_content:
-                    # 查找orgId相关的内容
-                    match = re.search(
-                        r'["\']orgId["\']:\s*["\'](\d+)["\']', script_content
-                    )
-                    if match:
-                        org_id = match.group(1)
-                        logger.info(f"从页面提取到组织ID: {org_id}")
-                        return org_id
-
-            # 查找页面中的隐藏字段
-            hidden_inputs = driver.find_elements(
-                By.CSS_SELECTOR, "input[type='hidden']"
-            )
-            for hidden in hidden_inputs:
-                name = hidden.get_attribute("name")
-                if name and "org" in name.lower():
-                    value = hidden.get_attribute("value")
-                    if value and value.isdigit():
-                        logger.info(f"从隐藏字段提取到组织ID: {value}")
-                        return cast(str, value)
-
-            logger.warning("未在页面中找到组织ID")
-            return None
-
-        except Exception as e:
-            logger.error(f"从页面提取组织ID失败: {e}")
             return None

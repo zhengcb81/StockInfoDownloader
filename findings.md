@@ -199,4 +199,29 @@ mypy src/ --ignore-missing-imports
 
 ---
 
+## OrgIdService 解耦分析 (2026-04-13)
+
+### 问题
+`OrgIdService` 硬编码依赖 Selenium（通过 `WebDriverManager`），当用户选择 Playwright 下载时，org id 爬取仍使用 Selenium，行为不一致。
+
+### 发现
+1. **OrgIdService** (`src/services/orgid_service.py`): 190行，直接 import Selenium，使用 `WebDriverManager` context manager
+2. **MappingManager** (`src/data/mapping.py`): 在 `_crawl_org_id_from_web()` 中无参创建 `OrgIdService()`
+3. **UnifiedDownloader** (`src/services/unified_downloader.py:252`): 无参创建 `MappingManager()`
+4. **BrowserStrategy** 抽象已有完整 API 覆盖 OrgIdService 所需的所有操作
+5. **AntiCrawlerStrategy** 直接依赖 Selenium driver（`apply_anti_detection`, `simulate_human_behavior`），但 BrowserStrategy 的 `create_driver` 已内置 `ANTI_DETECTION_SCRIPT`
+6. **现有测试** (`test_orgid_service.py`): 15个测试，全部 mock `WebDriverManager` 和 `WebDriverWait`
+
+### 技术决策
+
+| Decision | Rationale |
+|----------|-----------|
+| 优先注入 BrowserStrategy 实例而非 strategy_type 字符串 | 更灵活，便于测试注入 mock |
+| 保留 strategy_type 回退参数 | 向后兼容，MappingManager 不需要创建 BrowserStrategy 实例 |
+| 跳过 AntiCrawlerStrategy 的 driver 相关调用 | BrowserStrategy 内置反检测，无需重复 |
+| 保留 random_delay | 纯 time.sleep 封装，无 driver 依赖 |
+| 不修改 BrowserStrategy 接口 | 接口稳定，风险最低 |
+
+---
+
 *Update this file after every phase completion*
