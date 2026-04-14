@@ -180,3 +180,78 @@ class TestOrgIdService:
         org_id = self.service.get_org_id("000001")
 
         assert org_id == "gssz12345"
+
+    @patch("src.services.orgid_service.standardize_stock_code")
+    def test_get_org_id_gssh_prefix(self, mock_standardize):
+        """测试提取 gssh 前缀的组织ID（沪市股票）"""
+        mock_standardize.return_value = "600519"
+
+        mock_link = MagicMock()
+        self.mock_strategy.get_attribute.return_value = (
+            "/new/disclosure/stock?orgId=gssh0600519&stockCode=600519#companyProfile"
+        )
+        self.mock_strategy.find_elements.return_value = [mock_link]
+        self.mock_strategy.get_page_source.return_value = ""
+
+        org_id = self.service.get_org_id("600519")
+
+        assert org_id == "gssh0600519"
+
+    @patch("src.services.orgid_service.standardize_stock_code")
+    def test_get_org_id_gd_prefix(self, mock_standardize):
+        """测试提取 GD 前缀的组织ID（创业板）"""
+        mock_standardize.return_value = "300750"
+
+        mock_link = MagicMock()
+        self.mock_strategy.get_attribute.return_value = (
+            "/new/disclosure/stock?orgId=GD165627&stockCode=300750#companyProfile"
+        )
+        self.mock_strategy.find_elements.return_value = [mock_link]
+        self.mock_strategy.get_page_source.return_value = ""
+
+        org_id = self.service.get_org_id("300750")
+
+        assert org_id == "GD165627"
+
+    @patch("src.services.orgid_service.standardize_stock_code")
+    def test_get_org_id_jjxt_prefix(self, mock_standardize):
+        """测试提取 jjxt 前缀的组织ID（银行等金融股）"""
+        mock_standardize.return_value = "601398"
+
+        mock_link = MagicMock()
+        self.mock_strategy.get_attribute.return_value = (
+            "/new/disclosure/stock?orgId=jjxt0000019&stockCode=601398#companyProfile"
+        )
+        self.mock_strategy.find_elements.return_value = [mock_link]
+        self.mock_strategy.get_page_source.return_value = ""
+
+        org_id = self.service.get_org_id("601398")
+
+        assert org_id == "jjxt0000019"
+
+    def test_is_valid_org_id_various_formats(self):
+        """测试 _is_valid_org_id 校验各种 orgId 格式"""
+        # 有效格式
+        assert OrgIdService._is_valid_org_id("9900023856") is True  # 纯数字
+        assert OrgIdService._is_valid_org_id("gssz0000001") is True  # gssz 前缀
+        assert OrgIdService._is_valid_org_id("gssh0600519") is True  # gssh 前缀
+        assert OrgIdService._is_valid_org_id("GD165627") is True  # GD 前缀
+        assert OrgIdService._is_valid_org_id("jjxt0000019") is True  # jjxt 前缀
+
+        # 无效格式
+        assert OrgIdService._is_valid_org_id("") is False  # 空字符串
+        assert OrgIdService._is_valid_org_id("ab") is False  # 太短
+        assert OrgIdService._is_valid_org_id("a" * 21) is False  # 太长
+        assert OrgIdService._is_valid_org_id("abc!@#") is False  # 特殊字符
+
+    def test_extract_org_id_from_url_alphanumeric(self):
+        """测试从URL提取字母数字混合的 orgId"""
+        url = "https://cninfo.com.cn/stock?orgId=gssh0600519&stockCode=600519"
+        result = self.service._extract_org_id_from_url(url)
+        assert result == "gssh0600519"
+
+    def test_extract_org_id_from_url_gd_prefix(self):
+        """测试从URL提取 GD 前缀的 orgId"""
+        url = "https://cninfo.com.cn/stock?orgId=GD165627&stockCode=300750"
+        result = self.service._extract_org_id_from_url(url)
+        assert result == "GD165627"

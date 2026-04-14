@@ -121,7 +121,7 @@ class OrgIdService:
                         org_id_match = re.search(r"orgId=([^&]+)", href)
                         if org_id_match:
                             org_id = org_id_match.group(1)
-                            if org_id.isdigit() or org_id.startswith("gssz"):
+                            if self._is_valid_org_id(org_id):
                                 logger.info(f"从公司介绍链接中提取到组织ID: {org_id}")
                                 return org_id
             except Exception as e:
@@ -140,9 +140,7 @@ class OrgIdService:
                     match = re.search(pattern, page_source)
                     if match:
                         org_id = match.group(1)
-                        if (org_id.isdigit() and len(org_id) >= 8) or org_id.startswith(
-                            "gssz"
-                        ):
+                        if self._is_valid_org_id(org_id):
                             logger.info(f"从页面源代码中提取到组织ID: {org_id}")
                             return org_id
 
@@ -156,12 +154,13 @@ class OrgIdService:
     def _extract_org_id_from_url(self, url: str) -> Optional[str]:
         """从URL中提取组织ID"""
         try:
-            # 使用正则表达式提取orgId参数
-            match = re.search(r"orgId=(\d+)", url)
+            # 使用正则表达式提取orgId参数（支持字母数字组合）
+            match = re.search(r"orgId=([0-9a-zA-Z]+)", url)
             if match:
                 org_id = match.group(1)
-                logger.info(f"提取到组织ID: {org_id}")
-                return org_id
+                if self._is_valid_org_id(org_id):
+                    logger.info(f"提取到组织ID: {org_id}")
+                    return org_id
 
             logger.warning("未在URL中找到组织ID")
             return None
@@ -169,3 +168,21 @@ class OrgIdService:
         except Exception as e:
             logger.error(f"提取组织ID失败: {e}")
             return None
+
+    @staticmethod
+    def _is_valid_org_id(org_id: str) -> bool:
+        """
+        校验 orgId 是否为有效格式
+
+        巨潮资讯网的 orgId 有多种格式：
+        - 纯数字：9900023856
+        - gssz 前缀：gssz0000001
+        - gssh 前缀：gssh0600519
+        - GD 前缀：GD165627
+        """
+        if not org_id or not isinstance(org_id, str):
+            return False
+        # 必须是字母数字组合，长度 6-20
+        if not re.match(r"^[0-9a-zA-Z]{6,20}$", org_id):
+            return False
+        return True
