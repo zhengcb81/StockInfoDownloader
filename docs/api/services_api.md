@@ -6,6 +6,7 @@ This document provides API reference for service modules in `src/services/`.
 
 The services package implements the business logic layer:
 - Unified download orchestration
+- Organization ID fetching (supports Selenium and Playwright)
 - Download result validation
 - File system operations
 
@@ -14,6 +15,7 @@ The services package implements the business logic layer:
 | Module | Description | Key Classes |
 |--------|-------------|-------------|
 | `unified_downloader` | Main download orchestration | `UnifiedDownloader` |
+| `orgid_service` | Organization ID fetching | `OrgIdService` |
 | `validation_service` | Result validation | `ValidationService` |
 | `file_service` | File operations | `FileService` |
 
@@ -123,6 +125,102 @@ try:
 
 finally:
     downloader.close()
+```
+
+---
+
+## orgid_service
+
+Organization ID fetching service. Supports both Selenium and Playwright through the `BrowserStrategy` abstraction.
+
+### Classes
+
+#### OrgIdService
+Fetches organization IDs from CNINFO (巨潮资讯网) based on stock codes.
+
+```python
+from src.services.orgid_service import OrgIdService
+
+# Use Playwright (recommended)
+service = OrgIdService(strategy_type="playwright")
+
+# Or use Selenium (default)
+service = OrgIdService(strategy_type="selenium")
+
+# Or inject a pre-configured BrowserStrategy
+from src.web.browser_strategy import BrowserStrategyFactory
+strategy = BrowserStrategyFactory.create_strategy("playwright", headless=True)
+service = OrgIdService(browser_strategy=strategy)
+```
+
+**Constructor Parameters:**
+- `browser_strategy` (BrowserStrategy, optional): Pre-configured browser strategy instance. Takes priority over `strategy_type`.
+- `strategy_type` (str): Browser strategy type, `"selenium"` (default) or `"playwright"`. Only used when `browser_strategy` is `None`.
+- `config` (Dict, optional): Additional configuration passed to BrowserStrategy.
+
+**Methods:**
+
+##### get_org_id
+Fetches the organization ID for a given stock code.
+
+```python
+org_id = service.get_org_id("300470", headless=True)
+# Returns: "9900023856"
+```
+
+**Parameters:**
+- `stock_code` (str): Stock code (e.g., "300470", "000001")
+- `headless` (bool): Whether to use headless browser mode (default: True)
+
+**Returns:** `Optional[str]` - The org ID string, or `None` on failure. Org IDs are typically numeric (e.g., `"9900023856"`) or have a `gssz` prefix (e.g., `"gssz0000001"`).
+
+**Extraction Strategy:**
+1. Navigate to CNINFO search page for the stock code
+2. Primary: Extract from "公司介绍" (Company Profile) link's `href` attribute
+3. Fallback: Extract from page source code using regex patterns
+
+### Usage Example
+
+```python
+from src.services.orgid_service import OrgIdService
+
+# Using Playwright (recommended for stability)
+service = OrgIdService(strategy_type="playwright")
+
+try:
+    org_id = service.get_org_id("300470")
+    if org_id:
+        print(f"Organization ID: {org_id}")
+    else:
+        print("Failed to fetch org ID")
+finally:
+    pass  # cleanup is handled internally
+
+# Batch processing with Playwright
+test_cases = [
+    ("300470", "9900023856"),   # 中密控股
+    ("301611", "9900056250"),   # 珂玛科技
+    ("000001", "gssz0000001"),  # 平安银行
+]
+
+for code, expected in test_cases:
+    service = OrgIdService(strategy_type="playwright")
+    org_id = service.get_org_id(code)
+    print(f"{code}: {org_id} {'OK' if org_id == expected else 'MISMATCH'}")
+```
+
+### Integration with MappingManager
+
+When using `UnifiedDownloader`, the browser strategy is automatically propagated to `OrgIdService` via `MappingManager`:
+
+```python
+# In config.json
+{
+    "browser_strategy": "playwright"
+}
+
+# OrgIdService will automatically use Playwright when the downloader does
+downloader = UnifiedDownloader(config)
 ```
 
 ---

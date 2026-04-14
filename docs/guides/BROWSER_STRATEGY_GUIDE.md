@@ -104,6 +104,44 @@ playwright install chromium
 
 ## 🔍 详细功能对比
 
+### OrgIdService 组织ID获取
+
+OrgIdService 已完全支持通过 BrowserStrategy 抽象接口使用 Selenium 或 Playwright 获取组织ID。当用户选择 Playwright 作为下载策略时，OrgIdService 也会自动使用 Playwright。
+
+**配置传播链路:**
+```
+config.json (browser_strategy: "playwright")
+  → UnifiedDownloader
+    → MappingManager(browser_strategy_type="playwright")
+      → OrgIdService(strategy_type="playwright")
+```
+
+**使用方式:**
+```python
+from src.services.orgid_service import OrgIdService
+
+# 推荐：使用 Playwright
+service = OrgIdService(strategy_type="playwright")
+org_id = service.get_org_id("300470")  # → "9900023856"
+
+# 默认：使用 Selenium
+service = OrgIdService(strategy_type="selenium")
+org_id = service.get_org_id("000001")  # → "gssz0000001"
+
+# 依赖注入：直接传入 BrowserStrategy
+from src.web.browser_strategy import BrowserStrategyFactory
+strategy = BrowserStrategyFactory.create_strategy("playwright", headless=True)
+service = OrgIdService(browser_strategy=strategy)
+```
+
+**已验证的测试结果 (2026-04-14):**
+
+| 股票代码 | 公司名称 | 期望 Org ID | Selenium | Playwright |
+|----------|----------|-------------|----------|------------|
+| 300470 | 中密控股 | 9900023856 | PASS | PASS |
+| 301611 | 珂玛科技 | 9900056250 | PASS | PASS |
+| 000001 | 平安银行 | gssz0000001 | PASS | PASS |
+
 ### 元素定位能力
 
 **Selenium**:

@@ -16,10 +16,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 @pytest.mark.network
 class TestOrgIdServiceRealNetwork:
-    """OrgIdService 真实网络测试"""
+    """OrgIdService 真实网络测试 (Selenium)"""
 
     def test_get_org_id_from_web(self):
-        """测试从网络真实获取 org_id"""
+        """测试从网络真实获取 org_id（默认 Selenium 策略）"""
         from src.services.orgid_service import OrgIdService
 
         service = OrgIdService()
@@ -30,7 +30,7 @@ class TestOrgIdServiceRealNetwork:
         assert org_id == "9900023856", f"Unexpected org_id: {org_id}"
 
     def test_get_org_id_multiple_stocks(self):
-        """测试从网络获取多个股票的 org_id"""
+        """测试从网络获取多个股票的 org_id（默认 Selenium 策略）"""
         from src.services.orgid_service import OrgIdService
 
         service = OrgIdService()
@@ -44,6 +44,43 @@ class TestOrgIdServiceRealNetwork:
             org_id = service.get_org_id(stock_code, headless=True)
             print(f"{stock_code}: {org_id}")
             assert org_id is not None, f"Failed to get org_id for {stock_code}"
+            assert org_id == expected_org_id, (
+                f"Unexpected org_id for {stock_code}: {org_id}"
+            )
+
+
+@pytest.mark.network
+class TestOrgIdServicePlaywrightRealNetwork:
+    """OrgIdService 真实网络测试 (Playwright)"""
+
+    def test_get_org_id_playwright_single(self):
+        """测试 Playwright 策略获取 org_id"""
+        from src.services.orgid_service import OrgIdService
+
+        service = OrgIdService(strategy_type="playwright")
+        org_id = service.get_org_id("300470", headless=True)
+
+        print(f"[Playwright] Org_id for 300470: {org_id}")
+        assert org_id is not None, "Failed to get org_id with Playwright"
+        assert org_id == "9900023856", f"Unexpected org_id: {org_id}"
+
+    def test_get_org_id_playwright_multiple_stocks(self):
+        """测试 Playwright 策略获取多个股票的 org_id"""
+        from src.services.orgid_service import OrgIdService
+
+        test_cases = [
+            ("300470", "9900023856"),   # 中密控股
+            ("301611", "9900056250"),   # 珂玛科技
+            ("000001", "gssz0000001"),  # 平安银行（gssz 前缀）
+        ]
+
+        for stock_code, expected_org_id in test_cases:
+            service = OrgIdService(strategy_type="playwright")
+            org_id = service.get_org_id(stock_code, headless=True)
+            print(f"[Playwright] {stock_code}: {org_id}")
+            assert org_id is not None, (
+                f"Failed to get org_id for {stock_code} with Playwright"
+            )
             assert org_id == expected_org_id, (
                 f"Unexpected org_id for {stock_code}: {org_id}"
             )
