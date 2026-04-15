@@ -44,10 +44,12 @@ class OrgIdService:
         """
         if browser_strategy is not None:
             self._strategy = browser_strategy
+            self._owns_strategy = False  # Caller manages lifecycle
         else:
             self._strategy = BrowserStrategyFactory.create_strategy(
                 strategy_type, headless=True, config=config or {}
             )
+            self._owns_strategy = True  # We manage lifecycle
         self.anti_crawler = AntiCrawlerStrategy()
         self.base_url = "https://www.cninfo.com.cn"
 
@@ -69,13 +71,15 @@ class OrgIdService:
                 return None
             stock_code = standardized_code
 
-            # 初始化浏览器
-            self._strategy.initialize()
+            # 初始化浏览器（仅当自己拥有策略实例时）
+            if self._owns_strategy:
+                self._strategy.initialize()
 
             try:
                 return self._crawl_org_id(stock_code)
             finally:
-                self._strategy.cleanup()
+                if self._owns_strategy:
+                    self._strategy.cleanup()
 
         except Exception as e:
             logger.error(f"获取组织ID失败: {e}")

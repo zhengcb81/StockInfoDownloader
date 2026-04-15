@@ -64,8 +64,10 @@ class TestOrgIdService:
 
         assert org_id == "9900000001"
         mock_standardize.assert_called_with("000001")
-        self.mock_strategy.initialize.assert_called_once()
-        self.mock_strategy.cleanup.assert_called_once()
+        # When reusing an existing browser_strategy, initialize/cleanup
+        # should NOT be called (the caller manages the lifecycle)
+        self.mock_strategy.initialize.assert_not_called()
+        self.mock_strategy.cleanup.assert_not_called()
 
     @patch("src.services.orgid_service.standardize_stock_code")
     def test_get_org_id_from_page_source(self, mock_standardize):
@@ -112,7 +114,7 @@ class TestOrgIdService:
     def test_get_org_id_exception(self, mock_standardize):
         """测试获取过程中的异常"""
         mock_standardize.return_value = "000001"
-        self.mock_strategy.initialize.side_effect = Exception("Test error")
+        self.mock_strategy.navigate.side_effect = Exception("Test error")
 
         org_id = self.service.get_org_id("000001")
 
@@ -156,14 +158,35 @@ class TestOrgIdService:
 
     @patch("src.services.orgid_service.standardize_stock_code")
     def test_get_org_id_cleanup_called_on_error(self, mock_standardize):
-        """测试异常时 cleanup 仍然被调用"""
+        """测试异常时 cleanup 仍然被调用（仅当 OrgIdService 拥有策略时）"""
         mock_standardize.return_value = "000001"
         self.mock_strategy.navigate.side_effect = Exception("Navigation failed")
 
         self.service.get_org_id("000001")
 
-        # cleanup 应该在 finally 中被调用
-        self.mock_strategy.cleanup.assert_called_once()
+        # When reusing an existing browser_strategy, cleanup should NOT be called
+        self.mock_strategy.cleanup.assert_not_called()
+
+    @patch("src.services.orgid_service.standardize_stock_code")
+    def test_get_org_id_owns_strategy_calls_cleanup(self, mock_standardize):
+        """测试当 OrgIdService 自己创建策略时，cleanup 被调用"""
+        mock_standardize.return_value = "000001"
+        mock_link = MagicMock()
+        mock_strategy = self._create_mock_strategy()
+        mock_strategy.get_attribute.return_value = (
+            "https://www.cninfo.com.cn/companyProfile?orgId=9900000001"
+        )
+        mock_strategy.find_elements.return_value = [mock_link]
+        mock_strategy.get_page_source.return_value = ""
+
+        with patch("src.services.orgid_service.BrowserStrategyFactory") as mock_factory:
+            mock_factory.create_strategy.return_value = mock_strategy
+            service = OrgIdService(strategy_type="playwright")
+            org_id = service.get_org_id("000001")
+
+        assert org_id == "9900000001"
+        mock_strategy.initialize.assert_called_once()
+        mock_strategy.cleanup.assert_called_once()
 
     @patch("src.services.orgid_service.standardize_stock_code")
     def test_get_org_id_gssz_prefix(self, mock_standardize):

@@ -250,7 +250,8 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
             force_crawl = self.config.get("force_crawl_mapping", False)
 
             mm = MappingManager(
-                browser_strategy_type=self.config.get("browser_strategy", "selenium")
+                browser_strategy_type=self.config.get("browser_strategy", "selenium"),
+                browser_strategy=self.browser_strategy if self.browser_strategy else None,
             )
             if not request.org_id:
                 request.org_id = mm.get_org_id(
@@ -295,6 +296,7 @@ class UnifiedDownloader(BaseDownloader, IDownloader):
             allowed_keywords=kwargs.get("allowed_keywords"),
             max_pages=kwargs.get("max_pages", 5),
             save_dir=kwargs.get("save_dir", self.config.get("save_dir", "downloads")),
+            reverse_order=kwargs.get("reverse_order", False),
         )
         res = self._download_internal(request)
         return res.downloaded_files

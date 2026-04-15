@@ -2,6 +2,7 @@
 Playwright Browser Automation Strategy Implementation
 """
 
+import asyncio
 import os
 import random
 import time
@@ -98,10 +99,29 @@ class PlaywrightStrategy(BrowserStrategy):
             if sync_playwright is None:
                 raise ImportError("Playwright not available")
 
+            # Clean up stale event loop state that may remain from previous
+            # Playwright instances or other async code in the same process.
+            # sync_playwright().start() creates its own event loop internally
+            # and will fail if it detects a conflicting running loop.
+            try:
+                loop = asyncio.get_running_loop()
+                # If we get here, there IS a running loop - sync API can't work
+                logger.warning("Asyncio event loop is running, attempting cleanup")
+            except RuntimeError:
+                # No running loop, which is the expected case
+                pass
+            # Close any stale event loop and clear the reference
+            try:
+                loop = asyncio._get_running_loop()  # type: ignore[attr-defined]
+                if loop is not None and not loop.is_closed():
+                    loop.close()
+            except Exception:
+                pass
+            # Clear the event loop reference to ensure sync_playwright
+            # can create a fresh one
+            asyncio.set_event_loop(None)
+
             # Create Playwright instance
-            # Note: sync_playwright() handles its own event loop internally
-            # We should not manipulate asyncio.set_event_loop() here as it
-            # can interfere with other async code in the application
             self.playwright = sync_playwright().start()
 
             # Build launch options

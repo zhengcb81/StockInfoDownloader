@@ -24,6 +24,7 @@ class MappingManager:
         mapping_file: Optional[str] = None,
         auto_fetch: bool = True,
         browser_strategy_type: str = "selenium",
+        browser_strategy: Optional[Any] = None,
     ):
         """
         初始化映射管理器
@@ -33,11 +34,14 @@ class MappingManager:
             auto_fetch: 是否允许从网络自动获取（默认True，单元测试可设为False）
             browser_strategy_type: 浏览器策略类型（"selenium" 或 "playwright"），
                                    传递给 OrgIdService 使用
+            browser_strategy: 浏览器策略实例，如果提供则复用现有浏览器，
+                              避免在已有 Playwright 事件循环中创建新实例
         """
         self.logger = logger
         self._mappings: Dict[str, OrgIdMapping] = {}
         self._auto_fetch = auto_fetch  # 是否允许从网络获取
         self._browser_strategy_type = browser_strategy_type
+        self._browser_strategy = browser_strategy
 
         # 智能路径解析
         if mapping_file:
@@ -180,7 +184,12 @@ class MappingManager:
         try:
             from ..services.orgid_service import OrgIdService
 
-            org_id_service = OrgIdService(strategy_type=self._browser_strategy_type)
+            # Reuse existing browser strategy if available to avoid creating
+            # a second Playwright instance inside an already-running event loop
+            org_id_service = OrgIdService(
+                browser_strategy=self._browser_strategy,
+                strategy_type=self._browser_strategy_type,
+            )
             org_id = org_id_service.get_org_id(stock_code, headless=True)
 
             if org_id:

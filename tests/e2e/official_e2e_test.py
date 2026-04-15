@@ -4,7 +4,10 @@
 """
 Official End-to-End Test (Refactored)
 Reserves the "e2e" term for this specific verification suite.
-Strictly implements all features required by the project specifications.
+
+This test exercises the full user-facing pipeline by calling main.py via
+subprocess with the test config. It only verifies the results afterwards
+by comparing downloaded files against expected_results.
 """
 
 import argparse
@@ -12,7 +15,9 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -48,102 +53,6 @@ def get_real_stock_name(stock_code):
     except Exception as e:
         log(f"Error getting stock name: {e}")
         return f"股票{stock_code}"
-
-
-def calculate_file_hash(file_path):
-    """Calculate file MD5"""
-    if not os.path.exists(file_path):
-        return ""
-    hasher = hashlib.md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
-
-def compare_files(file1, file2):
-    """Compare if two files are identical."""
-    if not os.path.exists(file1) or not os.path.exists(file2):
-        return False
-    if os.path.getsize(file1) != os.path.getsize(file2):
-        return False
-    return calculate_file_hash(file1) == calculate_file_hash(file2)
-
-
-def run_test_with_new_downloader(test_case, config, browser_strategy="playwright"):
-    """Run test with the unified downloader directly."""
-    stock_code = test_case["stock_code"]
-    log(f"\nTesting Official E2E: {stock_code} ({browser_strategy})")
-
-    from src.services.unified_downloader import UnifiedDownloader
-    from src.interfaces.downloader_interface import DownloadRequest
-
-    try:
-        # Create UnifiedDownloader directly
-        downloader_config = {
-            "save_dir": config["save_dir"],
-            "browser_strategy": browser_strategy,
-        }
-        downloader = UnifiedDownloader(downloader_config)
-
-        stock_name = get_real_stock_name(stock_code)
-
-        # Create DownloadRequest
-        request = DownloadRequest(
-            stock_code=stock_code,
-            stock_name=stock_name,
-            suffix=test_case.get("suffix", "research"),
-            allowed_keywords=test_case.get("allowed_keywords"),
-            max_pages=test_case.get("max_pages", 5),
-            timeout_seconds=test_case.get("timeout_seconds", 180),
-            save_dir=config["save_dir"],
-            reverse_order=test_case.get("reverse_order", False),
-        )
-
-        # Execute download
-        result = downloader.download_stock_pdfs(request)
-
-        # Handle result from UnifiedDownloader
-        success = False
-        downloaded_count = 0
-        skipped_files = []
-        pages_traversed = 0
-
-        if hasattr(result, "success"):
-            success = result.success
-            if hasattr(result, "downloaded_files"):
-                downloaded_count = len(result.downloaded_files)
-            # 获取行为验证字段
-            if hasattr(result, "skipped_files"):
-                skipped_files = result.skipped_files
-            if hasattr(result, "pages_traversed"):
-                pages_traversed = result.pages_traversed
-        elif isinstance(result, dict):
-            success = result.get("success", False)
-            downloaded_files = result.get("downloaded_files", [])
-            downloaded_count = len(downloaded_files) if downloaded_files else 0
-            skipped_files = result.get("skipped_files", [])
-            pages_traversed = result.get("pages_traversed", 0)
-
-        # 记录行为验证信息
-        if skipped_files:
-            log(f"  Skipped files: {len(skipped_files)}")
-        if pages_traversed > 0:
-            log(f"  Pages traversed: {pages_traversed}")
-
-        return {
-            "stock_code": stock_code,
-            "stock_name": stock_name,
-            "success": success,
-            "downloaded_files": downloaded_count,
-            "duration": 0,  # Simplified
-            # 行为验证字段
-            "skipped_files": len(skipped_files),
-            "pages_traversed": pages_traversed,
-        }
-    finally:
-        if "downloader" in locals():
-            downloader.cleanup()
 
 
 def compare_directories(actual_dir, expected_dir):
@@ -218,7 +127,7 @@ def check_and_restore_expected_results(config):
 
     # Simple local mapping to avoid external dependencies
     def get_company_name_from_stock_code(stock_code):
-        mapping = {"301611": "珂玛科技", "300470": "中密控股"}
+        mapping = {"301611": "珂玛科技", "300470": "中密控股", "300750": "宁德时代"}
         return mapping.get(stock_code, f"股票{stock_code}")
 
     # Get expected company names from stock codes
@@ -332,6 +241,25 @@ def check_and_restore_expected_results(config):
         return True
 
 
+def run_main_py(config_path, browser_strategy):
+    """Run main.py as a subprocess, exactly as a user would."""
+    cmd = [
+        sys.executable,
+        str(project_root / "main.py"),
+        "--config", config_path,
+    ]
+    log(f"Running: {' '.join(cmd)}")
+
+    result = subprocess.run(
+        cmd,
+        cwd=str(project_root),
+        capture_output=False,  # Let main.py output pass through
+        timeout=1200,  # 20 minute timeout for the full suite
+    )
+
+    return result.returncode == 0
+
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Official End-to-End Test")
@@ -348,8 +276,8 @@ def main():
 
     config_file = "config_e2e_official.json"
     if not os.path.exists(config_file):
-        # Fallback to the one in root if not found (though it should be there)
-        config_file = "config_e2e_official.json"
+        log(f"Config file not found: {config_file}")
+        return 1
 
     try:
         with open(config_file, "r", encoding="utf-8") as f:
@@ -375,22 +303,48 @@ def main():
     else:
         save_dir.mkdir(parents=True, exist_ok=True)
 
-    results = []
-    for test_case in config.get("test_cases", []):
-        res = run_test_with_new_downloader(test_case, config, browser_strategy)
-        results.append(res)
+    # Inject browser_strategy into config and write a temporary config file
+    # so main.py picks it up. The user's config_e2e_official.json is not modified.
+    run_config = dict(config)
+    run_config["browser"] = {"strategy": browser_strategy, "headless": True}
 
-    # Final Verification
+    temp_config = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8",
+            dir=str(project_root),
+        ) as f:
+            json.dump(run_config, f, indent=2, ensure_ascii=False)
+            temp_config = f.name
+
+        # Run main.py exactly as a user would
+        log("Executing main.py with test config...")
+        success = run_main_py(temp_config, browser_strategy)
+        log(f"main.py exit status: {'success' if success else 'failed'}")
+
+    finally:
+        # Clean up temp config
+        if temp_config and os.path.exists(temp_config):
+            os.unlink(temp_config)
+
+    # Final Verification: compare downloaded files with expected results
     comp_ok, msg = compare_directories(
         config["save_dir"], config["expected_result_dir"]
     )
     log(f"Verification: {msg}")
 
+    # Post-verification cleanup: delete files for delete_later=true test cases,
+    # keep files for delete_later=false test cases
+    log("Cleaning up test files (delete_later=true)...")
+    cleaner2 = CleanerTool(str(save_dir))
+    cleaner2.clean_test_directory(config.get("test_cases", []))
+
     # Generate official report
     report = {
         "timestamp": datetime.now().isoformat(),
         "overall_success": comp_ok,
-        "results": results,
+        "browser_strategy": browser_strategy,
+        "main_py_success": success,
     }
     with open("e2e_official_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)

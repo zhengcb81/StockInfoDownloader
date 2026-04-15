@@ -94,6 +94,7 @@ class UnifiedRunner:
                     suffix=page.get("suffix", "research"),
                     allowed_keywords=page.get("allowed_keywords"),
                     max_pages=page.get("max_pages", 5),
+                    reverse_order=page.get("reverse_order", False),
                     headless=True,
                 )
                 if not res:
@@ -108,6 +109,61 @@ class UnifiedRunner:
             downloader.cleanup()
 
         return success
+
+    def run_test_cases(self, test_cases: List[Dict[str, Any]]) -> bool:
+        """Run a list of test cases, each with its own stock_code and page config.
+
+        Each test case is a dict with: stock_code, suffix, allowed_keywords,
+        max_pages, reverse_order, etc.
+
+        Args:
+            test_cases: List of test case dicts from config file
+
+        Returns:
+            bool: True if all test cases succeeded
+        """
+        overall_success = True
+        for i, tc in enumerate(test_cases):
+            stock_code = tc["stock_code"]
+            stock_name = get_real_stock_name(stock_code)
+            suffix = tc.get("suffix", "research")
+            self.logger.info(
+                f"[Test case {i+1}/{len(test_cases)}] "
+                f"Downloading {stock_code} ({stock_name}) - {suffix}"
+            )
+
+            downloader = downloader_factory.create_downloader(
+                downloader_type="unified",
+                browser_strategy=self.strategy,
+                save_dir=self.save_dir,
+            )
+
+            try:
+                res = downloader.download_activity_records(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    suffix=suffix,
+                    allowed_keywords=tc.get("allowed_keywords"),
+                    max_pages=tc.get("max_pages", 5),
+                    reverse_order=tc.get("reverse_order", False),
+                    headless=True,
+                )
+                if not res:
+                    self.logger.warning(
+                        f"Test case {i+1} failed: {stock_code}/{suffix}"
+                    )
+                    overall_success = False
+                else:
+                    self.logger.info(
+                        f"Test case {i+1} completed: downloaded {len(res)} file(s)"
+                    )
+            except Exception as e:
+                self.logger.error(f"Test case {i+1} failed: {stock_code}/{suffix}: {e}")
+                overall_success = False
+            finally:
+                downloader.cleanup()
+
+        return overall_success
 
     def run_multi(
         self, companies: List[Dict[str, Any]], parallel: bool = False, workers: int = 3
@@ -176,7 +232,10 @@ def main():
     # Priority 1: Command line stock code
     if args.stock_code:
         runner.run_single(args.stock_code)
-    # Priority 2: List of companies in config
+    # Priority 2: test_cases in config (each case is one stock+page combo)
+    elif "test_cases" in config:
+        runner.run_test_cases(config["test_cases"])
+    # Priority 3: List of companies in config
     elif "companies" in config:
         runner.run_multi(
             config["companies"], parallel=args.parallel, workers=args.workers

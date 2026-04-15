@@ -54,5 +54,96 @@
         "source": "preset",
         "timestamp": 1776201714.177921,
         "confidence": 0.8
+    },
+    "300750": {
+        "orgId": "GD165627",
+        "name": "宁德时代",
+        "source": "auto",
+        "timestamp": 1776286605.283926,
+        "confidence": 0.7
+    },
+    "688012": {
+        "orgId": "9900038991",
+        "name": "中微公司",
+        "source": "auto",
+        "timestamp": 1776286896.654108,
+        "confidence": 0.7
+    },
+    "688256": {
+        "orgId": "nssc1000595",
+        "name": "寒武纪",
+        "source": "auto",
+        "timestamp": 1776287291.935486,
+        "confidence": 0.7
+    },
+    "688041": {
+        "orgId": "9900048365",
+        "name": "海光信息",
+        "source": "auto",
+        "timestamp": 1776287338.515411,
+        "confidence": 0.7
+    },
+    "300474": {
+        "orgId": "9900026649",
+        "name": "景嘉微",
+        "source": "auto",
+        "timestamp": 1776287384.428182,
+        "confidence": 0.7
+    },
+    "002371": {
+        "orgId": "9900006137",
+        "name": "北方华创",
+        "source": "auto",
+        "timestamp": 1776287439.940407,
+        "confidence": 0.7
+    },
+    "688072": {
+        "orgId": "9900048695",
+        "name": "拓荆科技",
+        "source": "auto",
+        "timestamp": 1776287538.400261,
+        "confidence": 0.7
+    },
+    "688082": {
+        "orgId": "nssc1000455",
+        "name": "盛美上海",
+        "source": "auto",
+        "timestamp": 1776287585.307736,
+        "confidence": 0.7
+    },
+    "688120": {
+        "orgId": "9900044315",
+        "name": "华海清科",
+        "source": "auto",
+        "timestamp": 1776287638.081233,
+        "confidence": 0.7
+    },
+    "300567": {
+        "orgId": "DR0000288",
+        "name": "精测电子",
+        "source": "auto",
+        "timestamp": 1776287688.883012,
+        "confidence": 0.7
+    },
+    "688126": {
+        "orgId": "9900039304",
+        "name": "沪硅产业",
+        "source": "auto",
+        "timestamp": 1776287755.487202,
+        "confidence": 0.7
+    },
+    "300346": {
+        "orgId": "9900022326",
+        "name": "南大光电",
+        "source": "auto",
+        "timestamp": 1776287806.019252,
+        "confidence": 0.7
+    },
+    "688268": {
+        "orgId": "gfbj0870865",
+        "name": "华特气体",
+        "source": "auto",
+        "timestamp": 1776287871.404119,
+        "confidence": 0.7
     }
 }

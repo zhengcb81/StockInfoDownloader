@@ -54,6 +54,17 @@
       "reverse_order": true,
       "delete_later": true,
       "timeout_seconds": 180
+    },
+    {
+      "stock_code": "300750",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": [
+        "首次公开发行股票并在创业板上市招股说明书"
+      ],
+      "max_pages": 2,
+      "reverse_order": true,
+      "delete_later": true,
+      "timeout_seconds": 180
     }
   ]
 }
