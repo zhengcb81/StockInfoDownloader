@@ -1,51 +1,19 @@
-# Downloads and outputs
-downloads/
-*.csv
-*.pdf
-
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-
-# Logs
+*.egg-info/
+dist/
+build/
+.eggs/
 *.log
-
-# Cache directories
-cache/
-*.cache
-temp/
-tmp/
-temp_debug/
-temp_download/
-temp_reverse/
-temp_*/
-
-# Test artifacts
-*.tmp
-.coverage
-logs/debug_markers/*.jsonl
-logs/debug_page_*.png
-performance_reports/
-test_reports/
-nul
-
-# Claude files
-.claude/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Environment files
+logs/
+downloads/
+end2end_test/test_results/
+*.json
+!config.json
+!config_e2e_official.json
+!tests/**/*.json
 .env
-.venv/
-venv/
-env/
+.coverage
+htmlcov/
+.pytest_cache/

@@ -31,7 +31,7 @@
         "2025年一季度报告"
       ],
       "max_pages": 5,
-      "delete_later": true,
+      "delete_later": false,
       "timeout_seconds": 240
     },
     {
@@ -41,7 +41,7 @@
         "2023年1月31日投资者关系活动记录表"
       ],
       "max_pages": 3,
-      "delete_later": true,
+      "delete_later": false,
       "timeout_seconds": 300
     },
     {
@@ -52,7 +52,7 @@
       ],
       "max_pages": 2,
       "reverse_order": true,
-      "delete_later": true,
+      "delete_later": false,
       "timeout_seconds": 180
     },
     {
@@ -63,7 +63,7 @@
       ],
       "max_pages": 2,
       "reverse_order": true,
-      "delete_later": true,
+      "delete_later": false,
       "timeout_seconds": 180
     }
   ]

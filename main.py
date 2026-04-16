@@ -1,143 +1,92 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Stock Downloader V2 — Unified Entry Point.
 
-"""
-Stock Information Downloader - Unified Entry Point
 Supports single company, multiple companies, parallel and sequential modes.
+Compatible with config_e2e_official.json format.
 """
-
 import argparse
 import concurrent.futures
+import json
 import os
 import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Add src directory to Python path
+# Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.core.config import ConfigManager
-from src.core.logger import get_logger
-from src.core.performance_monitor import log_performance_stats
-from src.data.mapping import MappingManager
-from src.factory.downloader_factory import downloader_factory
+from src.config import AppConfig, load_config
+from src.downloader import StockDownloader
+from src.logger import log, setup_logger
+from src.mapping import MappingManager
+from src.models import DownloadRequest
 
-# Set console encoding to UTF-8
-if sys.platform == "win32":
+
+def get_real_stock_name(stock_code: str) -> str:
+    """Get stock name from mapping."""
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        mm = MappingManager()
+        return mm.get_stock_name(stock_code) or f"Stock_{stock_code}"
     except Exception:
-        pass
-
-
-def get_real_stock_name(stock_code, mapping_file="configs/stock_orgid_mapping.json"):
-    """Get stock name from mapping"""
-    mapping_manager = MappingManager(mapping_file)
-    return mapping_manager.get_stock_name(stock_code) or f"Stock_{stock_code}"
+        return f"Stock_{stock_code}"
 
 
 class UnifiedRunner:
-    """Manager for executing download tasks"""
+    """Manages execution of download tasks."""
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = get_logger("UnifiedRunner")
         self.save_dir = config.get("save_dir", "downloads")
-        self.strategy = config.get("browser", {}).get("strategy", "playwright")
-
-    def _prepare_task(
-        self, stock_code: str, company_name: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Prepare configuration for a single stock download task"""
-        name = company_name or get_real_stock_name(stock_code)
-        return {
-            "stock_code": stock_code,
-            "stock_name": name,
-            "save_dir": self.save_dir,
-            "max_retries": self.config.get("max_retries", 3),
-            "pages": self.config.get(
-                "pages",
-                [
-                    {"name": "Research", "suffix": "research", "max_pages": 5},
-                    {
-                        "name": "Periodic Reports",
-                        "suffix": "periodicReports",
-                        "max_pages": 5,
-                    },
-                ],
-            ),
-        }
 
     def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
-        """Run download for a single stock code"""
-        task = self._prepare_task(stock_code, company_name)
-        self.logger.info(
-            f"Starting task for {task['stock_code']} ({task['stock_name']})"
+        """Run download for a single stock code."""
+        name = company_name or get_real_stock_name(stock_code)
+        pages = self.config.get(
+            "pages",
+            [
+                {"name": "Research", "suffix": "research", "max_pages": 5},
+                {"name": "Periodic Reports", "suffix": "periodicReports", "max_pages": 5},
+            ],
         )
 
-        # Create the modern unified downloader
-        downloader = downloader_factory.create_downloader(
-            downloader_type="unified",
-            browser_strategy=self.strategy,
-            save_dir=self.save_dir,
-        )
-
+        downloader = StockDownloader(self.config)
         success = True
         try:
-            for page in task["pages"]:
-                self.logger.info(f"Downloading {page['name']} for {stock_code}")
-                # UnifiedDownloader.download_activity_records is the best compat entry point
+            for page in pages:
+                log.info(f"Downloading {page.get('name', page.get('suffix', ''))} for {stock_code}")
                 res = downloader.download_activity_records(
                     stock_code=stock_code,
+                    stock_name=name,
                     suffix=page.get("suffix", "research"),
                     allowed_keywords=page.get("allowed_keywords"),
                     max_pages=page.get("max_pages", 5),
                     reverse_order=page.get("reverse_order", False),
-                    headless=True,
                 )
                 if not res:
-                    self.logger.warning(
-                        f"Failed to download {page['name']} for {stock_code}"
-                    )
+                    log.warning(f"Failed: {page.get('name', page.get('suffix'))} for {stock_code}")
                     success = False
         except Exception as e:
-            self.logger.error(f"Task failed for {stock_code}: {e}")
+            log.error(f"Task failed for {stock_code}: {e}")
             success = False
         finally:
             downloader.cleanup()
-
         return success
 
     def run_test_cases(self, test_cases: List[Dict[str, Any]]) -> bool:
-        """Run a list of test cases, each with its own stock_code and page config.
-
-        Each test case is a dict with: stock_code, suffix, allowed_keywords,
-        max_pages, reverse_order, etc.
-
-        Args:
-            test_cases: List of test case dicts from config file
-
-        Returns:
-            bool: True if all test cases succeeded
-        """
+        """Run a list of test cases (stock_code + suffix combos)."""
         overall_success = True
         for i, tc in enumerate(test_cases):
             stock_code = tc["stock_code"]
             stock_name = get_real_stock_name(stock_code)
             suffix = tc.get("suffix", "research")
-            self.logger.info(
+            log.info(
                 f"[Test case {i+1}/{len(test_cases)}] "
                 f"Downloading {stock_code} ({stock_name}) - {suffix}"
             )
 
-            downloader = downloader_factory.create_downloader(
-                downloader_type="unified",
-                browser_strategy=self.strategy,
-                save_dir=self.save_dir,
-            )
-
+            downloader = StockDownloader(self.config)
             try:
                 res = downloader.download_activity_records(
                     stock_code=stock_code,
@@ -146,35 +95,29 @@ class UnifiedRunner:
                     allowed_keywords=tc.get("allowed_keywords"),
                     max_pages=tc.get("max_pages", 5),
                     reverse_order=tc.get("reverse_order", False),
-                    headless=True,
                 )
                 if not res:
-                    self.logger.warning(
-                        f"Test case {i+1} failed: {stock_code}/{suffix}"
-                    )
+                    log.warning(f"Test case {i+1} failed: {stock_code}/{suffix}")
                     overall_success = False
                 else:
-                    self.logger.info(
-                        f"Test case {i+1} completed: downloaded {len(res)} file(s)"
-                    )
+                    log.info(f"Test case {i+1} completed: {len(res)} file(s)")
             except Exception as e:
-                self.logger.error(f"Test case {i+1} failed: {stock_code}/{suffix}: {e}")
+                log.error(f"Test case {i+1} failed: {stock_code}/{suffix}: {e}")
                 overall_success = False
             finally:
                 downloader.cleanup()
-
         return overall_success
 
     def run_multi(
         self, companies: List[Dict[str, Any]], parallel: bool = False, workers: int = 3
-    ):
-        """Run downloads for multiple companies"""
+    ) -> None:
+        """Run downloads for multiple companies."""
         if not companies:
-            self.logger.error("No companies provided for download")
+            log.error("No companies provided")
             return
 
         if parallel and len(companies) > 1:
-            self.logger.info(f"Starting parallel download with {workers} workers")
+            log.info(f"Parallel download with {workers} workers")
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = {
                     executor.submit(
@@ -187,70 +130,51 @@ class UnifiedRunner:
                     try:
                         future.result()
                     except Exception as e:
-                        self.logger.error(
-                            f"Parallel task for {c['stock_code']} failed: {e}"
-                        )
+                        log.error(f"Parallel task for {c['stock_code']} failed: {e}")
         else:
-            self.logger.info("Starting sequential download")
+            log.info("Sequential download")
             for c in companies:
                 self.run_single(c["stock_code"], c.get("company_name"))
                 if c != companies[-1]:
-                    time.sleep(2)  # Anti-crawler delay
+                    time.sleep(2)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Stock Information Downloader (Unified)"
-    )
-    parser.add_argument(
-        "stock_code",
-        nargs="?",
-        help="Stock code to download (optional if provided in config)",
-    )
+    parser = argparse.ArgumentParser(description="Stock Downloader V2")
+    parser.add_argument("stock_code", nargs="?", help="Stock code to download")
     parser.add_argument("--config", default="config.json", help="Path to config file")
-    parser.add_argument(
-        "--parallel", action="store_true", help="Enable parallel downloading"
-    )
-    parser.add_argument(
-        "--workers", type=int, default=3, help="Number of parallel workers"
-    )
+    parser.add_argument("--parallel", action="store_true", help="Enable parallel mode")
+    parser.add_argument("--workers", type=int, default=3, help="Parallel workers")
     args = parser.parse_args()
 
-    logger = get_logger("main")
+    # Setup logging
+    setup_logger()
 
-    # Load Config
-    config_manager = ConfigManager()
-    config = {}
-    if os.path.exists(args.config):
-        try:
-            config = config_manager.load_config(args.config)
-        except Exception as e:
-            logger.error(f"Failed to load config: {e}")
+    # Load config
+    try:
+        config = load_config(args.config)
+    except Exception as e:
+        log.error(f"Failed to load config: {e}")
+        sys.exit(1)
 
     runner = UnifiedRunner(config)
 
-    # Priority 1: Command line stock code
+    # Priority: CLI stock_code > test_cases > companies > config stock_code
     if args.stock_code:
         runner.run_single(args.stock_code)
-    # Priority 2: test_cases in config (each case is one stock+page combo)
     elif "test_cases" in config:
         runner.run_test_cases(config["test_cases"])
-    # Priority 3: List of companies in config
     elif "companies" in config:
-        runner.run_multi(
-            config["companies"], parallel=args.parallel, workers=args.workers
-        )
-    # Priority 3: Single stock_code in config
+        runner.run_multi(config["companies"], parallel=args.parallel, workers=args.workers)
     elif "stock_code" in config:
         runner.run_single(config["stock_code"])
     else:
-        logger.error(
-            "No stock code or companies provided. Usage: python main.py <stock_code> or provide config.json"
+        log.error(
+            "No stock code provided. Usage: python main.py <stock_code> or provide config.json"
         )
         sys.exit(1)
 
-    logger.info("All tasks completed")
-    log_performance_stats()
+    log.info("All tasks completed")
 
 
 if __name__ == "__main__":

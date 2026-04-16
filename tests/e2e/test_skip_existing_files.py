@@ -21,8 +21,8 @@ import pytest
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.services.unified_downloader import UnifiedDownloader
-from src.interfaces.downloader_interface import DownloadRequest
+from src.downloader import StockDownloader as UnifiedDownloader
+from src.models import DownloadRequest
 
 
 class TestSkipExistingFilesBehavior:
@@ -64,7 +64,7 @@ class TestSkipExistingFilesBehavior:
 
     def test_download_result_has_skipped_files_field(self):
         """测试 DownloadResult 包含 skipped_files 字段"""
-        from src.interfaces.downloader_interface import DownloadResult
+        from src.models import DownloadResult
 
         result = DownloadResult(
             success=True,
@@ -83,7 +83,7 @@ class TestSkipExistingFilesBehavior:
 
     def test_download_result_skipped_files_initialization(self):
         """测试 DownloadResult skipped_files 初始化"""
-        from src.interfaces.downloader_interface import DownloadResult
+        from src.models import DownloadResult
 
         # 测试显式传入 skipped_files
         result = DownloadResult(
@@ -238,7 +238,7 @@ class TestSkipBehaviorIntegration:
 
     def test_download_result_contains_behavior_fields(self):
         """测试下载结果包含行为验证字段"""
-        from src.interfaces.downloader_interface import DownloadResult
+        from src.models import DownloadResult
 
         # 模拟一个完整的下载结果
         result = DownloadResult(
@@ -264,7 +264,7 @@ class TestSkipBehaviorIntegration:
 
     def test_e2e_skip_scenario_simulation(self):
         """模拟 E2E 跳过场景"""
-        from src.interfaces.downloader_interface import DownloadResult
+        from src.models import DownloadResult
 
         # 场景1: 首次下载
         first_run_result = DownloadResult(

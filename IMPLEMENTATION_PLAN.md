@@ -1,142 +1,128 @@
-# 代码审查改进实施计划
+# Stock Downloader V2 — 实施计划
 
-基于代码审查报告，制定以下改进计划。
-
----
-
-## Stage 1: 设置覆盖率门槛 (快速胜利)
-**Goal**: 将 pytest 覆盖率门槛从 0 提高到 34（当前实际覆盖率），防止覆盖率进一步下降
-**Success Criteria**: pytest.ini 中 `--cov-fail-under=34`，CI 通过
-**Tests**:
-- [x] 单元测试通过 (566 passed)
-- [x] Playwright E2E 测试通过 (Perfect match)
-- [x] Selenium E2E 测试通过 (Perfect match)
-**Status**: Complete
+> 基于对 StockInfoDownloader 的全面审查，从零构建精简、高效的替代版本。
+> 核心原则：只保留 Playwright，删除所有过度抽象，500 行搞定 29,000 行的事。
 
 ---
 
-## Stage 2: 提高测试覆盖率 - 核心工具函数
-**Goal**: 为 `src/utils/` 和 `src/web/anti_crawler/` 模块添加单元测试
-**Success Criteria**:
-- [x] `src/utils/security.py` 覆盖率从 11% 提升到 86%
-- [ ] `src/utils/intelligent_cache.py` 覆盖率从 18% 提升到 40%+
-- [ ] `src/utils/validation.py` 覆盖率从 57% 提升到 70%+
-- [x] 新增测试文件通过所有测试
-**Tests**:
-- [x] 单元测试通过 (605 passed, 之前 566)
-- [x] Playwright E2E 测试通过 (Perfect match)
-- [x] Selenium E2E 测试通过 (Perfect match)
-- [x] 覆盖率从 34% 提升到 35.18%
-**Status**: Partial Complete - security.py 完成，其他模块待续
+## 目标
+
+1. 仅保留 Playwright 浏览器引擎（删除 Selenium）
+2. 保留全部功能：org_id 爬取、股票名查询、多页下载、反序遍历、关键词过滤、跳过已存在文件
+3. 保留原有 E2E 测试套件（适配新路径）
+4. 每个大阶段结束前 E2E 测试必须 100% 通过
+5. 补全文档
 
 ---
 
-## Stage 3: 替换 MagicMock
-**Goal**: 在 `src/adapters/legacy_downloader_adapter.py` 中使用 Fake 实现替代 MagicMock
-**Success Criteria**:
-- [x] 移除所有 MagicMock 使用
-- [x] 创建 FakeAntiCrawler 和 FakeDriverManager 类
-- [x] 适配器测试通过
-**Tests**:
-- [x] 单元测试通过 (626 passed)
-- [x] Playwright E2E 测试通过 (Perfect match)
-- [x] Selenium E2E 测试通过 (Perfect match)
-**Status**: Complete
+## 架构设计（新 vs 旧）
+
+```
+旧 (29,000 行, 205 类, 32 配置文件):
+  src/core/       6 文件 config + 8 文件 exceptions + logger + monitoring + ...
+  src/web/        4 个策略实现 + 反爬虫包 + driver pool + proxy + scraper + ...
+  src/services/   unified_downloader + 8 个 service + download_helpers
+  src/factory/    downloader_factory (300 行)
+  src/adapters/   legacy_downloader_adapter
+  src/interfaces/ downloader_interface (200 行)
+  src/abstracts/  base_downloader (380 行)
+  微服务 5 个 Docker 容器
+
+新 (~2,000 行, ~15 类, 2 配置文件):
+  src/
+    config.py          # 配置加载 + 常量 (~80 行)
+    browser.py         # Playwright 包装 (~200 行)
+    downloader.py      # 核心下载逻辑 (~350 行)
+    mapping.py         # 股票代码 → org_id 映射 (~200 行)
+    models.py          # 数据模型 (~60 行)
+    storage.py         # JSON 存储 (~50 行)
+    orgid.py           # org_id 爬取服务 (~100 行)
+    stock.py           # 股票名称查询 (~80 行)
+    file_utils.py      # 文件名清理、目录管理 (~60 行)
+    logger.py          # 日志 (~30 行)
+    exceptions.py      # 异常定义 (~40 行)
+  main.py             # CLI 入口 (~100 行)
+  config.json         # 运行配置
+```
 
 ---
 
-## Stage 4: 修复被忽略的单元测试
-**Goal**: 修复或移除 `tests/unit/test_basic.py` 和 `tests/unit/test_org_id_validation.py`
-**Success Criteria**:
-- [x] 验证 test_basic.py 通过 (8 passed, 5 subtests passed)
-- [x] 验证 test_org_id_validation.py 通过 (13 passed, 8 subtests passed)
-- [x] 从 pytest.ini 中移除忽略配置
-- [x] 所有单元测试通过
-**Tests**:
-- [x] 单元测试通过 (626 passed, 之前 605)
-- [x] Playwright E2E 测试通过 (Perfect match)
-- [x] Selenium E2E 测试通过 (Perfect match)
-- [x] 覆盖率从 35.22% 提升到 35.23%
-**Status**: Complete
+## 实施阶段
+
+### Phase 1: 项目骨架 + 配置系统
+- 创建目录结构
+- config.py: 配置加载（从 JSON 读取，提供默认值）
+- constants.py: URL 模板、选择器、超时常量
+- logger.py: 简洁日志配置
+- exceptions.py: 5-6 个具体异常类
+
+### Phase 2: 数据层 + 单元测试
+- models.py: OrgIdMapping, DownloadRequest, DownloadResult dataclass
+- storage.py: JsonStorage (load/save JSON)
+- mapping.py: MappingManager（从原项目移植，保留全部功能）
+  - 本地映射查找
+  - 网络爬取 org_id
+  - 股票名称获取
+  - 映射持久化
+- 单元测试：mapping, storage, models
+
+### Phase 3: 浏览器层 + 单元测试
+- browser.py: PlaywrightBrowser 类（不抽象，直接封装 Playwright）
+  - navigate, execute_script, find_elements, download_file, go_to_next_page, etc.
+  - 反爬虫：随机延迟、User-Agent 轮换
+- orgid.py: OrgIdCrawler（从原 OrgIdService 移植，仅用 Playwright）
+- stock.py: StockNameService（从原 StockService 移植）
+- 单元测试
+
+### Phase 4: 核心下载逻辑 + 单元测试
+- downloader.py: StockDownloader 类
+  - download(): 主入口，接收 DownloadRequest
+  - _download_page(): 单页下载
+  - _download_file(): 单文件下载
+  - _handle_pagination(): 翻页逻辑（正序/反序）
+  - keyword matching, skip existing files
+  - retry logic
+- file_utils.py: clean_filename, ensure_directory
+- 单元测试
+
+### Phase 5: 入口点
+- main.py: CLI 入口
+  - 支持命令行 stock_code
+  - 支持 config.json test_cases / companies
+  - 支持 --parallel, --workers
+  - 兼容 config_e2e_official.json 格式
+
+### Phase 6: E2E 测试迁移 (关键阶段)
+- 将 tests/e2e/ 和 end2end_test/ 复制到新项目
+- 更新 import 路径指向新模块
+- 迁移 tests/utils/ (CleanerTool)
+- 迁移 tests/test_config.py (EnvironmentManager)
+- 迁移 tests/fake_browser_strategy.py
+- 运行 E2E 测试，必须 100% 通过
+
+### Phase 7: 文档
+- README.md
+- ARCHITECTURE.md
+- CONFIGURATION.md
+- API.md
+- CHANGELOG.md
 
 ---
 
-## Stage 5: 完善类型注解 - 公共 API
-**Goal**: 为 `src/utils/` 和 `src/web/` 模块的公共函数添加类型注解
-**Success Criteria**:
-- 核心工具函数都有类型注解
-- mypy 检查通过
-**Tests**: mypy 类型检查通过
-**Status**: Complete
+## E2E 测试兼容性分析
 
----
+E2E 测试期望的接口：
+1. `main.py --config config_e2e_official.json` — subprocess 调用
+2. `config_e2e_official.json` 格式：test_cases 列表，每个有 stock_code, suffix, allowed_keywords, max_pages, reverse_order
+3. 下载文件到 `end2end_test/test_results/{公司名}/` 目录
+4. 与 `end2end_test/expected_results/` 比较
 
-## Stage 6: 拆分 ConfigManager
-**Goal**: 将 `src/core/config.py` 中的 ConfigManager 拆分为多个专用管理器
-**Success Criteria**:
-- 拆分为 `ConfigManager`、`CompanyConfigManager`、`TestConfigManager`
-- 所有现有测试通过
-- 代码行数减少，职责更清晰
-**Tests**: 所有配置相关测试通过 (14 passed)
-**Status**: Complete
+直接导入的 E2E 测试：
+- `test_pagination_behavior.py` → `PaginationHandler`
+- `test_skip_existing_files.py` → `UnifiedDownloader`, `DownloadRequest`
+- `test_dual_browser_modes.py` → `DownloadServiceV2Adapter` (需改写或跳过)
 
----
-
-## Stage 7: 解决 Playwright 异步问题
-**Goal**: 解决 `src/web/playwright_strategy.py` 中的异步循环冲突
-**Success Criteria**:
-- 移除 `asyncio.set_event_loop(None)` 变通方案
-- 使用 playwright.async_api 或独立线程
-- E2E 测试 100% 通过
-**Tests**: E2E 测试在 Playwright 模式下 100% 通过
-**Status**: Complete
-
----
-
-## Stage 8: 统一文档语言
-**Goal**: 将中文日志和注释翻译为英文
-**Success Criteria**:
-- 核心模块的日志和注释统一使用英文
-- 代码风格一致
-**Tests**: 无功能变化，所有测试通过 (626 passed)
-**Status**: Complete
-
----
-
-## 优先级说明
-
-1. **高优先级**: Stage 1, 2, 3, 4 - 影响代码质量和测试可靠性
-2. **中优先级**: Stage 5, 6 - 影响代码可维护性
-3. **低优先级**: Stage 7, 8 - 改进用户体验和代码风格
-
----
-
-## 当前覆盖率数据 (已更新)
-
-| 模块 | 原覆盖率 | 当前覆盖率 | 目标覆盖率 |
-|------|---------|-----------|-----------|
-| src/utils/security.py | 11.41% | **86%** ✅ | 50% |
-| src/utils/intelligent_cache.py | 18.58% | 18.58% | 40% |
-| src/web/anti_crawler/ | 6-17% | 6-17% | 30% |
-| src/utils/validation.py | 57.58% | 57.58% | 70% |
-| src/utils/string_optimizer.py | 58.38% | 61.62% ✅ | 70% |
-| **总体** | **34.05%** | **35.50%** ✅ | 45% |
-
----
-
-## 已完成的改进总结
-
-### Stage 1-8 全部完成 ✅
-- ✅ 设置覆盖率门槛 (34%)
-- ✅ security.py 覆盖率提升 (11% → 86%)
-- ✅ 替换 MagicMock 为 Fake 实现
-- ✅ 修复被忽略的单元测试
-- ✅ 新增 60+ 单元测试 (566 → 626)
-- ✅ 所有 E2E 测试通过 (Playwright + Selenium)
-- ✅ 完善类型注解 - 公共 API
-- ✅ 拆分 ConfigManager (951行 → 3个专用管理器)
-- ✅ 解决 Playwright 异步问题 (移除 asyncio.set_event_loop(None) 变通方案)
-- ✅ 统一文档语言 (中文 → 英文)
-
-### 实施计划已完成 🎉
-所有代码审查改进建议已全部实施完成！
+解决方案：
+- 新代码提供 `src.interfaces` 兼容层（PaginationHandler, DownloadRequest 等）
+- `test_dual_browser_modes.py` 涉及 Selenium，标记为 skip 或改写为 Playwright-only
+- `official_e2e_test.py` 只需 main.py 兼容即可

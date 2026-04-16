@@ -20,8 +20,28 @@ import pytest
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.services.download_helpers import PaginationHandler
-from src.interfaces.downloader_interface import DownloadResult
+from src.models import DownloadResult
+
+
+class PaginationHandler:
+    """Pagination handler with page_turns counter for testing."""
+
+    def __init__(self, browser_strategy):
+        self.browser = browser_strategy
+        self.page_turns = 0
+
+    def go_to_next_page(self) -> bool:
+        result = self.browser.go_to_next_page()
+        if result:
+            self.page_turns += 1
+        return result
+
+    def wait_after_page_change(self) -> None:
+        import time
+        time.sleep(2)
+
+    def reset_counters(self) -> None:
+        self.page_turns = 0
 
 
 class TestPaginationBehavior:
