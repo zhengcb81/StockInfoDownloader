@@ -4,6 +4,7 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 from main import UnifiedRunner
+from src.models import DownloadResult
 
 
 class TestParallelDownload:
@@ -109,7 +110,8 @@ class TestParallelDownload:
 
         with patch("main.StockDownloader") as MockDownloader:
             mock_instance = MagicMock()
-            mock_instance.download_activity_records.return_value = ["file.pdf"]
+            mock_result = DownloadResult(success=True, downloaded_files=["file.pdf"])
+            mock_instance.download.return_value = mock_result
             mock_instance.cleanup = MagicMock()
             MockDownloader.return_value = mock_instance
 
@@ -118,5 +120,5 @@ class TestParallelDownload:
             ])
 
             assert result is True
-            mock_instance.download_activity_records.assert_called_once()
+            mock_instance.download.assert_called_once()
             mock_instance.cleanup.assert_called_once()

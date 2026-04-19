@@ -2,6 +2,9 @@
 import json
 import tempfile
 
+import pytest
+
+from src.exceptions import MappingError
 from src.storage import JsonStorage
 
 
@@ -18,11 +21,12 @@ class TestJsonStorage:
         data = s.load()
         assert data == {"key": "value"}
 
-    def test_load_corrupted_returns_none(self):
+    def test_load_corrupted_raises_error(self):
         f = tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, encoding="utf-8"
         )
         f.write("{invalid json")
         f.close()
         s = JsonStorage(f.name)
-        assert s.load() is None
+        with pytest.raises(MappingError):
+            s.load()

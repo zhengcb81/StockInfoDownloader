@@ -67,9 +67,27 @@ class PlaywrightBrowser:
             )
             # Anti-detection scripts
             self._context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
-                Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN','zh','en']});
+                // Remove webdriver property
+                Object.defineProperty(navigator, 'webdriver', {get: () => undefined, configurable: true});
+
+                // Mock PluginArray with realistic structure
+                const mockPlugin = { name: 'Chrome PDF Plugin', description: '', filename: 'internal-pdf-viewer', length: 1 };
+                const mockPlugin2 = { name: 'Chrome PDF Viewer', description: '', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', length: 1 };
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [mockPlugin, mockPlugin2],
+                    configurable: true
+                });
+
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['zh-CN', 'zh', 'en-US', 'en'],
+                    configurable: true
+                });
+
+                // Remove chrome.runtime detection
+                if (window.chrome && window.chrome.runtime) {
+                    Object.defineProperty(window.chrome.runtime, 'id', {get: () => undefined});
+                }
             """)
             self._page = self._context.new_page()
             log.info("Playwright browser initialized")
@@ -89,8 +107,8 @@ class PlaywrightBrowser:
                 self._browser.close()
             if self._pw:
                 self._pw.stop()
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Browser close error: {e}")
         self._page = None
         self._context = None
         self._browser = None
@@ -141,7 +159,8 @@ class PlaywrightBrowser:
             if by == "xpath":
                 return self.page.query_selector_all(f"xpath={selector}")
             return self.page.query_selector_all(selector)
-        except Exception:
+        except Exception as e:
+            log.debug(f"find_elements failed ({selector}): {e}")
             return []
 
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
@@ -172,7 +191,8 @@ class PlaywrightBrowser:
         try:
             element.click()
             return True
-        except Exception:
+        except Exception as e:
+            log.debug(f"click failed: {e}")
             return False
 
     def execute_script(self, script: str, *args) -> Any:
@@ -223,6 +243,65 @@ class PlaywrightBrowser:
 
     # ── Download ──────────────────────────────────────────────────────
 
+    def _try_direct_download(self, url: str, save_path: str) -> Optional[bool]:
+        """Try strategy 1: navigate to detail page and capture automatic download."""
+        try:
+            with self.page.expect_download(timeout=10000) as dl_info:
+                self.page.goto(
+                    url, wait_until="domcontentloaded", timeout=C.PAGE_LOAD_TIMEOUT * 1000
+                )
+            download = dl_info.value
+            download.save_as(save_path)
+            if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
+                log.info(f"Direct download successful: {save_path}")
+                return True
+        except Exception as e:
+            error_msg = str(e)
+            if "Download is starting" in error_msg:
+                # Download was triggered but goto threw — try to capture it
+                try:
+                    download = self.page.wait_for_event("download", timeout=5000)
+                    download.save_as(save_path)
+                    if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
+                        log.info(f"Captured started download: {save_path}")
+                        return True
+                except Exception:
+                    pass
+            log.debug(f"Direct download failed, trying button: {error_msg[:100]}")
+        return None
+
+    def _try_button_download(self, url: str, save_path: str, timeout: int) -> Optional[bool]:
+        """Try strategy 2: find and click a download button on the detail page."""
+        try:
+            self.page.wait_for_load_state("domcontentloaded", timeout=5000)
+        except Exception:
+            pass
+
+        time.sleep(C.DOM_CONTENT_WAIT)
+
+        btn = self.page.query_selector(
+            "button:has-text('公告下载'), a:has-text('下载'), .download-link"
+        )
+        if not btn:
+            log.error("Download button not found")
+            return False
+
+        try:
+            with self.page.expect_download(timeout=timeout * 1000) as dl_info:
+                btn.click()
+                log.info("Clicked download button, waiting for file...")
+            download = dl_info.value
+            download.save_as(save_path)
+            if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
+                log.info(f"Button download successful: {save_path}")
+                return True
+            else:
+                log.warning(f"Downloaded file too small: {save_path}")
+                return False
+        except Exception as e:
+            log.debug(f"Button download failed: {e}")
+        return None
+
     def download_file(self, url: str, save_path: str, timeout: int = 60) -> bool:
         """Download a file from a detail page URL.
 
@@ -235,61 +314,17 @@ class PlaywrightBrowser:
             Path(save_path).parent.mkdir(parents=True, exist_ok=True)
             log.info(f"Attempting download: {url}")
 
-            # ── Step 1: Try direct download ────────────────────────
-            try:
-                with self.page.expect_download(timeout=10000) as dl_info:
-                    self.page.goto(url, wait_until="domcontentloaded", timeout=C.PAGE_LOAD_TIMEOUT * 1000)
-
-                download = dl_info.value
-                download.save_as(save_path)
-                if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                    log.info(f"Direct download successful: {save_path}")
-                    return True
-            except Exception as e:
-                error_msg = str(e)
-                if "Download is starting" in error_msg:
-                    # Download was triggered but goto threw — try to capture it
-                    try:
-                        download = self.page.wait_for_event("download", timeout=5000)
-                        download.save_as(save_path)
-                        if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                            log.info(f"Captured started download: {save_path}")
-                            return True
-                    except Exception:
-                        pass
-                log.debug(f"Direct download failed, trying button: {error_msg[:100]}")
-
-            # ── Step 2: Find and click download button ────────────
-            try:
-                self.page.wait_for_load_state("domcontentloaded", timeout=5000)
-            except Exception:
-                pass
-
-            time.sleep(2)
-
-            # Find the download button
-            btn = self.page.query_selector(
-                "button:has-text('公告下载'), a:has-text('下载'), .download-link"
-            )
-            if not btn:
-                log.error("Download button not found")
-                return False
-
-            # Click button inside expect_download
-            with self.page.expect_download(timeout=timeout * 1000) as dl_info:
-                btn.click()
-                log.info("Clicked download button, waiting for file...")
-
-            download = dl_info.value
-            download.save_as(save_path)
-
-            if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                log.info(f"Button download successful: {save_path}")
+            # Strategy 1: direct download
+            result = self._try_direct_download(url, save_path)
+            if result is True:
                 return True
-            else:
-                log.warning(f"Downloaded file too small: {save_path}")
-                return False
 
+            # Strategy 2: button click
+            result = self._try_button_download(url, save_path, timeout)
+            if result is True:
+                return True
+
+            return False
         except Exception as e:
             log.error(f"Download failed for {url}: {e}")
             return False
@@ -322,13 +357,24 @@ class PlaywrightBrowser:
             return False
 
     def go_to_last_page(self) -> bool:
-        """Click the last page button."""
+        """Navigate to the last page using the .btn-last button.
+
+        Falls back to clicking the last visible page number if .btn-last
+        is not available.
+        """
         try:
-            pages = self.page.query_selector_all(".el-pager li.number")
-            if pages:
-                pages[-1].click()
+            # Primary: click the dedicated "last page" button
+            btn = self.page.query_selector(C.LAST_PAGE_CSS)
+            if btn and not btn.is_disabled():
+                btn.click()
                 time.sleep(C.PAGINATION_WAIT)
                 return True
+
+            # Fallback: get total pages from page info and navigate directly
+            info = self.get_current_page_info()
+            total = info.get("total_pages", 1)
+            if total > 1:
+                return self.go_to_page(total)
             return False
         except Exception:
             return False

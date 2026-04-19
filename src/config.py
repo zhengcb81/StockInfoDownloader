@@ -69,48 +69,4 @@ def _merge_defaults(raw: Dict[str, Any]) -> Dict[str, Any]:
     return merged
 
 
-def get_timeout(config: Dict[str, Any], key: str, default: float = 10) -> float:
-    """Get a timeout value from config, with fallback."""
-    return float(config.get("timeout", {}).get(key, default))
 
-
-class AppConfig:
-    """Typed access to common config values."""
-
-    def __init__(self, config: Dict[str, Any]):
-        self._config = config
-
-    @property
-    def save_dir(self) -> str:
-        return self._config.get("save_dir", C.DEFAULT_SAVE_DIR)
-
-    @property
-    def headless(self) -> bool:
-        browser = self._config.get("browser", {})
-        if isinstance(browser, dict):
-            return browser.get("headless", True)
-        return self._config.get("headless", True)
-
-    @property
-    def max_retries(self) -> int:
-        return int(self._config.get("max_retries", 3))
-
-    @property
-    def timeout_seconds(self) -> int:
-        return int(self._config.get("timeout_seconds", 180))
-
-    @property
-    def test_cases(self) -> List[Dict[str, Any]]:
-        return self._config.get("test_cases", [])
-
-    @property
-    def companies(self) -> List[Dict[str, Any]]:
-        return self._config.get("companies", [])
-
-    @property
-    def pages(self) -> List[Dict[str, Any]]:
-        return self._config.get("pages", [])
-
-    @property
-    def stock_code(self) -> Optional[str]:
-        return self._config.get("stock_code")

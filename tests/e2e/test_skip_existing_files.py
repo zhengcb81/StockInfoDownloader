@@ -54,6 +54,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -110,6 +111,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -129,6 +131,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -150,6 +153,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -166,6 +170,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -189,6 +194,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)
@@ -203,6 +209,7 @@ class TestSkipExistingFilesBehavior:
         config = {
             "save_dir": self.save_dir,
             "skip_browser_init": True,
+            "max_retries": 3,
             "files": {"mapping_file": str(self.mapping_file)},
         }
         downloader = UnifiedDownloader(config=config)

@@ -24,6 +24,26 @@ class TestMatchesKeywords:
     def test_case_insensitive(self):
         assert _matches_keywords("Test Report", ["test"]) is True
 
+    def test_pure_date_keyword(self):
+        # Pure 8-digit date as keyword matches if date appears in text
+        assert _matches_keywords("公司报告20250725", ["20250725"]) is True
+        assert _matches_keywords("公司报告20250725", ["20250724"]) is False
+
+    def test_empty_keyword(self):
+        # Empty keyword in list is skipped (normalised to empty string)
+        assert _matches_keywords("报告", ["", "报告"]) is True
+
+    def test_special_characters(self):
+        assert _matches_keywords("报告(2025)", ["报告(2025)"]) is True
+        assert _matches_keywords("报告(2025)", ["报告2025"]) is False
+
+    def test_keyword_longer_than_text(self):
+        assert _matches_keywords("报告", ["这是一段很长的关键词"]) is False
+
+    def test_multiple_keywords_one_matches(self):
+        # Multiple keywords; first two don't match, third does
+        assert _matches_keywords("研究报告", ["公告", "快讯", "研究"]) is True
+
 
 class TestStockDownloader:
     def _make_config(self):
@@ -52,11 +72,3 @@ class TestStockDownloader:
         assert d.pages_traversed == 0
         assert d.download_count == 0
 
-    def test_download_activity_records_returns_list(self):
-        """Test that download_activity_records returns a list (even on failure)."""
-        d = StockDownloader(self._make_config())
-        # With skip_browser_init and no browser, it should fail gracefully
-        # But download_activity_records calls _download_internal which needs browser
-        # So we test the API shape, not the full pipeline
-        assert hasattr(d, "download_activity_records")
-        assert hasattr(d, "cleanup")

@@ -17,7 +17,8 @@ from typing import Any, Dict, List, Optional
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.config import AppConfig, load_config
+from src.config import load_config
+from src import constants as C
 from src.downloader import StockDownloader
 from src.logger import log, setup_logger
 from src.mapping import MappingManager
@@ -29,7 +30,8 @@ def get_real_stock_name(stock_code: str) -> str:
     try:
         mm = MappingManager()
         return mm.get_stock_name(stock_code) or f"Stock_{stock_code}"
-    except Exception:
+    except Exception as e:
+        log.debug(f"Stock name lookup failed for {stock_code}: {e}")
         return f"Stock_{stock_code}"
 
 
@@ -38,33 +40,29 @@ class UnifiedRunner:
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.save_dir = config.get("save_dir", "downloads")
+        self.save_dir = config["save_dir"]
 
     def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
         """Run download for a single stock code."""
         name = company_name or get_real_stock_name(stock_code)
-        pages = self.config.get(
-            "pages",
-            [
-                {"name": "Research", "suffix": "research", "max_pages": 5},
-                {"name": "Periodic Reports", "suffix": "periodicReports", "max_pages": 5},
-            ],
-        )
+        pages = self.config.get("pages", [])
 
         downloader = StockDownloader(self.config)
         success = True
         try:
             for page in pages:
                 log.info(f"Downloading {page.get('name', page.get('suffix', ''))} for {stock_code}")
-                res = downloader.download_activity_records(
+                request = DownloadRequest(
                     stock_code=stock_code,
                     stock_name=name,
                     suffix=page.get("suffix", "research"),
                     allowed_keywords=page.get("allowed_keywords"),
                     max_pages=page.get("max_pages", 5),
+                    save_dir=page.get("save_dir", self.save_dir),
                     reverse_order=page.get("reverse_order", False),
                 )
-                if not res:
+                result = downloader.download(request)
+                if not result.success:
                     log.warning(f"Failed: {page.get('name', page.get('suffix'))} for {stock_code}")
                     success = False
         except Exception as e:
@@ -88,7 +86,7 @@ class UnifiedRunner:
 
             downloader = StockDownloader(self.config)
             try:
-                res = downloader.download_activity_records(
+                request = DownloadRequest(
                     stock_code=stock_code,
                     stock_name=stock_name,
                     suffix=suffix,
@@ -96,11 +94,12 @@ class UnifiedRunner:
                     max_pages=tc.get("max_pages", 5),
                     reverse_order=tc.get("reverse_order", False),
                 )
-                if not res:
+                result = downloader.download(request)
+                if not result.success:
                     log.warning(f"Test case {i+1} failed: {stock_code}/{suffix}")
                     overall_success = False
                 else:
-                    log.info(f"Test case {i+1} completed: {len(res)} file(s)")
+                    log.info(f"Test case {i+1} completed: {len(result.downloaded_files)} file(s)")
             except Exception as e:
                 log.error(f"Test case {i+1} failed: {stock_code}/{suffix}: {e}")
                 overall_success = False
@@ -136,7 +135,7 @@ class UnifiedRunner:
             for c in companies:
                 self.run_single(c["stock_code"], c.get("company_name"))
                 if c != companies[-1]:
-                    time.sleep(2)
+                    time.sleep(C.INTER_COMPANY_DELAY)
 
 
 def main():

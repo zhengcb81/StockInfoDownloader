@@ -24,10 +24,10 @@ python main.py --config config.json --parallel --workers 3
 
 ```
 src/
-  browser.py         Playwright 浏览器封装 (~260 行)
-  downloader.py      核心下载逻辑 + 失败日志 (~380 行)
+  browser.py         Playwright 浏览器封装 (387 行)
+  downloader.py      核心下载逻辑 + 失败日志 (443 行)
   mapping.py         股票代码 → org_id 映射 + 自动爬取 (~200 行)
-  config.py          配置加载 + 常量 (~90 行)
+  config.py          配置加载 (~90 行)
   constants.py       URL/选择器/超时常量
   models.py          数据模型 (DownloadRequest/Result/OrgIdMapping)
   storage.py         JSON 存储
@@ -36,7 +36,7 @@ src/
   string_utils.py    字符串工具
   logger.py          日志
   exceptions.py      自定义异常
-main.py              CLI 入口 (~180 行)
+main.py              CLI 入口 (182 行)
 ```
 
 ## 功能
@@ -55,7 +55,55 @@ main.py              CLI 入口 (~180 行)
 
 ## 配置
 
-### config.json 结构
+### 完整配置项
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `save_dir` | string | `"downloads"` | 下载文件保存目录 |
+| `headless` | bool | `true` | 浏览器是否无头运行 |
+| `max_retries` | int | `3` | 下载失败重试次数 |
+| `timeout_seconds` | int | `180` | 页面超时时间（秒） |
+| `browser.strategy` | string | `"playwright"` | 浏览器策略（仅支持 playwright） |
+| `browser.headless` | bool | `true` | 浏览器无头模式（可覆盖顶层 headless） |
+| `download.max_pages` | int | `5` | 每类页面最大下载页数 |
+| `download.download_delay` | float | `0.5` | 下载间隔（秒） |
+| `anti_crawler.enabled` | bool | `true` | 是否启用反爬措施 |
+| `anti_crawler.base_delay` | float | `1.0` | 请求基础延迟（秒） |
+| `anti_crawler.random_delay_range` | [float, float] | `[0.5, 2.0]` | 随机延迟范围 |
+| `logging.level` | string | `"INFO"` | 日志级别 |
+| `logging.log_to_file` | bool | `true` | 是否写入日志文件 |
+| `logging.log_file` | string | `"logs/downloer.log"` | 日志文件路径 |
+| `pages` | array | `[]` | 页面配置列表（见下） |
+| `companies` | array | `[]` | 公司列表，用于批量下载 |
+| `test_cases` | array | `[]` | E2E 测试用例列表 |
+
+### 页面配置 (pages)
+
+```json
+{
+  "pages": [
+    {
+      "name": "Research Reports",
+      "suffix": "research",
+      "max_pages": 5,
+      "allowed_keywords": ["投资者关系"],
+      "reverse_order": false,
+      "save_dir": "custom/downloads"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `suffix` | string | 页面标识：`research`、`periodicReports`、`latestAnnouncement` |
+| `name` | string | 页面名称（仅用于日志） |
+| `max_pages` | int | 最大下载页数 |
+| `allowed_keywords` | string[] | 关键词列表，支持日期格式如 `"20250725"` |
+| `reverse_order` | bool | 是否从最后一页开始倒序下载 |
+| `save_dir` | string | 覆盖全局 `save_dir` |
+
+### config.json 结构示例
 
 ```json
 {
@@ -106,7 +154,7 @@ main.py              CLI 入口 (~180 行)
 ## 测试
 
 ```bash
-# 单元测试 + E2E 行为测试 (63 个)
+# 单元测试 + E2E 行为测试 (60 个)
 pytest tests/ -v
 
 # 官方 E2E 测试（需要网络，约 3 分钟）
@@ -117,16 +165,16 @@ python tests/e2e/official_e2e_test.py --browser-strategy playwright
 
 | 类别 | 数量 |
 |------|------|
-| 单元测试 (config/models/mapping/downloader/storage/parallel/failed_logger) | 39 |
+| 单元测试 (config/models/mapping/downloader/storage/parallel/failed_logger) | 36 |
 | E2E 行为测试 (翻页/跳过文件) | 24 |
 | 官方 E2E 测试（真实网络） | 5 |
-| **总计** | **68** |
+| **总计** | **65** (不含官方 E2E) |
 
 ## 项目对比
 
 | 指标 | V1 (旧) | V2 (新) |
 |------|---------|---------|
-| 源代码行数 | 29,335 | **1,500** |
+| 源代码行数 | 29,335 | **~1,800** |
 | 文件数 | 86 | **13** |
 | 类数量 | 205 | **15** |
 | 配置文件 | 32 | **2** |

@@ -20,47 +20,64 @@ from .string_utils import clean_filename
 
 
 class FailedDownloadLogger:
-    """Logs failed downloads to a JSON file for later retry."""
+    """Logs failed downloads to a JSON file for later retry.
+
+    Uses batched writes: records are accumulated in memory and flushed
+    to disk only when flush() is called, avoiding per-record file I/O
+    and eliminating data-loss races in parallel downloads.
+    """
 
     def __init__(self, log_file: str = "logs/failed_downloads.json"):
         self.log_file = Path(log_file)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        self._failed: List[Dict[str, Any]] = []
+        self._pending: List[Dict[str, Any]] = []
 
-    def record(self, stock_code: str, stock_name: str, text: str, url: str, error: str) -> None:
-        """Record a failed download."""
-        entry = {
-            "timestamp": datetime.now().isoformat(),
-            "stock_code": stock_code,
-            "stock_name": stock_name,
-            "file_name": text,
-            "url": url,
-            "error": error,
-        }
-        self._failed.append(entry)
-        self._save()
+    def record(
+        self, stock_code: str, stock_name: str, text: str, url: str, error: str
+    ) -> None:
+        """Append a failed download to the in-memory buffer."""
+        self._pending.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "stock_code": stock_code,
+                "stock_name": stock_name,
+                "file_name": text,
+                "url": url,
+                "error": error,
+            }
+        )
 
     def get_failed(self) -> List[Dict[str, Any]]:
-        """Get all recorded failed downloads."""
-        return self._failed.copy()
+        """Return all pending (un-flushed) records."""
+        return self._pending.copy()
 
-    def _save(self) -> None:
-        """Persist failed downloads to file."""
+    def flush(self) -> None:
+        """Write all pending records to disk atomically."""
+        if not self._pending:
+            return
         try:
             existing = []
             if self.log_file.exists():
                 with open(self.log_file, "r", encoding="utf-8") as f:
                     existing = json.load(f)
-            existing.extend(self._failed)
-            self._failed = []  # Clear after saving
+            existing.extend(self._pending)
+            self._pending.clear()
             with open(self.log_file, "w", encoding="utf-8") as f:
                 json.dump(existing, f, ensure_ascii=False, indent=2)
         except Exception as e:
             log.warning(f"Failed to save failed downloads log: {e}")
 
+    def reset(self) -> None:
+        """Clear pending records without writing to disk."""
+        self._pending.clear()
+
 
 def _matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
-    """Check if text matches any keyword. Supports date-based matching."""
+    """Check if text matches any keyword.
+
+    Supports date-based matching: if keyword contains an 8-digit date (e.g.
+    "公告20250725"), extracts the date and checks if it appears in the text.
+    """
     if not keywords:
         return True
     cleaned = "".join(text.split()).lower()
@@ -68,7 +85,7 @@ def _matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
         ck = "".join(k.split()).lower()
         if ck in cleaned:
             return True
-        # Date-based match (e.g., "20250725")
+        # Date-based match: extract 8-digit date from keyword and match date only
         date_match = re.search(r"\d{8}", k)
         if date_match and date_match.group() in cleaned:
             return True
@@ -80,8 +97,8 @@ class StockDownloader:
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.save_dir = config.get("save_dir", C.DEFAULT_SAVE_DIR)
-        self.max_retries = int(config.get("max_retries", 3))
+        self.save_dir = config["save_dir"]
+        self.max_retries = int(config["max_retries"])
         self.headless = config.get("headless", True)
 
         # Browser (lazy init)
@@ -157,23 +174,8 @@ class StockDownloader:
                 errors=[str(e)],
                 duration_seconds=time.time() - start,
             )
-
-    def download_activity_records(self, **kwargs: Any) -> List[str]:
-        """Compatibility entry point matching old UnifiedDownloader API.
-
-        Resolves org_id and stock name, then delegates to download().
-        """
-        request = DownloadRequest(
-            stock_code=kwargs.get("stock_code", ""),
-            stock_name=kwargs.get("stock_name"),
-            suffix=kwargs.get("suffix", "research"),
-            allowed_keywords=kwargs.get("allowed_keywords"),
-            max_pages=kwargs.get("max_pages", 5),
-            save_dir=kwargs.get("save_dir", self.save_dir),
-            reverse_order=kwargs.get("reverse_order", False),
-        )
-        result = self.download(request)
-        return result.downloaded_files
+        finally:
+            self._failed_logger.flush()
 
     def cleanup(self) -> None:
         """Shut down browser."""
@@ -194,8 +196,8 @@ class StockDownloader:
                 log.info(f"Retry attempt {attempt}/{self.max_retries}")
                 try:
                     self.browser.restart()
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.debug(f"Browser restart failed: {e}")
 
             last_result = self._download_internal(request)
             if last_result.success:
@@ -276,7 +278,7 @@ class StockDownloader:
         if suffix == "latestAnnouncement":
             # Wait for pagination element to render (not just links)
             for _ in range(10):
-                time.sleep(2)
+                time.sleep(C.SPA_CONTENT_WAIT)
                 info = self.browser.get_current_page_info()
                 total = info.get("total_pages", 1)
                 if total > 1:
@@ -322,7 +324,7 @@ class StockDownloader:
 
         # Jump to last page
         self.browser.go_to_last_page()
-        time.sleep(3)
+        time.sleep(C.PAGINATION_WAIT)
         self._wait_for_page_load()
 
         current_info = self.browser.get_current_page_info()
@@ -399,7 +401,7 @@ class StockDownloader:
         if self.browser.download_file(href, str(dest)):
             if dest.exists() and dest.stat().st_size > C.MIN_FILE_SIZE:
                 self.download_count += 1
-                time.sleep(1)
+                time.sleep(C.POST_DOWNLOAD_WAIT)
                 return str(dest)
             else:
                 error_msg = f"File invalid or too small: {dest}"
@@ -436,7 +438,7 @@ class StockDownloader:
                     continue
                 abs_url = href if href.startswith("http") else C.BASE_URL + href
                 results.append((text, abs_url))
-            except Exception:
-                continue
+            except Exception as e:
+                log.debug(f"Link extraction error for element: {e}")
 
         return results
