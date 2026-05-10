@@ -26,6 +26,7 @@ class DownloadRequest:
     org_id: Optional[str] = None
     suffix: Optional[str] = None
     allowed_keywords: Optional[List[str]] = None
+    excluded_keywords: Optional[List[str]] = None
     max_pages: int = 5
     delete_later: bool = False
     timeout_seconds: int = 180

@@ -3,7 +3,7 @@ import json
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from src.downloader import StockDownloader, _matches_keywords
+from src.downloader import StockDownloader, _matches_keywords, _matches_excluded
 from src.models import DownloadRequest, DownloadResult
 
 
@@ -43,6 +43,34 @@ class TestMatchesKeywords:
     def test_multiple_keywords_one_matches(self):
         # Multiple keywords; first two don't match, third does
         assert _matches_keywords("研究报告", ["公告", "快讯", "研究"]) is True
+
+
+class TestMatchesExcluded:
+    def test_no_keywords_not_excluded(self):
+        assert _matches_excluded("anything", None) is False
+        assert _matches_excluded("anything", []) is False
+
+    def test_exact_match_excluded(self):
+        assert _matches_excluded("2024年年度报告摘要", ["摘要"]) is True
+
+    def test_no_match_not_excluded(self):
+        assert _matches_excluded("2024年年度报告", ["摘要"]) is False
+
+    def test_case_insensitive(self):
+        assert _matches_excluded("Test Summary", ["summary"]) is True
+
+    def test_multiple_keywords_one_matches(self):
+        assert _matches_excluded("公告摘要", ["目录", "摘要"]) is True
+
+
+class TestDownloadRequestExcludedKeywords:
+    def test_default_is_none(self):
+        req = DownloadRequest(stock_code="000001")
+        assert req.excluded_keywords is None
+
+    def test_set_excluded_keywords(self):
+        req = DownloadRequest(stock_code="000001", excluded_keywords=["摘要", "目录"])
+        assert req.excluded_keywords == ["摘要", "目录"]
 
 
 class TestStockDownloader:

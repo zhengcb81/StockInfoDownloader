@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.config import load_config
+from src.config import load_companies, load_config
 from src import constants as C
 from src.downloader import StockDownloader
 from src.logger import log, setup_logger
@@ -57,6 +57,7 @@ class UnifiedRunner:
                     stock_name=name,
                     suffix=page.get("suffix", "research"),
                     allowed_keywords=page.get("allowed_keywords"),
+                    excluded_keywords=page.get("excluded_keywords"),
                     max_pages=page.get("max_pages", 5),
                     save_dir=page.get("save_dir", self.save_dir),
                     reverse_order=page.get("reverse_order", False),
@@ -91,6 +92,7 @@ class UnifiedRunner:
                     stock_name=stock_name,
                     suffix=suffix,
                     allowed_keywords=tc.get("allowed_keywords"),
+                    excluded_keywords=tc.get("excluded_keywords"),
                     max_pages=tc.get("max_pages", 5),
                     reverse_order=tc.get("reverse_order", False),
                 )
@@ -142,6 +144,7 @@ def main():
     parser = argparse.ArgumentParser(description="Stock Downloader V2")
     parser.add_argument("stock_code", nargs="?", help="Stock code to download")
     parser.add_argument("--config", default="config.json", help="Path to config file")
+    parser.add_argument("--companies", default=None, help="Path to companies TXT file")
     parser.add_argument("--parallel", action="store_true", help="Enable parallel mode")
     parser.add_argument("--workers", type=int, default=3, help="Parallel workers")
     args = parser.parse_args()
@@ -158,9 +161,12 @@ def main():
 
     runner = UnifiedRunner(config)
 
-    # Priority: CLI stock_code > test_cases > companies > config stock_code
+    # Priority: CLI stock_code > --companies file > test_cases > companies > config stock_code
     if args.stock_code:
         runner.run_single(args.stock_code)
+    elif args.companies:
+        company_list = load_companies(args.companies)
+        runner.run_multi(company_list, parallel=args.parallel, workers=args.workers)
     elif "test_cases" in config:
         runner.run_test_cases(config["test_cases"])
     elif "companies" in config:

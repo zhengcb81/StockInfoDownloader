@@ -56,6 +56,37 @@ def _default_config() -> Dict[str, Any]:
     }
 
 
+def load_companies(path: str) -> List[Dict[str, str]]:
+    """Load a company list from a plain-text file.
+
+    One company per line.  Format: ``stock_code [company_name]``
+    (company_name is optional).  Lines starting with ``#`` are comments;
+    blank lines are skipped.
+
+    Returns a list of dicts, each with at least ``stock_code`` and
+    optionally ``company_name``.
+
+    Raises ConfigError if the file does not exist.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise ConfigError(f"Companies file not found: {path}")
+
+    companies: List[Dict[str, str]] = []
+    for raw_line in p.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)  # split on whitespace, max 2 parts
+        stock_code = parts[0]
+        entry: Dict[str, str] = {"stock_code": stock_code}
+        if len(parts) > 1:
+            entry["company_name"] = parts[1]
+        companies.append(entry)
+
+    return companies
+
+
 def _merge_defaults(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Merge user config over defaults."""
     defaults = _default_config()

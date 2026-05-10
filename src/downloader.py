@@ -72,6 +72,18 @@ class FailedDownloadLogger:
         self._pending.clear()
 
 
+def _matches_excluded(text: str, keywords: Optional[List[str]]) -> bool:
+    """Check if text matches any excluded keyword."""
+    if not keywords:
+        return False
+    cleaned = "".join(text.split()).lower()
+    for k in keywords:
+        ck = "".join(k.split()).lower()
+        if ck in cleaned:
+            return True
+    return False
+
+
 def _matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
     """Check if text matches any keyword.
 
@@ -377,6 +389,9 @@ class StockDownloader:
 
         downloaded: List[str] = []
         for text, href in links:
+            if _matches_excluded(text, request.excluded_keywords):
+                log.debug(f"Skipping excluded: {text}")
+                continue
             if _matches_keywords(text, request.allowed_keywords):
                 result = self._download_single_link(request, text, href)
                 if result:

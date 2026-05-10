@@ -1,0 +1,40 @@
+{
+  "save_dir": "downloads",
+  "headless": true,
+  "max_retries": 3,
+  "timeout_seconds": 180,
+  "browser": {
+    "strategy": "playwright",
+    "headless": true
+  },
+  "download": {
+    "max_pages": 5,
+    "download_delay": 0.5
+  },
+  "anti_crawler": {
+    "enabled": true,
+    "base_delay": 1.0,
+    "random_delay_range": [0.5, 2.0]
+  },
+  "pages": [
+    {
+      "name": "招股说明书",
+      "suffix": "latestAnnouncement",
+      "allowed_keywords": ["招股说明书"],
+      "max_pages": 2,
+      "reverse_order": true
+    },
+    {
+      "name": "定期报告（排除摘要）",
+      "suffix": "periodicReports",
+      "excluded_keywords": ["摘要"],
+      "max_pages": 999
+    },
+    {
+      "name": "研究报告",
+      "suffix": "research",
+      "max_pages": 999
+    }
+  ],
+  "companies": []
+}
