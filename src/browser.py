@@ -388,18 +388,45 @@ class PlaywrightBrowser:
             return False
 
     def get_current_page_info(self) -> Dict[str, Any]:
-        """Get current page number and total pages."""
+        """Get current page number and total pages.
+
+        The cninfo site uses Element UI pagination. The pager component
+        (.el-pager) contains <li> elements for page numbers. The last <li>
+        always shows the final page number, even when the full list is
+        ellipsis-truncated (e.g. 1 2 3 4 ... 38).
+
+        We also check .el-pagination__total as a fallback.
+        """
         try:
             info = self.page.evaluate("""
                 () => {
-                    const el = document.querySelector('.el-pagination__total');
                     const pager = document.querySelector('.el-pager');
                     const active = pager ? pager.querySelector('.active') : null;
+
+                    // Strategy 1: last <li> in .el-pager gives the final page number
+                    let totalFromPager = 1;
+                    if (pager) {
+                        const lis = pager.querySelectorAll('li.number');
+                        if (lis.length > 0) {
+                            const lastLi = parseInt(lis[lis.length - 1].textContent);
+                            if (!isNaN(lastLi)) totalFromPager = lastLi;
+                        }
+                    }
+
+                    // Strategy 2: .el-pagination__total fallback
+                    const el = document.querySelector('.el-pagination__total');
                     const totalText = el ? el.textContent : '';
                     const totalMatch = totalText.match(/\\d+/);
+                    const totalFromText = totalMatch ? parseInt(totalMatch[0]) : 0;
+
+                    // Use pager result (more reliable), fall back to text
+                    const total_pages = totalFromPager > 1 ? totalFromPager
+                                      : totalFromText > 0 ? totalFromText
+                                      : 1;
+
                     return {
                         current_page: active ? parseInt(active.textContent) : 1,
-                        total_pages: totalMatch ? parseInt(totalMatch[0]) : 1,
+                        total_pages: total_pages,
                     };
                 }
             """)

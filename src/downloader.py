@@ -404,7 +404,11 @@ class StockDownloader:
         """Download a single file."""
         target_name = clean_filename(text)
         save_dir = Path(str(request.save_dir)) if request.save_dir else Path(self.save_dir)
-        dest = save_dir / (request.stock_name or f"Stock_{request.stock_code}") / f"{target_name}.pdf"
+        company_dir = save_dir / (request.stock_name or f"Stock_{request.stock_code}")
+        if request.save_subdir:
+            dest = company_dir / request.save_subdir / f"{target_name}.pdf"
+        else:
+            dest = company_dir / f"{target_name}.pdf"
 
         # Skip if already exists
         if dest.exists() and dest.stat().st_size > C.MIN_FILE_SIZE:

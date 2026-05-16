@@ -1,5 +1,5 @@
 {
-  "save_dir": "downloads",
+  "save_dir": "C:/Users/郑曾波/Projects/company-wiki/companies",
   "headless": true,
   "max_retries": 3,
   "timeout_seconds": 180,
@@ -21,19 +21,23 @@
       "name": "招股说明书",
       "suffix": "latestAnnouncement",
       "allowed_keywords": ["招股说明书"],
+      "excluded_keywords": ["摘要"],
       "max_pages": 2,
-      "reverse_order": true
+      "reverse_order": true,
+      "save_subdir": "raw/prospectus"
     },
     {
       "name": "定期报告（排除摘要）",
       "suffix": "periodicReports",
       "excluded_keywords": ["摘要"],
-      "max_pages": 999
+      "max_pages": 999,
+      "save_subdir": "raw/financial_reports"
     },
     {
       "name": "研究报告",
       "suffix": "research",
-      "max_pages": 999
+      "max_pages": 999,
+      "save_subdir": "raw/research"
     }
   ],
   "companies": []

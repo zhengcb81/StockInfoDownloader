@@ -1,6 +1,7 @@
 """Unit tests for downloader module."""
 import json
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from src.downloader import StockDownloader, _matches_keywords, _matches_excluded
@@ -99,4 +100,83 @@ class TestStockDownloader:
         assert d.skipped_files == []
         assert d.pages_traversed == 0
         assert d.download_count == 0
+
+
+class TestDownloadPathConstruction:
+    """Test that _download_single_link constructs correct paths with save_subdir."""
+
+    def _make_config(self, save_dir=None):
+        f = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        )
+        json.dump({"300470": {"orgId": "9900023856", "name": "中密控股"}}, f)
+        f.close()
+        return {
+            "save_dir": save_dir or tempfile.mkdtemp(),
+            "max_retries": 1,
+            "headless": True,
+            "skip_browser_init": True,
+            "files": {"mapping_file": f.name},
+        }
+
+    def test_path_without_save_subdir(self, tmp_path):
+        """Without save_subdir, files go to save_dir/company_name/file.pdf."""
+        config = self._make_config(save_dir=str(tmp_path))
+        d = StockDownloader(config)
+        d._browser = MagicMock()
+        d._browser.download_file.return_value = False  # skip actual download
+
+        request = DownloadRequest(
+            stock_code="300470",
+            stock_name="百傲化学",
+        )
+        result = d._download_single_link(request, "test_report", "http://example.com/file")
+
+        # Verify the failed_logger was called (download_file returns False)
+        assert len(d._failed_logger._pending) == 1
+
+    def test_path_with_save_subdir(self, tmp_path):
+        """With save_subdir, files go to save_dir/company_name/save_subdir/file.pdf."""
+        config = self._make_config(save_dir=str(tmp_path))
+        d = StockDownloader(config)
+        d._browser = MagicMock()
+
+        # Create a real file so the skip-existing check triggers
+        subdir = tmp_path / "百傲化学" / "raw" / "prospectus"
+        subdir.mkdir(parents=True, exist_ok=True)
+        existing_file = subdir / "test_report.pdf"
+        existing_file.write_bytes(b"x" * 1024)  # > MIN_FILE_SIZE
+
+        request = DownloadRequest(
+            stock_code="300470",
+            stock_name="百傲化学",
+            save_subdir="raw/prospectus",
+        )
+        result = d._download_single_link(request, "test_report", "http://example.com/file")
+
+        assert result is not None
+        assert "raw" in result
+        assert "prospectus" in result
+
+    def test_path_with_nested_save_subdir(self, tmp_path):
+        """Nested save_subdir like 'raw/prospectus' creates intermediate dirs."""
+        config = self._make_config(save_dir=str(tmp_path))
+        d = StockDownloader(config)
+        d._browser = MagicMock()
+
+        # Create file at the nested path
+        subdir = tmp_path / "百傲化学" / "raw" / "financial_reports"
+        subdir.mkdir(parents=True, exist_ok=True)
+        existing_file = subdir / "annual_report.pdf"
+        existing_file.write_bytes(b"x" * 2048)
+
+        request = DownloadRequest(
+            stock_code="300470",
+            stock_name="百傲化学",
+            save_subdir="raw/financial_reports",
+        )
+        result = d._download_single_link(request, "annual_report", "http://example.com/file")
+
+        assert result is not None
+        assert Path(result).parent.name == "financial_reports"
 

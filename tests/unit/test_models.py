@@ -9,6 +9,7 @@ class TestDownloadRequest:
         assert req.max_pages == 5
         assert req.reverse_order is False
         assert req.allowed_keywords is None
+        assert req.save_subdir is None
 
     def test_with_all_fields(self):
         req = DownloadRequest(
@@ -20,9 +21,11 @@ class TestDownloadRequest:
             max_pages=3,
             reverse_order=True,
             save_dir="/tmp/downloads",
+            save_subdir="raw/prospectus",
         )
         assert req.reverse_order is True
         assert req.allowed_keywords == ["测试"]
+        assert req.save_subdir == "raw/prospectus"
 
 
 class TestDownloadResult:

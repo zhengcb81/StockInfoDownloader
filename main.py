@@ -23,6 +23,7 @@ from src.downloader import StockDownloader
 from src.logger import log, setup_logger
 from src.mapping import MappingManager
 from src.models import DownloadRequest
+from src.progress import ProgressTracker
 
 
 def get_real_stock_name(stock_code: str) -> str:
@@ -38,9 +39,10 @@ def get_real_stock_name(stock_code: str) -> str:
 class UnifiedRunner:
     """Manages execution of download tasks."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], progress: Optional[ProgressTracker] = None):
         self.config = config
         self.save_dir = config["save_dir"]
+        self.progress = progress
 
     def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
         """Run download for a single stock code."""
@@ -60,6 +62,7 @@ class UnifiedRunner:
                     excluded_keywords=page.get("excluded_keywords"),
                     max_pages=page.get("max_pages", 5),
                     save_dir=page.get("save_dir", self.save_dir),
+                    save_subdir=page.get("save_subdir"),
                     reverse_order=page.get("reverse_order", False),
                 )
                 result = downloader.download(request)
@@ -94,6 +97,7 @@ class UnifiedRunner:
                     allowed_keywords=tc.get("allowed_keywords"),
                     excluded_keywords=tc.get("excluded_keywords"),
                     max_pages=tc.get("max_pages", 5),
+                    save_subdir=tc.get("save_subdir"),
                     reverse_order=tc.get("reverse_order", False),
                 )
                 result = downloader.download(request)
@@ -117,6 +121,18 @@ class UnifiedRunner:
             log.error("No companies provided")
             return
 
+        # Filter out already-completed companies when progress tracking is active
+        if self.progress:
+            all_codes = [c["stock_code"] for c in companies]
+            pending_codes = set(self.progress.get_pending(all_codes))
+            skipped = len(companies) - len(pending_codes)
+            if skipped:
+                log.info(f"Skipping {skipped} already completed")
+            companies = [c for c in companies if c["stock_code"] in pending_codes]
+            if not companies:
+                log.info("All companies already completed")
+                return
+
         if parallel and len(companies) > 1:
             log.info(f"Parallel download with {workers} workers")
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
@@ -129,13 +145,30 @@ class UnifiedRunner:
                 for future in concurrent.futures.as_completed(futures):
                     c = futures[future]
                     try:
-                        future.result()
+                        success = future.result()
+                        if self.progress:
+                            if success:
+                                self.progress.mark_completed(c["stock_code"])
+                            else:
+                                self.progress.mark_failed(c["stock_code"])
                     except Exception as e:
                         log.error(f"Parallel task for {c['stock_code']} failed: {e}")
+                        if self.progress:
+                            self.progress.mark_failed(c["stock_code"])
         else:
             log.info("Sequential download")
-            for c in companies:
-                self.run_single(c["stock_code"], c.get("company_name"))
+            total = len(companies)
+            for i, c in enumerate(companies, 1):
+                code = c["stock_code"]
+                name = c.get("company_name", get_real_stock_name(code))
+                success = self.run_single(code, name)
+                if self.progress:
+                    if success:
+                        self.progress.mark_completed(code)
+                        log.info(f"[{i}/{total}] completed {code} {name}")
+                    else:
+                        self.progress.mark_failed(code)
+                        log.warning(f"[{i}/{total}] failed {code} {name}")
                 if c != companies[-1]:
                     time.sleep(C.INTER_COMPANY_DELAY)
 
@@ -147,10 +180,15 @@ def main():
     parser.add_argument("--companies", default=None, help="Path to companies TXT file")
     parser.add_argument("--parallel", action="store_true", help="Enable parallel mode")
     parser.add_argument("--workers", type=int, default=3, help="Parallel workers")
+    parser.add_argument("--clean", action="store_true", help="Delete progress file and start fresh")
     args = parser.parse_args()
 
     # Setup logging
     setup_logger()
+
+    # Handle --clean flag
+    if args.clean:
+        ProgressTracker.clean()
 
     # Load config
     try:
@@ -159,6 +197,12 @@ def main():
         log.error(f"Failed to load config: {e}")
         sys.exit(1)
 
+    # Create progress tracker for multi-company runs
+    progress: Optional[ProgressTracker] = None
+    companies_file_name: Optional[str] = None
+
+    if args.companies:
+        companies_file_name = Path(args.companies).name
     runner = UnifiedRunner(config)
 
     # Priority: CLI stock_code > --companies file > test_cases > companies > config stock_code
@@ -166,11 +210,20 @@ def main():
         runner.run_single(args.stock_code)
     elif args.companies:
         company_list = load_companies(args.companies)
+        progress = ProgressTracker()
+        progress.init_run(companies_file_name or args.companies, len(company_list))
+        log.info(progress.summary())
+        runner = UnifiedRunner(config, progress=progress)
         runner.run_multi(company_list, parallel=args.parallel, workers=args.workers)
     elif "test_cases" in config:
         runner.run_test_cases(config["test_cases"])
     elif "companies" in config:
-        runner.run_multi(config["companies"], parallel=args.parallel, workers=args.workers)
+        company_list = config["companies"]
+        progress = ProgressTracker()
+        progress.init_run("config.json", len(company_list))
+        log.info(progress.summary())
+        runner = UnifiedRunner(config, progress=progress)
+        runner.run_multi(company_list, parallel=args.parallel, workers=args.workers)
     elif "stock_code" in config:
         runner.run_single(config["stock_code"])
     else:

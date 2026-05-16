@@ -31,6 +31,7 @@ class DownloadRequest:
     delete_later: bool = False
     timeout_seconds: int = 180
     save_dir: Optional[Union[str, Path]] = None
+    save_subdir: Optional[str] = None  # e.g. "raw/prospectus"
     reverse_order: bool = False
 
 

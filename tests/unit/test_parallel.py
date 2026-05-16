@@ -122,3 +122,70 @@ class TestParallelDownload:
             assert result is True
             mock_instance.download.assert_called_once()
             mock_instance.cleanup.assert_called_once()
+
+    def test_run_single_passes_save_subdir(self):
+        """Test run_single passes save_subdir from page config to DownloadRequest."""
+        config = self._make_config()
+        config["pages"] = [
+            {
+                "name": "招股说明书",
+                "suffix": "latestAnnouncement",
+                "save_subdir": "raw/prospectus",
+                "max_pages": 2,
+            }
+        ]
+        runner = UnifiedRunner(config)
+
+        with patch("main.StockDownloader") as MockDownloader:
+            mock_instance = MagicMock()
+            mock_result = DownloadResult(success=True, downloaded_files=[])
+            mock_instance.download.return_value = mock_result
+            mock_instance.cleanup = MagicMock()
+            MockDownloader.return_value = mock_instance
+
+            runner.run_single("300470", company_name="百傲化学")
+
+            call_args = mock_instance.download.call_args
+            request = call_args[0][0]
+            assert request.save_subdir == "raw/prospectus"
+
+    def test_run_single_without_save_subdir(self):
+        """Test run_single works when page config has no save_subdir."""
+        config = self._make_config()
+        config["pages"] = [
+            {"name": "Research", "suffix": "research", "max_pages": 1}
+        ]
+        runner = UnifiedRunner(config)
+
+        with patch("main.StockDownloader") as MockDownloader:
+            mock_instance = MagicMock()
+            mock_result = DownloadResult(success=True, downloaded_files=[])
+            mock_instance.download.return_value = mock_result
+            mock_instance.cleanup = MagicMock()
+            MockDownloader.return_value = mock_instance
+
+            runner.run_single("300470", company_name="百傲化学")
+
+            call_args = mock_instance.download.call_args
+            request = call_args[0][0]
+            assert request.save_subdir is None
+
+    def test_run_test_cases_passes_save_subdir(self):
+        """Test run_test_cases passes save_subdir from test case config."""
+        config = self._make_config()
+        runner = UnifiedRunner(config)
+
+        with patch("main.StockDownloader") as MockDownloader:
+            mock_instance = MagicMock()
+            mock_result = DownloadResult(success=True, downloaded_files=["file.pdf"])
+            mock_instance.download.return_value = mock_result
+            mock_instance.cleanup = MagicMock()
+            MockDownloader.return_value = mock_instance
+
+            runner.run_test_cases([
+                {"stock_code": "000001", "suffix": "research", "save_subdir": "raw/research"}
+            ])
+
+            call_args = mock_instance.download.call_args
+            request = call_args[0][0]
+            assert request.save_subdir == "raw/research"
