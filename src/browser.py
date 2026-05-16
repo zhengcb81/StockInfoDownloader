@@ -277,11 +277,24 @@ class PlaywrightBrowser:
         except Exception:
             pass
 
-        time.sleep(C.DOM_CONTENT_WAIT)
+        # Wait for download button to appear (SPA may not have rendered it yet)
+        btn_selectors = [
+            "button:has-text('公告下载')",
+            "a:has-text('下载')",
+            ".download-link",
+            "button:has-text('下载')",
+            "a:has-text('公告下载')",
+        ]
+        btn = None
+        for selector in btn_selectors:
+            try:
+                self.page.wait_for_selector(selector, timeout=8000, state="visible")
+                btn = self.page.query_selector(selector)
+                if btn:
+                    break
+            except Exception:
+                continue
 
-        btn = self.page.query_selector(
-            "button:has-text('公告下载'), a:has-text('下载'), .download-link"
-        )
         if not btn:
             log.error("Download button not found")
             return False
