@@ -14,7 +14,6 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -25,6 +24,22 @@ from pathlib import Path
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent.parent
 sys.path.insert(0, str(project_root))
+DEFAULT_CONFIG_PATH = project_root / "config_e2e_official.json"
+
+
+def sha256_file(path):
+    """Return a file's SHA-256 digest without loading it all into memory."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def resolve_project_path(path):
+    """Resolve a config path relative to the repository root."""
+    candidate = Path(path)
+    return candidate.resolve() if candidate.is_absolute() else (project_root / candidate).resolve()
 
 
 def log(message):
@@ -63,8 +78,8 @@ def compare_directories(actual_dir, expected_dir):
     2. Every expected PDF must exist in actual directory.
     3. No extra PDF files allowed in root or subdirectories.
     """
-    actual_path = Path(actual_dir)
-    expected_path = Path(expected_dir)
+    actual_path = resolve_project_path(actual_dir)
+    expected_path = resolve_project_path(expected_dir)
 
     if not actual_path.exists():
         return False, f"Actual directory does not exist: {actual_dir}"
@@ -77,9 +92,17 @@ def compare_directories(actual_dir, expected_dir):
         f.relative_to(expected_path): f for f in expected_path.rglob("*.pdf")
     }
 
-    # Get all subdirectories
-    actual_subdirs = {d.name for d in actual_path.iterdir() if d.is_dir()}
-    expected_subdirs = {d.name for d in expected_path.iterdir() if d.is_dir()}
+    # Compare the complete recursive directory structure, not only top-level names.
+    actual_subdirs = {
+        d.relative_to(actual_path)
+        for d in actual_path.rglob("*")
+        if d.is_dir() and any(d.rglob("*.pdf"))
+    }
+    expected_subdirs = {
+        d.relative_to(expected_path)
+        for d in expected_path.rglob("*")
+        if d.is_dir() and any(d.rglob("*.pdf"))
+    }
 
     actual_rel_paths = set(actual_files.keys())
     expected_rel_paths = set(expected_files.keys())
@@ -87,6 +110,17 @@ def compare_directories(actual_dir, expected_dir):
     extra_files = actual_rel_paths - expected_rel_paths
     missing_files = expected_rel_paths - actual_rel_paths
     extra_dirs = actual_subdirs - expected_subdirs
+    missing_dirs = expected_subdirs - actual_subdirs
+    content_mismatches = []
+
+    for relative_path in sorted(actual_rel_paths & expected_rel_paths):
+        actual_file = actual_files[relative_path]
+        expected_file = expected_files[relative_path]
+        if actual_file.stat().st_size != expected_file.stat().st_size:
+            content_mismatches.append(relative_path)
+            continue
+        if sha256_file(actual_file) != sha256_file(expected_file):
+            content_mismatches.append(relative_path)
 
     if extra_files:
         log(f"  Extra files found: {[str(f) for f in extra_files]}")
@@ -94,8 +128,12 @@ def compare_directories(actual_dir, expected_dir):
         log(f"  Missing files: {[str(f) for f in missing_files]}")
     if extra_dirs:
         log(f"  Extra directories found: {list(extra_dirs)}")
+    if missing_dirs:
+        log(f"  Missing directories: {[str(d) for d in missing_dirs]}")
+    if content_mismatches:
+        log(f"  Content/hash mismatches: {[str(f) for f in content_mismatches]}")
 
-    if extra_files or missing_files or extra_dirs:
+    if extra_files or missing_files or extra_dirs or missing_dirs or content_mismatches:
         error_msg = []
         if extra_files:
             error_msg.append(f"{len(extra_files)} extra file(s)")
@@ -103,6 +141,10 @@ def compare_directories(actual_dir, expected_dir):
             error_msg.append(f"{len(missing_files)} missing file(s)")
         if extra_dirs:
             error_msg.append(f"{len(extra_dirs)} extra directory(ies)")
+        if missing_dirs:
+            error_msg.append(f"{len(missing_dirs)} missing directory(ies)")
+        if content_mismatches:
+            error_msg.append(f"{len(content_mismatches)} content/hash mismatch(es)")
         return False, "Mismatch: " + " and ".join(error_msg)
 
     return (
@@ -111,19 +153,22 @@ def compare_directories(actual_dir, expected_dir):
     )
 
 
-def check_and_restore_expected_results(config):
+def validate_expected_results(config):
     """
-    Check if expected_results directory has been modified and restore if necessary.
-    Returns True if directory is clean or was successfully restored.
+    Validate the immutable expected baseline without modifying it.
+
+    Returns ``(is_valid, message)``.  Any extra or missing file is a hard
+    failure; the runner never deletes or "repairs" checked-in fixtures.
     """
-    expected_dir = Path(
+    expected_dir = resolve_project_path(
         config.get("expected_result_dir", "end2end_test/expected_results")
     )
     test_cases = config.get("test_cases", [])
 
     if not expected_dir.exists():
-        log(f"Error: Expected results directory does not exist: {expected_dir}")
-        return False
+        message = f"Expected results directory does not exist: {expected_dir}"
+        log(f"Error: {message}")
+        return False, message
 
     # Simple local mapping to avoid external dependencies
     def get_company_name_from_stock_code(stock_code):
@@ -132,7 +177,7 @@ def check_and_restore_expected_results(config):
 
     # Get expected company names from stock codes
     expected_companies = set()
-    expected_files = {}  # company -> set of keywords to match
+    expected_files = {}  # company -> list of keywords to match
 
     for test_case in test_cases:
         stock_code = test_case.get("stock_code")
@@ -152,12 +197,17 @@ def check_and_restore_expected_results(config):
     log(f"Checking expected_results directory integrity...")
     log(f"Expected companies: {list(expected_companies)}")
 
-    # Check for extra directories
+    # Only company directories are allowed at the root.
     all_items = list(expected_dir.iterdir())
-    extra_dirs = []
-    for item in all_items:
-        if item.is_dir() and item.name not in expected_companies:
-            extra_dirs.append(item)
+    extra_dirs = [
+        item for item in all_items
+        if (
+            item.is_dir()
+            and item.name not in expected_companies
+            and any(path.is_file() for path in item.rglob("*"))
+        )
+    ]
+    root_files = [item for item in all_items if item.is_file()]
 
     # Check for missing directories
     missing_dirs = []
@@ -166,25 +216,38 @@ def check_and_restore_expected_results(config):
         if not company_dir.exists():
             missing_dirs.append(company)
 
-    # Check for extra files in company directories
+    # Each configured keyword must match exactly one PDF; unmatched PDFs are
+    # extra fixtures and multiple matches make the baseline ambiguous.
     extra_files = []
+    missing_keywords = []
+    ambiguous_keywords = []
     for company, keywords in expected_files.items():
         company_dir = expected_dir / company
         if not company_dir.exists():
             continue
 
-        # Get all PDF files in company directory
-        pdf_files = list(company_dir.glob("*.pdf"))
-        for pdf_file in pdf_files:
-            # Check if file name contains any of the expected keywords
-            matched = False
-            for keyword in keywords:
-                if keyword in pdf_file.name:
-                    matched = True
-                    break
+        # Canonical fixtures are direct-child PDFs.  Nested or non-PDF files
+        # are baseline drift and must not be silently ignored.
+        all_company_files = [
+            path for path in company_dir.rglob("*") if path.is_file()
+        ]
+        pdf_files = [
+            path
+            for path in all_company_files
+            if path.parent == company_dir and path.suffix.lower() == ".pdf"
+        ]
+        matched_files = set()
+        for keyword in keywords:
+            matches = [pdf_file for pdf_file in pdf_files if keyword in pdf_file.name]
+            if not matches:
+                missing_keywords.append((company, keyword))
+            elif len(matches) > 1:
+                ambiguous_keywords.append((company, keyword, matches))
+            matched_files.update(matches)
 
-            if not matched:
-                extra_files.append(pdf_file)
+        extra_files.extend(
+            path for path in all_company_files if path not in matched_files
+        )
 
     issues_found = False
 
@@ -205,40 +268,44 @@ def check_and_restore_expected_results(config):
         for f in extra_files:
             log(f"  - {f.relative_to(expected_dir)}")
         issues_found = True
+    if root_files:
+        log(f"Found {len(root_files)} unexpected root file(s).")
+        issues_found = True
+    if missing_keywords:
+        for company, keyword in missing_keywords:
+            log(f"Missing expected PDF for {company}: {keyword}")
+        issues_found = True
+    if ambiguous_keywords:
+        for company, keyword, matches in ambiguous_keywords:
+            log(f"Ambiguous expected PDFs for {company}/{keyword}: {len(matches)}")
+        issues_found = True
 
-    # Restore if issues found
     if issues_found:
-        log("Restoring expected_results directory to clean state...")
+        message = "Expected baseline validation failed; no files were modified."
+        log(message)
+        return False, message
 
-        # Remove extra directories
-        for dir_path in extra_dirs:
-            try:
-                shutil.rmtree(dir_path)
-                log(f"  Removed extra directory: {dir_path.name}")
-            except Exception as e:
-                log(f"  Failed to remove directory {dir_path.name}: {e}")
+    message = f"Expected baseline is valid: {len(list(expected_dir.rglob('*.pdf')))} PDF(s)."
+    log(message)
+    return True, message
 
-        # Remove extra files
-        for file_path in extra_files:
-            try:
-                file_path.unlink()
-                log(f"  Removed extra file: {file_path.relative_to(expected_dir)}")
-            except Exception as e:
-                log(f"  Failed to remove file {file_path.name}: {e}")
 
-        # Note: Missing directories cannot be automatically restored
-        # as they require the actual expected PDF files
-        if missing_dirs:
-            log(f"Warning: Missing expected directories: {missing_dirs}")
-            log(f"  These directories cannot be automatically restored.")
-            log(f"  Please ensure expected PDF files exist for these companies.")
-            return False
+def check_and_restore_expected_results(config):
+    """Compatibility wrapper; validation is intentionally read-only."""
+    valid, _message = validate_expected_results(config)
+    return valid
 
-        log("Expected_results directory restored successfully.")
-        return True
-    else:
-        log("Expected_results directory is clean.")
-        return True
+
+def compute_overall_success(main_py_success, directory_compare_success):
+    """The E2E passes only when execution and verification both pass."""
+    return bool(main_py_success and directory_compare_success)
+
+
+def report_path_for_config(config_path):
+    """Use separate report files for official and extended suites."""
+    stem = Path(config_path).stem
+    suite = stem.removeprefix("config_e2e_")
+    return project_root / f"e2e_{suite}_report.json"
 
 
 def run_main_py(config_path, browser_strategy):
@@ -269,29 +336,36 @@ def main():
         default="playwright",
         help="Browser strategy to use (default: playwright)",
     )
+    parser.add_argument(
+        "--config",
+        default=str(DEFAULT_CONFIG_PATH),
+        help="E2E config path (default: config_e2e_official.json)",
+    )
     args = parser.parse_args()
 
     browser_strategy = args.browser_strategy
     log(f"Starting Official End-to-End Test (browser strategy: {browser_strategy})")
 
-    config_file = "config_e2e_official.json"
-    if not os.path.exists(config_file):
+    config_path = resolve_project_path(args.config)
+    if not config_path.exists():
+        config_file = str(config_path)
         log(f"Config file not found: {config_file}")
         return 1
 
     try:
-        with open(config_file, "r", encoding="utf-8") as f:
+        with config_path.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except Exception as e:
         log(f"Failed to load config: {e}")
         return 1
 
-    # Check and restore expected_results directory before running tests
-    if not check_and_restore_expected_results(config):
-        log("Warning: Expected_results directory may not be in correct state.")
-        log("Tests may fail due to missing expected files.")
+    # Expected fixtures are immutable.  Refuse to run if their contract drifts.
+    expected_valid, expected_message = validate_expected_results(config)
+    if not expected_valid:
+        log(f"Aborting before main.py: {expected_message}")
+        return 1
 
-    save_dir = Path(config["save_dir"])
+    save_dir = resolve_project_path(config["save_dir"])
 
     # Use CleanerTool to prepare directory (preserving specific files)
     from tests.utils.cleaner_tool import CleanerTool
@@ -299,9 +373,23 @@ def main():
     log(f"Preparing test directory: {save_dir}")
     if save_dir.exists():
         cleaner = CleanerTool(str(save_dir))
-        cleaner.clean_test_directory(config.get("test_cases", []))
+        pre_cleanup_summary = cleaner.clean_test_directory(config.get("test_cases", []))
     else:
         save_dir.mkdir(parents=True, exist_ok=True)
+        pre_cleanup_summary = {
+            "status": "success",
+            "deleted_files": 0,
+            "deleted_dirs": 0,
+            "preserved_files": 0,
+        }
+
+    preexisting_pdfs = {
+        str(path.relative_to(save_dir)): {
+            "sha256": sha256_file(path),
+            "size": path.stat().st_size,
+        }
+        for path in save_dir.rglob("*.pdf")
+    }
 
     # Inject browser_strategy into config and write a temporary config file
     # so main.py picks it up. The user's config_e2e_official.json is not modified.
@@ -309,6 +397,7 @@ def main():
     run_config["browser"] = {"strategy": browser_strategy, "headless": True}
 
     temp_config = None
+    success = False
     try:
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, encoding="utf-8",
@@ -337,19 +426,40 @@ def main():
     # keep files for delete_later=false test cases
     log("Cleaning up test files (delete_later=true)...")
     cleaner2 = CleanerTool(str(save_dir))
-    cleaner2.clean_test_directory(config.get("test_cases", []))
+    post_cleanup_summary = cleaner2.clean_test_directory(config.get("test_cases", []))
+
+    retained_pdfs = {
+        str(path.relative_to(save_dir)): {
+            "sha256": sha256_file(path),
+            "size": path.stat().st_size,
+        }
+        for path in save_dir.rglob("*.pdf")
+    }
+    overall_success = compute_overall_success(success, comp_ok)
 
     # Generate official report
     report = {
         "timestamp": datetime.now().isoformat(),
-        "overall_success": comp_ok,
+        "config_path": str(config_path),
+        "config_sha256": sha256_file(config_path),
+        "case_count": len(config.get("test_cases", [])),
+        "overall_success": overall_success,
         "browser_strategy": browser_strategy,
         "main_py_success": success,
+        "directory_compare_success": comp_ok,
+        "directory_compare_message": msg,
+        "cleanup_summary": {
+            "before_run": pre_cleanup_summary,
+            "after_verification": post_cleanup_summary,
+        },
+        "preexisting_pdfs": preexisting_pdfs,
+        "retained_pdfs_after_cleanup": retained_pdfs,
     }
-    with open("e2e_official_report.json", "w", encoding="utf-8") as f:
+    report_path = report_path_for_config(config_path)
+    with report_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
-    return 0 if comp_ok else 1
+    return 0 if overall_success else 1
 
 
 if __name__ == "__main__":

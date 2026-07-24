@@ -8,10 +8,15 @@ build/
 *.log
 logs/
 downloads/
-end2end_test/test_results/
+end2end_test/test_results/*
+!end2end_test/test_results/珂玛科技/
+end2end_test/test_results/珂玛科技/*
+!end2end_test/test_results/珂玛科技/珂玛科技：301611珂玛科技投资者关系管理信息20250725.pdf
+end2end_test/extended_test_results/
 *.json
 !config.json
 !config_e2e_official.json
+!config_e2e_extended.json
 !tests/**/*.json
 .env
 .coverage

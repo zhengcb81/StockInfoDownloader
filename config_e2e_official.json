@@ -31,7 +31,7 @@
         "2025年一季度报告"
       ],
       "max_pages": 5,
-      "delete_later": false,
+      "delete_later": true,
       "timeout_seconds": 240
     },
     {
@@ -41,30 +41,8 @@
         "2023年1月31日投资者关系活动记录表"
       ],
       "max_pages": 3,
-      "delete_later": false,
+      "delete_later": true,
       "timeout_seconds": 300
-    },
-    {
-      "stock_code": "300470",
-      "suffix": "latestAnnouncement",
-      "allowed_keywords": [
-        "上市招股说明书"
-      ],
-      "max_pages": 2,
-      "reverse_order": true,
-      "delete_later": false,
-      "timeout_seconds": 180
-    },
-    {
-      "stock_code": "300750",
-      "suffix": "latestAnnouncement",
-      "allowed_keywords": [
-        "首次公开发行股票并在创业板上市招股说明书"
-      ],
-      "max_pages": 2,
-      "reverse_order": true,
-      "delete_later": false,
-      "timeout_seconds": 180
     }
   ]
 }

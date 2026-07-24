@@ -1,6 +1,5 @@
 """Test cleaner tool — cleans test directories while preserving expected files."""
 import json
-import shutil
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -37,19 +36,31 @@ class CleanerTool:
         deleted_dirs = 0
         preserved_files = 0
 
-        for item in self.base_dir.iterdir():
-            if item.is_file():
-                if self._should_preserve(item, preserve_keywords):
-                    preserved_files += 1
-                else:
-                    if not dry_run:
-                        item.unlink()
-                    deleted_files += 1
-            elif item.is_dir():
-                if not any(self._should_preserve(f, preserve_keywords) for f in item.rglob("*")):
-                    if not dry_run:
-                        shutil.rmtree(item)
-                    deleted_dirs += 1
+        # Decide preservation file by file.  Preserving a company directory as
+        # one opaque unit can accidentally retain delete_later=true artifacts
+        # that happen to share the same directory.
+        files = [path for path in self.base_dir.rglob("*") if path.is_file()]
+        for path in files:
+            if self._should_preserve(path, preserve_keywords):
+                preserved_files += 1
+                continue
+            if not dry_run:
+                path.unlink()
+            deleted_files += 1
+
+        # Remove only directories that are empty after file cleanup.  Work
+        # deepest-first so nested empty directories are handled deterministically.
+        directories = sorted(
+            (path for path in self.base_dir.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        )
+        for directory in directories:
+            is_empty = not any(directory.iterdir())
+            if is_empty:
+                if not dry_run:
+                    directory.rmdir()
+                deleted_dirs += 1
 
         return {
             "status": "success",
@@ -68,6 +79,7 @@ class CleanerTool:
         candidates = [
             Path("stock_orgid_mapping.json"),
             Path("configs/stock_orgid_mapping.json"),
+            Path("src/stock_orgid_mapping.json"),
             Path("src/data/stock_orgid_mapping.json"),
         ]
         for p in candidates:
