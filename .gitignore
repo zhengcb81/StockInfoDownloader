@@ -27,6 +27,7 @@ temp_*/
 .coverage
 logs/debug_markers/*.jsonl
 logs/debug_page_*.png
+logs/debug_page_*.html
 performance_reports/
 test_reports/
 nul
