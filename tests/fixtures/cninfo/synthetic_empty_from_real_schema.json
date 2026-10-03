@@ -1,0 +1,13 @@
+{
+  "__provenance__": {
+    "label": "synthetic_empty_from_real_schema",
+    "notes": "total=0 simulation; NOT a real empty-company endpoint response.",
+    "secret_scan": "0 issues",
+    "source": "synthetic; schema shape derived from byd_fy2024_announcement.json",
+    "synthetic": true
+  },
+  "announcements": [],
+  "total": 0,
+  "totalAnnouncement": 0,
+  "totalRecordNum": 0
+}

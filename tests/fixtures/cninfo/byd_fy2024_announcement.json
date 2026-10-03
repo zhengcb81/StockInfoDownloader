@@ -1,0 +1,71 @@
+{
+  "__provenance__": {
+    "captured_at_utc": "2026-07-25T07:33:46Z",
+    "real": true,
+    "redaction": "Only schema fields required by Phase 5 cninfo_api RED tests are kept; cookies/headers not part of JSON response.",
+    "request_params": {
+      "category": "category_ndbg_szsh",
+      "column": "szse",
+      "isHLtitle": "true",
+      "pageNum": "1",
+      "pageSize": "30",
+      "seDate": "2024-01-01~2025-12-31",
+      "stock": "002594,gshk0001211",
+      "tabName": "fulltext"
+    },
+    "secret_scan": "0 issues",
+    "source": "https://www.cninfo.com.cn/new/hisAnnouncement/query (POST)"
+  },
+  "announcements": [
+    {
+      "adjunctSize": 330,
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2025-03-25/1222881505.PDF",
+      "announcementId": "1222881505",
+      "announcementTime": 1742832000000,
+      "announcementTitle": "2024年年度报告摘要",
+      "announcementTypeName": null,
+      "orgId": "gshk0001211",
+      "secCode": "002594",
+      "secName": "比亚迪"
+    },
+    {
+      "adjunctSize": 9857,
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2025-03-25/1222881496.PDF",
+      "announcementId": "1222881496",
+      "announcementTime": 1742832000000,
+      "announcementTitle": "2024年年度报告",
+      "announcementTypeName": null,
+      "orgId": "gshk0001211",
+      "secCode": "002594",
+      "secName": "比亚迪"
+    },
+    {
+      "adjunctSize": 276,
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2024-03-27/1219412041.PDF",
+      "announcementId": "1219412041",
+      "announcementTime": 1711468800000,
+      "announcementTitle": "2023年年度报告摘要",
+      "announcementTypeName": null,
+      "orgId": "gshk0001211",
+      "secCode": "002594",
+      "secName": "比亚迪"
+    },
+    {
+      "adjunctSize": 9413,
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2024-03-27/1219412018.PDF",
+      "announcementId": "1219412018",
+      "announcementTime": 1711468800000,
+      "announcementTitle": "2023年年度报告",
+      "announcementTypeName": null,
+      "orgId": "gshk0001211",
+      "secCode": "002594",
+      "secName": "比亚迪"
+    }
+  ],
+  "totalAnnouncement": 4,
+  "totalRecordNum": 4
+}
