@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -72,6 +73,42 @@ def _invoke(monkeypatch, module, argv, payload):
     code = module.main(argv)
     return code, json.loads(stdout.getvalue()), stderr.getvalue()
 
+
+
+def test_cli_routes_diagnostics_to_stderr_and_keeps_stdout_json(monkeypatch):
+    import src.company_wiki_adapter_cli as module
+
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    monkeypatch.setattr(module.sys, "stdin", io.StringIO(json.dumps({
+        "entity": "示例公司",
+        "security_id": "600000",
+        "document_kind": "annual_report",
+        "fiscal_year": 2025,
+    })))
+    monkeypatch.setattr(module.sys, "stdout", stdout)
+    monkeypatch.setattr(module.sys, "stderr", stderr)
+    adapter = _FakeAdapter()
+    discover = adapter.discover
+
+    def discover_with_log(request):
+        logging.getLogger("stock_downloader").warning("adapter diagnostic")
+        return discover(request)
+
+    adapter.discover = discover_with_log
+    monkeypatch.setattr(module, "_build_adapter", lambda _: adapter)
+    logger = logging.getLogger("stock_downloader")
+    handler = logging.StreamHandler(stdout)
+    logger.addHandler(handler)
+    try:
+        code = module.main(["discover"])
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
+
+    assert code == 0
+    assert json.loads(stdout.getvalue())["status"] == "ok"
+    assert "adapter diagnostic" in stderr.getvalue()
 
 def test_cli_discover_and_fetch_emit_one_json_value(monkeypatch, tmp_path: Path):
     import src.company_wiki_adapter_cli as module

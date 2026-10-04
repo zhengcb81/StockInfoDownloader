@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from contextlib import redirect_stdout
 import json
 from pathlib import Path
@@ -22,6 +23,7 @@ from .company_wiki_adapter import (
 )
 from .config import load_config
 from .downloader import StockDownloader
+from .logger import log
 
 
 SCHEMA_VERSION = "1.0"
@@ -123,12 +125,22 @@ def _emit_failure(
     return 1
 
 
+def _redirect_console_logs_to_stderr() -> None:
+    """Keep the JSON-lines stdout channel free of logger diagnostics."""
+    for handler in log.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.FileHandler
+        ):
+            handler.setStream(sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     args = _parser().parse_args(argv)
+    _redirect_console_logs_to_stderr()
     adapter: StockInfoCompanyWikiAdapter | None = None
     budget: ProviderAcquisitionBudget | None = None
     try:
