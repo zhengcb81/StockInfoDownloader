@@ -1,0 +1,146 @@
+{
+  "schema_version": "g4-handoff/1",
+  "lane": "G4-SID-LATEST",
+  "base_commit": "8ed5fdde5e88c13470c120665ff3074a7f44a052",
+  "implementation_head": "d958a0ff43ed29c6710dc3439cdf67288a6c0e08",
+  "delivery_branch": "codex/g4-sid-latest",
+  "worktree": "C:/Users/郑曾波/Projects/_g4/SID-LATEST/StockInfoDLSimple",
+  "commits": [
+    "d958a0ff43ed29c6710dc3439cdf67288a6c0e08",
+    "2d8919a835a1af883c0f3a99324f3fe43356bde1"
+  ],
+  "changed_paths": [
+    "docs/implementation/g4-sid-latest/HANDOFF.md",
+    "docs/implementation/g4-sid-latest/findings.md",
+    "docs/implementation/g4-sid-latest/g4_bootstrap/sitecustomize.py",
+    "docs/implementation/g4-sid-latest/golden_latest_request.json",
+    "docs/implementation/g4-sid-latest/golden_latest_response.json",
+    "docs/implementation/g4-sid-latest/green_run.txt",
+    "docs/implementation/g4-sid-latest/handoff.json",
+    "docs/implementation/g4-sid-latest/latest_request_contract.md",
+    "docs/implementation/g4-sid-latest/main_wiring.md",
+    "docs/implementation/g4-sid-latest/mypy_run.txt",
+    "docs/implementation/g4-sid-latest/owner_protection.txt",
+    "docs/implementation/g4-sid-latest/progress.md",
+    "docs/implementation/g4-sid-latest/red_run.txt",
+    "docs/implementation/g4-sid-latest/ruff_run.txt",
+    "docs/implementation/g4-sid-latest/task_plan.md",
+    "docs/implementation/g4-sid-latest/unit_run.txt",
+    "src/cninfo_api.py",
+    "src/company_wiki_adapter.py",
+    "src/company_wiki_adapter_cli.py",
+    "tests/e2e/test_g4_latest_cli_offline.py",
+    "tests/fixtures/g4_latest/all_future.json",
+    "tests/fixtures/g4_latest/annual_cutover.json",
+    "tests/fixtures/g4_latest/exact_legacy_year.json",
+    "tests/fixtures/g4_latest/over_five_pages.json",
+    "tests/fixtures/g4_latest/paged_summary_first.json",
+    "tests/fixtures/g4_latest/quarterly_cutover.json",
+    "tests/fixtures/g4_latest/semi_annual_visible.json",
+    "tests/unit/test_company_wiki_adapter.py",
+    "tests/unit/test_g4_latest_discovery.py"
+  ],
+  "tests": [
+    {
+      "command": "python -B -m pytest -q -p no:cacheprovider tests/unit/test_g4_latest_discovery.py tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/unit/test_cninfo_api.py tests/unit/test_cninfo_api_fixture_contract.py tests/unit/test_cninfo_api_budget.py tests/e2e/test_g4_latest_cli_offline.py",
+      "exit_code": 0,
+      "seconds": 14.51,
+      "passed": 120,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "docs/implementation/g4-sid-latest/green_run.txt"
+    },
+    {
+      "command": "python -B -m pytest -q -p no:cacheprovider tests/unit",
+      "exit_code": 0,
+      "seconds": 18.96,
+      "passed": 216,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "docs/implementation/g4-sid-latest/unit_run.txt"
+    },
+    {
+      "command": "ruff check src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py tests/unit/test_g4_latest_discovery.py tests/e2e/test_g4_latest_cli_offline.py",
+      "exit_code": 0,
+      "seconds": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "docs/implementation/g4-sid-latest/ruff_run.txt"
+    },
+    {
+      "command": "ruff format --check src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py tests/unit/test_g4_latest_discovery.py tests/e2e/test_g4_latest_cli_offline.py",
+      "exit_code": 0,
+      "seconds": 0,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "docs/implementation/g4-sid-latest/ruff_run.txt"
+    }
+  ],
+  "behavior_changes": [
+    "AdapterDiscoveryRequest gains trailing optional mode / as_of_date / fiscal_period / form_type; fiscal_year becomes optional and is only mandatory in exact mode",
+    "mode=latest_as_of queries one seDate window of (as_of.year-2)-01-01..as_of instead of a guessed fiscal-year window",
+    "latest candidates are filtered by UTC filing_date <= as_of_date, sec_code, title-derived year, kind and explicit period/form_type hints; the caller's fiscal_year hint never narrows latest",
+    "latest pagination follows raw totalRecordNum/totalpages and raises non-retryable discovery_incomplete when the 5-page cap cannot prove coverage",
+    "latest raises non-retryable bounded_discovery_empty when a fully covered window yields no valid candidate",
+    "duplicate announcement ids with conflicting payloads now fail instead of silently overwriting",
+    "exact pagination also advances on raw totals so a filtered-empty first page no longer stops discovery early",
+    "CLI validates the whole request before constructing StockDownloader (no provider/browser/network for a malformed request)",
+    "AdapterError carries typed code/retryable and the CLI prefers them over message parsing",
+    "ADAPTER_VERSION 1.2.0 -> 1.3.0 (wire schema stays 1.0)",
+    "CLI accepts an optional provider-local org_id that skips StockDownloader.mapping"
+  ],
+  "compatibility": {
+    "wire_schema": "1.0",
+    "adapter_name": "stockinfo-cninfo",
+    "old_adapter_version": "1.2.0",
+    "new_adapter_version": "1.3.0",
+    "exact_preserved": true
+  },
+  "protected_state": {
+    "original_worktree": "C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite",
+    "tracked_owner_modifications": 11,
+    "untracked_owner_entries": 3,
+    "status_identical_to_session_start": true,
+    "owner_sha256_receipt": "docs/implementation/g4-sid-latest/owner_protection.txt",
+    "git_reset_clean_or_stash_run": false,
+    "owner_files_modified": 0
+  },
+  "cleanup": {
+    "roots": [
+      "$TEMP/si4l-* (E2E cwd, config, logs, staging, CWP export, browser download dir)",
+      "$TEMP/g4basemypy-*",
+      "$TEMP/g4-cwp-export",
+      "Projects/_tmp/g4_adapter_process_export.py",
+      "<worktree>/logs",
+      "<worktree>/src/__pycache__",
+      "<worktree>/src/stock_orgid_mapping.json",
+      "<worktree>/.mypy_cache",
+      "<worktree>/.ruff_cache",
+      "<worktree>/docs/implementation/g4-sid-latest/g4_bootstrap/__pycache__"
+    ],
+    "restored": true
+  },
+  "external_effects": {
+    "network_requests": 0,
+    "loopback_http_requests": 19,
+    "model_posts": 0,
+    "raw_deleted": 0,
+    "production_writes": 0
+  },
+  "remaining": [
+    "optional anonymous official metadata probe NOT RUN (no live cninfo receipt claimed)",
+    "MAIN must bump config/source_acquisition.yaml (and install copies) to adapter version 1.3.0 before the route is reachable",
+    "MAIN must treat discovery_incomplete and bounded_discovery_empty as honest GAPs instead of accepting an older local file as latest",
+    "FF -> ET -> CWP -> latest download wiring is left to MAIN; this lane proves metadata discovery plus one controlled loopback fetch",
+    "mode=latest_as_of covers annual_report / semi_annual_report / quarterly_report only",
+    "runtime driving the provider through company-wiki must have Playwright + Chromium, because StockDownloader.mapping builds the browser eagerly (pre-existing behaviour)",
+    "this commit (the one carrying handoff.json) cannot list its own SHA in commits"
+  ],
+  "main_integration": {
+    "target_branch": "v2-clean-rewrite",
+    "route_version_update_required": true,
+    "wiring": "main_wiring.md"
+  }
+}
