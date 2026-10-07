@@ -172,12 +172,34 @@ def _real_adapter():
 def test_cli_budgeted_real_discovery_path_reports_http_body_bytes(
     monkeypatch,
 ):
+    """No org_id on the request: identity and announcements share one budget."""
     from src import company_wiki_adapter_cli as cli
 
-    body = b'{"totalRecordNum":0,"announcements":[],"totalpages":1}'
+    identity = json.dumps(
+        {
+            "totalRecordNum": 1,
+            "totalpages": 1,
+            "hasMore": False,
+            "announcements": [
+                {
+                    "announcementId": "900000001",
+                    "announcementTime": 1742832000000,
+                    "announcementTitle": "示例公司2024年年度报告",
+                    "secCode": "600000",
+                    "secName": "示例公司",
+                    "orgId": "gshk0001211",
+                    "adjunctType": "PDF",
+                    "adjunctUrl": "finalpage/2025-03-24/900000001.PDF",
+                }
+            ],
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    announcement = b'{"totalRecordNum":0,"announcements":[],"totalpages":1}'
+    replies = iter([identity, announcement])
     monkeypatch.setattr(
         "urllib.request.urlopen",
-        lambda *args, **kwargs: _Response(body, "application/json"),
+        lambda *args, **kwargs: _Response(next(replies), "application/json"),
     )
     code, stdout, stderr = _invoke(
         monkeypatch,
@@ -197,7 +219,9 @@ def test_cli_budgeted_real_discovery_path_reports_http_body_bytes(
     assert stderr == ""
     response = json.loads(stdout)
     assert response["candidates"] == []
-    assert response["acquisition_usage"]["response_bytes"] == len(body)
+    assert response["acquisition_usage"]["response_bytes"] == len(identity) + len(
+        announcement
+    )
     assert response["acquisition_usage"]["cost_usd"] == "0"
 
 

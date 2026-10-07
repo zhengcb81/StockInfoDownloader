@@ -1,0 +1,7 @@
+$ ruff check src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py src/acquisition_budget.py src/cninfo_identity.py src/disclosure_matching.py tests/unit/test_g5_provider_runtime.py tests/e2e/test_g5_browserless_provider.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/e2e/test_g4_latest_cli_offline.py tests/fixtures/g5_provider/sitecustomize.py
+All checks passed!
+exit=0
+
+$ ruff format --check src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py src/acquisition_budget.py src/cninfo_identity.py src/disclosure_matching.py tests/unit/test_g5_provider_runtime.py tests/e2e/test_g5_browserless_provider.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/e2e/test_g4_latest_cli_offline.py tests/fixtures/g5_provider/sitecustomize.py
+11 files already formatted
+exit=0

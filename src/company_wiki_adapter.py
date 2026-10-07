@@ -12,16 +12,17 @@ from datetime import date, datetime, timezone
 import hashlib
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import parse_qs, urlparse
 
 from . import constants as C
-from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+from .disclosure_matching import _matches_excluded, _matches_keywords
 from .string_utils import clean_filename
 
 if TYPE_CHECKING:
     from .acquisition_budget import ProviderAcquisitionBudget
     from .cninfo_api import CninfoAnnouncementClient
+    from .downloader import StockDownloader
 
 
 ADAPTER_NAME = "stockinfo-cninfo"
@@ -36,6 +37,17 @@ _LATEST_DOCUMENT_KINDS = frozenset(
     {"annual_report", "semi_annual_report", "quarterly_report"}
 )
 _LATEST_WINDOW_YEARS = 2
+
+
+class OrgIdResolver(Protocol):
+    """``resolve_org_id(stock_code, *, budget=None)`` identity seam."""
+
+    def resolve_org_id(
+        self,
+        stock_code: str,
+        *,
+        budget: "ProviderAcquisitionBudget | None" = None,
+    ) -> str | None: ...
 
 
 class AdapterError(RuntimeError):
@@ -291,9 +303,10 @@ class StockInfoCompanyWikiAdapter:
 
     def __init__(
         self,
-        downloader: StockDownloader,
+        downloader: "StockDownloader | None" = None,
         *,
         cninfo_client: "CninfoAnnouncementClient | None" = None,
+        identity_resolver: OrgIdResolver | None = None,
     ):
         self.downloader = downloader
         if cninfo_client is None:
@@ -301,6 +314,44 @@ class StockInfoCompanyWikiAdapter:
 
             cninfo_client = CninfoAnnouncementClient()
         self._cninfo_client = cninfo_client
+        if identity_resolver is None:
+            from .cninfo_identity import OrgIdIdentityResolver
+
+            identity_resolver = OrgIdIdentityResolver(client=cninfo_client)
+        self._identity_resolver = identity_resolver
+
+    def _resolve_org_id(
+        self,
+        stock_code: str,
+        acquisition_budget: "ProviderAcquisitionBudget | None",
+    ) -> str:
+        """request org_id → read-only local cache → budgeted official query.
+
+        Identity is resolved before any announcement query, so an unresolved
+        security fails as an identity error instead of a "covered but empty"
+        discovery.  The official lookup runs on the caller's budget: bytes and
+        deadline keep accruing across identity and announcements, and the
+        legacy ``downloader.mapping`` / browser path is never used.
+        """
+        from .cninfo_api import CninfoApiError
+
+        try:
+            org_id = self._identity_resolver.resolve_org_id(
+                stock_code, budget=acquisition_budget
+            )
+        except CninfoApiError as exc:
+            raise AdapterError(
+                f"cninfo_identity failed: {exc.error_code}: {exc}",
+                code=exc.error_code,
+                retryable=exc.retryable,
+            ) from exc
+        if not org_id:
+            raise AdapterError(
+                f"cannot resolve org_id for {stock_code}",
+                code="org_id_unresolved",
+                retryable=False,
+            )
+        return org_id
 
     def discover(
         self,
@@ -310,13 +361,10 @@ class StockInfoCompanyWikiAdapter:
     ) -> tuple[DisclosureCandidate, ...]:
         if not isinstance(request, AdapterDiscoveryRequest):
             raise TypeError("request must be AdapterDiscoveryRequest")
-        # Resolve org_id via downloader.mapping only when not supplied by caller
         if request.org_id:
             org_id = request.org_id
         else:
-            org_id = self.downloader.mapping.get_org_id(request.stock_code)
-            if not org_id:
-                raise AdapterError(f"cannot resolve org_id for {request.stock_code}")
+            org_id = self._resolve_org_id(request.stock_code, acquisition_budget)
 
         from .cninfo_api import CninfoApiError  # local import for cycle-safety
 
@@ -510,6 +558,7 @@ __all__ = [
     "AdapterDiscoveryRequest",
     "AdapterError",
     "DisclosureCandidate",
+    "OrgIdResolver",
     "StagedDownloadReceipt",
     "StockInfoCompanyWikiAdapter",
 ]

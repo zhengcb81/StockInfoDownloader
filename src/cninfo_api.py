@@ -301,6 +301,55 @@ class CninfoAnnouncementClient:
             return records, LoadState.CONFIRMED_EMPTY
         return records, LoadState.READY
 
+    def resolve_org_id(
+        self,
+        stock_code: str,
+        *,
+        budget: ProviderAcquisitionBudget | None = None,
+    ) -> str | None:
+        """Official, budgeted org-id lookup for one stock code.
+
+        One page of the same announcement query the legacy ``src.orgid`` module
+        used, issued through ``_post_json`` so the request is streamed through
+        the caller's ``ProviderAcquisitionBudget`` with ``timeout`` capped by
+        the remaining deadline.  ``None`` means the response did not
+        unambiguously identify ``stock_code`` — a wrong security, several
+        distinct org ids, or no match are all "unresolved"; the first record is
+        never trusted.  Malformed payloads raise ``schema_drift`` and network
+        problems keep their explicit ``CninfoApiError`` code/retryability.
+        """
+        body = urlencode(
+            {
+                "pageNum": "1",
+                "pageSize": "30",
+                "tabName": "fulltext",
+                "stock": f"{stock_code},",
+                "searchkey": stock_code,
+                "column": "sse" if stock_code.startswith("6") else "szse",
+                "category": "category_ndbg_szsh;",
+                "seDate": "",
+                "isHLtitle": "true",
+            }
+        ).encode("utf-8")
+        payload = self._post_json(body, budget=budget)
+        _total, raw, _totalpages, _has_more = self._validated_page(payload)
+        matches: set[str] = set()
+        for record in raw:
+            if not isinstance(record, dict):
+                raise CninfoApiError(
+                    "identity record is not a JSON object",
+                    error_code="schema_drift",
+                    retryable=False,
+                )
+            if str(record.get("secCode") or "") != stock_code:
+                continue
+            org_id = record.get("orgId")
+            if isinstance(org_id, str) and org_id.strip():
+                matches.add(org_id.strip())
+        if len(matches) > 1:
+            return None
+        return matches.pop() if matches else None
+
     def fetch_pdf(
         self,
         transport_url: str,

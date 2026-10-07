@@ -22,7 +22,6 @@ from .company_wiki_adapter import (
     StockInfoCompanyWikiAdapter,
 )
 from .config import load_config
-from .downloader import StockDownloader
 from .logger import log
 
 
@@ -104,7 +103,27 @@ def _discovery_request(value: dict[str, Any]) -> AdapterDiscoveryRequest:
 
 
 def _build_adapter(config_path: str) -> StockInfoCompanyWikiAdapter:
-    return StockInfoCompanyWikiAdapter(StockDownloader(load_config(config_path)))
+    """Build the pure-API provider runtime.
+
+    The config is still loaded so a malformed or unreadable file keeps failing
+    the command before any provider work, exactly as before.  No
+    ``StockDownloader`` is constructed: that would create the failed-download
+    log directory and wire the browser-backed mapping in, neither of which the
+    company-wiki discover/fetch runtime needs.
+    """
+    load_config(config_path)
+    return StockInfoCompanyWikiAdapter(None)
+
+
+def _cleanup(adapter: StockInfoCompanyWikiAdapter) -> None:
+    """Release the legacy downloader when this adapter still carries one.
+
+    A downloader-less adapter (the pure-API runtime, or a test double) must not
+    turn into an ``AttributeError`` that masks the original outcome.
+    """
+    downloader = getattr(adapter, "downloader", None)
+    if downloader is not None:
+        downloader.cleanup()
 
 
 def _response(**payload: Any) -> dict[str, Any]:
@@ -246,7 +265,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     finally:
         if adapter is not None:
             with redirect_stdout(sys.stderr):
-                adapter.downloader.cleanup()
+                _cleanup(adapter)
     sys.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

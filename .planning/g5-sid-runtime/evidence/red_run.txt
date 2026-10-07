@@ -1,0 +1,420 @@
+# G5-SID-RUNTIME RED run — 2026-10-07T21:36:29+01:00
+
+$ python -B -m pytest -q -p no:cacheprovider tests/unit/test_g5_provider_runtime.py tests/e2e/test_g5_browserless_provider.py
+============================= test session starts =============================
+platform win32 -- Python 3.13.9, pytest-9.1.1, pluggy-1.5.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: C:\Users\郑曾波\Projects\_g5\sid
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.19.1, langsmith-0.14.4, asyncio-1.3.0, base-url-2.1.0, benchmark-5.2.3, cov-7.0.0, html-4.1.1, metadata-3.1.1, mock-3.15.1, playwright-0.7.2, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 36 items
+
+tests\unit\test_g5_provider_runtime.py FFFF.FFFFFFFFFFFFF.FFFF           [ 63%]
+tests\e2e\test_g5_browserless_provider.py FFFFFFFFFFFF.                  [100%]
+
+================================== FAILURES ===================================
+_________ test_provider_modules_import_without_browser_or_downloader __________
+tests\unit\test_g5_provider_runtime.py:382: in test_provider_modules_import_without_browser_or_downloader
+    adapter_module = __import__("src.company_wiki_adapter", fromlist=["*"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter.py:19: in <module>
+    from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+tests\unit\test_g5_provider_runtime.py:82: in find_spec
+    raise ImportError(f"provider runtime import refused: {fullname}")
+E   ImportError: provider runtime import refused: src.downloader
+__________ test_build_adapter_is_pure_api_and_writes_no_failure_log ___________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:396: in test_build_adapter_is_pure_api_and_writes_no_failure_log
+    module = __import__("src.company_wiki_adapter_cli", fromlist=["*"])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:17: in <module>
+    from .company_wiki_adapter import (
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py:19: in <module>
+    from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:82: in find_spec
+    raise ImportError(f"provider runtime import refused: {fullname}")
+E   ImportError: provider runtime import refused: src.downloader
+_ test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked _
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:416: in test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked
+    module = __import__("src.company_wiki_adapter_cli", fromlist=["*"])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:17: in <module>
+    from .company_wiki_adapter import (
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py:19: in <module>
+    from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:82: in find_spec
+    raise ImportError(f"provider runtime import refused: {fullname}")
+E   ImportError: provider runtime import refused: src.downloader
+______________ test_cli_fetch_runs_on_a_downloader_less_adapter _______________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:467: in test_cli_fetch_runs_on_a_downloader_less_adapter
+    assert code == 0, stderr
+E   AssertionError: {"adapter": {"name": "stockinfo-cninfo", "version": "1.3.0"}, "error": {"code": "upstream_unavailable", "message": "StockInfoCompanyWikiAdapter.__init__() got an unexpected keyword argument 'identity_resolver'", "retryable": false, "type": "TypeError"}, "schema_version": "1.0", "status": "failed"}
+E     
+E   assert 1 == 0
+______________ test_local_cache_resolves_org_id_without_any_http ______________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:516: in test_local_cache_resolves_org_id_without_any_http
+    candidates = adapter.discover(_request())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+__________ test_cache_lookup_rejects_entries_without_a_usable_org_id __________
+tests\unit\test_g5_provider_runtime.py:527: in test_cache_lookup_rejects_entries_without_a_usable_org_id
+    from src.cninfo_identity import LocalOrgIdCache
+E   ModuleNotFoundError: No module named 'src.cninfo_identity'
+____________ test_default_cache_candidates_follow_the_legacy_order ____________
+tests\unit\test_g5_provider_runtime.py:553: in test_default_cache_candidates_follow_the_legacy_order
+    from src.cninfo_identity import LocalOrgIdCache, candidate_paths
+E   ModuleNotFoundError: No module named 'src.cninfo_identity'
+__________ test_official_identity_and_announcements_share_one_budget __________
+tests\unit\test_g5_provider_runtime.py:581: in test_official_identity_and_announcements_share_one_budget
+    candidates = adapter.discover(_request(), acquisition_budget=budget)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+_________ test_identity_timeout_is_capped_by_remaining_budget_seconds _________
+tests\unit\test_g5_provider_runtime.py:608: in test_identity_timeout_is_capped_by_remaining_budget_seconds
+    CninfoAnnouncementClient(timeout_seconds=20.0).resolve_org_id(SEC, budget=budget)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'CninfoAnnouncementClient' object has no attribute 'resolve_org_id'
+______ test_identity_budget_exhaustion_sends_zero_announcement_requests _______
+tests\unit\test_g5_provider_runtime.py:627: in test_identity_budget_exhaustion_sends_zero_announcement_requests
+    adapter.discover(_request(), acquisition_budget=budget)
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+___________ test_expired_deadline_stops_before_any_identity_request ___________
+tests\unit\test_g5_provider_runtime.py:648: in test_expired_deadline_stops_before_any_identity_request
+    adapter.discover(_request(), acquisition_budget=budget)
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+_____ test_wrong_security_identity_is_a_failure_and_sends_no_announcement _____
+tests\unit\test_g5_provider_runtime.py:665: in test_wrong_security_identity_is_a_failure_and_sends_no_announcement
+    adapter.discover(_request())
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+____________ test_ambiguous_identity_never_takes_the_first_org_id _____________
+tests\unit\test_g5_provider_runtime.py:685: in test_ambiguous_identity_never_takes_the_first_org_id
+    adapter.discover(_request())
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+_________ test_malformed_identity_schema_is_reported_as_schema_drift __________
+tests\unit\test_g5_provider_runtime.py:705: in test_malformed_identity_schema_is_reported_as_schema_drift
+    adapter.discover(_request())
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+___ test_identity_transport_failure_keeps_code_retryable_and_measured_usage ___
+tests\unit\test_g5_provider_runtime.py:727: in test_identity_transport_failure_keeps_code_retryable_and_measured_usage
+    adapter.discover(_request(), acquisition_budget=budget)
+src\company_wiki_adapter.py:317: in discover
+    org_id = self.downloader.mapping.get_org_id(request.stock_code)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'mapping'
+_______ test_cli_reports_identity_transport_failure_with_measured_usage _______
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:754: in test_cli_reports_identity_transport_failure_with_measured_usage
+    code, stdout, stderr = _invoke(
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:353: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:249: in main
+    adapter.downloader.cleanup()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'cleanup'
+___ test_cli_reports_identity_failure_as_identity_error_not_empty_discovery ___
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:795: in test_cli_reports_identity_failure_as_identity_error_not_empty_discovery
+    code, stdout, stderr = _invoke(
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:353: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:249: in main
+    adapter.downloader.cleanup()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'NoneType' object has no attribute 'cleanup'
+________ test_disclosure_matching_helpers_equal_the_downloader_helpers ________
+tests\unit\test_g5_provider_runtime.py:841: in test_disclosure_matching_helpers_equal_the_downloader_helpers
+    from src.disclosure_matching import _matches_excluded, _matches_keywords
+E   ModuleNotFoundError: No module named 'src.disclosure_matching'
+_____________ test_cli_tolerates_an_adapter_without_a_downloader ______________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:880: in test_cli_tolerates_an_adapter_without_a_downloader
+    code, stdout, stderr = _invoke(
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:353: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:249: in main
+    adapter.downloader.cleanup()
+    ^^^^^^^^^^^^^^^^^^
+E   AttributeError: '_PureAdapter' object has no attribute 'downloader'
+___________ test_cli_failure_is_not_masked_by_a_missing_downloader ____________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:902: in test_cli_failure_is_not_masked_by_a_missing_downloader
+    code, stdout, stderr = _invoke(
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:353: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py:249: in main
+    adapter.downloader.cleanup()
+    ^^^^^^^^^^^^^^^^^^
+E   AttributeError: '_BrokenAdapter' object has no attribute 'downloader'
+_________ test_fetch_is_pure_and_never_touches_identity_or_downloader _________
+C:\Users\郑曾波\Projects\_g5\sid\tests\unit\test_g5_provider_runtime.py:922: in test_fetch_is_pure_and_never_touches_identity_or_downloader
+    adapter = StockInfoCompanyWikiAdapter(
+E   TypeError: StockInfoCompanyWikiAdapter.__init__() got an unexpected keyword argument 'identity_resolver'
+____________ test_literal_cli_discovers_without_org_id_or_browser _____________
+tests\e2e\test_g5_browserless_provider.py:352: in test_literal_cli_discovers_without_org_id_or_browser
+    assert proc.returncode == 0, proc.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py", line 17, in <module>
+E         from .company_wiki_adapter import (
+E         ...<5 lines>...
+E         )
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py", line 19, in <module>
+E         from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+E       File "C:\Users\郑曾波\Projects\_g5\sid\tests\fixtures\g5_provider\sitecustomize.py", line 103, in find_spec
+E         raise ImportError(
+E             f"g5 offline bootstrap: browser runtime import refused: {fullname}"
+E         )
+E     ImportError: g5 offline bootstrap: browser runtime import refused: src.downloader
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-m', 'src.company_wiki_adapter_cli', 'discover', '--config', 'C:\...port refused: {fullname}"\n    )\nImportError: g5 offline bootstrap: browser runtime import refused: src.downloader\n').returncode
+_______________ test_local_cache_hit_skips_the_identity_request _______________
+tests\e2e\test_g5_browserless_provider.py:374: in test_local_cache_hit_skips_the_identity_request
+    assert proc.returncode == 0, proc.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py", line 17, in <module>
+E         from .company_wiki_adapter import (
+E         ...<5 lines>...
+E         )
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py", line 19, in <module>
+E         from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+E       File "C:\Users\郑曾波\Projects\_g5\sid\tests\fixtures\g5_provider\sitecustomize.py", line 103, in find_spec
+E         raise ImportError(
+E             f"g5 offline bootstrap: browser runtime import refused: {fullname}"
+E         )
+E     ImportError: g5 offline bootstrap: browser runtime import refused: src.downloader
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-m', 'src.company_wiki_adapter_cli', 'discover', '--config', 'C:\...port refused: {fullname}"\n    )\nImportError: g5 offline bootstrap: browser runtime import refused: src.downloader\n').returncode
+_______________ test_explicit_org_id_skips_the_identity_request _______________
+tests\e2e\test_g5_browserless_provider.py:388: in test_explicit_org_id_skips_the_identity_request
+    assert proc.returncode == 0, proc.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py", line 17, in <module>
+E         from .company_wiki_adapter import (
+E         ...<5 lines>...
+E         )
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py", line 19, in <module>
+E         from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+E       File "C:\Users\郑曾波\Projects\_g5\sid\tests\fixtures\g5_provider\sitecustomize.py", line 103, in find_spec
+E         raise ImportError(
+E             f"g5 offline bootstrap: browser runtime import refused: {fullname}"
+E         )
+E     ImportError: g5 offline bootstrap: browser runtime import refused: src.downloader
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-m', 'src.company_wiki_adapter_cli', 'discover', '--config', 'C:\...port refused: {fullname}"\n    )\nImportError: g5 offline bootstrap: browser runtime import refused: src.downloader\n').returncode
+___________ test_identity_over_budget_sends_no_announcement_request ___________
+tests\e2e\test_g5_browserless_provider.py:420: in test_identity_over_budget_sends_no_announcement_request
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+____ test_identity_consumes_the_whole_budget_so_announcement_never_starts _____
+tests\e2e\test_g5_browserless_provider.py:448: in test_identity_consumes_the_whole_budget_so_announcement_never_starts
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+_____________ test_expired_deadline_makes_no_http_request_at_all ______________
+tests\e2e\test_g5_browserless_provider.py:473: in test_expired_deadline_makes_no_http_request_at_all
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+_______ test_oversized_announcement_page_reports_usage_not_a_candidate ________
+tests\e2e\test_g5_browserless_provider.py:501: in test_oversized_announcement_page_reports_usage_not_a_candidate
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+_____________ test_wrong_security_identity_is_an_identity_failure _____________
+tests\e2e\test_g5_browserless_provider.py:519: in test_wrong_security_identity_is_an_identity_failure
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+____________ test_ambiguous_identity_never_takes_the_first_org_id _____________
+tests\e2e\test_g5_browserless_provider.py:540: in test_ambiguous_identity_never_takes_the_first_org_id
+    assert _error(proc.stderr)["error"]["code"] == "org_id_unresolved"
+           ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+_________ test_malformed_identity_schema_is_reported_as_schema_drift __________
+tests\e2e\test_g5_browserless_provider.py:553: in test_malformed_identity_schema_is_reported_as_schema_drift
+    error = _error(proc.stderr)["error"]
+            ^^^^^^^^^^^^^^^^^^^
+tests\e2e\test_g5_browserless_provider.py:323: in _error
+    return json.loads(lines[-1])
+           ^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+_________ test_fetch_stages_the_synthetic_pdf_with_real_sha_and_size __________
+tests\e2e\test_g5_browserless_provider.py:567: in test_fetch_stages_the_synthetic_pdf_with_real_sha_and_size
+    assert discover.returncode == 0, discover.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py", line 17, in <module>
+E         from .company_wiki_adapter import (
+E         ...<5 lines>...
+E         )
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py", line 19, in <module>
+E         from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+E       File "C:\Users\郑曾波\Projects\_g5\sid\tests\fixtures\g5_provider\sitecustomize.py", line 103, in find_spec
+E         raise ImportError(
+E             f"g5 offline bootstrap: browser runtime import refused: {fullname}"
+E         )
+E     ImportError: g5 offline bootstrap: browser runtime import refused: src.downloader
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-m', 'src.company_wiki_adapter_cli', 'discover', '--config', 'C:\...port refused: {fullname}"\n    )\nImportError: g5 offline bootstrap: browser runtime import refused: src.downloader\n').returncode
+_______________ test_fetch_over_budget_removes_the_partial_file _______________
+tests\e2e\test_g5_browserless_provider.py:604: in test_fetch_over_budget_removes_the_partial_file
+    assert discover.returncode == 0, discover.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter_cli.py", line 17, in <module>
+E         from .company_wiki_adapter import (
+E         ...<5 lines>...
+E         )
+E       File "C:\Users\郑曾波\Projects\_g5\sid\src\company_wiki_adapter.py", line 19, in <module>
+E         from .downloader import StockDownloader, _matches_excluded, _matches_keywords
+E       File "C:\Users\郑曾波\Projects\_g5\sid\tests\fixtures\g5_provider\sitecustomize.py", line 103, in find_spec
+E         raise ImportError(
+E             f"g5 offline bootstrap: browser runtime import refused: {fullname}"
+E         )
+E     ImportError: g5 offline bootstrap: browser runtime import refused: src.downloader
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-m', 'src.company_wiki_adapter_cli', 'discover', '--config', 'C:\...port refused: {fullname}"\n    )\nImportError: g5 offline bootstrap: browser runtime import refused: src.downloader\n').returncode
+=========================== short test summary info ===========================
+FAILED tests/unit/test_g5_provider_runtime.py::test_provider_modules_import_without_browser_or_downloader
+FAILED tests/unit/test_g5_provider_runtime.py::test_build_adapter_is_pure_api_and_writes_no_failure_log
+FAILED tests/unit/test_g5_provider_runtime.py::test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_fetch_runs_on_a_downloader_less_adapter
+FAILED tests/unit/test_g5_provider_runtime.py::test_local_cache_resolves_org_id_without_any_http
+FAILED tests/unit/test_g5_provider_runtime.py::test_cache_lookup_rejects_entries_without_a_usable_org_id
+FAILED tests/unit/test_g5_provider_runtime.py::test_default_cache_candidates_follow_the_legacy_order
+FAILED tests/unit/test_g5_provider_runtime.py::test_official_identity_and_announcements_share_one_budget
+FAILED tests/unit/test_g5_provider_runtime.py::test_identity_timeout_is_capped_by_remaining_budget_seconds
+FAILED tests/unit/test_g5_provider_runtime.py::test_identity_budget_exhaustion_sends_zero_announcement_requests
+FAILED tests/unit/test_g5_provider_runtime.py::test_expired_deadline_stops_before_any_identity_request
+FAILED tests/unit/test_g5_provider_runtime.py::test_wrong_security_identity_is_a_failure_and_sends_no_announcement
+FAILED tests/unit/test_g5_provider_runtime.py::test_ambiguous_identity_never_takes_the_first_org_id
+FAILED tests/unit/test_g5_provider_runtime.py::test_malformed_identity_schema_is_reported_as_schema_drift
+FAILED tests/unit/test_g5_provider_runtime.py::test_identity_transport_failure_keeps_code_retryable_and_measured_usage
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_reports_identity_transport_failure_with_measured_usage
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_reports_identity_failure_as_identity_error_not_empty_discovery
+FAILED tests/unit/test_g5_provider_runtime.py::test_disclosure_matching_helpers_equal_the_downloader_helpers
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_tolerates_an_adapter_without_a_downloader
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_failure_is_not_masked_by_a_missing_downloader
+FAILED tests/unit/test_g5_provider_runtime.py::test_fetch_is_pure_and_never_touches_identity_or_downloader
+FAILED tests/e2e/test_g5_browserless_provider.py::test_literal_cli_discovers_without_org_id_or_browser
+FAILED tests/e2e/test_g5_browserless_provider.py::test_local_cache_hit_skips_the_identity_request
+FAILED tests/e2e/test_g5_browserless_provider.py::test_explicit_org_id_skips_the_identity_request
+FAILED tests/e2e/test_g5_browserless_provider.py::test_identity_over_budget_sends_no_announcement_request
+FAILED tests/e2e/test_g5_browserless_provider.py::test_identity_consumes_the_whole_budget_so_announcement_never_starts
+FAILED tests/e2e/test_g5_browserless_provider.py::test_expired_deadline_makes_no_http_request_at_all
+FAILED tests/e2e/test_g5_browserless_provider.py::test_oversized_announcement_page_reports_usage_not_a_candidate
+FAILED tests/e2e/test_g5_browserless_provider.py::test_wrong_security_identity_is_an_identity_failure
+FAILED tests/e2e/test_g5_browserless_provider.py::test_ambiguous_identity_never_takes_the_first_org_id
+FAILED tests/e2e/test_g5_browserless_provider.py::test_malformed_identity_schema_is_reported_as_schema_drift
+FAILED tests/e2e/test_g5_browserless_provider.py::test_fetch_stages_the_synthetic_pdf_with_real_sha_and_size
+FAILED tests/e2e/test_g5_browserless_provider.py::test_fetch_over_budget_removes_the_partial_file
+======================== 33 failed, 3 passed in 8.80s =========================
+exit=1

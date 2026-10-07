@@ -623,8 +623,9 @@ def _seed_org_mapping(root: Path) -> Path:
     """Give the provider a local org-id cache so nothing reaches the network.
 
     company-wiki's ``SourceRequest`` has no ``org_id`` field, so the CLI falls
-    back to ``StockDownloader.mapping``.  Without a local cache that path would
-    issue a live cninfo lookup; seeding the cache keeps the run at zero
+    back to the read-only ``stock_orgid_mapping.json`` cache in
+    ``src.cninfo_identity``.  Without a local cache that path would issue a
+    live cninfo identity lookup; seeding the cache keeps the run at zero
     external requests while leaving the production lookup code untouched.
     """
     path = root / "stock_orgid_mapping.json"
