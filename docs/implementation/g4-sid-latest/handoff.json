@@ -7,7 +7,9 @@
   "worktree": "C:/Users/郑曾波/Projects/_g4/SID-LATEST/StockInfoDLSimple",
   "commits": [
     "d958a0ff43ed29c6710dc3439cdf67288a6c0e08",
-    "2d8919a835a1af883c0f3a99324f3fe43356bde1"
+    "2d8919a835a1af883c0f3a99324f3fe43356bde1",
+    "0c29a93afebb02d4971044a9d042f3afdd399d63",
+    "0a1cc56f4758dcfa37f792ea374fa332e31d02dc"
   ],
   "changed_paths": [
     "docs/implementation/g4-sid-latest/HANDOFF.md",
@@ -136,7 +138,7 @@
     "FF -> ET -> CWP -> latest download wiring is left to MAIN; this lane proves metadata discovery plus one controlled loopback fetch",
     "mode=latest_as_of covers annual_report / semi_annual_report / quarterly_report only",
     "runtime driving the provider through company-wiki must have Playwright + Chromium, because StockDownloader.mapping builds the browser eagerly (pre-existing behaviour)",
-    "this commit (the one carrying handoff.json) cannot list its own SHA in commits"
+    "the commit carrying this handoff.json cannot list its own SHA"
   ],
   "main_integration": {
     "target_branch": "v2-clean-rewrite",
