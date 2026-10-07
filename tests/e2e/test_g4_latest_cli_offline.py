@@ -36,8 +36,10 @@ import pytest
 WORKTREE = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "g4_latest"
 BOOTSTRAP = WORKTREE / "docs" / "implementation" / "g4-sid-latest" / "g4_bootstrap"
-CWP_REPO = Path("C:/Users/郑曾波/Projects/company-wiki")
-CWP_COMMIT = "5930a644453ed46494c2c83c5ecfb97767fa9492"
+CWP_REPO = Path(
+    os.environ.get("G4_CWP_REPO", str(Path.home() / "Projects/company-wiki"))
+)
+CWP_COMMIT = os.environ.get("G4_CWP_COMMIT", "5930a644453ed46494c2c83c5ecfb97767fa9492")
 ORG = "gshk0001211"
 SEC = "600000"
 NAME = "示例公司"
@@ -643,7 +645,10 @@ def _seed_org_mapping(root: Path) -> Path:
     return path
 
 
-@pytest.mark.skipif(not CWP_REPO.exists(), reason="company-wiki repo not available")
+@pytest.mark.skipif(
+    not CWP_REPO.exists() and "G4_CWP_REPO" not in os.environ,
+    reason="optional company-wiki integration checkout not available",
+)
 def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
     loopback.use("annual_cutover")
     config = _write_config(card_root)
@@ -652,6 +657,7 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
     export_root.mkdir(parents=True, exist_ok=True)
     _export_cwp_package(export_root)
 
+    prior_modules = set(sys.modules)
     sys.path.insert(0, str(export_root))
     saved_env = {
         key: os.environ.get(key) for key in ("PYTHONPATH", "G4_LOOPBACK", "PYTHONUTF8")
@@ -740,3 +746,128 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
                 os.environ[key] = value
         while str(export_root) in sys.path:
             sys.path.remove(str(export_root))
+
+        for key in set(sys.modules) - prior_modules:
+            if key == "company_wiki" or key.startswith("company_wiki."):
+                sys.modules.pop(key, None)
+
+
+@pytest.mark.skipif(
+    "G4_CWP_COMMIT" not in os.environ,
+    reason="committed route integration requires an explicit CWP revision",
+)
+@pytest.mark.parametrize(
+    ("label", "expected_error", "expected_posts"),
+    [
+        ("annual_cutover", None, 1),
+        ("over_five_pages", "discovery_incomplete", 5),
+        ("all_future", "bounded_discovery_empty", 1),
+        ("contradictory_final_page", "discovery_incomplete", 1),
+    ],
+)
+def test_committed_cwp_route_consumes_candidates_or_honest_gap(
+    card_root, loopback, label, expected_error, expected_posts
+):
+    """Use the committed route identity/capability and real child CLI/HTTP.
+
+    Only the runtime root/config are relocated into the isolated fixture.
+    A stale committed adapter version must fail the success case.
+    """
+    import yaml
+
+    frozen_config = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(CWP_REPO),
+            "show",
+            f"{CWP_COMMIT}:config/source_acquisition.yaml",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout
+    route = yaml.safe_load(frozen_config)["adapters"]["cn"]
+    assert route["project_root"].endswith("/StockInfoDLSimple/v2-clean-rewrite")
+    loopback.use(label)
+    config = _write_config(card_root)
+    seeded_mapping = _seed_org_mapping(card_root)
+    export_root = card_root / ("cwp-route-" + label)
+    export_root.mkdir()
+    _export_cwp_package(export_root)
+    prior_modules = set(sys.modules)
+    sys.path.insert(0, str(export_root))
+    saved_env = {
+        key: os.environ.get(key) for key in ("PYTHONPATH", "G4_LOOPBACK", "PYTHONUTF8")
+    }
+    try:
+        with _chdir(card_root):
+            from company_wiki.source_catalog.adapter_process import (
+                AdapterProcessError,
+                JsonCommandAdapter,
+            )
+            from company_wiki.source_catalog.download_budget import AcquisitionBudget
+            from company_wiki.source_catalog.resolver import SourceRequest
+
+            adapter = JsonCommandAdapter(
+                name=route["name"],
+                version=route["version"],
+                command=[
+                    arg.replace("${PYTHON_EXECUTABLE}", sys.executable)
+                    for arg in route["command"]
+                ]
+                + ["--config", str(config)],
+                project_root=card_root,
+                timeout_seconds=120,
+                supports_acquisition_budget=route.get(
+                    "supports_acquisition_budget", False
+                ),
+            )
+            request = SourceRequest(
+                entity=NAME,
+                market="CN",
+                security_id=SEC,
+                document_kind="annual_report",
+                fiscal_year=None,
+                fiscal_period=None,
+                form_type=None,
+                as_of_date="2026-02-01",
+                mode="latest_as_of",
+                provider="cninfo",
+            )
+            budget = AcquisitionBudget.from_limits(
+                max_response_bytes=1_048_576,
+                max_seconds=60,
+                max_cost_usd="0",
+            )
+            os.environ.update(_cwp_child_env(loopback.base))
+            if expected_error is None:
+                candidates = adapter.discover_bounded(request, budget)
+                assert [
+                    (c.fiscal_year, c.fiscal_period, c.provider_document_id)
+                    for c in candidates
+                ] == [
+                    (2024, "FY", "900001001"),
+                ]
+            else:
+                with pytest.raises(AdapterProcessError) as caught:
+                    adapter.discover_bounded(request, budget)
+                assert caught.value.error_code == expected_error
+                assert caught.value.retryable is False
+            assert len(loopback.posts) == expected_posts
+            assert budget.response_bytes_used == loopback.sent_bytes > 0
+            assert budget.cost_usd_used == 0
+            assert loopback.gets == []
+    finally:
+        seeded_mapping.unlink(missing_ok=True)
+        for key, value in saved_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        while str(export_root) in sys.path:
+            sys.path.remove(str(export_root))
+        for key in set(sys.modules) - prior_modules:
+            if key == "company_wiki" or key.startswith("company_wiki."):
+                sys.modules.pop(key, None)

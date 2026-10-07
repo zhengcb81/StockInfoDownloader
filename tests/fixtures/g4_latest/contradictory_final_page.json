@@ -1,0 +1,36 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "contradictory_final_page",
+    "notes": "Declared final page covers fewer raw records than its total; this must not count as complete."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 3,
+      "totalpages": 1,
+      "announcements": [
+        {
+          "announcementId": "900001001",
+          "announcementTime": 1742472000000,
+          "announcementTitle": "示例公司2024年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-20/900001001.PDF"
+        },
+        {
+          "announcementId": "900001002",
+          "announcementTime": 1774440000000,
+          "announcementTitle": "示例公司2025年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-03-25/900001002.PDF"
+        }
+      ]
+    }
+  }
+}

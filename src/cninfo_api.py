@@ -267,17 +267,28 @@ class CninfoAnnouncementClient:
                 )
             covered_raw += meta.raw_count
             records.extend(page_records)
-            if meta.totalpages is not None and meta.totalpages > 0:
-                if page_num >= meta.totalpages:
-                    complete = True
-                    break
-            if covered_raw >= meta.total:
+            final_page = meta.totalpages is not None and page_num >= meta.totalpages
+            covered_total = covered_raw >= meta.total
+            if final_page or covered_total:
+                # Terminal pagination facts must agree. A final page alone
+                # does not prove that all declared records were received.
+                if (
+                    covered_raw != meta.total
+                    or meta.has_more
+                    or (meta.totalpages is not None and page_num < meta.totalpages)
+                ):
+                    raise CninfoApiError(
+                        f"discovery_incomplete: window {se_date} page {page_num} "
+                        f"has conflicting completion metadata: covered "
+                        f"{covered_raw}/{meta.total}, totalpages={meta.totalpages}, "
+                        f"hasMore={meta.has_more}",
+                        error_code="discovery_incomplete",
+                        retryable=False,
+                    )
                 complete = True
                 break
             if meta.raw_count == 0 and not meta.has_more:
                 break
-        if total_declared is not None and covered_raw >= total_declared:
-            complete = True
         if not complete:
             raise CninfoApiError(
                 f"discovery_incomplete: window {se_date} covered "

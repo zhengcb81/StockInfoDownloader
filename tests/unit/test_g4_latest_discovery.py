@@ -1007,3 +1007,32 @@ def test_adapter_version_is_1_3_0():
 
     assert ADAPTER_NAME == "stockinfo-cninfo"
     assert ADAPTER_VERSION == "1.3.0"
+
+
+@pytest.mark.parametrize(
+    "contradiction", ("short_final_page", "more_after_zero", "more_after_final")
+)
+def test_latest_rejects_conflicting_page_completion_facts(monkeypatch, contradiction):
+    page = _fixture("annual_cutover")["pages"]["1"]
+    if contradiction == "short_final_page":
+        page["totalRecordNum"] = 3
+    elif contradiction == "more_after_zero":
+        page["totalRecordNum"] = 0
+        page["announcements"] = []
+        page.pop("totalpages")
+        page["hasMore"] = True
+    else:
+        page["hasMore"] = True
+    transport = _PageTransport(pages={"1": page})
+    monkeypatch.setattr("urllib.request.urlopen", transport)
+    with pytest.raises(CninfoApiError) as caught:
+        CninfoAnnouncementClient().discover_announcements(
+            stock_code=SEC,
+            org_id=ORG,
+            document_kind="annual_report",
+            as_of_date="2026-02-01",
+            fiscal_year=None,
+        )
+    assert caught.value.error_code == "discovery_incomplete"
+    assert caught.value.retryable is False
+    assert len(transport.requests) == 1
