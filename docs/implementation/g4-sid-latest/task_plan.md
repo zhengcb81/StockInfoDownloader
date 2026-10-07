@@ -71,7 +71,7 @@ verify original-repo owner status + owner file SHAs unchanged; clean owned scrat
 **Tests**: responsibility command in §6 of the card.
 **Status**: complete
 
-### Phase 6: Handoff — Status: in_progress
+### Phase 6: Handoff — Status: complete
 **Goal**: deliver `HANDOFF.md`, `handoff.json`, `main_wiring.md`, `latest_request_contract.md`,
 golden request/response JSON; commit on `codex/g4-sid-latest`.
 **Success Criteria**: `handoff.json` matches `g4-handoff/1` with real values, no placeholders.
@@ -106,5 +106,6 @@ golden request/response JSON; commit on `codex/g4-sid-latest`.
 
 ## Next Step
 
-Phase 6: write `handoff.json`, mirror the PWF files, commit the handoff, push
-`codex/g4-sid-latest`, then re-verify owner protection and cleanliness.
+None — lane handed off.  MAIN owns the `1.3.0` route bump, the GAP handling for
+`discovery_incomplete` / `bounded_discovery_empty`, and the remaining
+FF → ET → CWP wiring (see `main_wiring.md`).

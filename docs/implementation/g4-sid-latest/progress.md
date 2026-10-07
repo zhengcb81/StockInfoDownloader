@@ -49,3 +49,19 @@ Status: Phase 0 complete, Phase 1 complete, Phase 2 in progress.
 - Implementation commit `d958a0f` on `codex/g4-sid-latest`.
 
 Status: Phases 0-5 complete, Phase 6 in progress (handoff commit + push).
+
+
+## 2026-10-07 — Session 3: acceptance and delivery
+
+- Final responsibility run after all commits: exit 0, **120 passed**, 14.61 s
+  (committed receipt `green_run.txt` records the identical command at 14.51 s).
+- Original repo `v2-clean-rewrite` status re-checked: byte-identical to the
+  session-start capture, 11 tracked owner modifications + 3 untracked entries.
+- Worktree clean apart from the intentional, uncommitted
+  `docs/implementation/.planning/` resolver mirror; no `si4l-*` temp root
+  remains, no `logs/`, `src/__pycache__`, `src/stock_orgid_mapping.json`,
+  `.mypy_cache` or `.ruff_cache`.
+- Delivered commits on `codex/g4-sid-latest`, pushed to `origin`:
+  `d958a0f` (implementation), `2d8919a` (contract/wiring/handoff docs),
+  `0c29a93` (machine `handoff.json`), plus this plan close-out.
+- Phase 6 complete; the lane is handed to MAIN.
