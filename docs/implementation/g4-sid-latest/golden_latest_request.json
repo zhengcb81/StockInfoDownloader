@@ -1,0 +1,18 @@
+{
+  "entity": "示例公司",
+  "market": "CN",
+  "security_id": "600000",
+  "document_kind": "quarterly_report",
+  "mode": "latest_as_of",
+  "fiscal_year": null,
+  "fiscal_period": null,
+  "form_type": null,
+  "as_of_date": "2026-06-01",
+  "org_id": "gshk0001211",
+  "acquisition_budget": {
+    "schema_version": "1.0",
+    "max_response_bytes": 1048576,
+    "timeout_seconds": 20,
+    "max_cost_usd": "0"
+  }
+}

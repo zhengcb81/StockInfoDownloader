@@ -1,0 +1,18 @@
+$ mypy src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py
+# baseline for 8ed5fdd reported the SAME 12 errors (browser/orgid/mapping are
+# untouched files; cninfo_api.py:663, company_wiki_adapter.py:252 and :317 are
+# untouched statements whose line numbers shifted).  No new error was added.
+src\browser.py:49: error: Incompatible types in assignment (expression has type "Playwright", variable has type "None")  [assignment]
+src\browser.py:50: error: "None" has no attribute "chromium"  [attr-defined]
+src\browser.py:137: error: Argument "wait_until" to "goto" of "Page" has incompatible type "str"; expected "Literal['commit', 'domcontentloaded', 'load', 'networkidle'] | None"  [arg-type]
+src\browser.py:219: error: Argument "state" to "wait_for_selector" of "Page" has incompatible type "str"; expected "Literal['attached', 'detached', 'hidden', 'visible'] | None"  [arg-type]
+src\orgid.py:141: error: Item "None" of "Any | None" has no attribute "navigate"  [union-attr]
+src\orgid.py:148: error: Item "None" of "Any | None" has no attribute "find_elements"  [union-attr]
+src\orgid.py:153: error: Item "None" of "Any | None" has no attribute "get_attribute"  [union-attr]
+src\orgid.py:167: error: Item "None" of "Any | None" has no attribute "get_page_source"  [union-attr]
+src\mapping.py:91: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+src\cninfo_api.py:663: error: Argument 1 to "int" has incompatible type "Any | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+src\company_wiki_adapter.py:252: error: Incompatible types in assignment (expression has type "date", variable has type "datetime")  [assignment]
+src\company_wiki_adapter.py:317: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+Found 12 errors in 5 files (checked 3 source files)
+exit=1

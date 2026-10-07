@@ -1,0 +1,29 @@
+# owner protection — captured 2026-10-07T19:20:47+01:00
+## git status --short
+ M README.md
+ M config_template.json
+ M main.py
+ M src/browser.py
+ M src/downloader.py
+ M src/logger.py
+ M src/mapping.py
+ M src/models.py
+ M tests/e2e/official_e2e_test.py
+ M tests/unit/test_downloader.py
+ M tests/unit/test_official_e2e_contract.py
+?? a_share_companies.txt
+?? companies.txt
+?? scripts/
+
+## sha256 of the 11 tracked owner files
+974b9f2eec5a680206c9c18a9e6151c7dbd2946be6b1302fb13d9e5e218e1f89 *README.md
+d35cf7c7b24e9fcf75eba3dc94d721cc05b2ae8438a673b512a40012e9d796fc *config_template.json
+3aa0cc8400126d575af9b088e4f6a29486f66a196bf19d38dd5e74d37df77d2c *main.py
+ac55d0a3ae84d6361423612ec0565dc46787907d1bb64ff3c057fc996f217ae1 *src/browser.py
+14238f8ab5df830caad3a9011addcde089197297cf72ea52b353de3e100e6637 *src/downloader.py
+72b22c63b48099cbf89836b7da4ee41c85ff9fc623c23c8fad0c97f507b63769 *src/logger.py
+40d9114a2feb24800f5e665282bf1244212e72fc0773a9b7a6171a0b1b30482a *src/mapping.py
+b280c14eddeee78ae7ab5d116d4e2be7145a5f3bdbdc742c7a0268f2e696395d *src/models.py
+e56e1ef5cfcea9e89022f816d7ccfa923f0a039af60c2511ba9ed3c5fe4d3242 *tests/e2e/official_e2e_test.py
+8dbed9a7cfc55bbab3aeb755557307b2027bb820a6ad06ef3eed252f7ceef213 *tests/unit/test_downloader.py
+453eed3e3c177eb45ff5d02d0fbd555b43ea93cb2ed6f7b02384f1c20a59b2ae *tests/unit/test_official_e2e_contract.py

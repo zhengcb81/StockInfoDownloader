@@ -1,0 +1,332 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.9, pytest-9.1.1, pluggy-1.5.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: C:\Users\Ö£Ôø²¨\Projects\_g4\SID-LATEST\StockInfoDLSimple
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.19.1, langsmith-0.14.4, asyncio-1.3.0, base-url-2.1.0, benchmark-5.2.3, cov-7.0.0, html-4.1.1, metadata-3.1.1, mock-3.15.1, playwright-0.7.2, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 45 items
+
+tests\unit\test_g4_latest_discovery.py FFF..FFFFFFFFFFFF..FFFFFFFFFFFFF. [ 73%]
+..FFFFFFFFFF                                                             [100%]
+
+================================== FAILURES ===================================
+________________ test_latest_request_accepts_null_fiscal_year _________________
+tests\unit\test_g4_latest_discovery.py:240: in test_latest_request_accepts_null_fiscal_year
+    request = _request()
+              ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+______________ test_latest_request_keeps_positional_exact_shape _______________
+tests\unit\test_g4_latest_discovery.py:250: in test_latest_request_keeps_positional_exact_shape
+    assert request.mode == "exact"
+           ^^^^^^^^^^^^
+E   AttributeError: 'AdapterDiscoveryRequest' object has no attribute 'mode'
+__________________ test_legacy_request_without_mode_is_exact __________________
+tests\unit\test_g4_latest_discovery.py:257: in test_legacy_request_without_mode_is_exact
+    request = AdapterDiscoveryRequest(
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+_____________ test_unknown_mode_is_rejected_never_silently_exact ______________
+tests\unit\test_g4_latest_discovery.py:295: in test_unknown_mode_is_rejected_never_silently_exact
+    AdapterDiscoveryRequest(
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+_______________________ test_latest_requires_as_of_date _______________________
+tests\unit\test_g4_latest_discovery.py:306: in test_latest_requires_as_of_date
+    _request(as_of_date=None)
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+___________________ test_latest_rejects_non_iso_as_of_date ____________________
+tests\unit\test_g4_latest_discovery.py:312: in test_latest_rejects_non_iso_as_of_date
+    _request(as_of_date=bad)
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+________________ test_latest_rejects_unsupported_document_kind ________________
+tests\unit\test_g4_latest_discovery.py:317: in test_latest_rejects_unsupported_document_kind
+    _request(document_kind="earnings_transcript")
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+________________ test_latest_accepts_supported_document_kinds _________________
+tests\unit\test_g4_latest_discovery.py:326: in test_latest_accepts_supported_document_kinds
+    request = _request(document_kind=kind, fiscal_period=period)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+________________ test_period_hint_is_normalized_for_comparison ________________
+tests\unit\test_g4_latest_discovery.py:332: in test_period_hint_is_normalized_for_comparison
+    _request(document_kind="quarterly_report", fiscal_period="q3").fiscal_period
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+________ test_cli_rejects_bad_latest_request_before_building_provider _________
+tests\unit\test_g4_latest_discovery.py:344: in test_cli_rejects_bad_latest_request_before_building_provider
+    code, stdout, stderr = _cli_invoke(
+tests\unit\test_g4_latest_discovery.py:208: in _cli_invoke
+    code = cli.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:153: in main
+    adapter = _build_adapter(args.config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:342: in <lambda>
+    cli, "_build_adapter", lambda _config: pytest.fail("provider must not be built")
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: provider must not be built
+___________ test_cli_rejects_unknown_mode_before_building_provider ____________
+tests\unit\test_g4_latest_discovery.py:368: in test_cli_rejects_unknown_mode_before_building_provider
+    code, _stdout, stderr = _cli_invoke(
+tests\unit\test_g4_latest_discovery.py:208: in _cli_invoke
+    code = cli.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:153: in main
+    adapter = _build_adapter(args.config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:366: in <lambda>
+    cli, "_build_adapter", lambda _config: pytest.fail("provider must not be built")
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: provider must not be built
+_____ test_cli_rejects_exact_request_without_integer_year_before_provider _____
+tests\unit\test_g4_latest_discovery.py:389: in test_cli_rejects_exact_request_without_integer_year_before_provider
+    code, _stdout, stderr = _cli_invoke(
+tests\unit\test_g4_latest_discovery.py:208: in _cli_invoke
+    code = cli.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:153: in main
+    adapter = _build_adapter(args.config)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:387: in <lambda>
+    cli, "_build_adapter", lambda _config: pytest.fail("provider must not be built")
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: provider must not be built
+________ test_cli_latest_null_year_reaches_adapter_with_latest_request ________
+tests\unit\test_g4_latest_discovery.py:417: in test_cli_latest_null_year_reaches_adapter_with_latest_request
+    assert code == 0, stderr
+E   AssertionError: {"adapter": {"name": "stockinfo-cninfo", "version": "1.2.0"}, "error": {"acquisition_usage": {"cost_usd": "0", "response_bytes": 0, "schema_version": "1.0"}, "code": "upstream_unavailable", "message": "fiscal_year is required for CN discovery", "retryable": false, "type": "ValueError"}, "schema_version": "1.0", "status": "failed"}
+E     
+E   assert 1 == 0
+________ test_latest_window_covers_three_natural_years_ending_at_as_of ________
+tests\unit\test_g4_latest_discovery.py:434: in test_latest_window_covers_three_natural_years_ending_at_as_of
+    records, state = CninfoAnnouncementClient().discover_announcements(
+E   TypeError: CninfoAnnouncementClient.discover_announcements() got an unexpected keyword argument 'as_of_date'
+________ test_latest_window_tracks_as_of_date_rather_than_local_today _________
+tests\unit\test_g4_latest_discovery.py:452: in test_latest_window_tracks_as_of_date_rather_than_local_today
+    CninfoAnnouncementClient().discover_announcements(
+E   TypeError: CninfoAnnouncementClient.discover_announcements() got an unexpected keyword argument 'as_of_date'
+____________ test_latest_drops_announcement_published_after_cutoff ____________
+tests\unit\test_g4_latest_discovery.py:530: in test_latest_drops_announcement_published_after_cutoff
+    candidates = _adapter(client).discover(_request(as_of_date="2026-02-01"))
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+__________ test_latest_year_hint_does_not_filter_older_visible_year ___________
+tests\unit\test_g4_latest_discovery.py:546: in test_latest_year_hint_does_not_filter_older_visible_year
+    _request(as_of_date="2026-02-01", fiscal_year=2025)
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+_________ test_latest_year_comes_from_title_not_from_as_of_or_request _________
+tests\unit\test_g4_latest_discovery.py:562: in test_latest_year_comes_from_title_not_from_as_of_or_request
+    _request(as_of_date="2026-06-01", fiscal_year=2026)
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+_____________ test_latest_keeps_both_visible_semi_annual_reports ______________
+tests\unit\test_g4_latest_discovery.py:584: in test_latest_keeps_both_visible_semi_annual_reports
+    _request(document_kind="semi_annual_report", as_of_date="2026-09-01")
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+____ test_latest_quarterly_keeps_visible_q3_and_q1_without_fabricating_q2 _____
+tests\unit\test_g4_latest_discovery.py:612: in test_latest_quarterly_keeps_visible_q3_and_q1_without_fabricating_q2
+    _request(document_kind="quarterly_report", as_of_date="2026-06-01")
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+__________________ test_latest_honours_explicit_period_hint ___________________
+tests\unit\test_g4_latest_discovery.py:637: in test_latest_honours_explicit_period_hint
+    _request(
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+____________________ test_latest_drops_mismatched_security ____________________
+tests\unit\test_g4_latest_discovery.py:657: in test_latest_drops_mismatched_security
+    assert _adapter(client).discover(_request()) == ()
+                                     ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+______________ test_latest_drops_record_without_transport_target ______________
+tests\unit\test_g4_latest_discovery.py:671: in test_latest_drops_record_without_transport_target
+    assert _adapter(client).discover(_request()) == ()
+                                     ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+____________________ test_latest_drops_empty_title_record _____________________
+tests\unit\test_g4_latest_discovery.py:678: in test_latest_drops_empty_title_record
+    assert _adapter(client).discover(_request()) == ()
+                                     ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+_________ test_latest_keeps_distinct_announcement_ids_for_same_period _________
+tests\unit\test_g4_latest_discovery.py:696: in test_latest_keeps_distinct_announcement_ids_for_same_period
+    candidates = _adapter(client).discover(_request())
+                                           ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+___ test_conflicting_duplicate_announcement_id_fails_instead_of_overwriting ___
+tests\unit\test_g4_latest_discovery.py:719: in test_conflicting_duplicate_announcement_id_fails_instead_of_overwriting
+    _adapter(client).discover(_request())
+                              ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+__________ test_identical_duplicate_announcement_id_is_deduplicated ___________
+tests\unit\test_g4_latest_discovery.py:729: in test_identical_duplicate_announcement_id_is_deduplicated
+    candidates = _adapter(client).discover(_request())
+                                           ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+___________ test_latest_cutoff_uses_utc_filing_date_at_day_boundary ___________
+tests\unit\test_g4_latest_discovery.py:745: in test_latest_cutoff_uses_utc_filing_date_at_day_boundary
+    candidates = _adapter(client).discover(_request(as_of_date="2026-06-01"))
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+________ test_latest_keeps_full_text_that_only_appears_on_a_later_page ________
+tests\unit\test_g4_latest_discovery.py:819: in test_latest_keeps_full_text_that_only_appears_on_a_later_page
+    records, _state = CninfoAnnouncementClient().discover_announcements(
+E   TypeError: CninfoAnnouncementClient.discover_announcements() got an unexpected keyword argument 'as_of_date'
+_________ test_adapter_returns_only_full_text_after_summary_exclusion _________
+tests\unit\test_g4_latest_discovery.py:838: in test_adapter_returns_only_full_text_after_summary_exclusion
+    _request(as_of_date="2026-06-01", max_pages=5)
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+___________ test_page_budget_exhaustion_is_not_reported_as_complete ___________
+tests\unit\test_g4_latest_discovery.py:850: in test_page_budget_exhaustion_is_not_reported_as_complete
+    CninfoAnnouncementClient().discover_announcements(
+E   TypeError: CninfoAnnouncementClient.discover_announcements() got an unexpected keyword argument 'as_of_date'
+_ test_complete_window_without_valid_candidate_raises_bounded_discovery_empty _
+tests\unit\test_g4_latest_discovery.py:875: in test_complete_window_without_valid_candidate_raises_bounded_discovery_empty
+    _adapter(CninfoAnnouncementClient()).discover(_request(as_of_date="2026-06-01"))
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+__________ test_one_budget_is_shared_by_every_page_of_one_discovery ___________
+tests\unit\test_g4_latest_discovery.py:889: in test_one_budget_is_shared_by_every_page_of_one_discovery
+    _request(as_of_date="2026-06-01", max_pages=5),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+____________ test_shared_budget_stops_before_the_next_page_request ____________
+tests\unit\test_g4_latest_discovery.py:911: in test_shared_budget_stops_before_the_next_page_request
+    _request(as_of_date="2026-06-01", max_pages=5),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+______________ test_bounded_read_never_requests_unbounded_chunks ______________
+tests\unit\test_g4_latest_discovery.py:923: in test_bounded_read_never_requests_unbounded_chunks
+    CninfoAnnouncementClient().discover_announcements(
+E   TypeError: CninfoAnnouncementClient.discover_announcements() got an unexpected keyword argument 'as_of_date'
+_____________ test_adapter_error_carries_typed_code_and_retryable _____________
+tests\unit\test_g4_latest_discovery.py:954: in test_adapter_error_carries_typed_code_and_retryable
+    _adapter(client).discover(_request())
+                              ^^^^^^^^^^
+tests\unit\test_g4_latest_discovery.py:187: in _request
+    return AdapterDiscoveryRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: AdapterDiscoveryRequest.__init__() got an unexpected keyword argument 'mode'
+__________ test_cli_reports_discovery_incomplete_without_stdout_json __________
+tests\unit\test_g4_latest_discovery.py:986: in test_cli_reports_discovery_incomplete_without_stdout_json
+    assert payload["adapter"]["version"] == "1.3.0"
+E   AssertionError: assert '1.2.0' == '1.3.0'
+E     
+E     - 1.3.0
+E     ?   ^
+E     + 1.2.0
+E     ?   ^
+________________________ test_adapter_version_is_1_3_0 ________________________
+tests\unit\test_g4_latest_discovery.py:996: in test_adapter_version_is_1_3_0
+    assert ADAPTER_VERSION == "1.3.0"
+E   AssertionError: assert '1.2.0' == '1.3.0'
+E     
+E     - 1.3.0
+E     ?   ^
+E     + 1.2.0
+E     ?   ^
+=========================== short test summary info ===========================
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_request_accepts_null_fiscal_year
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_request_keeps_positional_exact_shape
+FAILED tests/unit/test_g4_latest_discovery.py::test_legacy_request_without_mode_is_exact
+FAILED tests/unit/test_g4_latest_discovery.py::test_unknown_mode_is_rejected_never_silently_exact
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_requires_as_of_date
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_rejects_non_iso_as_of_date
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_rejects_unsupported_document_kind
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_accepts_supported_document_kinds
+FAILED tests/unit/test_g4_latest_discovery.py::test_period_hint_is_normalized_for_comparison
+FAILED tests/unit/test_g4_latest_discovery.py::test_cli_rejects_bad_latest_request_before_building_provider
+FAILED tests/unit/test_g4_latest_discovery.py::test_cli_rejects_unknown_mode_before_building_provider
+FAILED tests/unit/test_g4_latest_discovery.py::test_cli_rejects_exact_request_without_integer_year_before_provider
+FAILED tests/unit/test_g4_latest_discovery.py::test_cli_latest_null_year_reaches_adapter_with_latest_request
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_window_covers_three_natural_years_ending_at_as_of
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_window_tracks_as_of_date_rather_than_local_today
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_drops_announcement_published_after_cutoff
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_year_hint_does_not_filter_older_visible_year
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_year_comes_from_title_not_from_as_of_or_request
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_keeps_both_visible_semi_annual_reports
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_quarterly_keeps_visible_q3_and_q1_without_fabricating_q2
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_honours_explicit_period_hint
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_drops_mismatched_security
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_drops_record_without_transport_target
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_drops_empty_title_record
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_keeps_distinct_announcement_ids_for_same_period
+FAILED tests/unit/test_g4_latest_discovery.py::test_conflicting_duplicate_announcement_id_fails_instead_of_overwriting
+FAILED tests/unit/test_g4_latest_discovery.py::test_identical_duplicate_announcement_id_is_deduplicated
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_cutoff_uses_utc_filing_date_at_day_boundary
+FAILED tests/unit/test_g4_latest_discovery.py::test_latest_keeps_full_text_that_only_appears_on_a_later_page
+FAILED tests/unit/test_g4_latest_discovery.py::test_adapter_returns_only_full_text_after_summary_exclusion
+FAILED tests/unit/test_g4_latest_discovery.py::test_page_budget_exhaustion_is_not_reported_as_complete
+FAILED tests/unit/test_g4_latest_discovery.py::test_complete_window_without_valid_candidate_raises_bounded_discovery_empty
+FAILED tests/unit/test_g4_latest_discovery.py::test_one_budget_is_shared_by_every_page_of_one_discovery
+FAILED tests/unit/test_g4_latest_discovery.py::test_shared_budget_stops_before_the_next_page_request
+FAILED tests/unit/test_g4_latest_discovery.py::test_bounded_read_never_requests_unbounded_chunks
+FAILED tests/unit/test_g4_latest_discovery.py::test_adapter_error_carries_typed_code_and_retryable
+FAILED tests/unit/test_g4_latest_discovery.py::test_cli_reports_discovery_incomplete_without_stdout_json
+FAILED tests/unit/test_g4_latest_discovery.py::test_adapter_version_is_1_3_0
+======================== 38 failed, 7 passed in 1.04s =========================
