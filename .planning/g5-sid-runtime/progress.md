@@ -62,7 +62,6 @@ $env:PYTHONUTF8='1'; $env:PYTHONDONTWRITEBYTECODE='1'
 证据：`evidence/{red_run,green_run,unit_run,ruff_run,mypy_run}.txt`
 
 ### 保护与清理核验
-
 - `git diff --name-only 0cb3c1f -- <11 个 tracked owner 文件>` → 空（owner 文件与基线一致）。
 - `git diff --name-only` → 只有 5 个 owned 文件：`src/cninfo_api.py`、`src/company_wiki_adapter.py`、`src/company_wiki_adapter_cli.py`、`tests/e2e/test_g4_latest_cli_offline.py`、`tests/unit/test_company_wiki_adapter_cli_budget.py`。
 - GREEN/全量 unit 跑完后：`logs/` 不存在、`.planning/test-tmp/` 不存在、`src/stock_orgid_mapping.json` 不存在、无 `downloads/` 产物。
@@ -73,3 +72,11 @@ $env:PYTHONUTF8='1'; $env:PYTHONDONTWRITEBYTECODE='1'
 
 - `tests/unit` 全量里 owner 的 `test_progress.py` 会按 `src/progress.py` 默认值创建 `logs/progress.json`（`logs/` 已被 .gitignore 忽略）。这是既有行为，交付命令跑完后已手工清除；G5 自己的命令不产生该目录。
 - `.mypy_cache/` `.ruff_cache/` `.benchmarks/` 为工具自建缓存目录（各自内含 `.gitignore` 自忽略），已清理。
+
+## Session 3 — 交接交付
+
+- 插桩重跑（同一条 GREEN 命令）测得 loopback 计数：**42 次请求 / 18782 真实 response bytes / 163 passed**；G5 browserless E2E 单跑 **15 次 / 5939 bytes / 13 passed**。
+- 写入 `.planning/g5-sid-runtime/`：`HANDOFF.md`、`handoff.json`、`main_wiring.md`、`dependency_map.json`。
+- `handoff.json` 对 `company-wiki/docs/plans/narrative-evidence-pilot-2026-09-26/harness_lanes/g5_handoff.schema.json` 做 Draft 2020-12 校验：**0 errors**（首版 `main_wiring[].symbol: null` 4 处不符 `type: string`，改为删除该可选键后通过）。
+- 实现提交 `7a4bf0d97dba197e4accf0bd47707f012a6a7413`（分支 `codex/g5-sid-runtime`，未推远端）；交接文件为第二个提交。
+- 交付前状态：`git status` 只含 owned 文件；`logs/`、`downloads/`、`.planning/test-tmp/`、`src/stock_orgid_mapping.json` 均 absent。

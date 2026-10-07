@@ -8,11 +8,11 @@ Use this file as the durable roadmap for the task. Create it before complex work
 
 ## Next Step
 
-Phase 6：把 HANDOFF.md / handoff.json / main_wiring.md / dependency_map.json 写进 `.planning/g5-sid-runtime/`，分两次提交并交出实际 Git tip。
+无 —— 本卡交付完成，等 MAIN 按 `main_wiring.md` 复验并合并到 `v2-clean-rewrite`。
 
 ## Current Phase
 
-Phase 6
+Phase 6（complete）
 
 ## Phases
 
@@ -65,9 +65,9 @@ Phase 6
 ### Phase 6: 交付
 
 - [x] 三 PWF + evidence（red/green/unit/ruff/mypy）
-- [ ] HANDOFF.md / handoff.json / main_wiring.md / dependency_map.json
-- [ ] 两次提交并交出实际 Git tip
-- **Status:** in_progress
+- [x] HANDOFF.md / handoff.json / main_wiring.md / dependency_map.json（handoff.json 对 g5_handoff.schema.json 校验 0 errors）
+- [x] 两次提交（实现 + 交接），实际 tip 交给调用方
+- **Status:** complete
 
 ## Key Questions
 

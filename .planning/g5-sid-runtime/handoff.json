@@ -1,0 +1,404 @@
+{
+  "schema_version": "g5-handoff/1",
+  "package_id": "G5-SID-RUNTIME",
+  "repo": "C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite",
+  "worktree": "C:/Users/郑曾波/Projects/_g5/sid",
+  "branch": "codex/g5-sid-runtime",
+  "base_commit": "0cb3c1f0b4a5784757971265b2b20a7a0b4c5104",
+  "implementation_commit": "7a4bf0d97dba197e4accf0bd47707f012a6a7413",
+  "owned_files": [
+    ".planning/g5-sid-runtime/HANDOFF.md",
+    ".planning/g5-sid-runtime/dependency_map.json",
+    ".planning/g5-sid-runtime/evidence/green_run.txt",
+    ".planning/g5-sid-runtime/evidence/mypy_run.txt",
+    ".planning/g5-sid-runtime/evidence/red_run.txt",
+    ".planning/g5-sid-runtime/evidence/ruff_run.txt",
+    ".planning/g5-sid-runtime/evidence/unit_run.txt",
+    ".planning/g5-sid-runtime/findings.md",
+    ".planning/g5-sid-runtime/handoff.json",
+    ".planning/g5-sid-runtime/main_wiring.md",
+    ".planning/g5-sid-runtime/progress.md",
+    ".planning/g5-sid-runtime/task_plan.md",
+    "src/cninfo_api.py",
+    "src/cninfo_identity.py",
+    "src/company_wiki_adapter.py",
+    "src/company_wiki_adapter_cli.py",
+    "src/disclosure_matching.py",
+    "tests/e2e/test_g4_latest_cli_offline.py",
+    "tests/e2e/test_g5_browserless_provider.py",
+    "tests/fixtures/g5_provider/sitecustomize.py",
+    "tests/unit/test_company_wiki_adapter_cli_budget.py",
+    "tests/unit/test_g5_provider_runtime.py"
+  ],
+  "public_contracts": [
+    {
+      "name": "CLI discover/fetch 与 --config/--staging-dir 参数",
+      "compatibility": "unchanged",
+      "detail": "动作集合、参数名与默认值未变；无新参数，未把 --headless 当作无需 browser 的证明。"
+    },
+    {
+      "name": "成功/失败 JSON schema_version=1.0",
+      "compatibility": "unchanged",
+      "detail": "成功 status=ok + adapter + candidates/receipt + acquisition_usage；失败 status=failed + error{code,type,message,retryable,acquisition_usage}，失败仍写 stderr 单行 JSON、stdout 保持空。"
+    },
+    {
+      "name": "adapter 身份 stockinfo-cninfo/1.3.0",
+      "compatibility": "unchanged",
+      "detail": "本卡是内部解耦与预算 bugfix，无新 wire 形状，不另造版本门；不因本包 bump 1.3.0。"
+    },
+    {
+      "name": "DisclosureCandidate / StagedDownloadReceipt 字段",
+      "compatibility": "unchanged",
+      "detail": "candidate/receipt 全部字段、transport_url 对 CWP 保持 opaque、source_url 仍是可人工打开的官方详情页。"
+    },
+    {
+      "name": "exact 与 latest_as_of 语义、G4 五页完整性",
+      "compatibility": "unchanged",
+      "detail": "seDate 窗口、terminal count/page/hasMore 一致性、discovery_incomplete / bounded_discovery_empty 均未改。"
+    },
+    {
+      "name": "ProviderAcquisitionBudget payload 1.0",
+      "compatibility": "unchanged",
+      "detail": "四个字段与 usage 三字段不变；身份查询并入同一账本，不重置 deadline、不重置累计 response bytes。"
+    },
+    {
+      "name": "StockInfoCompanyWikiAdapter(downloader, *, cninfo_client=...)",
+      "compatibility": "compatible_extension",
+      "detail": "位置参数 downloader 保留但可为 None（纯 API runtime）；追加可选 identity_resolver 关键字；org_id 解析从 downloader.mapping 改为 请求 org_id → 只读 cache → 同 budget 官方查询，legacy mapping 不再被 bounded 调用触达。"
+    },
+    {
+      "name": "CninfoAnnouncementClient",
+      "compatibility": "compatible_extension",
+      "detail": "新增 resolve_org_id(stock_code, *, budget=None)，复用既有 _post_json/_validated_page 流式预算代码；discover_announcements / fetch_pdf 签名与行为不变。"
+    }
+  ],
+  "tests": [
+    {
+      "name": "RED — G5 反例（新 unit + 新 browserless E2E）",
+      "command": "python -B -m pytest -q -p no:cacheprovider tests/unit/test_g5_provider_runtime.py tests/e2e/test_g5_browserless_provider.py",
+      "status": "red",
+      "exit_code": 1,
+      "elapsed_seconds": 8.8,
+      "passed": 3,
+      "failed": 33,
+      "skipped": 0,
+      "replace_seams": [
+        "tests/unit/test_g5_provider_runtime.py::sys.meta_path 拒绝 playwright|src.browser|src.downloader|src.orgid 并重导 src.company_wiki_adapter{,_cli}",
+        "tests/unit/test_g5_provider_runtime.py::_Transport 队列型 urllib.request.urlopen 替身（离线）",
+        "monkeypatch.chdir 到 <worktree>/.planning/test-tmp/g5-runtime/<case>",
+        "tests/fixtures/g5_provider/sitecustomize.py::urlopen 把 www/static.cninfo.com.cn 映射到 G5_LOOPBACK",
+        "tests/fixtures/g5_provider/sitecustomize.py::socket.getaddrinfo + socket.socket.connect 拒绝非 loopback",
+        "tests/fixtures/g5_provider/sitecustomize.py::meta_path 对 playwright|src.browser|src.downloader|src.orgid 抛 ImportError"
+      ],
+      "http_requests": null,
+      "http_response_bytes": null,
+      "external_network_requests": 0,
+      "note": "计数未插桩：RED 时子进程在 import 阶段即失败，loopback server 未收到请求；external_network_requests=0 由 sitecustomize 的非 loopback 拒绝保证。证据 evidence/red_run.txt。"
+    },
+    {
+      "name": "GREEN — G4 回归 + G5 反例合并轮",
+      "command": "python -B -m pytest -q -p no:cacheprovider tests/unit/test_g4_latest_discovery.py tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/unit/test_cninfo_api.py tests/unit/test_cninfo_api_fixture_contract.py tests/unit/test_cninfo_api_budget.py tests/unit/test_g5_provider_runtime.py tests/e2e/test_g4_latest_cli_offline.py tests/e2e/test_g5_browserless_provider.py",
+      "status": "green",
+      "exit_code": 0,
+      "elapsed_seconds": 41.21,
+      "passed": 163,
+      "failed": 0,
+      "skipped": 0,
+      "replace_seams": [
+        "tests/fixtures/g5_provider/sitecustomize.py::urlopen 官方 host → G5_LOOPBACK（唯一 HTTP 替换）",
+        "tests/fixtures/g5_provider/sitecustomize.py::socket.getaddrinfo / socket.socket.connect 拒绝非 loopback",
+        "tests/fixtures/g5_provider/sitecustomize.py::meta_path 拒绝 playwright|src.browser|src.downloader|src.orgid",
+        "tests/e2e/test_g4_latest_cli_offline.py::docs/implementation/g4-sid-latest/g4_bootstrap/sitecustomize.py 的 G4_LOOPBACK 映射（既有）",
+        "tests/e2e/test_g4_latest_cli_offline.py::git archive 冻结 company-wiki df7d7ba（既有）",
+        "tests/unit/test_g5_provider_runtime.py::_Transport 队列型 urlopen 替身（离线）"
+      ],
+      "http_requests": 42,
+      "http_response_bytes": 18782,
+      "external_network_requests": 0,
+      "note": "HTTP 计数与真实 response 字节来自同一条命令的插桩重跑（163 passed / 33.01s / 35.46s 总耗时）；未插桩的原轮记录于 evidence/green_run.txt（163 passed / 41.21s）。所有计数都是 loopback 127.0.0.1，external_network_requests=0。",
+      "evidence": ".planning/g5-sid-runtime/evidence/green_run.txt"
+    },
+    {
+      "name": "GREEN — G5 browserless E2E 单跑（插桩 HTTP 计数）",
+      "command": "python -B -c \"<wrap http.server.BaseHTTPRequestHandler.send_header/log_request 计数后 pytest.main(['-q','-p','no:cacheprovider','tests/e2e/test_g5_browserless_provider.py'])>\"",
+      "status": "green",
+      "exit_code": 0,
+      "elapsed_seconds": 11.68,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "replace_seams": [
+        "tests/fixtures/g5_provider/sitecustomize.py::urlopen 官方 host → G5_LOOPBACK（唯一 HTTP 替换）",
+        "tests/fixtures/g5_provider/sitecustomize.py::socket.getaddrinfo / socket.socket.connect 拒绝非 loopback",
+        "tests/fixtures/g5_provider/sitecustomize.py::meta_path 拒绝 playwright|src.browser|src.downloader|src.orgid"
+      ],
+      "http_requests": 15,
+      "http_response_bytes": 5939,
+      "external_network_requests": 0,
+      "note": "15 次 loopback 请求与逐例断言一致：无 org_id 2、cache 命中 1、显式 org_id 1、identity 超预算 1、identity 吃满预算 1、deadline 0、公告超预算 2、错 SEC 1、歧义 1、坏 schema 1、fetch 成功 2、fetch 超预算 2、bootstrap 探针 0。"
+    },
+    {
+      "name": "GREEN — 全量 tests/unit（旧责任面）",
+      "command": "python -B -m pytest -q -p no:cacheprovider tests/unit",
+      "status": "green",
+      "exit_code": 0,
+      "elapsed_seconds": 22.75,
+      "passed": 242,
+      "failed": 0,
+      "skipped": 0,
+      "replace_seams": [
+        "全部为进程内既有替身；本仓 unit 不发起真实 HTTP"
+      ],
+      "http_requests": 0,
+      "http_response_bytes": 0,
+      "external_network_requests": 0,
+      "evidence": ".planning/g5-sid-runtime/evidence/unit_run.txt",
+      "note": "跑完后 owner 的 test_progress.py 会按 src/progress.py 默认值创建 logs/progress.json（logs/ 已 gitignore），已清除；G5 交付命令不产生该目录。"
+    },
+    {
+      "name": "GREEN — ruff check + format --check（changed scope）",
+      "command": "ruff check src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py src/acquisition_budget.py src/cninfo_identity.py src/disclosure_matching.py tests/unit/test_g5_provider_runtime.py tests/e2e/test_g5_browserless_provider.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/e2e/test_g4_latest_cli_offline.py tests/fixtures/g5_provider/sitecustomize.py && ruff format --check <same>",
+      "status": "green",
+      "exit_code": 0,
+      "elapsed_seconds": 0,
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "replace_seams": [],
+      "external_network_requests": 0,
+      "evidence": ".planning/g5-sid-runtime/evidence/ruff_run.txt"
+    },
+    {
+      "name": "BASE-COMPARED — mypy（不设新门）",
+      "command": "mypy src/company_wiki_adapter.py src/company_wiki_adapter_cli.py src/cninfo_api.py",
+      "status": "green",
+      "exit_code": 1,
+      "elapsed_seconds": 0,
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "replace_seams": [],
+      "external_network_requests": 0,
+      "evidence": ".planning/g5-sid-runtime/evidence/mypy_run.txt",
+      "note": "exit 1 但只报 11 个错误，全部是 base 既有的（base 为 12，本包还消掉了 company_wiki_adapter.py 的 org_id 赋值错误）；按卡§5 不扩成新门，status 记 green 表示未新增类型问题。仓无 workflow，未声称 CI 绿。"
+    },
+    {
+      "name": "NOT RUN — live/浏览器类既有 e2e",
+      "command": "tests/e2e/test_orgid_resolution.py tests/e2e/official_e2e_test.py tests/e2e/test_pagination_behavior.py tests/e2e/test_skip_existing_files.py",
+      "status": "not_run",
+      "exit_code": null,
+      "elapsed_seconds": null,
+      "passed": null,
+      "failed": null,
+      "skipped": null,
+      "replace_seams": [],
+      "external_network_requests": 0,
+      "note": "需要真实外网或 Playwright/Chromium；卡§5 要求费用与真实外网为 0，故不跑。它们只依赖本包未改的 owner 模块（downloader/mapping/orgid/browser）。"
+    }
+  ],
+  "protection": {
+    "owner_files": [
+      {
+        "path": "README.md",
+        "before_sha256": "30b2463ca88afe4373d232211c9bf712b3f2be177ba51c6562a269227b99fd10",
+        "after_sha256": "30b2463ca88afe4373d232211c9bf712b3f2be177ba51c6562a269227b99fd10"
+      },
+      {
+        "path": "config_template.json",
+        "before_sha256": "8c1f97890d85a89a14f48adc4d49cdc8d03ededdcc4992594385892df2e9a61c",
+        "after_sha256": "8c1f97890d85a89a14f48adc4d49cdc8d03ededdcc4992594385892df2e9a61c"
+      },
+      {
+        "path": "main.py",
+        "before_sha256": "068c20f0f374bba1f21530757b74ae9c7f6b748e06f0ef3b6ce4bea667a0284c",
+        "after_sha256": "068c20f0f374bba1f21530757b74ae9c7f6b748e06f0ef3b6ce4bea667a0284c"
+      },
+      {
+        "path": "src/browser.py",
+        "before_sha256": "5efedec5db442d271d80b6f9c9907a12bb031ad56f82a3d06493aaac69f88e5a",
+        "after_sha256": "5efedec5db442d271d80b6f9c9907a12bb031ad56f82a3d06493aaac69f88e5a"
+      },
+      {
+        "path": "src/downloader.py",
+        "before_sha256": "d0d570c36357b0439046ba80016ac569be6988ea74db227d9e9882c91472e399",
+        "after_sha256": "d0d570c36357b0439046ba80016ac569be6988ea74db227d9e9882c91472e399"
+      },
+      {
+        "path": "src/logger.py",
+        "before_sha256": "94f7535b0f19a2dc01bb6b4086489cb6a72c3d4d938613192dbac2a609c6a5de",
+        "after_sha256": "94f7535b0f19a2dc01bb6b4086489cb6a72c3d4d938613192dbac2a609c6a5de"
+      },
+      {
+        "path": "src/mapping.py",
+        "before_sha256": "5a4d7701459cbc3bc5db5317ade75ec1802ead0cce7117724ebc5e811b31f9ff",
+        "after_sha256": "5a4d7701459cbc3bc5db5317ade75ec1802ead0cce7117724ebc5e811b31f9ff"
+      },
+      {
+        "path": "src/models.py",
+        "before_sha256": "6dacaa29ed93a0cee089bebc47c27fe722cae81dd0ae92fa509a11fc59181095",
+        "after_sha256": "6dacaa29ed93a0cee089bebc47c27fe722cae81dd0ae92fa509a11fc59181095"
+      },
+      {
+        "path": "tests/e2e/official_e2e_test.py",
+        "before_sha256": "0f3409e7ea98ca8fd3a81111e1af621de186c51cac5dea63989f7de6c2d3d051",
+        "after_sha256": "0f3409e7ea98ca8fd3a81111e1af621de186c51cac5dea63989f7de6c2d3d051"
+      },
+      {
+        "path": "tests/unit/test_downloader.py",
+        "before_sha256": "3286881998c7e988a7a9cd172428cebcf554057399bef14c00be533cf45df5f8",
+        "after_sha256": "3286881998c7e988a7a9cd172428cebcf554057399bef14c00be533cf45df5f8"
+      },
+      {
+        "path": "tests/unit/test_official_e2e_contract.py",
+        "before_sha256": "d2a635b1b11792edf5155716754900a01bfd1f21881be32043cc97c3ca71b1ca",
+        "after_sha256": "d2a635b1b11792edf5155716754900a01bfd1f21881be32043cc97c3ca71b1ca"
+      }
+    ],
+    "production_writes": 0,
+    "raw_deletions": 0,
+    "paid_calls": 0
+  },
+  "cleanup": [
+    {
+      "path": "<worktree>/.planning/test-tmp/g5-runtime",
+      "before": "absent",
+      "after": "absent",
+      "owned": true,
+      "detail": "新测试唯一 scratch 根；每例 finally 先离开该目录（Windows 不允许删 cwd）再 rmtree，并 rmdir 恢复 absent。"
+    },
+    {
+      "path": "<worktree>/.planning/test-tmp",
+      "before": "absent",
+      "after": "absent",
+      "owned": true,
+      "detail": "g5-runtime 的父目录，先建并记录 absent；用完为空后 rmdir 恢复 absent。"
+    },
+    {
+      "path": "<worktree>/logs",
+      "before": "absent",
+      "after": "absent",
+      "owned": false,
+      "detail": "改造前 StockDownloader.__init__ 会 mkdir 这里；G5 交付命令跑完为 absent（反例直接断言 <test-root>/logs 不存在）。"
+    },
+    {
+      "path": "<worktree>/src/stock_orgid_mapping.json",
+      "before": "absent",
+      "after": "absent",
+      "owned": false,
+      "detail": "身份 cache 全程只读，反例断言 bytes 与 mtime_ns 不变且该文件不被创建。"
+    },
+    {
+      "path": "<worktree>/downloads",
+      "before": "absent",
+      "after": "absent",
+      "owned": false,
+      "detail": "provider 只写调用方传入的 staging；本包未在 downloads 产生任何产物。"
+    }
+  ],
+  "main_wiring": [
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "src/company_wiki_adapter.py",
+      "action": "apply_after_merge",
+      "reason": "去掉模块级 downloader 导入，新增 OrgIdResolver 三路径身份解析",
+      "symbol": "StockInfoCompanyWikiAdapter.__init__"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "src/company_wiki_adapter_cli.py",
+      "action": "apply_after_merge",
+      "reason": "CLI 改用纯 API runtime，finally 保护缺失的 .downloader",
+      "symbol": "_build_adapter"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "src/cninfo_api.py",
+      "action": "apply_after_merge",
+      "reason": "同 budget 的官方身份查询入口",
+      "symbol": "CninfoAnnouncementClient.resolve_org_id"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "src/cninfo_identity.py",
+      "action": "apply_after_merge",
+      "reason": "只读 cache + 有界身份解析（新文件）",
+      "symbol": "OrgIdIdentityResolver"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "src/disclosure_matching.py",
+      "action": "apply_after_merge",
+      "reason": "把两个纯过滤 helper 从 downloader 中解耦（新文件）",
+      "symbol": "matches_excluded"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/unit/test_g5_provider_runtime.py",
+      "action": "apply_after_merge",
+      "reason": "G5 unit 反例（新文件）"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/e2e/test_g5_browserless_provider.py",
+      "action": "apply_after_merge",
+      "reason": "G5 browserless literal CLI E2E（新文件）"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/fixtures/g5_provider/sitecustomize.py",
+      "action": "apply_after_merge",
+      "reason": "子进程三重 seam：host 映射 / 非 loopback 拒绝 / 浏览器导入拒绝（新文件）"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/unit/test_company_wiki_adapter_cli_budget.py",
+      "action": "apply_after_merge",
+      "reason": "预算用例改为先身份体后公告体，断言同一账本累计 bytes",
+      "symbol": "test_cli_budgeted_real_discovery_path_reports_http_body_bytes"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/e2e/test_g4_latest_cli_offline.py",
+      "action": "apply_after_merge",
+      "reason": "同步 _seed_org_mapping docstring 到新的身份 cache 路径，用例断言未改",
+      "symbol": "_seed_org_mapping"
+    },
+    {
+      "repo": "company-wiki",
+      "path": "config/source_acquisition.yaml",
+      "action": "no_change",
+      "reason": "wire 仍为 stockinfo-cninfo/1.3.0，无新 wire 形状，不另造版本门",
+      "symbol": "adapters.cn"
+    },
+    {
+      "repo": "company-wiki",
+      "path": "src/company_wiki/source_catalog/adapter_process.py",
+      "action": "verify",
+      "reason": "合并后用真实 JsonCommandAdapter/child CLI 重跑，核对错误 usage 而不 mock 该 CLI 返回",
+      "symbol": "JsonCommandAdapter.discover_bounded"
+    },
+    {
+      "repo": "company-wiki",
+      "path": "src/company_wiki/source_catalog/resolver.py",
+      "action": "no_change",
+      "reason": "SourceRequest 仍不携带 org_id；本包覆盖真实无 org_id 请求，禁止给 CWP 强制新字段",
+      "symbol": "SourceRequest"
+    },
+    {
+      "repo": "StockInfoDLSimple",
+      "path": "tests/e2e/test_g5_browserless_provider.py",
+      "action": "verify",
+      "reason": "MAIN 在合并后的执行分支上重跑 163 用例与冻 CWP 消费"
+    }
+  ],
+  "remaining": [
+    "MAIN 需在合并到 v2-clean-rewrite 后重跑 163 用例，并在 G4_CWP_REPO/G4_CWP_COMMIT 显式设置下跑到两个冻 CWP 消费用例（非 skip）。",
+    "G2-12 下载/入库/并发复用仍未完成，属 MAIN；provider 解耦绿不能冒充完整 ensure 链已完成。",
+    "本仓无 CI workflow，未声称 CI 绿；mypy 仍 exit 1（11 个 base 既有错误，base 为 12），未设新门。",
+    "legacy 人工浏览器下载器（src/downloader.py、src/browser.py、src/orgid.py、src/mapping.py 的 auto_fetch 链）不在本包改造范围，仅供旧兼容路径按需使用。",
+    "官方身份查询目前只读单页（pageNum=1, pageSize=30, 含 searchkey）；若真实 cninfo 首页不含该证券的公告，会诚实报 org_id_unresolved 而不自动翻页。",
+    "live/浏览器类既有 e2e（test_orgid_resolution、official_e2e_test、test_pagination_behavior、test_skip_existing_files）本包未跑，需外网/Chromium。",
+    "本次未推远端分支，只在 codex/g5-sid-runtime 上正常 commit；合/推 v2-clean-rewrite 由 MAIN 执行。"
+  ],
+  "delivery_status": "ready_for_main"
+}

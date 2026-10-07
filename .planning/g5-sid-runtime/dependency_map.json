@@ -1,0 +1,168 @@
+{
+  "schema_version": "g5-dependency-map/1",
+  "package_id": "G5-SID-RUNTIME",
+  "note": "前后依赖、全部 HTTP 出口、预算口径与写盘路径的说明。本文件是事实说明，不是人工许可，也不是 provider 请求合同；实际 wire 未变。",
+  "worktree": "C:/Users/郑曾波/Projects/_g5/sid",
+  "base_commit": "0cb3c1f0b4a5784757971265b2b20a7a0b4c5104",
+  "frozen_consumer": {
+    "repo": "C:/Users/郑曾波/Projects/company-wiki",
+    "commit": "df7d7ba58955e224c1799355f479ad5378ef38a7",
+    "read_method": "git archive src/company_wiki（只取已提交内容）"
+  },
+  "runtime_dependencies": {
+    "before": [
+      "src/company_wiki_adapter.py -> src.downloader (模块级) -> src.browser -> playwright",
+      "src/company_wiki_adapter.py -> src.downloader._matches_excluded / _matches_keywords",
+      "src/company_wiki_adapter_cli.py -> src.downloader.StockDownloader (模块级)",
+      "src/company_wiki_adapter_cli._build_adapter -> StockDownloader.__init__ -> FailedDownloadLogger -> logs/failed_downloads.json 的父目录 mkdir",
+      "discover() 无 org_id -> downloader.mapping -> StockDownloader.browser -> PlaywrightBrowser.initialize()",
+      "discover() 无 org_id 且 cache 未命中 -> MappingManager.auto_fetch -> src.orgid.OrgIdCrawler -> requests.post(无 budget, timeout=15) -> 失败后浏览器 fallback"
+    ],
+    "after": [
+      "src/company_wiki_adapter.py -> src.disclosure_matching (纯字符串 helper，无副作用)",
+      "src/company_wiki_adapter.py -> src.string_utils.clean_filename (既有)",
+      "src/company_wiki_adapter.py -> (TYPE_CHECKING only) src.downloader / src.acquisition_budget / src.cninfo_api",
+      "src/company_wiki_adapter.py -> src.cninfo_identity.OrgIdIdentityResolver (懒构造，仅 discover 且无 org_id 时用)",
+      "src.company_wiki_adapter_cli -> src.config.load_config + src.company_wiki_adapter.StockInfoCompanyWikiAdapter(None)",
+      "src.cninfo_identity -> src.constants / src.logger / src.string_utils（只读 stdlib+本仓无副作用模块）",
+      "src.cninfo_identity.OrgIdIdentityResolver -> src.cninfo_api.CninfoAnnouncementClient.resolve_org_id"
+    ],
+    "removed_from_provider_runtime": [
+      "playwright",
+      "src.browser",
+      "src.downloader",
+      "src.orgid",
+      "src.mapping（provider runtime 不再进入）",
+      "requests（provider runtime 不使用）"
+    ]
+  },
+  "identity_resolution_order": [
+    {
+      "step": 1,
+      "source": "AdapterDiscoveryRequest.org_id",
+      "network": false,
+      "budget_charged": false,
+      "detail": "显式且非空的请求 org_id 直接采用，不做标准化、不查 cache、不发请求。"
+    },
+    {
+      "step": 2,
+      "source": "read-only stock_orgid_mapping.json",
+      "network": false,
+      "budget_charged": false,
+      "detail": "候选顺序完全复刻 src/mapping.py MappingManager：显式 mapping_file > src/stock_orgid_mapping.json > cwd/stock_orgid_mapping.json > configs/stock_orgid_mapping.json，取第一个存在的；schema 同旧实现（orgId 或 org_id 非空，否则跳过该条）。只读，永不写回；命中只是线索，官方候选仍由公告过滤器核 SEC/期间/公开日/完整性。"
+    },
+    {
+      "step": 3,
+      "source": "official cninfo identity query",
+      "network": true,
+      "budget_charged": true,
+      "detail": "CninfoAnnouncementClient.resolve_org_id：单页 POST /new/hisAnnouncement/query（含 searchkey），经 _post_json 流式计量、timeout=min(20, budget.remaining_seconds)。错 SEC / 多个不同 orgId / 空匹配一律返回 None（不取首条）；坏 schema 抛 CninfoApiError(schema_drift)；网络失败保留原 error_code/retryable。"
+    }
+  ],
+  "http_egress": [
+    {
+      "owner": "src/cninfo_api.py::CninfoAnnouncementClient.resolve_org_id",
+      "method": "POST",
+      "url": "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+      "purpose": "stock_code -> org_id 官方身份查询",
+      "budget": "同一 ProviderAcquisitionBudget；_post_json 前置 ensure_open/remaining>0，读取走 _read_bounded_response 逐块 consume_response_bytes，timeout=min(client.timeout, budget.remaining_seconds)",
+      "reachable_without_budget": true,
+      "reachable_without_budget_note": "无 budget 的兼容调用仍是 API-only（read-all），不恢复浏览器 fallback，不使用 src.orgid 的裸 requests.post"
+    },
+    {
+      "owner": "src/cninfo_api.py::CninfoAnnouncementClient.discover_announcements",
+      "method": "POST",
+      "url": "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+      "purpose": "exact / latest_as_of 公告分页",
+      "budget": "同一 ProviderAcquisitionBudget；身份查询已消耗的 bytes 与 deadline 继续累计，不重置、不造第二账本",
+      "reachable_without_budget": true
+    },
+    {
+      "owner": "src/cninfo_api.py::CninfoAnnouncementClient.fetch_pdf",
+      "method": "GET",
+      "url": "https://static.cninfo.com.cn/<adjunctUrl>（host 必须在 TRANSPORT_HOSTS 白名单）",
+      "purpose": "staged PDF 传输",
+      "budget": "同一 ProviderAcquisitionBudget；.part 先写，任何失败即删除 .part",
+      "reachable_without_budget": true
+    },
+    {
+      "owner": "src/cninfo_api.py::DETAIL_PAGE_BASE",
+      "method": "—",
+      "url": "https://www.cninfo.com.cn/new/disclosure/detail?...",
+      "purpose": "只作为候选的 source_url 字符串产出，provider 从不请求它",
+      "budget": null,
+      "reachable_without_budget": false
+    },
+    {
+      "owner": "（已移出 provider runtime）src/orgid.py::_query_api",
+      "method": "POST",
+      "url": "https://www.cninfo.com.cn/new/hisAnnouncement/query",
+      "purpose": "legacy OrgIdCrawler，requests.post + 固定 15s timeout，不接 ProviderAcquisitionBudget，失败后走浏览器",
+      "budget": "无",
+      "reachable_without_budget": false,
+      "reachable_without_budget_note": "provider runtime 不再 import src.orgid / src.mapping；tests/fixtures/g5_provider/sitecustomize.py 直接对 src.orgid、src.browser、src.downloader、playwright 抛 ImportError"
+    },
+    {
+      "owner": "（已移出 provider runtime）src/browser.py + src/orgid.py::_crawl_via_browser",
+      "method": "浏览器导航",
+      "url": "cninfo SPA",
+      "purpose": "legacy 浏览器 fallback",
+      "budget": "无",
+      "reachable_without_budget": false
+    }
+  ],
+  "budget_flow": {
+    "ledger": "单个 ProviderAcquisitionBudget 实例由 CLI 从 acquisition_budget payload 构造，贯穿 identity -> 分页 -> fetch",
+    "fields": ["max_response_bytes", "timeout_seconds", "max_cost_usd", "response_bytes_used"],
+    "deadline": "构造时 time.monotonic()+timeout_seconds 固定一次，任何阶段都不重置",
+    "bytes": "只在 _copy_bounded_response 里按实际收到的块累计；Content-Length > remaining 在读取前即拒绝",
+    "exhausted_behaviour": "bytes 耗尽或截止后 _post_json 在 urlopen 之前就抛 AcquisitionBudgetExceeded，因此公告阶段 0 次 HTTP；CLI 错误 JSON 带 acquisition_usage",
+    "reported_by_cli": "成功 acquisition_usage / 失败 error.acquisition_usage，schema_version=1.0, cost_usd=\"0\""
+  },
+  "disk_writes": [
+    {
+      "path": "<staging-dir>/<provider_document_id>__<title>.pdf",
+      "when": "fetch 成功",
+      "detail": "先写 <name>.part，校验 MIN_FILE_SIZE 与 %PDF- 前缀后原子 rename；任何异常路径删除 .part",
+      "owned_by": "caller-allocated staging（CWP 传入）"
+    },
+    {
+      "path": "<staging-dir>/*.part",
+      "when": "fetch 失败",
+      "detail": "必须不存在（tests/e2e/test_g5_browserless_provider.py 断言）",
+      "owned_by": "caller-allocated staging"
+    },
+    {
+      "path": "logs/failed_downloads.json",
+      "when": "已不再由 provider 创建",
+      "detail": "改造前 StockDownloader.__init__ 立即 mkdir 父目录；现在 _build_adapter 不构造 StockDownloader，反例断言 <test-root>/logs 不存在",
+      "owned_by": "src/downloader.py（owner 文件，未改）"
+    },
+    {
+      "path": "src/stock_orgid_mapping.json 与 cwd/configs 下同名 cache",
+      "when": "只读",
+      "detail": "LocalOrgIdCache 只做 read_text/json.loads，反例断言 bytes 与 mtime_ns 不变，且 worktree 下该文件保持 absent",
+      "owned_by": "原 owner cache"
+    },
+    {
+      "path": "<worktree>/.planning/test-tmp/g5-runtime/**",
+      "when": "测试期间",
+      "detail": "新测试唯一 scratch 根；每例 finally 删除自己目录并 rmdir 恢复 absent；先建父目录并记录 absent",
+      "owned_by": "G5 测试"
+    }
+  ],
+  "never_written_by_this_package": [
+    "原仓 v2-clean-rewrite 的 11 个 tracked owner 文件",
+    "未跟踪名单 a_share_companies.txt / companies.txt / scripts/",
+    "src/stock_orgid_mapping.json",
+    "真实 config / stock_orgid_mapping / 用户下载目录",
+    "CWP / FF / ET / RF / Dayu / IQS 仓"
+  ],
+  "test_only_seams": [
+    "tests/fixtures/g5_provider/sitecustomize.py：urlopen 仅把 www/static.cninfo.com.cn 映射到 G5_LOOPBACK",
+    "tests/fixtures/g5_provider/sitecustomize.py：socket.getaddrinfo / socket.socket.connect 拒绝一切非 loopback 目的地址",
+    "tests/fixtures/g5_provider/sitecustomize.py：meta_path 对 playwright / src.browser / src.downloader / src.orgid 抛 ImportError",
+    "tests/unit/test_g5_provider_runtime.py：进程内 meta_path 同名拒绝 + _Transport 队列型 urlopen 替身",
+    "tests/e2e/test_g4_latest_cli_offline.py：g4_bootstrap/sitecustomize.py 的 G4_LOOPBACK 映射（既有）"
+  ]
+}
