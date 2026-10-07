@@ -369,7 +369,7 @@ def test_fetch_writes_only_allocated_staging_and_returns_hash_receipt(tmp_path):
     assert receipt.source_url == candidate.source_url
     assert receipt.provider_document_id == "1222881496"
     assert receipt.adapter_name == "stockinfo-cninfo"
-    assert receipt.adapter_version == "1.2.0"
+    assert receipt.adapter_version == "1.3.0"
 
 
 def test_fetch_rejects_non_cninfo_transport_host(tmp_path):

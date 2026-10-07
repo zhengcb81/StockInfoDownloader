@@ -1,0 +1,52 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "paged_summary_first",
+    "notes": "total=3 across 2 pages. Page 1 holds only a non-target announcement so the client-side filter yields zero records; page 2 holds the summary companion and the full text. Pagination must follow raw totals, never a page that filters to zero."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 3,
+      "totalpages": 2,
+      "announcements": [
+        {
+          "announcementId": "900004010",
+          "announcementTime": 1741953600000,
+          "announcementTitle": "示例公司关于召开2024年年度股东大会的公告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-14/900004010.PDF"
+        }
+      ]
+    },
+    "2": {
+      "totalRecordNum": 3,
+      "totalpages": 2,
+      "announcements": [
+        {
+          "announcementId": "900004001",
+          "announcementTime": 1742472000000,
+          "announcementTitle": "示例公司2024年年度报告摘要",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-20/900004001.PDF"
+        },
+        {
+          "announcementId": "900004002",
+          "announcementTime": 1742472000000,
+          "announcementTitle": "示例公司2024年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-20/900004002.PDF"
+        }
+      ]
+    }
+  }
+}

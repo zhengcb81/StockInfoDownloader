@@ -1,0 +1,106 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "over_five_pages",
+    "notes": "totalRecordNum=6 and totalpages=6 with one record per page; a 5-page cap cannot prove complete coverage and must report discovery_incomplete."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005001",
+          "announcementTime": 1616241600000,
+          "announcementTitle": "示例公司2021年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2021-03-20/900005001.PDF"
+        }
+      ]
+    },
+    "2": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005002",
+          "announcementTime": 1647777600000,
+          "announcementTitle": "示例公司2022年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2022-03-20/900005002.PDF"
+        }
+      ]
+    },
+    "3": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005003",
+          "announcementTime": 1679313600000,
+          "announcementTitle": "示例公司2023年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2023-03-20/900005003.PDF"
+        }
+      ]
+    },
+    "4": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005004",
+          "announcementTime": 1710936000000,
+          "announcementTitle": "示例公司2024年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2024-03-20/900005004.PDF"
+        }
+      ]
+    },
+    "5": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005005",
+          "announcementTime": 1742472000000,
+          "announcementTitle": "示例公司2025年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-20/900005005.PDF"
+        }
+      ]
+    },
+    "6": {
+      "totalRecordNum": 6,
+      "totalpages": 6,
+      "announcements": [
+        {
+          "announcementId": "900005006",
+          "announcementTime": 1774008000000,
+          "announcementTitle": "示例公司2026年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-03-20/900005006.PDF"
+        }
+      ]
+    }
+  }
+}

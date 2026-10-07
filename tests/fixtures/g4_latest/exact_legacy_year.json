@@ -1,0 +1,26 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "exact_legacy_year",
+    "notes": "single FY2024 annual report; exercises the preserved exact-mode window/filter."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 1,
+      "totalpages": 1,
+      "announcements": [
+        {
+          "announcementId": "900006001",
+          "announcementTime": 1742472000000,
+          "announcementTitle": "示例公司2024年年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-03-20/900006001.PDF"
+        }
+      ]
+    }
+  }
+}

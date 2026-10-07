@@ -14,7 +14,7 @@ staging directory.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 import json
 from typing import Any
@@ -33,6 +33,9 @@ from .transport_states import LoadState
 ANNOUNCEMENT_API_ENDPOINT = "https://www.cninfo.com.cn/new/hisAnnouncement/query"
 DETAIL_PAGE_BASE = "https://www.cninfo.com.cn/new/disclosure/detail"
 TRANSPORT_HOSTS = frozenset({"static.cninfo.com.cn", "www.cninfo.com.cn"})
+
+# latest windows start on Jan 1 of ``as_of.year - LATEST_WINDOW_YEARS``.
+LATEST_WINDOW_YEARS = 2
 
 # Cninfo periodic announcements category (annual/semi/quarterly all share it).
 _CATEGORY_PER_KIND = {
@@ -85,6 +88,21 @@ class CninfoAnnouncement:
     detail_url: str  # human-openable official detail page
 
 
+@dataclass(frozen=True)
+class _PageMeta:
+    """Raw (pre-filter) facts about one announcement page.
+
+    Pagination completeness is decided from these, never from how many records
+    survived the metadata filter — a page whose filter yields zero still proves
+    nothing about how many raw records remain.
+    """
+
+    total: int
+    raw_count: int
+    totalpages: int | None
+    has_more: bool
+
+
 class CninfoAnnouncementClient:
     """Minimal stdlib-only cninfo announcement API + PDF transport client."""
 
@@ -105,12 +123,42 @@ class CninfoAnnouncementClient:
         stock_code: str,
         org_id: str,
         document_kind: str,
-        fiscal_year: int,
+        fiscal_year: int | None = None,
         max_pages: int = 5,
         budget: ProviderAcquisitionBudget | None = None,
+        as_of_date: str | None = None,
+        fiscal_period: str | None = None,
+        form_type: str | None = None,
     ) -> tuple[list[CninfoAnnouncement], LoadState]:
+        """Discover announcements for one bounded window.
+
+        ``as_of_date is None`` keeps the historical exact behaviour: one
+        ``[fy-01-01, fy+1-12-31]`` window filtered on the requested year.
+        ``as_of_date`` selects the latest mode: a single three-natural-year
+        window ending at ``as_of_date``, completeness proven from raw API
+        totals, and a non-retryable ``discovery_incomplete`` when the page cap
+        cannot prove full coverage.
+        """
+        if as_of_date is not None:
+            return self._discover_latest(
+                stock_code=stock_code,
+                org_id=org_id,
+                document_kind=document_kind,
+                as_of_date=as_of_date,
+                fiscal_period=fiscal_period,
+                form_type=form_type,
+                max_pages=max_pages,
+                budget=budget,
+            )
+        if isinstance(fiscal_year, bool) or not isinstance(fiscal_year, int):
+            raise CninfoApiError(
+                "exact discovery requires an integer fiscal_year",
+                error_code="client_error",
+                retryable=False,
+            )
         records: list[CninfoAnnouncement] = []
         state = LoadState.INFRASTRUCTURE_FAIL  # default; overridden by valid response
+        covered_raw = 0
         for page_num in range(1, max(max_pages, 1) + 1):
             body = self._build_request_body(
                 stock_code=stock_code,
@@ -121,7 +169,7 @@ class CninfoAnnouncementClient:
                 page_size=30,
             )
             raw_json = self._post_json(body, budget=budget)
-            page_records, page_state = self._filter_announcements_from_response(
+            page_records, page_state, meta = self._filter_page(
                 raw_json,
                 stock_code=stock_code,
                 document_kind=document_kind,
@@ -133,17 +181,114 @@ class CninfoAnnouncementClient:
             elif page_state == LoadState.CONFIRMED_EMPTY:
                 if not records:
                     state = LoadState.CONFIRMED_EMPTY
-            # Pagination: stop at last page
-            total_pages = raw_json.get("totalpages")
-            try:
-                tp = int(total_pages) if total_pages is not None else 0
-            except (TypeError, ValueError):
-                tp = 0
-            if tp and page_num >= tp:
+            covered_raw += meta.raw_count
+            # Pagination follows raw API totals, never a page whose metadata
+            # filter happened to return zero records.
+            if meta.totalpages is not None and meta.totalpages > 0:
+                if page_num >= meta.totalpages:
+                    break
+            if meta.raw_count == 0 and not meta.has_more:
                 break
-            if not page_records and not raw_json.get("hasMore"):
+            if not meta.has_more and covered_raw >= meta.total:
                 break
         return records, state
+
+    def _discover_latest(
+        self,
+        *,
+        stock_code: str,
+        org_id: str,
+        document_kind: str,
+        as_of_date: str,
+        fiscal_period: str | None,
+        form_type: str | None,
+        max_pages: int,
+        budget: ProviderAcquisitionBudget | None,
+    ) -> tuple[list[CninfoAnnouncement], LoadState]:
+        try:
+            as_of = date.fromisoformat(as_of_date)
+        except (TypeError, ValueError) as exc:
+            raise CninfoApiError(
+                f"as_of_date must be an ISO calendar date: {as_of_date!r}",
+                error_code="client_error",
+                retryable=False,
+            ) from exc
+        window_start = date(as_of.year - LATEST_WINDOW_YEARS, 1, 1)
+        cutoff = as_of.isoformat()
+        se_date = f"{window_start.isoformat()}~{cutoff}"
+        page_cap = max(max_pages, 1)
+
+        records: list[CninfoAnnouncement] = []
+        covered_raw = 0
+        total_declared: int | None = None
+        pages_read = 0
+        complete = False
+        for page_num in range(1, page_cap + 1):
+            body = self._build_request_body(
+                stock_code=stock_code,
+                org_id=org_id,
+                document_kind=document_kind,
+                fiscal_year=None,
+                page_num=page_num,
+                page_size=30,
+                se_date=se_date,
+            )
+            raw_json = self._post_json(body, budget=budget)
+            try:
+                page_records, meta = self._filter_latest_page(
+                    raw_json,
+                    stock_code=stock_code,
+                    document_kind=document_kind,
+                    cutoff=cutoff,
+                    fiscal_period=fiscal_period,
+                    form_type=form_type,
+                )
+            except CninfoApiError as exc:
+                if exc.error_code != "schema_drift":
+                    raise
+                # The page is structurally unusable, so coverage of this window
+                # can no longer be proven. Report it as an honest gap rather
+                # than as a normal (possibly stale) result.
+                raise CninfoApiError(
+                    f"discovery_incomplete: window {se_date} page {page_num} "
+                    f"could not be interpreted: {exc}",
+                    error_code="discovery_incomplete",
+                    retryable=False,
+                ) from exc
+            pages_read += 1
+            if total_declared is None:
+                total_declared = meta.total
+            elif meta.total != total_declared:
+                raise CninfoApiError(
+                    f"discovery_incomplete: window {se_date} page {page_num} "
+                    f"totalRecordNum {meta.total} disagrees with {total_declared}",
+                    error_code="discovery_incomplete",
+                    retryable=False,
+                )
+            covered_raw += meta.raw_count
+            records.extend(page_records)
+            if meta.totalpages is not None and meta.totalpages > 0:
+                if page_num >= meta.totalpages:
+                    complete = True
+                    break
+            if covered_raw >= meta.total:
+                complete = True
+                break
+            if meta.raw_count == 0 and not meta.has_more:
+                break
+        if total_declared is not None and covered_raw >= total_declared:
+            complete = True
+        if not complete:
+            raise CninfoApiError(
+                f"discovery_incomplete: window {se_date} covered "
+                f"{covered_raw}/{total_declared} raw records in {pages_read} "
+                f"page(s) under a {page_cap} page cap",
+                error_code="discovery_incomplete",
+                retryable=False,
+            )
+        if not records:
+            return records, LoadState.CONFIRMED_EMPTY
+        return records, LoadState.READY
 
     def fetch_pdf(
         self,
@@ -286,17 +431,26 @@ class CninfoAnnouncementClient:
         stock_code: str,
         org_id: str,
         document_kind: str,
-        fiscal_year: int,
         page_num: int,
         page_size: int,
+        fiscal_year: int | None = None,
+        se_date: str | None = None,
     ) -> bytes:
         sc = stock_code.lstrip()
         # Shanghai stock codes start with 6; everything else defaults to Shenzhen.
         column = "sse" if sc.startswith("6") else "szse"
         category = _CATEGORY_PER_KIND.get(document_kind, "category_ndbg_szsh")
-        # Annual reports for FY{N} are typically published in Mar-Apr of FY{N+1};
-        # use [fy-01-01, fy+1-12-31] window so independent clients capture them.
-        se_date = f"{fiscal_year}-01-01~{fiscal_year + 1}-12-31"
+        if se_date is None:
+            # Annual reports for FY{N} are typically published in Mar-Apr of
+            # FY{N+1}; use [fy-01-01, fy+1-12-31] window so independent clients
+            # capture them. latest callers pass an explicit as-of window instead.
+            if isinstance(fiscal_year, bool) or not isinstance(fiscal_year, int):
+                raise CninfoApiError(
+                    "exact discovery requires an integer fiscal_year",
+                    error_code="client_error",
+                    retryable=False,
+                )
+            se_date = f"{fiscal_year}-01-01~{fiscal_year + 1}-12-31"
         params = {
             "pageNum": str(page_num),
             "pageSize": str(page_size),
@@ -493,20 +647,9 @@ class CninfoAnnouncementClient:
 
     # ── INTERNAL: schema-strict filtering ───────────────────────────────
 
-    def _filter_announcements_from_response(
-        self,
-        payload: dict,
-        *,
-        stock_code: str,
-        document_kind: str,
-        fiscal_year: int,
-    ) -> tuple[list[CninfoAnnouncement], LoadState]:
-        # Local import to keep cninfo_api self-contained and avoid a circular
-        # import surface (company_wiki_adapter does not import cninfo_api at
-        # module load; it resolves at discover() call time via the injected
-        # client).
-        from .company_wiki_adapter import _report_metadata
-
+    @staticmethod
+    def _validated_page(payload: dict) -> tuple[int, list, int | None, bool]:
+        """Validate one page and return ``(total, raw records, totalpages, hasMore)``."""
         if "totalRecordNum" not in payload:
             raise CninfoApiError(
                 "API response missing required 'totalRecordNum'",
@@ -532,32 +675,119 @@ class CninfoAnnouncementClient:
         # the API claims actual records on this page.
         if announcements is None:
             if total == 0:
-                return [], LoadState.CONFIRMED_EMPTY
-            raise CninfoApiError(
-                "API 'announcements' is null but totalRecordNum>0",
-                error_code="schema_drift",
-                retryable=False,
-            )
-        if not isinstance(announcements, list):
+                announcements = []
+            else:
+                raise CninfoApiError(
+                    "API 'announcements' is null but totalRecordNum>0",
+                    error_code="schema_drift",
+                    retryable=False,
+                )
+        elif not isinstance(announcements, list):
             raise CninfoApiError(
                 f"API 'announcements' must be a list, got {type(announcements).__name__}",
                 error_code="schema_drift",
                 retryable=False,
             )
+        raw_totalpages = payload.get("totalpages")
+        try:
+            totalpages = int(raw_totalpages) if raw_totalpages is not None else None
+        except (TypeError, ValueError):
+            totalpages = None
+        if totalpages is not None and totalpages <= 0:
+            totalpages = None
+        return total, announcements, totalpages, bool(payload.get("hasMore"))
 
+    def _filter_page(
+        self,
+        payload: dict,
+        *,
+        stock_code: str,
+        document_kind: str,
+        fiscal_year: int,
+    ) -> tuple[list[CninfoAnnouncement], LoadState, _PageMeta]:
+        # Local import to keep cninfo_api self-contained and avoid a circular
+        # import surface (company_wiki_adapter does not import cninfo_api at
+        # module load; it resolves at discover() call time via the injected
+        # client).
+        from .company_wiki_adapter import _report_metadata
+
+        total, raw, totalpages, has_more = self._validated_page(payload)
+        meta = _PageMeta(
+            total=total,
+            raw_count=len(raw),
+            totalpages=totalpages,
+            has_more=has_more,
+        )
         # Empty signal: total == 0 → CONFIRMED_EMPTY (regardless of announcements list)
         if total == 0:
-            return [], LoadState.CONFIRMED_EMPTY
+            return [], LoadState.CONFIRMED_EMPTY, meta
 
         out: list[CninfoAnnouncement] = []
-        for record in announcements:
+        for record in raw:
             parsed = self._parse_announcement(record, stock_code=stock_code)
             kind, year, _form_type, _period, _amended = _report_metadata(parsed.title)
             if year != fiscal_year or kind != document_kind:
                 continue
             out.append(parsed)
         # Total > 0 means valid API response; READY even if filter yields 0.
-        return out, LoadState.READY
+        return out, LoadState.READY, meta
+
+    def _filter_announcements_from_response(
+        self,
+        payload: dict,
+        *,
+        stock_code: str,
+        document_kind: str,
+        fiscal_year: int,
+    ) -> tuple[list[CninfoAnnouncement], LoadState]:
+        records, state, _meta = self._filter_page(
+            payload,
+            stock_code=stock_code,
+            document_kind=document_kind,
+            fiscal_year=fiscal_year,
+        )
+        return records, state
+
+    def _filter_latest_page(
+        self,
+        payload: dict,
+        *,
+        stock_code: str,
+        document_kind: str,
+        cutoff: str,
+        fiscal_period: str | None,
+        form_type: str | None,
+    ) -> tuple[list[CninfoAnnouncement], _PageMeta]:
+        from .company_wiki_adapter import _report_metadata
+
+        total, raw, totalpages, has_more = self._validated_page(payload)
+        meta = _PageMeta(
+            total=total,
+            raw_count=len(raw),
+            totalpages=totalpages,
+            has_more=has_more,
+        )
+        if total == 0:
+            return [], meta
+
+        out: list[CninfoAnnouncement] = []
+        for record in raw:
+            parsed = self._parse_announcement(record, stock_code=stock_code)
+            kind, year, form, period, _amended = _report_metadata(parsed.title)
+            if kind != document_kind or year is None:
+                continue
+            if parsed.sec_code != stock_code:
+                continue
+            if parsed.filing_date > cutoff:
+                continue
+            if not parsed.title.strip() or not parsed.adjunct_url.strip():
+                continue
+            if fiscal_period is not None and period != fiscal_period:
+                continue
+            if form_type is not None and form != form_type:
+                continue
+            out.append(parsed)
+        return out, meta
 
     def _parse_announcement(
         self,

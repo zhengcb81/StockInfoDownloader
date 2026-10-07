@@ -1,0 +1,26 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "all_future",
+    "notes": "single H1/FY2026 record published 2026-08-30; at as_of=2026-06-01 the window is fully covered with zero valid candidates (bounded_discovery_empty)."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 1,
+      "totalpages": 1,
+      "announcements": [
+        {
+          "announcementId": "900007001",
+          "announcementTime": 1788091200000,
+          "announcementTitle": "示例公司2026年半年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-08-30/900007001.PDF"
+        }
+      ]
+    }
+  }
+}

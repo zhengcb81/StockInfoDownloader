@@ -1,0 +1,36 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "semi_annual_visible",
+    "notes": "as_of=2026-09-01 keeps H1/FY2025 (2025-08-28) and H1/FY2026 (2026-08-30)."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 2,
+      "totalpages": 1,
+      "announcements": [
+        {
+          "announcementId": "900002001",
+          "announcementTime": 1756382400000,
+          "announcementTitle": "示例公司2025年半年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-08-28/900002001.PDF"
+        },
+        {
+          "announcementId": "900002002",
+          "announcementTime": 1788091200000,
+          "announcementTitle": "示例公司2026年半年度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-08-30/900002002.PDF"
+        }
+      ]
+    }
+  }
+}

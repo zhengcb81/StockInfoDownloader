@@ -1,0 +1,46 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "g4_latest synthetic controlled fixture (not a live capture)",
+    "label": "quarterly_cutover",
+    "notes": "as_of=2026-06-01 keeps Q3/FY2025 (2025-10-30) and Q1/FY2026 (2026-04-25); Q3/FY2026 (2026-10-28) is future; no Q2 record exists to be fabricated."
+  },
+  "pages": {
+    "1": {
+      "totalRecordNum": 3,
+      "totalpages": 1,
+      "announcements": [
+        {
+          "announcementId": "900003001",
+          "announcementTime": 1761825600000,
+          "announcementTitle": "示例公司2025年第三季度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2025-10-30/900003001.PDF"
+        },
+        {
+          "announcementId": "900003002",
+          "announcementTime": 1777118400000,
+          "announcementTitle": "示例公司2026年第一季度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-04-25/900003002.PDF"
+        },
+        {
+          "announcementId": "900003003",
+          "announcementTime": 1793188800000,
+          "announcementTitle": "示例公司2026年第三季度报告",
+          "secCode": "600000",
+          "secName": "示例公司",
+          "orgId": "gshk0001211",
+          "adjunctType": "PDF",
+          "adjunctUrl": "finalpage/2026-10-28/900003003.PDF"
+        }
+      ]
+    }
+  }
+}

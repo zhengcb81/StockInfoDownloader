@@ -65,6 +65,44 @@ def _candidate(value: dict[str, Any]) -> DisclosureCandidate:
     )
 
 
+def _discovery_request(value: dict[str, Any]) -> AdapterDiscoveryRequest:
+    """Validate the CWP request **before** any provider/browser is constructed.
+
+    ``mode``/``as_of_date``/``fiscal_period``/``form_type`` are optional wire
+    fields added by G4-SID-LATEST.  A missing or ``null`` ``mode`` keeps the
+    historical exact semantics; ``latest_as_of`` additionally requires a real
+    ISO ``as_of_date`` and may leave ``fiscal_year`` null.  Unknown modes and
+    malformed dates fail here, so the CLI never starts a provider for a request
+    it cannot honour.
+    """
+    security_id = value.get("security_id")
+    if not isinstance(security_id, str) or not security_id.strip():
+        raise ValueError("security_id is required for CN discovery")
+    mode = value.get("mode")
+    mode = "exact" if mode is None else mode
+    fiscal_year = value.get("fiscal_year")
+    if mode == "exact" and (
+        isinstance(fiscal_year, bool) or not isinstance(fiscal_year, int)
+    ):
+        # Historical message kept for legacy exact callers.
+        raise ValueError("fiscal_year is required for CN discovery")
+    # Optional provider-local hint.  company-wiki never sends it; when it is
+    # present the adapter skips the downloader's org-id resolution path.
+    return AdapterDiscoveryRequest(
+        stock_code=security_id,
+        stock_name=value["entity"],
+        document_kind=value["document_kind"],
+        fiscal_year=fiscal_year,
+        org_id=value.get("org_id"),
+        suffix="periodicReports",
+        max_pages=5,
+        mode=mode,
+        as_of_date=value.get("as_of_date"),
+        fiscal_period=value.get("fiscal_period"),
+        form_type=value.get("form_type"),
+    )
+
+
 def _build_adapter(config_path: str) -> StockInfoCompanyWikiAdapter:
     return StockInfoCompanyWikiAdapter(StockDownloader(load_config(config_path)))
 
@@ -102,12 +140,26 @@ def _emit_failure(
     when parsing legacy/unknown stderr.
     """
     exc_type = type(exc).__name__
-    retryable = exc_type not in _NON_RETRYABLE_TYPES
+    # Typed adapter/transport errors carry their stable identity; prefer it
+    # over message sniffing.  ``None`` keeps the historical classification.
+    typed_code = getattr(exc, "code", None)
+    if typed_code is None:
+        typed_code = getattr(exc, "error_code", None)
+    typed_retryable = getattr(exc, "retryable", None)
+    retryable = (
+        typed_retryable
+        if isinstance(typed_retryable, bool)
+        else exc_type not in _NON_RETRYABLE_TYPES
+    )
     error: dict[str, Any] = {
         "code": (
-            "budget_exceeded"
-            if isinstance(exc, AcquisitionBudgetExceeded)
-            else "upstream_unavailable"
+            typed_code
+            if isinstance(typed_code, str) and typed_code
+            else (
+                "budget_exceeded"
+                if isinstance(exc, AcquisitionBudgetExceeded)
+                else "upstream_unavailable"
+            )
         ),
         "type": exc_type,
         "message": str(exc),
@@ -146,26 +198,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         value = _payload()
         if "acquisition_budget" in value:
-            budget = ProviderAcquisitionBudget.from_payload(
-                value["acquisition_budget"]
-            )
+            budget = ProviderAcquisitionBudget.from_payload(value["acquisition_budget"])
         with redirect_stdout(sys.stderr):
+            request: AdapterDiscoveryRequest | None = None
+            if args.action == "discover":
+                # Request shape is validated first: a malformed request must
+                # never construct the provider, its browser, or its network.
+                request = _discovery_request(value)
             adapter = _build_adapter(args.config)
             if args.action == "discover":
-                security_id = value.get("security_id")
-                fiscal_year = value.get("fiscal_year")
-                if not isinstance(security_id, str) or not security_id.strip():
-                    raise ValueError("security_id is required for CN discovery")
-                if isinstance(fiscal_year, bool) or not isinstance(fiscal_year, int):
-                    raise ValueError("fiscal_year is required for CN discovery")
-                request = AdapterDiscoveryRequest(
-                    stock_code=security_id,
-                    stock_name=value["entity"],
-                    document_kind=value["document_kind"],
-                    fiscal_year=fiscal_year,
-                    suffix="periodicReports",
-                    max_pages=5,
-                )
+                assert request is not None
                 candidates = (
                     adapter.discover(request)
                     if budget is None
