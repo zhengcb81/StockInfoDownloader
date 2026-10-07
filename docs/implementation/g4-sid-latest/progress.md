@@ -1,5 +1,7 @@
 # G4-SID-LATEST — progress
 
+**MAIN latest status:** accepted and published on v2-clean-rewrite; code eb8495ceb76892ff6f4a95889b6a19f0a78d769c. Final 127 responsibility/real CLI offline cases pass (27.02s), including three completeness regressions and four real committed CWP route cases. CWP route df7d7ba is published. Full unified ensure/FF/ET/CWP ingest/reuse remains MAIN G2-12; overall goal remains paused. See [MAIN_ACCEPTANCE](MAIN_ACCEPTANCE.md). The earlier worker status below is historical.
+
 ## 2026-10-07 — Session 1: worktree, pin, baseline read
 
 - Verified original repo `C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite`:
