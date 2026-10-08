@@ -7,7 +7,7 @@ Phase 5 RED tests offline (without network). This file is NOT the full Phase 5
   1. Fixture loads offline as JSON.
   2. Required identity + transport fields are present and typed.
   3. BYD FY2024 fixture contains exactly one full annual report whose
-     canonical filing_date (UTC interpretation) is 2025-03-24.
+     official China disclosure date is 2025-03-25.
   4. Summary companion is present and can be cleanly excluded by ``摘要`` token.
   5. Synthetic empty fixture is clearly labelled and never claims to come
      from a real empty company.
@@ -99,8 +99,8 @@ def test_real_fixture_has_exactly_one_byd_fy2024_full_annual_report():
     assert full["adjunctType"] == "PDF"
 
 
-def test_real_fixture_fy2024_full_canonical_filing_date_is_2025_03_24_utc():
-    """API returns announcementTime as epoch milliseconds (UTC canonical)."""
+def test_real_fixture_fy2024_full_china_disclosure_date_is_2025_03_25():
+    """UTC epoch instant converts to the official China disclosure calendar date."""
     payload = _load_real()
     full = next(
         ann
@@ -109,12 +109,12 @@ def test_real_fixture_fy2024_full_canonical_filing_date_is_2025_03_24_utc():
     )
     canonical_date = (
         _dt.datetime.fromtimestamp(
-            full["announcementTime"] / 1000.0, tz=_dt.timezone.utc
+            full["announcementTime"] / 1000.0, tz=_dt.timezone(_dt.timedelta(hours=8))
         )
         .date()
         .isoformat()
     )
-    assert canonical_date == "2025-03-24"
+    assert canonical_date == "2025-03-25"
 
 
 def test_real_fixture_has_fy2024_summary_companion_excludable_by_token():

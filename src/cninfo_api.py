@@ -14,7 +14,7 @@ staging directory.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import json
 from typing import Any
@@ -37,11 +37,12 @@ TRANSPORT_HOSTS = frozenset({"static.cninfo.com.cn", "www.cninfo.com.cn"})
 # latest windows start on Jan 1 of ``as_of.year - LATEST_WINDOW_YEARS``.
 LATEST_WINDOW_YEARS = 2
 
-# Cninfo periodic announcements category (annual/semi/quarterly all share it).
+# Official periodic categories differ. Quarterly discovery covers both Q1
+# and Q3; existing title/period filters select the requested report.
 _CATEGORY_PER_KIND = {
     "annual_report": "category_ndbg_szsh",
-    "semi_annual_report": "category_ndbg_szsh",
-    "quarterly_report": "category_ndbg_szsh",
+    "semi_annual_report": "category_bndbg_szsh",
+    "quarterly_report": "category_yjdbg_szsh;category_sjdbg_szsh",
 }
 
 
@@ -76,7 +77,7 @@ class CninfoAnnouncement:
     """Parsed single announcement record."""
 
     announcement_id: str
-    filing_date: str  # canonical YYYY-MM-DD UTC interpretation of epoch ms
+    filing_date: str  # disclosure calendar date in China (UTC+08:00)
     title: str
     sec_code: str
     sec_name: str
@@ -870,8 +871,9 @@ class CninfoAnnouncementClient:
                 error_code="schema_drift",
                 retryable=False,
             ) from exc
-        # canonical filing_date: UTC date from epoch milliseconds
-        dt = datetime.fromtimestamp(announcement_time_ms / 1000.0, tz=timezone.utc)
+        # Epoch milliseconds are UTC instants; publication dates and the
+        # official detail query use China disclosure time (UTC+08:00).
+        dt = datetime.fromtimestamp(announcement_time_ms / 1000.0, tz=timezone(timedelta(hours=8)))
         filing_date = dt.date().isoformat()
         transport_url = f"https://static.cninfo.com.cn/{adjunct_url.lstrip('/')}"
         # detail URL: human-openable official detail page on www.cninfo.com.cn

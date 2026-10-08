@@ -80,8 +80,8 @@ def test_parse_announcement_record_preserves_fy2024_full_identity():
     parsed = client._parse_announcement(raw, stock_code="002594")
 
     assert parsed.announcement_id == "1222881496"
-    # canonical filing_date UTC interpretation of epoch ms
-    assert parsed.filing_date == "2025-03-24"
+    # Official China disclosure date from the captured epoch milliseconds
+    assert parsed.filing_date == "2025-03-25"
     assert parsed.title == "2024年年度报告"
     assert parsed.sec_code == "002594"
     assert parsed.sec_name == "比亚迪"
@@ -505,3 +505,53 @@ def test_candidate_construction_exposes_detail_url_as_source_url():
     assert parsed.detail_url.startswith(
         "https://www.cninfo.com.cn/new/disclosure/detail"
     )
+
+
+# Real 688012 official category queries captured 2026-10-08 proved these
+# categories differ. A broad/invalid category can silently return all notices.
+@pytest.mark.parametrize(("kind", "expected"), [
+    ("annual_report", "category_ndbg_szsh"),
+    ("semi_annual_report", "category_bndbg_szsh"),
+    ("quarterly_report", "category_yjdbg_szsh;category_sjdbg_szsh"),
+])
+def test_official_periodic_request_uses_its_own_categories(kind, expected):
+    from urllib.parse import parse_qs
+    from src.cninfo_api import CninfoAnnouncementClient
+
+    body = CninfoAnnouncementClient()._build_request_body(
+        stock_code="688012", org_id="9900038991", document_kind=kind,
+        fiscal_year=2026, page_num=1, page_size=30,
+    )
+    params = parse_qs(body.decode("utf-8"))
+    assert params["category"] == [expected]
+    assert params["stock"] == ["688012,9900038991"]
+    assert params["seDate"] == ["2026-01-01~2027-12-31"]
+
+
+def test_official_china_disclosure_date_uses_exchange_timezone():
+    from src.cninfo_api import CninfoAnnouncementClient
+    raw = dict(_load_real_payload()["announcements"][1])
+    raw.update(announcementId="1225482884", secCode="688012",
+               announcementTitle="2026年半年度报告",
+               announcementTime=1787155200000,
+               adjunctUrl="finalpage/2026-08-20/1225482884.PDF")
+    parsed = CninfoAnnouncementClient()._parse_announcement(raw, stock_code="688012")
+    assert parsed.filing_date == "2026-08-20"
+    assert parsed.announcement_time_ms == 1787155200000
+    assert "announcementTime=2026-08-20" in parsed.detail_url
+
+
+def test_latest_cannot_include_tomorrow_china_report_via_utc_date():
+    from src.cninfo_api import CninfoAnnouncementClient
+    raw = dict(_load_real_payload()["announcements"][1])
+    raw.update(announcementId="1225482884", secCode="688012",
+               announcementTitle="2026年半年度报告",
+               announcementTime=1787155200000,
+               adjunctUrl="finalpage/2026-08-20/1225482884.PDF")
+    payload = {"totalRecordNum": 1, "totalpages": 1, "hasMore": False,
+               "announcements": [raw]}
+    records, _meta = CninfoAnnouncementClient()._filter_latest_page(
+        payload, stock_code="688012", document_kind="semi_annual_report",
+        cutoff="2026-08-19", fiscal_period="H1", form_type=None,
+    )
+    assert records == []

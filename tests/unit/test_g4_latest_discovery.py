@@ -56,7 +56,7 @@ def _announce(
     org_id: str = ORG,
     adjunct_url: str | None = None,
 ) -> CninfoAnnouncement:
-    dt = _dt.datetime.fromtimestamp(ms / 1000.0, tz=_dt.timezone.utc)
+    dt = _dt.datetime.fromtimestamp(ms / 1000.0, tz=_dt.timezone(_dt.timedelta(hours=8)))
     filing_date = dt.date().isoformat()
     if adjunct_url is None:
         adjunct_url = f"finalpage/{filing_date}/{announcement_id}.PDF"
@@ -743,23 +743,23 @@ def test_identical_duplicate_announcement_id_is_deduplicated():
     assert [c.provider_document_id for c in candidates] == ["900001001"]
 
 
-def test_latest_cutoff_uses_utc_filing_date_at_day_boundary():
+def test_latest_cutoff_uses_china_filing_date_at_day_boundary():
     kept = _announce(
         announcement_id="900009010",
         title="示例公司2024年年度报告",
-        ms=1780358399000,  # 2026-06-01T23:59:59Z
+        ms=1780329599000,  # China 2026-06-01T23:59:59+08:00
     )
     dropped = _announce(
         announcement_id="900009011",
         title="示例公司2024年年度报告（补充）",
-        ms=1780358400000,  # 2026-06-02T00:00:00Z
+        ms=1780329600000,  # China 2026-06-02T00:00:00+08:00
     )
     client = _FakeClient(records=[kept, dropped])
     candidates = _adapter(client).discover(_request(as_of_date="2026-06-01"))
     assert [c.provider_document_id for c in candidates] == ["900009010"]
 
 
-def test_announcement_time_is_canonicalised_in_utc_across_midnight():
+def test_announcement_time_uses_china_disclosure_date():
     client = CninfoAnnouncementClient()
     raw = {
         "announcementId": "900009012",

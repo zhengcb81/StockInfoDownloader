@@ -50,7 +50,7 @@ class _StubDownloader:
 def _detail_url(
     announcement_id, *, sec_code="002594", ann_time_ms=1742832000000
 ) -> str:
-    dt = _dt.datetime.fromtimestamp(ann_time_ms / 1000.0, tz=_dt.timezone.utc)
+    dt = _dt.datetime.fromtimestamp(ann_time_ms / 1000.0, tz=_dt.timezone(_dt.timedelta(hours=8)))
     detail_time = dt.strftime("%Y-%m-%d %H:%M")
     return (
         f"https://www.cninfo.com.cn/new/disclosure/detail?stockCode={sec_code}"
@@ -66,10 +66,10 @@ def _make_announcement(
     sec_code: str = "002594",
     sec_name: str = "比亚迪",
     org_id: str = "gshk0001211",
-    announcement_time_ms: int = 1742832000000,  # UTC 2025-03-24 16:00 → date 2025-03-24
+    announcement_time_ms: int = 1742832000000,  # 2025-03-24T16:00Z → China 2025-03-25
     adjunct_url: str = "finalpage/2025-03-25/1222881496.PDF",
 ) -> CninfoAnnouncement:
-    dt = _dt.datetime.fromtimestamp(announcement_time_ms / 1000.0, tz=_dt.timezone.utc)
+    dt = _dt.datetime.fromtimestamp(announcement_time_ms / 1000.0, tz=_dt.timezone(_dt.timedelta(hours=8)))
     filing_date = dt.date().isoformat()
     transport_url = f"https://static.cninfo.com.cn/{adjunct_url.lstrip('/')}"
     detail_time = dt.strftime("%Y-%m-%d %H:%M")
@@ -159,7 +159,7 @@ def test_discover_returns_cninfo_identity_and_report_metadata_via_api():
     assert candidate.document_kind == "annual_report"
     assert candidate.fiscal_year == 2024
     assert candidate.fiscal_period == "FY"
-    assert candidate.filing_date == "2025-03-24"
+    assert candidate.filing_date == "2025-03-25"
     assert candidate.amended is False
     # source_url must be the human-openable detail page, NOT the transport URL
     assert candidate.source_url.startswith(
