@@ -201,60 +201,66 @@ class PlaywrightBrowser:
     #
     # cninfo renders every tab into the DOM and hides the inactive panes.  A
     # page-wide ``a[href*=detail]`` query therefore returns documents from tabs
-    # the caller never selected.  These three accessors are the only place that
-    # knows the pane markup; callers ask for "the active tab" instead of
-    # re-deriving a selector.
+    # the caller never selected.  These accessors are the only place that knows
+    # the pane markup; callers ask for "the active tab" instead of re-deriving
+    # a selector.
 
     _PANE_SELECTOR = '.el-tab-pane, .tab-pane, [role="tabpanel"]'
+    _MENU_SELECTOR = '.el-menu-item, .el-tabs__item, [role="tab"]'
 
-    def click_menu_item(self, text: str) -> bool:
-        """Click the sidebar/tab menu item whose visible text is ``text``.
+    #: ``select_menu_item`` outcomes.
+    TAB_ACTIVE = "active"
+    TAB_INACTIVE = "inactive"
+    TAB_UNKNOWN = "unknown"
+    TAB_MISSING = "missing"
 
-        Returns False when no such item exists, so the caller can distinguish
-        "the requested tab is not reachable on this page" from "the tab is
-        empty" instead of silently reading whichever tab happens to be active.
+    def select_menu_item(self, text: str) -> str:
+        """Click the menu item whose visible text is ``text`` and report state.
+
+        Returns one of ``TAB_ACTIVE`` / ``TAB_INACTIVE`` / ``TAB_UNKNOWN`` /
+        ``TAB_MISSING``:
+
+        * ``missing`` — no item carries that label; the requested scope is not
+          reachable, so the caller must not read whichever tab is active.
+        * ``inactive`` — an item was clicked but another item is still the
+          selected one.
+        * ``unknown`` — the click happened but the page exposes no selection
+          marker we recognise; the caller falls back to link evidence.
+        * ``active`` — the clicked item is the selected one.
+
+        The active check is scoped to the same item set as the click, so an
+        unrelated ``is-active`` elsewhere in the sidebar cannot be mistaken for
+        the tab selection.
         """
         script = """
-        (label) => {
-            const items = Array.from(
-                document.querySelectorAll(
-                    '.el-menu-item, .el-tabs__item, [role="tab"]'
-                )
-            );
+        ([menuSelector, label]) => {
+            const items = Array.from(document.querySelectorAll(menuSelector));
             const target = items.find(
                 (item) => (item.textContent || '').trim() === label
             );
-            if (!target) return false;
+            if (!target) return 'missing';
             target.click();
-            return true;
+            const isSelected = (item) =>
+                item.classList.contains('is-active')
+                || item.getAttribute('aria-selected') === 'true';
+            const selected = items.filter(isSelected);
+            if (selected.length === 0) return 'unknown';
+            return selected.includes(target) ? 'active' : 'inactive';
         }
         """
         try:
-            return bool(self.page.evaluate(script, text))
+            value = self.page.evaluate(script, [self._MENU_SELECTOR, text])
         except Exception as e:
-            log.debug(f"click_menu_item failed ({text!r}): {e}")
-            return False
-
-    def active_tab_label(self) -> Optional[str]:
-        """Return the selected menu item's text, or None when unknown.
-
-        ``None`` means "this page does not expose a selection marker we
-        recognise"; callers must not treat it as a mismatch.
-        """
-        script = """
-        () => {
-            const active = document.querySelector(
-                '.el-menu-item.is-active, .el-tabs__item.is-active,'
-                + ' [role="tab"][aria-selected="true"]'
-            );
-            return active ? (active.textContent || '').trim() : null;
-        }
-        """
-        try:
-            value = self.page.evaluate(script)
-        except Exception as e:
-            log.debug(f"active_tab_label failed: {e}")
-            return None
+            log.debug(f"select_menu_item failed ({text!r}): {e}")
+            return self.TAB_MISSING
+        if value in (
+            self.TAB_ACTIVE,
+            self.TAB_INACTIVE,
+            self.TAB_UNKNOWN,
+            self.TAB_MISSING,
+        ):
+            return value
+        return self.TAB_UNKNOWN
         return value if isinstance(value, str) and value.strip() else None
 
     def find_active_tab_links(self) -> List[Tuple[str, str]]:

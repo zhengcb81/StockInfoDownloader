@@ -279,13 +279,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         failure = exc
     finally:
         # Cleanup can log; it must happen *before* the protocol document so the
-        # documented "last stderr line is the JSON" contract keeps holding.
+        # documented "last stderr line is the JSON" contract keeps holding.  A
+        # cleanup failure must not swallow the original outcome.
         if adapter is not None:
-            with redirect_stdout(sys.stderr):
-                _cleanup(adapter)
+            try:
+                with redirect_stdout(sys.stderr):
+                    _cleanup(adapter)
+            except Exception as cleanup_error:  # pragma: no cover - defensive
+                log.warning(f"adapter cleanup failed: {cleanup_error}")
     if failure is not None:
         return _emit_failure(failure, budget)
-    assert result is not None
+    if result is None:  # pragma: no cover - defensive
+        return _emit_failure(RuntimeError("provider produced no result"), budget)
     sys.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

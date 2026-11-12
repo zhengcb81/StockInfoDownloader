@@ -61,11 +61,16 @@ class _Element:
 class _FakePage:
     """A cninfo-like SPA page: menu items, one selected, links per tab.
 
-    ``click_menu_item`` is the real interaction: it selects the tab whose label
-    matches and reports whether such a tab exists.  ``find_active_tab_links``
+    ``select_menu_item`` is the real interaction: it selects the tab whose
+    label matches and reports the resulting state.  ``find_active_tab_links``
     returns only the selected tab's links.  A page-wide query still sees every
     tab, which is exactly what the downloader must not rely on.
     """
+
+    TAB_ACTIVE = "active"
+    TAB_INACTIVE = "inactive"
+    TAB_UNKNOWN = "unknown"
+    TAB_MISSING = "missing"
 
     def __init__(
         self,
@@ -73,25 +78,28 @@ class _FakePage:
         *,
         selected: str | None = None,
         total_pages: int = 1,
+        select_state: str | None = None,
     ) -> None:
         self.tabs = {label: list(links) for label, links in tabs.items()}
         self.selected = selected or next(iter(self.tabs), None)
         self.total_pages = total_pages
+        # Force a specific outcome (e.g. "inactive") to model a page whose
+        # click does not actually change the selection.
+        self.select_state = select_state
         self.downloaded: list[tuple[str, str]] = []
         self.navigated: list[str] = []
         self.failed_hrefs: set[str] = set()
         self.menu_clicks: list[str] = []
 
     # ── tab interaction ─────────────────────────────────────────────
-    def click_menu_item(self, label: str) -> bool:
+    def select_menu_item(self, label: str) -> str:
         self.menu_clicks.append(label)
         if label not in self.tabs:
-            return False
+            return self.TAB_MISSING
+        if self.select_state is not None:
+            return self.select_state
         self.selected = label
-        return True
-
-    def active_tab_label(self) -> str | None:
-        return self.selected
+        return self.TAB_ACTIVE
 
     def find_active_tab_links(self) -> list[tuple[str, str]]:
         if self.selected is None:
@@ -420,6 +428,22 @@ class TestActiveTabScope:
         assert result.success is False
         assert any("unsupported tab suffix" in error for error in result.errors)
 
+    def test_click_that_does_not_change_the_selection_is_refused(self, tmp_path):
+        """A click landing on the default tab must not read that tab."""
+        page = _FakePage(
+            {"定期报告": [PERIODIC_LINK], "最新公告": [RESEARCH_LINK]},
+            selected="最新公告",
+            select_state=_FakePage.TAB_INACTIVE,
+        )
+        downloader = _downloader(tmp_path)
+        downloader._browser = page
+
+        result = downloader.download(_request())
+
+        assert page.downloaded == []
+        assert result.success is False
+        assert result.load_state == "infrastructure_fail"
+
     def test_unscoped_navigation_may_still_use_the_whole_page(self, tmp_path):
         page = _FakePage({"最新公告": [RESEARCH_LINK]}, selected="最新公告")
         downloader = _downloader(tmp_path)
@@ -478,6 +502,29 @@ class TestVerificationOutcome:
         assert [issue.code for issue in result.verification.issues] == [
             "download_failed"
         ]
+
+    def test_each_retry_attempt_starts_with_no_recorded_failures(self, tmp_path):
+        """A failed attempt must not poison the attempt that recovers."""
+        page = _FakePage({"定期报告": [PERIODIC_LINK]})
+        downloader = _downloader(tmp_path)
+        downloader._browser = page
+        downloader.max_retries = 2
+        from src.models import DownloadResult
+
+        seen: list[int] = []
+
+        def fake_internal(_request):
+            seen.append(len(downloader._request_failures))
+            if len(seen) < 3:
+                downloader._request_failures.append(("candidate", "transient"))
+                return DownloadResult(success=False, retryable=True, errors=["x"])
+            return DownloadResult(success=True)
+
+        downloader._download_internal = fake_internal
+        result = downloader._download_with_retry(_request(), 0.0)
+
+        assert seen == [0, 0, 0]
+        assert result.success is True
 
     def test_verification_is_machine_readable_not_prose(self, tmp_path):
         page = _FakePage({"定期报告": []})

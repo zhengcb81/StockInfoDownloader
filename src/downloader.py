@@ -273,6 +273,10 @@ class StockDownloader:
                 except Exception as e:
                     log.debug(f"Browser restart failed: {e}")
 
+            # Failure bookkeeping is per attempt, matching ``downloaded``.
+            # Keeping it per request would let a failed first attempt poison a
+            # successful retry and duplicate the same issue.
+            self._request_failures = []
             last_result = self._download_internal(request)
             if last_result.success:
                 return last_result
@@ -418,9 +422,9 @@ class StockDownloader:
           drifted; reading whichever tab is active would download another
           type/period.
 
-        Verification uses the active pane's links and, when the page exposes a
-        selection marker, the selected menu item's label.  A page-level link
-        count would report the default tab's documents.
+        Verification uses the selected menu item's state and the active pane's
+        links.  A page-level link count would report the default tab's
+        documents.
 
         Returns True if the selected tab has content, False if it is empty or
         unreachable.
@@ -433,7 +437,8 @@ class StockDownloader:
             )
 
         for attempt in range(3):
-            if not self.browser.click_menu_item(menu_text):
+            state = self.browser.select_menu_item(menu_text)
+            if state == self.browser.TAB_MISSING:
                 log.warning(
                     f"Tab switch attempt {attempt + 1}: menu item"
                     f" {menu_text!r} not found on this page"
@@ -443,11 +448,10 @@ class StockDownloader:
 
             time.sleep(C.CONTENT_LOAD_WAIT)
 
-            label = self.browser.active_tab_label()
-            if label is not None and label != menu_text:
+            if state == self.browser.TAB_INACTIVE:
                 log.warning(
-                    f"Tab switch attempt {attempt + 1}: selected tab is"
-                    f" {label!r}, expected {menu_text!r}"
+                    f"Tab switch attempt {attempt + 1}: another tab is still"
+                    f" selected after clicking {menu_text!r}"
                 )
                 continue
 
