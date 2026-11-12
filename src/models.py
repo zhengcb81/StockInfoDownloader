@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .transport_states import LoadState
 
@@ -36,6 +36,33 @@ class DownloadRequest:
     save_dir: Optional[Union[str, Path]] = None
     save_subdir: Optional[str] = None  # e.g. "raw/prospectus"
     reverse_order: bool = False
+    # Trailing optional field (CW-2.27D acceptance).  The announcement API may
+    # already have proven that this exact company + period has zero official
+    # announcements.  That proof belongs to the *request*, never to the
+    # downloader instance: a later request for another company or period must
+    # re-observe instead of inheriting an earlier empty result.
+    confirmed_empty: bool = False
+
+
+@dataclass(frozen=True)
+class VerificationIssue:
+    """One machine-readable post-download verification finding."""
+
+    code: str
+    message: str
+
+
+@dataclass(frozen=True)
+class VerificationResult:
+    """Machine-readable verification outcome owned by the downloader.
+
+    ``ok`` is the authoritative success signal for the post-download check.
+    ``issues`` is structured so the CLI can log or aggregate findings without
+    parsing English prose.
+    """
+
+    ok: bool = True
+    issues: Tuple[VerificationIssue, ...] = ()
 
 
 @dataclass
@@ -56,3 +83,7 @@ class DownloadResult:
     load_state: Optional[LoadState] = None
     error_code: Optional[str] = None
     retryable: Optional[bool] = None
+    # Post-download verification, decided by the download owner.  Callers must
+    # read ``success`` (already folded with ``verification.ok``) instead of
+    # re-judging diagnostics.
+    verification: VerificationResult = field(default_factory=VerificationResult)

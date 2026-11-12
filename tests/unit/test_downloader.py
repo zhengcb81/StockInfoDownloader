@@ -187,7 +187,13 @@ class TestDownloadPathConstruction:
 
 
 class TestVerifyDownloads:
-    """Tests for StockDownloader._verify_downloads()."""
+    """Typed post-download verification owned by the downloader.
+
+    The historical WIP returned a list of English strings and let ``main.py``
+    decide the outcome, so ``success=True`` could travel with a blocking
+    finding.  These cases keep every original scenario but assert the
+    machine-readable contract instead of prose.
+    """
 
     def _make_config(self, save_dir=None):
         f = tempfile.NamedTemporaryFile(
@@ -203,122 +209,112 @@ class TestVerifyDownloads:
             "files": {"mapping_file": f.name},
         }
 
+    def _codes(self, verification):
+        return [issue.code for issue in verification.issues]
+
     def test_no_files_downloaded(self):
-        config = self._make_config()
-        d = StockDownloader(config)
-        request = DownloadRequest(stock_code="300470")
-        warnings = d._verify_downloads(request, [])
-        assert len(warnings) == 1
-        assert "No files were downloaded" in warnings[0]
+        d = StockDownloader(self._make_config())
+        result = d._verify_downloads(DownloadRequest(stock_code="300470"), [])
+        assert result.ok is False
+        assert self._codes(result) == ["no_files"]
 
     def test_file_missing(self):
-        config = self._make_config()
-        d = StockDownloader(config)
-        request = DownloadRequest(stock_code="300470")
-        warnings = d._verify_downloads(request, ["/nonexistent/file.pdf"])
-        assert any("File missing" in w for w in warnings)
+        d = StockDownloader(self._make_config())
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470"), ["/nonexistent/file.pdf"]
+        )
+        assert result.ok is False
+        assert self._codes(result) == ["file_missing"]
 
     def test_file_too_small(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         small_file = tmp_path / "small.pdf"
         small_file.write_bytes(b"x" * 10)  # well below MIN_FILE_SIZE (100)
-        request = DownloadRequest(stock_code="300470")
-        warnings = d._verify_downloads(request, [str(small_file)])
-        assert any("too small" in w for w in warnings)
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470"), [str(small_file)]
+        )
+        assert result.ok is False
+        assert self._codes(result) == ["file_too_small"]
 
     def test_keyword_mismatch(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         ok_file = tmp_path / "annual_report_2024.pdf"
         ok_file.write_bytes(b"x" * 1024)
-        request = DownloadRequest(
-            stock_code="300470",
-            allowed_keywords=["季报"],
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", allowed_keywords=["季报"]),
+            [str(ok_file)],
         )
-        warnings = d._verify_downloads(request, [str(ok_file)])
-        assert any("does not match any allowed keyword" in w for w in warnings)
+        assert result.ok is False
+        assert self._codes(result) == ["keyword_mismatch"]
 
     def test_keyword_match_ok(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         ok_file = tmp_path / "季报2024.pdf"
         ok_file.write_bytes(b"x" * 1024)
-        request = DownloadRequest(
-            stock_code="300470",
-            allowed_keywords=["季报"],
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", allowed_keywords=["季报"]),
+            [str(ok_file)],
         )
-        warnings = d._verify_downloads(request, [str(ok_file)])
-        assert warnings == []
+        assert result.ok is True
+        assert result.issues == ()
 
     def test_excluded_keyword_match(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         bad_file = tmp_path / "年报摘要.pdf"
         bad_file.write_bytes(b"x" * 1024)
-        request = DownloadRequest(
-            stock_code="300470",
-            excluded_keywords=["摘要"],
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", excluded_keywords=["摘要"]),
+            [str(bad_file)],
         )
-        warnings = d._verify_downloads(request, [str(bad_file)])
-        assert any("matches excluded keyword" in w for w in warnings)
+        assert result.ok is False
+        assert self._codes(result) == ["excluded_keyword_present"]
 
     def test_wrong_directory(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         wrong_dir = tmp_path / "wrong_place"
         wrong_dir.mkdir(parents=True, exist_ok=True)
         f = wrong_dir / "report.pdf"
         f.write_bytes(b"x" * 1024)
-        request = DownloadRequest(
-            stock_code="300470",
-            save_subdir="raw/prospectus",
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", save_subdir="raw/prospectus"),
+            [str(f)],
         )
-        warnings = d._verify_downloads(request, [str(f)])
-        assert any("unexpected directory" in w for w in warnings)
+        assert result.ok is False
+        assert self._codes(result) == ["unexpected_directory"]
 
     def test_correct_directory_ok(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         correct_dir = tmp_path / "company" / "raw" / "prospectus"
         correct_dir.mkdir(parents=True, exist_ok=True)
         f = correct_dir / "report.pdf"
         f.write_bytes(b"x" * 1024)
-        request = DownloadRequest(
-            stock_code="300470",
-            save_subdir="raw/prospectus",
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", save_subdir="raw/prospectus"),
+            [str(f)],
         )
-        warnings = d._verify_downloads(request, [str(f)])
-        assert warnings == []
+        assert result.ok is True
+        assert result.issues == ()
 
     def test_all_ok_no_keywords_no_subdir(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         f = tmp_path / "report.pdf"
         f.write_bytes(b"x" * 1024)
-        request = DownloadRequest(stock_code="300470")
-        warnings = d._verify_downloads(request, [str(f)])
-        assert warnings == []
+        result = d._verify_downloads(DownloadRequest(stock_code="300470"), [str(f)])
+        assert result.ok is True
 
     def test_multiple_files_mixed_issues(self, tmp_path):
-        config = self._make_config(save_dir=str(tmp_path))
-        d = StockDownloader(config)
-        # Good file
+        d = StockDownloader(self._make_config(save_dir=str(tmp_path)))
         good = tmp_path / "季报2024.pdf"
         good.write_bytes(b"x" * 1024)
-        # Small file
         small = tmp_path / "年报2024.pdf"
         small.write_bytes(b"x" * 10)
-        # Non-existent
         missing = str(tmp_path / "nonexistent.pdf")
-        request = DownloadRequest(
-            stock_code="300470",
-            allowed_keywords=["季报", "年报"],
+        result = d._verify_downloads(
+            DownloadRequest(stock_code="300470", allowed_keywords=["季报", "年报"]),
+            [str(good), str(small), missing],
         )
-        warnings = d._verify_downloads(request, [str(good), str(small), missing])
-        assert len(warnings) == 2  # small + missing
-        assert any("too small" in w for w in warnings)
-        assert any("File missing" in w for w in warnings)
+        assert result.ok is False
+        assert self._codes(result) == ["file_too_small", "file_missing"]
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +367,7 @@ class TestDownloadInternalTypedFailures:
         d._browser = MagicMock()
         d._browser.navigate.return_value = True
         # `_switch_tab` polls `querySelectorAll(detail)` count == 0 on all 3 retries.
-        d._browser.execute_script.return_value = 0
+        d._browser.find_active_tab_links.return_value = []
         d._browser.get_current_page_info.return_value = {"total_pages": 1}
 
         request = DownloadRequest(
@@ -397,18 +393,17 @@ class TestDownloadInternalTypedFailures:
         d = StockDownloader(config)
         d._browser = MagicMock()
         d._browser.navigate.return_value = True
-        # Simulate the Phase 5 cninfo_api client already confirming total=0
-        # before SPA tab-switch. The seam is the downloader-level
-        # `_official_status` field; `_switch_tab` must not override it.
-        d._official_status = LoadState.CONFIRMED_EMPTY
-        # `_switch_tab` polls `querySelectorAll(detail)` count == 0 on all 3 retries.
-        d._browser.execute_script.return_value = 0
+        # The announcement API confirmed total=0 for *this* request.  The
+        # confirmation travels on the public request field so it cannot leak
+        # into the next company/period handled by the same instance.
+        d._browser.find_active_tab_links.return_value = []
         d._browser.get_current_page_info.return_value = {"total_pages": 1}
 
         request = DownloadRequest(
             stock_code="300470",
             stock_name="中密控股",
             suffix="periodicReports",
+            confirmed_empty=True,
         )
         # Avoid real `_wait_for_page_load` sleeps / `_get_links` browser polling.
         with patch.object(StockDownloader, "_wait_for_page_load", lambda self: None):
@@ -459,7 +454,21 @@ class TestCliErrorJsonContract:
         # Feed a valid discover payload so _payload() passes; _build_adapter is
         # patched to raise a stable RuntimeError so the structured error path
         # is exercised without touching real config / browser / network.
-        monkeypatch.setattr("sys.stdin", io.StringIO("{}"))
+        monkeypatch.setattr(
+            "sys.stdin",
+            io.StringIO(
+                json.dumps(
+                    {
+                        "entity": "中密控股",
+                        "market": "CN",
+                        "security_id": "300470",
+                        "document_kind": "annual_report",
+                        "fiscal_year": 2024,
+                    },
+                    ensure_ascii=False,
+                )
+            ),
+        )
         original_name = cli.ADAPTER_NAME
         with (
             patch.object(cli, "ADAPTER_VERSION", "1.2.0"),

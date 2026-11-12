@@ -8,7 +8,7 @@ import json
 import re
 import time
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
@@ -16,7 +16,12 @@ from .browser import PlaywrightBrowser
 from .exceptions import BrowserError, OrgIdError
 from .logger import log
 from .mapping import MappingManager
-from .models import DownloadRequest, DownloadResult
+from .models import (
+    DownloadRequest,
+    DownloadResult,
+    VerificationIssue,
+    VerificationResult,
+)
 from .string_utils import clean_filename
 from .transport_states import LoadState
 
@@ -106,6 +111,57 @@ def _matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
     return False
 
 
+def _subdir_components(save_subdir: str) -> Tuple[str, ...]:
+    """Split a declared relative sub-directory into path components.
+
+    Both POSIX ``/`` and Windows ``\\`` separators are accepted so a config
+    written on either platform keeps working.  Parent references and absolute
+    paths are rejected: the downloader may only ever write *below* the company
+    directory, and silently normalising ``..`` away would hide a configuration
+    error.
+    """
+    if not isinstance(save_subdir, str) or not save_subdir.strip():
+        raise ValueError("save_subdir must be non-empty text")
+    raw = save_subdir.strip()
+    if raw.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", raw):
+        raise ValueError(f"save_subdir must be relative: {save_subdir!r}")
+    parts = tuple(part for part in re.split(r"[\\/]+", raw) if part not in ("", "."))
+    if not parts:
+        raise ValueError(f"save_subdir has no usable component: {save_subdir!r}")
+    if any(part == ".." for part in parts):
+        raise ValueError(f"save_subdir must not contain '..': {save_subdir!r}")
+    return parts
+
+
+def _path_is_within_subdir(
+    path: Any,
+    save_subdir: str,
+    *,
+    case_sensitive: Optional[bool] = None,
+) -> bool:
+    """True when ``path``'s parent chain ends with ``save_subdir``.
+
+    Matching is by whole components, never by substring: ``raw/prospectus``
+    and ``raw/prospectus-extra`` are different scopes.  ``path`` may be a
+    ``PurePosixPath``/``PureWindowsPath`` so both platform semantics stay
+    testable on one machine; the default case sensitivity follows the path
+    flavour (Windows is case-insensitive, POSIX is not).
+    """
+    candidate = path if isinstance(path, PurePath) else Path(path)
+    expected = _subdir_components(save_subdir)
+    actual = tuple(str(part) for part in candidate.parent.parts)
+    if len(actual) < len(expected):
+        return False
+    tail = actual[-len(expected) :]
+    if case_sensitive is None:
+        case_sensitive = not isinstance(candidate, PureWindowsPath)
+    if case_sensitive:
+        return tail == expected
+    return tuple(part.casefold() for part in tail) == tuple(
+        part.casefold() for part in expected
+    )
+
+
 class StockDownloader:
     """Downloads stock documents from cninfo.com.cn."""
 
@@ -123,11 +179,6 @@ class StockDownloader:
         self.skipped_files: List[str] = []
         self.pages_traversed: int = 0
         self.download_count: int = 0
-
-        # CW-2.27D typed load state. Set by ``_switch_tab`` after observing
-        # the SPA tab state and by the (future) cninfo announcement API
-        # client for CONFIRMED_EMPTY. Defaults to None until observed.
-        self._official_status: Optional[LoadState] = None
 
         # Failed download logger
         self._failed_logger = FailedDownloadLogger()
@@ -223,6 +274,10 @@ class StockDownloader:
                 return last_result
 
             log.warning(f"Attempt {attempt + 1} failed: {last_result.errors}")
+            # A typed non-retryable outcome (for example a verification
+            # failure) must not re-download the whole company three times.
+            if last_result.retryable is False:
+                break
             if attempt < self.max_retries:
                 # Exponential backoff: 1s, 2s, 4s, ...
                 backoff = 2**attempt
@@ -235,14 +290,16 @@ class StockDownloader:
         return last_result
 
     def _download_internal(self, request: DownloadRequest) -> DownloadResult:
-        """Core download logic."""
+        """Core download logic.
+
+        The typed load state is derived per request.  ``request.confirmed_empty``
+        is the only way an upstream announcement API can pre-confirm zero
+        documents for *this* company and period; nothing is cached on the
+        instance, so the next request always re-observes.
+        """
         start = time.time()
         downloaded: List[str] = []
-        # Reset per-request typed status so prior observations do not leak.
-        # Preserve an upstream-preconfirmed CONFIRMED_EMPTY so the Phase 5
-        # announcement API client can pre-mark total=0 before SPA fallback.
-        if self._official_status != LoadState.CONFIRMED_EMPTY:
-            self._official_status = None
+        upstream_confirmed_empty = bool(request.confirmed_empty)
 
         try:
             self._navigate_to_stock_page(request)
@@ -253,10 +310,11 @@ class StockDownloader:
                 if not has_content:
                     # The historical code folded this into success/0 files.
                     # Now the typed state decides:
-                    #   - CONFIRMED_EMPTY → upstream API explicitly confirmed 0.
-                    #   - INFRASTRUCTURE_FAIL → no official empty observed;
+                    #   - CONFIRMED_EMPTY → the announcement API explicitly
+                    #     confirmed zero documents for this request.
+                    #   - INFRASTRUCTURE_FAIL → no official empty was observed;
                     #     SPA/DNS/resource fault must surface, not be masked.
-                    if self._official_status == LoadState.CONFIRMED_EMPTY:
+                    if upstream_confirmed_empty:
                         return DownloadResult(
                             success=True,
                             downloaded_files=[],
@@ -266,8 +324,6 @@ class StockDownloader:
                             error_code=None,
                             retryable=False,
                         )
-                    if self._official_status is None:
-                        self._official_status = LoadState.INFRASTRUCTURE_FAIL
                     return DownloadResult(
                         success=False,
                         downloaded_files=[],
@@ -284,23 +340,28 @@ class StockDownloader:
 
             downloaded = self._download_pages(request)
 
-            # Post-download verification
-            verify_warnings = self._verify_downloads(request, downloaded)
-            if verify_warnings:
+            # Post-download verification.  The owner decides the outcome here;
+            # callers read ``success`` and never re-judge diagnostics.
+            verification = self._verify_downloads(request, downloaded)
+            if not verification.ok:
                 log.warning(
-                    f"Post-download verification found {len(verify_warnings)} issue(s):"
+                    f"Post-download verification found {len(verification.issues)}"
+                    " blocking issue(s):"
                 )
-                for w in verify_warnings:
-                    log.warning(f"  - {w}")
+                for issue in verification.issues:
+                    log.warning(f"  - [{issue.code}] {issue.message}")
 
             return DownloadResult(
-                success=True,
+                success=verification.ok,
                 downloaded_files=downloaded,
                 total_files=len(downloaded),
                 duration_seconds=time.time() - start,
                 skipped_files=self.skipped_files,
                 pages_traversed=self.pages_traversed,
-                metadata={"verification_warnings": verify_warnings},
+                verification=verification,
+                error_code=None if verification.ok else "verification_failed",
+                retryable=False if not verification.ok else None,
+                errors=[] if verification.ok else ["verification_failed"],
             )
         except Exception as e:
             log.error(f"Download pipeline failed: {e}")
@@ -323,11 +384,11 @@ class StockDownloader:
         if not self.browser.navigate(url):
             raise BrowserError(f"Failed to navigate to {url}")
 
-    def _wait_for_page_load(self) -> None:
-        """Poll until data links appear on the page."""
+    def _wait_for_page_load(self, *, tab_scoped: bool = False) -> None:
+        """Poll until data links appear on the page (or in the active pane)."""
         for _ in range(C.PAGE_LOAD_MAX_ATTEMPTS):
             time.sleep(C.PAGE_LOAD_CHECK_INTERVAL)
-            links = self._get_links()
+            links = self._get_links(tab_scoped=tab_scoped)
             if links:
                 return
             log.debug("Waiting for data links to load...")
@@ -347,7 +408,11 @@ class StockDownloader:
         previous approach of checking for pre-existing links was incorrect:
         it would find default-tab links and skip the click entirely.
 
-        Returns True if the tab has content, False if genuinely empty.
+        Verification counts links in the *active pane only*.  A page-level
+        count would report the default tab's documents and then let the
+        downloader collect another type/period from a tab it never selected.
+
+        Returns True if the selected tab has content, False if it is empty.
         """
         menu_text = self._TAB_MENU_TEXT.get(suffix)
 
@@ -365,26 +430,15 @@ class StockDownloader:
                 """)
             time.sleep(C.CONTENT_LOAD_WAIT)
 
-            # Verify links appeared after switching
-            link_count = self.browser.execute_script("""
-                () => document.querySelectorAll(
-                    'a[href*="/new/disclosure/detail"]'
-                ).length
-            """)
-            log.debug(f"Tab switch check: {link_count} links found on page")
+            link_count = len(self.browser.find_active_tab_links())
+            log.debug(f"Tab switch check: {link_count} links in the active pane")
 
-            if link_count and link_count > 0:
+            if link_count > 0:
                 log.info(f"Tab '{suffix}' switched: {link_count} links found")
                 break
 
             log.warning(f"Tab switch attempt {attempt + 1} failed, no links found")
         else:
-            # No links after 3 attempts. Preserve an upstream-confirmed
-            # CONFIRMED_EMPTY if it was already set (e.g. by the Phase 5
-            # announcement API client); otherwise record an infrastructure
-            # failure so the legacy ``success=True / 0 files`` mask is gone.
-            if self._official_status != LoadState.CONFIRMED_EMPTY:
-                self._official_status = LoadState.INFRASTRUCTURE_FAIL
             log.info(f"Tab '{suffix}' has no content — skipping")
             return False
 
@@ -399,7 +453,7 @@ class StockDownloader:
                     log.info(f"Pagination loaded: {total} pages")
                     break
                 log.debug(f"Waiting for pagination... (total={total})")
-            self._wait_for_page_load()
+            self._wait_for_page_load(tab_scoped=True)
 
         return True
 
@@ -441,7 +495,7 @@ class StockDownloader:
         # Jump to last page
         self.browser.go_to_last_page()
         time.sleep(C.PAGINATION_WAIT)
-        self._wait_for_page_load()
+        self._wait_for_page_load(tab_scoped=bool(request.suffix))
 
         current_info = self.browser.get_current_page_info()
         current_page = current_info.get("current_page", total_pages)
@@ -472,7 +526,7 @@ class StockDownloader:
                     })()
                 """)
                 time.sleep(C.PAGINATION_WAIT)
-                self._wait_for_page_load()
+                self._wait_for_page_load(tab_scoped=bool(request.suffix))
 
         return all_downloaded
 
@@ -480,7 +534,7 @@ class StockDownloader:
 
     def _download_page_links(self, request: DownloadRequest, page: int) -> List[str]:
         """Match and download links on the current page."""
-        links = self._get_links()
+        links = self._get_links(tab_scoped=bool(request.suffix))
         log.info(f"Page {page}: found {len(links)} links")
 
         if not links:
@@ -510,7 +564,11 @@ class StockDownloader:
         )
         company_dir = save_dir / (request.stock_name or f"Stock_{request.stock_code}")
         if request.save_subdir:
-            dest = company_dir / request.save_subdir / f"{target_name}.pdf"
+            # Build the destination from validated components so a
+            # platform-specific separator never becomes part of a filename.
+            dest = company_dir.joinpath(
+                *_subdir_components(request.save_subdir), f"{target_name}.pdf"
+            )
         else:
             dest = company_dir / f"{target_name}.pdf"
 
@@ -548,76 +606,96 @@ class StockDownloader:
 
     def _verify_downloads(
         self, request: DownloadRequest, downloaded: List[str]
-    ) -> List[str]:
-        """Verify downloaded files match config requirements.
+    ) -> VerificationResult:
+        """Verify downloaded files match the request's declared scope.
 
-        Returns list of validation warnings. Empty = all OK.
+        Returns a machine-readable outcome.  ``ok=False`` means the caller must
+        not report success: a missing/too-small file, a keyword that does not
+        match, an excluded keyword that was downloaded anyway, a file outside
+        the declared sub-directory, or simply zero files.
         """
-        warnings: List[str] = []
+        issues: List[VerificationIssue] = []
 
-        # CW-2.27H / Phase 7 mandatory baseline fix (user_override on the
-        # Phase 3 baseline-failure exemption). Surfacing an empty-download
-        # outcome as a validation warning prevents the historical
-        # "success=True / 0 files" mask now that Phase 3 typed LoadState
-        # has been propagated to _download_internal. Downstream callers
-        # receive an explicit "No files were downloaded" warning rather
-        # than a silent green result.
+        # An empty result is only positive when the announcement API confirmed
+        # it (that path returns before verification).  Anything else is a
+        # silent-green risk the historical code used to hide.
         if not downloaded:
-            warnings.append("No files were downloaded")
+            issues.append(VerificationIssue("no_files", "No files were downloaded"))
 
         for fpath in downloaded:
             path = Path(fpath)
 
             # 1. Check file exists and is valid size
             if not path.exists():
-                warnings.append(f"File missing: {path.name}")
+                issues.append(
+                    VerificationIssue("file_missing", f"File missing: {path.name}")
+                )
                 continue
             if path.stat().st_size <= C.MIN_FILE_SIZE:
-                warnings.append(f"File too small (likely failed): {path.name}")
+                issues.append(
+                    VerificationIssue(
+                        "file_too_small",
+                        f"File too small (likely failed): {path.name}",
+                    )
+                )
                 continue
 
             # 2. Check filename matches allowed_keywords (if specified)
             stem = path.stem  # filename without extension
-            if request.allowed_keywords:
-                if not _matches_keywords(stem, request.allowed_keywords):
-                    warnings.append(
+            if request.allowed_keywords and not _matches_keywords(
+                stem, request.allowed_keywords
+            ):
+                issues.append(
+                    VerificationIssue(
+                        "keyword_mismatch",
                         f"File '{stem}' does not match any allowed keyword: "
-                        f"{request.allowed_keywords}"
+                        f"{request.allowed_keywords}",
                     )
+                )
 
             # 3. Check filename does NOT match excluded_keywords
-            if request.excluded_keywords:
-                if _matches_excluded(stem, request.excluded_keywords):
-                    warnings.append(
+            if request.excluded_keywords and _matches_excluded(
+                stem, request.excluded_keywords
+            ):
+                issues.append(
+                    VerificationIssue(
+                        "excluded_keyword_present",
                         f"File '{stem}' matches excluded keyword but was "
-                        f"downloaded anyway: {request.excluded_keywords}"
+                        f"downloaded anyway: {request.excluded_keywords}",
                     )
+                )
 
-            # 4. Check file is in expected save_subdir
-            if request.save_subdir:
-                expected = request.save_subdir.replace("/", "\\")  # Windows path
-                if expected not in str(path.parent):
-                    warnings.append(
+            # 4. Check the file sits inside the declared relative sub-directory
+            if request.save_subdir and not _path_is_within_subdir(
+                path, request.save_subdir
+            ):
+                issues.append(
+                    VerificationIssue(
+                        "unexpected_directory",
                         f"File '{path.name}' is in unexpected directory: "
-                        f"{path.parent} (expected subpath: {request.save_subdir})"
+                        f"{path.parent} (expected subpath: {request.save_subdir})",
                     )
+                )
 
-        return warnings
+        return VerificationResult(ok=not issues, issues=tuple(issues))
 
-    def _get_links(self) -> List[Tuple[str, str]]:
-        """Extract detail links from the active tab pane only."""
+    def _get_links(self, *, tab_scoped: bool = False) -> List[Tuple[str, str]]:
+        """Extract detail links, optionally scoped to the active tab pane.
+
+        When a tab is selected the extraction stays inside that pane.  Falling
+        back to the whole page would silently download another type/period
+        from a tab the caller never asked for.
+        """
         results: List[Tuple[str, str]] = []
 
-        # Scope search to the active (non-hidden) tab pane
-        ACTIVE_TAB_XPATH = (
-            "//div[contains(@class,'el-tab-pane') and not(contains(@class,'is-hidden'))]"
-            "//a[contains(@href, '/new/disclosure/detail')]"
-        )
-        elements = self.browser.find_elements(ACTIVE_TAB_XPATH, by="xpath")
-
-        # Fallback to original broad XPath if scoped search found nothing
-        if not elements:
+        if tab_scoped:
+            elements = self.browser.find_active_tab_links()
+        else:
+            # Try XPath selector first (more precise)
             elements = self.browser.find_elements(C.DETAIL_LINKS_XPATH, by="xpath")
+            # Fallback to all <a> tags (unscoped navigation only)
+            if not elements:
+                elements = self.browser.find_elements("a")
 
         for el in elements:
             try:
@@ -633,3 +711,13 @@ class StockDownloader:
                 log.debug(f"Link extraction error for element: {e}")
 
         return results
+
+
+__all__ = [
+    "FailedDownloadLogger",
+    "StockDownloader",
+    "_matches_excluded",
+    "_matches_keywords",
+    "_path_is_within_subdir",
+    "_subdir_components",
+]

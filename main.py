@@ -68,20 +68,14 @@ class UnifiedRunner:
                 result = downloader.download(request)
                 if not result.success:
                     log.warning(f"Failed: {page.get('name', page.get('suffix'))} for {stock_code}")
+                    for issue in result.verification.issues:
+                        log.warning(f"  [{issue.code}] {issue.message}")
                     success = False
                 else:
-                    vwarnings = result.metadata.get("verification_warnings", [])
-                    if vwarnings:
-                        log.warning(
-                            f"[{page.get('name')}] Downloaded {len(result.downloaded_files)} "
-                            f"file(s), but {len(vwarnings)} verification issue(s) found"
-                        )
-                        success = False
-                    else:
-                        log.info(
-                            f"[{page.get('name')}] {len(result.downloaded_files)} "
-                            f"file(s) downloaded and verified OK"
-                        )
+                    log.info(
+                        f"[{page.get('name')}] {len(result.downloaded_files)} "
+                        f"file(s) downloaded and verified OK"
+                    )
         except Exception as e:
             log.error(f"Task failed for {stock_code}: {e}")
             success = False
