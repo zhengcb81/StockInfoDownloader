@@ -197,12 +197,25 @@ def _emit_failure(
 
 
 def _redirect_console_logs_to_stderr() -> None:
-    """Keep the JSON-lines stdout channel free of logger diagnostics."""
+    """Keep the JSON-lines stdout channel free of logger diagnostics.
+
+    The logger owner already creates its console handler on ``sys.stderr``;
+    this guard exists for hosts that attach an extra handler to stdout (for
+    example a capturing harness).  ``StreamHandler.setStream`` flushes the
+    *previous* stream first, which raises when that stream's owner already
+    closed it, so a closed stream is detached without flushing instead of
+    crashing the protocol path.
+    """
     for handler in log.handlers:
         if isinstance(handler, logging.StreamHandler) and not isinstance(
             handler, logging.FileHandler
         ):
-            handler.setStream(sys.stderr)
+            if getattr(handler, "stream", None) is sys.stderr:
+                continue
+            try:
+                handler.setStream(sys.stderr)
+            except ValueError:
+                handler.stream = sys.stderr
 
 
 def main(argv: Sequence[str] | None = None) -> int:
