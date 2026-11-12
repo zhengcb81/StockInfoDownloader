@@ -21,7 +21,7 @@
 
 ## 当前状态
 
-- 代码：`codex/mb11-sid` @ `f1fff01`，相对基线 10 个提交，工作树干净。
+- 代码：`codex/mb11-sid` @ `f1fff01`（代码）+ 其后一个 PWF 文档提交，相对基线 11 个提交，工作树干净，已推送 origin。
 - 测试：`tests/unit` 334 passed / 0 failed / 0 skipped，61.25s（`evidence/unit-after-review2.log`）。
 - 未执行：真实 E2E（需网络）、真实采集、CI 远端。
 - 待办：推送分支、ROOT 集成。

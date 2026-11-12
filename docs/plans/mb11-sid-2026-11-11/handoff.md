@@ -6,7 +6,8 @@
 |---|---|
 | 实际代码基线 | `c0f07e12d4ba3e232d712bb6e5e491832023b0a0`（原仓 `v2-clean-rewrite` head，工作树 11 项 WIP 未提交） |
 | 交付分支 | `codex/mb11-sid` |
-| 最终 tip | `f1fff01394a41ec797d7317cce1c78b6778d2966` |
+| 最终代码 tip | `f1fff01394a41ec797d7317cce1c78b6778d2966`（独立审查第二轮审的就是这个提交） |
+| 文档提交 | PWF 提交在其后，仅新增/更新 `docs/plans/mb11-sid-2026-11-11/**`，不改代码 |
 | 目标主线 | `v2-clean-rewrite` |
 | remote | `origin` = `https://github.com/zhengcb81/StockInfoDownloader.git`，已推送 `codex/mb11-sid`（新建分支，未开 PR，未合并） |
 | 提交数 | 10（含 1 个 checkpoint） |

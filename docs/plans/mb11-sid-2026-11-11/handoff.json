@@ -145,5 +145,6 @@
     "_TAB_MENU_TEXT hardcodes three Chinese menu labels; a label change makes select_menu_item return 'missing' and fails closed (no wrong-tab download).",
     "tests/unit/test_downloader.py::TestBrowserStaticHostMapping still asserts on browser.py source text; behavioural DNS tests now cover the same ground."
   ],
-  "next_root_action": "Merge f1fff01394a41ec797d7317cce1c78b6778d2966 into v2-clean-rewrite in an integration worktree, then run python -B -m pytest tests/unit -q -p no:cacheprovider once on the integrated tree; keep the original worktree's 11 uncommitted WIP files untouched."
+  "next_root_action": "Merge f1fff01394a41ec797d7317cce1c78b6778d2966 into v2-clean-rewrite in an integration worktree, then run python -B -m pytest tests/unit -q -p no:cacheprovider once on the integrated tree; keep the original worktree's 11 uncommitted WIP files untouched.",
+  "docs_commit": "0d7e8bd (PWF only; no code change after the reviewed tip)"
 }
