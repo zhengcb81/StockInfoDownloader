@@ -1,6 +1,8 @@
 """Unit tests for config module."""
 import json
 import tempfile
+from pathlib import Path
+from pathlib import Path
 
 import pytest
 
@@ -96,3 +98,40 @@ class TestLoadCompanies:
         f.write_text("# comment 1\n# comment 2\n", encoding="utf-8")
         companies = load_companies(str(f))
         assert companies == []
+
+
+class TestConfigTemplateContract:
+    """The shipped template must be a loadable, portable example.
+
+    The template is read as a fixture; no real ``config.json`` is written and
+    no download is attempted.
+    """
+
+    TEMPLATE = Path(__file__).resolve().parents[2] / "config_template.json"
+
+    def test_template_loads_and_keeps_its_declared_pages(self):
+        config = load_config(str(self.TEMPLATE))
+
+        assert [page["suffix"] for page in config["pages"]] == [
+            "latestAnnouncement",
+            "periodicReports",
+            "research",
+        ]
+
+    def test_template_output_directory_is_not_a_host_specific_absolute_path(self):
+        config = load_config(str(self.TEMPLATE))
+        save_dir = config["save_dir"]
+
+        assert not Path(save_dir).is_absolute()
+        assert not save_dir.startswith(("/", "\\"))
+        assert ":" not in save_dir
+
+    def test_template_subdirectories_are_valid_relative_components(self):
+        from src.downloader import _subdir_components
+
+        config = load_config(str(self.TEMPLATE))
+        for page in config["pages"]:
+            subdir = page.get("save_subdir")
+            if subdir is None:
+                continue
+            assert _subdir_components(subdir) == tuple(subdir.split("/"))

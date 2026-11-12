@@ -1,5 +1,5 @@
 {
-  "save_dir": "C:/Users/郑曾波/Projects/company-wiki/companies",
+  "save_dir": "downloads",
   "headless": true,
   "max_retries": 3,
   "timeout_seconds": 180,

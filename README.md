@@ -51,20 +51,20 @@ python main.py --companies companies.txt --parallel --clean
 
 ## 使用案例：批量下载 A 股公司
 
-以 `config_template.json` 为配置模板，`a_share_companies.txt`（192 家公司）为股票列表：
+以 `config_template.json` 为配置模板，自备一个 TXT 公司列表（例如 `companies.txt`）即可：
 
 ```bash
 # 顺序下载（稳定，适合长时间运行）
-python main.py --config config_template.json --companies a_share_companies.txt
+python main.py --config config_template.json --companies companies.txt
 
 # 并行下载（5 线程，速度快但反爬风险更高）
-python main.py --config config_template.json --companies a_share_companies.txt --parallel --workers 5
+python main.py --config config_template.json --companies companies.txt --parallel --workers 5
 
 # 中途中断后继续（进度自动保存，重新运行即可断点续传）
-python main.py --config config_template.json --companies a_share_companies.txt --parallel --workers 5
+python main.py --config config_template.json --companies companies.txt --parallel --workers 5
 
 # 从头重新开始（清除之前的进度记录）
-python main.py --config config_template.json --companies a_share_companies.txt --parallel --clean
+python main.py --config config_template.json --companies companies.txt --parallel --clean
 ```
 
 `config_template.json` 会为每家公司下载三类文档：
@@ -75,7 +75,7 @@ python main.py --config config_template.json --companies a_share_companies.txt -
 | 定期报告 | 年报/半年报/季报，排除摘要 | `{save_dir}/{公司名}/raw/financial_reports/` |
 | 研究报告 | 所有研究报告 | `{save_dir}/{公司名}/raw/research/` |
 
-> **注意：** `save_dir` 默认为 `C:/Users/郑曾波/Projects/company-wiki/companies`，请根据实际路径修改。192 家公司全量下载预计耗时数小时，建议使用 `--parallel` 并在后台运行。
+> **注意：** `save_dir` 是必填的本地输出目录，请按实际环境在配置中填写（仓库不内置任何主机路径）。全量下载耗时较长，建议使用 `--parallel` 并在后台运行。
 
 ## 架构
 
@@ -248,11 +248,8 @@ python tests/e2e/official_e2e_test.py --browser-strategy playwright
 
 ### 测试统计
 
-| 类别 | 数量 |
-|------|------|
-| 单元测试 (config/models/mapping/downloader/storage/parallel/failed_logger/progress) | 104 |
-| E2E 行为测试 (翻页/跳过文件/orgid解析) | 35 |
-| **总计** | **139** |
+测试数量随用例增删变化，本文件不再记录固定数字；以 `pytest tests/` 的实际
+收集与通过结果为准。需要联网的官方 E2E 不计入默认离线套件。
 
 ## 项目对比
 
@@ -264,7 +261,7 @@ python tests/e2e/official_e2e_test.py --browser-strategy playwright
 | 配置文件 | 32 | **2** |
 | 浏览器引擎 | Selenium + Playwright | **仅 Playwright** |
 | 微服务容器 | 5 个 | **无** |
-| 测试数 | 不确定 | **139 (100% 通过)** |
+| 测试数 | 不确定 | 以 `pytest tests/` 实际结果为准 |
 
 ## License
 
