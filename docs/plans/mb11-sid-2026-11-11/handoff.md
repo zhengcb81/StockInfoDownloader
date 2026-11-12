@@ -10,7 +10,7 @@
 | 文档提交 | PWF 提交在其后，仅新增/更新 `docs/plans/mb11-sid-2026-11-11/**`，不改代码 |
 | 目标主线 | `v2-clean-rewrite` |
 | remote | `origin` = `https://github.com/zhengcb81/StockInfoDownloader.git`，已推送 `codex/mb11-sid`（新建分支，未开 PR，未合并） |
-| 提交数 | 10（含 1 个 checkpoint） |
+| 提交数 | 11（含 1 个 checkpoint；最后一个只改 PWF/scripts） |
 
 提交序列：
 
@@ -51,8 +51,9 @@ f593535 receive: accept reviewed CW-2.27D/H legacy WIP as a checkpoint
 | `tests/unit/test_config.py` | +38 | 模板契约 |
 | `tests/unit/test_official_e2e_contract.py` | +25 | report suffix |
 | `tests/e2e/official_e2e_test.py` | +64/-… | report suffix 校验 |
+| `scripts/capture_byd_fy2024_fixture.py`、`scripts/README.md` | 新 | A0 接收 fixture 出处，标 `NO_RUNTIME_REFERENCE` |
 | `README.md`、`config_template.json` | +127/+5 | 去未验证数字与主机路径 |
-| `docs/plans/mb11-sid-2026-11-11/**` | 新 | 本 PWF |
+| `docs/plans/mb11-sid-2026-11-11/**` | 新 | 本 PWF（含 `runtime_inventory.md`、`compliance.md`、`history/g4-sid-latest/`） |
 
 未触碰：原工区 11 项 WIP、`config.json`、`config_e2e_*.json`、`src/stock_orgid_mapping.json`、`end2end_test/**`、CWP/FF/Dayu 任何文件。
 
@@ -132,6 +133,13 @@ ROOT 需要的小 fixture：
 
 - `tests/fixtures/cninfo/byd_fy2024_announcement.json`（已有，本卡未改）
 - `tests/unit/test_provider_runtime_artifact.py` 的 runtime manifest 常量 `RUNTIME_FILES`（14 个文件，供 ROOT 组合时复用）
+- 期间过滤 fixture：`tests/fixtures/g4_latest/{exact_legacy_year,semi_annual_visible,quarterly_cutover}.json`
+
+ROOT 复算命令（在集成树执行，无需网络）：
+
+```bash
+python -B -m pytest tests/unit/test_provider_dependency_direction.py tests/unit/test_provider_runtime_artifact.py -q -p no:cacheprovider
+```
 
 ## 4. 实际测试
 
@@ -139,9 +147,9 @@ ROOT 需要的小 fixture：
 
 | 命令 | 退出码 | 结果 | 耗时 | 日志 |
 |---|---|---|---|---|
-| `pytest tests/unit` | 0 | **334 passed**，0 failed，0 skipped | 61.25s | `evidence/unit-after-review2.log` |
+| `pytest tests/unit` | 0 | **337 passed**，0 failed，0 skipped | 59.96s | `evidence/unit-after-compliance.log` |
 | 卡内命令 1（adapter/cli/budget/g5 五文件） | 0 | **56 passed** | 12.58s | 见 `evidence/unit-after-review2.log` 同批 |
-| 卡内命令 2（provider 两文件） | 0 | **21 passed** | 1.97s | 同上 |
+| 卡内命令 2（provider 两文件） | 0 | **24 passed**（含新增 3 条期间 fixture） | 4.34s | `evidence/unit-after-compliance.log` |
 | `pytest tests/unit/test_legacy_download_contract.py` | 0 | 35 passed | 2.71s | 同上 |
 | `pytest tests/unit`（修复前，checkpoint 树） | 1 | 24 failed / 6 passed | 3.81s | `evidence/red-wip-baseline.log` |
 
@@ -173,6 +181,7 @@ ROOT 需要的小 fixture：
 | 模型调用 | 0 |
 | 费用 | 未知（无付费调用；CNINFO 为免费公开接口，`cost_usd` 恒 `"0"` 是实测而非估算） |
 | 临时文件清理 | pytest `tmp_path` 由 pytest 清理；artifact 目录在 `tmp_path` 内，测试结束自动删除 |
+| G4 PWF 镜像 | 三份原字节归档到 `docs/plans/mb11-sid-2026-11-11/history/g4-sid-latest/`（哈希逐一复核），随后 `worktree remove --force` + `prune` 回收 `_g4/SID-LATEST/StockInfoDLSimple`；复原命令写在归档 README |
 | 全局技能目录 | 未部署（本仓无安装器） |
 
 ## 7. 安装 / 部署 / CI / 合并
@@ -196,3 +205,14 @@ python -B -m pytest tests/unit -q -p no:cacheprovider
 ```
 
 必须使用的输入：目标主线 `v2-clean-rewrite`（当前 head `c0f07e12`）；本卡写集合见 §1；原工区 11 项 WIP 保持未提交，接收后由 ROOT 决定是否清理。
+
+
+## 8. 偏差与待 ROOT 判断
+
+逐条对照见 `compliance.md`。需要 ROOT 知晓的三点：
+
+1. **写集合外新增测试** `tests/unit/test_provider_runtime_artifact.py`。卡的字面写集合只列两个新 provider 测试，但 C 段"组合"要求验证隔离 runtime；本卡把它固化成可重复测试（不碰生产面）。若 ROOT 认为超出，可只保留其 `RUNTIME_FILES` manifest 而删测试。
+2. **真实页签 DOM 未抓取**。`find_active_tab_links()` 用 `offsetParent` 判可见性，页面完全没有 pane 容器时退回整页；`visibility:hidden` 未覆盖。这条假设只能由一次真实页面快照确定，卡明确真实采集由 ROOT 安排。
+3. **`DownloadRequest.confirmed_empty` 没有生产生产者**。legacy SPA 路径不会设置它，`main.py` 也不传；真空页仍按 `infrastructure_fail/upstream_unavailable` 重试。接 API 确认属后续集成工作。
+
+另外：本仓没有 `AGENTS.md`（卡要求开工读"本仓AGENTS"，实际无此文件）。

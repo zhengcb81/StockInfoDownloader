@@ -19,6 +19,18 @@
 | 20:05 | 独立审查第二轮 | PASS + 4 条非阻断（含 1 个真实 bug） |
 | 20:12 | 修复 `_request_failures` 复位、页签选中态、cleanup 异常、重复测试 | `f1fff01`；unit 334 passed |
 
+## 2026-11-12 20:xx 合规复核
+
+按用户要求逐条对照卡片，发现并补齐 5 处遗漏：
+
+1. `scripts/capture_byd_fy2024_fixture.py` 未进交付树 → 已接收 + 说明 + README（标 `NO_RUNTIME_REFERENCE`）。
+2. G4 三份 PWF 镜像未归档回收 → 原字节归档（哈希复核）后 `worktree remove` + `prune`。
+3. 缺"活动入口/模块/公开面/owner/依赖方向"清单 → 新增 `runtime_inventory.md`。
+4. 依赖方向探针只用了年报 fixture → 补 `exact_legacy_year` / `semi_annual_visible` / `quarterly_cutover` 三条期间过滤。
+5. handoff 缺 ROOT 消费 fixture 的执行命令 → 已补；另补 `compliance.md` 逐条对照与 §8 偏差。
+
+测试从 334 → 337 passed。
+
 ## 当前状态
 
 - 代码：`codex/mb11-sid` @ `f1fff01`（代码）+ 其后一个 PWF 文档提交，相对基线 11 个提交，工作树干净，已推送 origin。

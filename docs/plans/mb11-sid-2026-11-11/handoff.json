@@ -30,14 +30,19 @@
     "README.md",
     "config_template.json",
     ".gitignore",
-    "docs/plans/mb11-sid-2026-11-11"
+    "docs/plans/mb11-sid-2026-11-11",
+    "scripts/capture_byd_fy2024_fixture.py",
+    "scripts/README.md",
+    "docs/plans/mb11-sid-2026-11-11/runtime_inventory.md",
+    "docs/plans/mb11-sid-2026-11-11/compliance.md",
+    "docs/plans/mb11-sid-2026-11-11/history/g4-sid-latest"
   ],
   "requirements": [
     {
       "id": "A0-1",
       "result": "PASS",
       "red_evidence": "tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_second_request_does_not_inherit_the_first_confirmed_empty; checkpoint run in evidence/red-wip-baseline.log",
-      "green_evidence": "same tests pass at f1fff01; state moved from the instance attribute _official_status to DownloadRequest.confirmed_empty"
+      "green_evidence": "same tests pass; state moved from the instance attribute _official_status to DownloadRequest.confirmed_empty. No production producer yet - recorded as an out-of-scope finding"
     },
     {
       "id": "A0-2",
@@ -73,7 +78,7 @@
       "id": "SID-02",
       "result": "PASS",
       "red_evidence": "test_announcement_filtering_runs_without_the_adapter_or_browser_layers failed with ImportError: provider domain import refused: src.company_wiki_adapter",
-      "green_evidence": "src/cninfo_report_metadata.py is the single owner; API and adapter import down; adapter keeps _report_metadata as the same function object"
+      "green_evidence": "src/cninfo_report_metadata.py is the single owner; API and adapter import down; adapter keeps _report_metadata as the same function object; the import-blocked probe filters the annual/semi-annual/quarterly fixtures (exact_legacy_year, semi_annual_visible, quarterly_cutover) and still excludes a Q3/FY2026 record dated after the as-of date"
     },
     {
       "id": "RUNTIME-ISOLATION",
@@ -93,13 +98,13 @@
   ],
   "test_runs": [
     {
-      "command": "python -B -m pytest tests/unit -q -p no:cacheprovider",
+      "command": "python -B -m pytest tests/unit -q -p no:cacheprovider --timeout=180",
       "exit_code": 0,
-      "passed": 334,
+      "passed": 337,
       "failed": 0,
       "skipped": 0,
-      "seconds": 61.25,
-      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-review2.log"
+      "seconds": 59.96,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-compliance.log"
     },
     {
       "command": "python -B -m pytest tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/unit/test_cninfo_api_budget.py tests/unit/test_g5_provider_runtime.py -q -p no:cacheprovider",
@@ -113,11 +118,11 @@
     {
       "command": "python -B -m pytest tests/unit/test_provider_error_contract.py tests/unit/test_provider_dependency_direction.py -q -p no:cacheprovider",
       "exit_code": 0,
-      "passed": 21,
+      "passed": 24,
       "failed": 0,
       "skipped": 0,
-      "seconds": 1.97,
-      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-review2.log"
+      "seconds": 4.34,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-compliance.log"
     },
     {
       "command": "python -B -m pytest tests/unit/test_legacy_download_contract.py tests/unit/test_official_e2e_contract.py -q -p no:cacheprovider (checkpoint tree f593535)",
@@ -146,5 +151,24 @@
     "tests/unit/test_downloader.py::TestBrowserStaticHostMapping still asserts on browser.py source text; behavioural DNS tests now cover the same ground."
   ],
   "next_root_action": "Merge f1fff01394a41ec797d7317cce1c78b6778d2966 into v2-clean-rewrite in an integration worktree, then run python -B -m pytest tests/unit -q -p no:cacheprovider once on the integrated tree; keep the original worktree's 11 uncommitted WIP files untouched.",
-  "docs_commit": "0d7e8bd (PWF only; no code change after the reviewed tip)"
+  "docs_commit": "this PWF/scripts commit (no production code change after the reviewed tip)",
+  "deviations": [
+    "tests/unit/test_provider_runtime_artifact.py is outside the literal write set (which lists two new provider tests); it was added because section C requires an isolated-runtime check. It changes no production surface and can be trimmed to its RUNTIME_FILES manifest if ROOT disagrees.",
+    "scripts/ and scripts/README.md were added under the A0 instruction to receive capture_byd_fy2024_fixture.py as a test tool/note; the file is marked NO_RUNTIME_REFERENCE and its logic is unchanged.",
+    ".gitignore gained negations so docs/plans evidence (*.json, *.log) can be committed.",
+    "This repo has no AGENTS.md, so the card's 'read the repo AGENTS' step had nothing to read.",
+    "PWF files were written incrementally rather than created before the first commit; the recorded baseline, timeline and decisions are complete."
+  ],
+  "g4_mirror_disposition": {
+    "archived_to": "docs/plans/mb11-sid-2026-11-11/history/g4-sid-latest/",
+    "files": [
+      "task_plan.md",
+      "findings.md",
+      "progress.md"
+    ],
+    "source_worktree": "C:/Users/郑曾波/Projects/_g4/SID-LATEST/StockInfoDLSimple",
+    "source_head": "201a8f059b658eb0b3c12cb7e4db2ef08e3907da",
+    "recycled": true,
+    "note": "Hashes verified identical before removal; the worktree had no unique tracked commit."
+  }
 }
