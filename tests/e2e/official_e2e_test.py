@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -306,13 +307,28 @@ def compute_overall_success(main_py_success, directory_compare_success):
     return bool(main_py_success and directory_compare_success)
 
 
+_REPORT_SUFFIX_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
 def report_path_for_config(config_path, suffix=""):
-    """Use separate report files for official and extended suites."""
+    """Use separate report files for official and extended suites.
+
+    ``suffix`` is a path-construction input, so it is validated rather than
+    interpolated blindly: separators, parent references and absolute forms are
+    rejected instead of silently writing outside ``project_root``.
+    """
     stem = Path(config_path).stem
     suite = stem.removeprefix("config_e2e_")
-    if suffix:
-        return project_root / f"e2e_{suite}_{suffix}_report.json"
-    return project_root / f"e2e_{suite}_report.json"
+    if not suffix:
+        return project_root / f"e2e_{suite}_report.json"
+    if not isinstance(suffix, str) or not _REPORT_SUFFIX_RE.fullmatch(suffix):
+        raise ValueError(
+            "report suffix must be a single path component of letters, digits,"
+            f" '.', '_' or '-': {suffix!r}"
+        )
+    if suffix in (".", ".."):
+        raise ValueError(f"report suffix must not be a parent reference: {suffix!r}")
+    return project_root / f"e2e_{suite}_{suffix}_report.json"
 
 
 def run_main_py(config_path, browser_strategy):
