@@ -39,7 +39,11 @@ def sha256_file(path):
 def resolve_project_path(path):
     """Resolve a config path relative to the repository root."""
     candidate = Path(path)
-    return candidate.resolve() if candidate.is_absolute() else (project_root / candidate).resolve()
+    return (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (project_root / candidate).resolve()
+    )
 
 
 def log(message):
@@ -194,13 +198,14 @@ def validate_expected_results(config):
             expected_files[company_name] = []
         expected_files[company_name].extend(allowed_keywords)
 
-    log(f"Checking expected_results directory integrity...")
+    log("Checking expected_results directory integrity...")
     log(f"Expected companies: {list(expected_companies)}")
 
     # Only company directories are allowed at the root.
     all_items = list(expected_dir.iterdir())
     extra_dirs = [
-        item for item in all_items
+        item
+        for item in all_items
         if (
             item.is_dir()
             and item.name not in expected_companies
@@ -228,9 +233,7 @@ def validate_expected_results(config):
 
         # Canonical fixtures are direct-child PDFs.  Nested or non-PDF files
         # are baseline drift and must not be silently ignored.
-        all_company_files = [
-            path for path in company_dir.rglob("*") if path.is_file()
-        ]
+        all_company_files = [path for path in company_dir.rglob("*") if path.is_file()]
         pdf_files = [
             path
             for path in all_company_files
@@ -285,7 +288,9 @@ def validate_expected_results(config):
         log(message)
         return False, message
 
-    message = f"Expected baseline is valid: {len(list(expected_dir.rglob('*.pdf')))} PDF(s)."
+    message = (
+        f"Expected baseline is valid: {len(list(expected_dir.rglob('*.pdf')))} PDF(s)."
+    )
     log(message)
     return True, message
 
@@ -301,10 +306,12 @@ def compute_overall_success(main_py_success, directory_compare_success):
     return bool(main_py_success and directory_compare_success)
 
 
-def report_path_for_config(config_path):
+def report_path_for_config(config_path, suffix=""):
     """Use separate report files for official and extended suites."""
     stem = Path(config_path).stem
     suite = stem.removeprefix("config_e2e_")
+    if suffix:
+        return project_root / f"e2e_{suite}_{suffix}_report.json"
     return project_root / f"e2e_{suite}_report.json"
 
 
@@ -313,7 +320,8 @@ def run_main_py(config_path, browser_strategy):
     cmd = [
         sys.executable,
         str(project_root / "main.py"),
-        "--config", config_path,
+        "--config",
+        config_path,
     ]
     log(f"Running: {' '.join(cmd)}")
 
@@ -340,6 +348,11 @@ def main():
         "--config",
         default=str(DEFAULT_CONFIG_PATH),
         help="E2E config path (default: config_e2e_official.json)",
+    )
+    parser.add_argument(
+        "--report-suffix",
+        default="",
+        help="Optional suffix for the report filename (e.g. 'round1', 'round2') to avoid overwrite between consecutive runs",
     )
     args = parser.parse_args()
 
@@ -400,7 +413,10 @@ def main():
     success = False
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8",
+            mode="w",
+            suffix=".json",
+            delete=False,
+            encoding="utf-8",
             dir=str(project_root),
         ) as f:
             json.dump(run_config, f, indent=2, ensure_ascii=False)
@@ -455,7 +471,7 @@ def main():
         "preexisting_pdfs": preexisting_pdfs,
         "retained_pdfs_after_cleanup": retained_pdfs,
     }
-    report_path = report_path_for_config(config_path)
+    report_path = report_path_for_config(config_path, args.report_suffix)
     with report_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 

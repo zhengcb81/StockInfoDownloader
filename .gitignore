@@ -22,3 +22,6 @@ end2end_test/extended_test_results/
 .coverage
 htmlcov/
 .pytest_cache/
+# MB-SID card evidence lives in the repo's own PWF directory.
+!docs/plans/**/*.json
+!docs/plans/**/*.log

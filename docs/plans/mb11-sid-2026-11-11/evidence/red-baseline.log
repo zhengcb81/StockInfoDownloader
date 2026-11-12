@@ -1,0 +1,341 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.9, pytest-9.1.1, pluggy-1.5.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: C:\Users\郑曾波\Projects\mb11-sid
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.19.1, langsmith-0.14.4, asyncio-1.3.0, base-url-2.1.0, benchmark-5.2.3, cov-7.0.0, html-4.1.1, metadata-3.1.1, mock-3.15.1, playwright-0.7.2, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 53 items
+
+tests\unit\test_legacy_download_contract.py FFFFFFFFFFFFFFFFFFF.FFF..F.F [ 52%]
+FF                                                                       [ 56%]
+tests\unit\test_official_e2e_contract.py ..............FFFFFFFF.         [100%]
+
+================================== FAILURES ===================================
+_ TestRequestScopedEmptyState.test_upstream_confirmed_empty_is_reported_for_that_request _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:203: in test_upstream_confirmed_empty_is_reported_for_that_request
+    result = downloader.download(_request(confirmed_empty=True))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:183: in _request
+    return DownloadRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DownloadRequest.__init__() got an unexpected keyword argument 'confirmed_empty'
+_ TestRequestScopedEmptyState.test_second_request_does_not_inherit_the_first_confirmed_empty _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:216: in test_second_request_does_not_inherit_the_first_confirmed_empty
+    first = downloader.download(_request(confirmed_empty=True))
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:183: in _request
+    return DownloadRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DownloadRequest.__init__() got an unexpected keyword argument 'confirmed_empty'
+_ TestRequestScopedEmptyState.test_third_request_recovers_content_after_an_empty_request _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:235: in test_third_request_recovers_content_after_an_empty_request
+    downloader.download(_request(confirmed_empty=True))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:183: in _request
+    return DownloadRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DownloadRequest.__init__() got an unexpected keyword argument 'confirmed_empty'
+_ TestRequestScopedEmptyState.test_confirmed_empty_does_not_suppress_a_page_that_has_documents _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:252: in test_confirmed_empty_does_not_suppress_a_page_that_has_documents
+    result = downloader.download(_request(confirmed_empty=True))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:183: in _request
+    return DownloadRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DownloadRequest.__init__() got an unexpected keyword argument 'confirmed_empty'
+_____ TestSaveSubdirComponentMatch.test_posix_path_matches_by_components ______
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:266: in test_posix_path_matches_by_components
+    assert _within(path, "raw/prospectus") is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+__ TestSaveSubdirComponentMatch.test_windows_path_matches_case_insensitively __
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:270: in test_windows_path_matches_case_insensitively
+    assert _within(path, "raw/prospectus") is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_ TestSaveSubdirComponentMatch.test_windows_path_is_case_sensitive_when_asked _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:274: in test_windows_path_is_case_sensitive_when_asked
+    assert _within(path, "raw/prospectus", case_sensitive=True) is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+___ TestSaveSubdirComponentMatch.test_backslash_subdir_input_is_normalised ____
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:278: in test_backslash_subdir_input_is_normalised
+    assert _within(path, r"raw\prospectus") is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_ TestSaveSubdirComponentMatch.test_sibling_directory_is_not_the_same_scope[prospectus-extra] _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:286: in test_sibling_directory_is_not_the_same_scope
+    assert _within(path, "raw/prospectus") is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_ TestSaveSubdirComponentMatch.test_sibling_directory_is_not_the_same_scope[prospectus_old] _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:286: in test_sibling_directory_is_not_the_same_scope
+    assert _within(path, "raw/prospectus") is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_ TestSaveSubdirComponentMatch.test_sibling_directory_is_not_the_same_scope[my-prospectus] _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:286: in test_sibling_directory_is_not_the_same_scope
+    assert _within(path, "raw/prospectus") is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+__ TestSaveSubdirComponentMatch.test_partial_component_prefix_does_not_match __
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:290: in test_partial_component_prefix_does_not_match
+    assert _within(path, "raw/prospectus") is False
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_______ TestSaveSubdirComponentMatch.test_parent_reference_is_rejected ________
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:294: in test_parent_reference_is_rejected
+    _within(
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+________ TestSaveSubdirComponentMatch.test_absolute_subdir_is_rejected ________
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:300: in test_absolute_subdir_is_rejected
+    _within(
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:40: in _within
+    from src.downloader import _path_is_within_subdir
+E   ImportError: cannot import name '_path_is_within_subdir' from 'src.downloader' (C:\Users\郑曾波\Projects\mb11-sid\src\downloader.py)
+_ TestSaveSubdirComponentMatch.test_download_in_the_wrong_sibling_directory_is_not_a_success _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:316: in test_download_in_the_wrong_sibling_directory_is_not_a_success
+    assert result.success is False
+E   AssertionError: assert True is False
+E    +  where True = DownloadResult(success=True, downloaded_files=['C:\\Users\\郑曾波\\AppData\\Local\\Temp\\pytest-of-郑曾波\\pytest-1326\\test...], total_files=1, errors=[], duration_seconds=0.00016427040100097656, metadata={}, skipped_files=[], pages_traversed=0).success
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+_ TestSaveSubdirComponentMatch.test_download_in_the_declared_directory_verifies _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:332: in test_download_in_the_declared_directory_verifies
+    assert result.verification.ok is True
+           ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'DownloadResult' object has no attribute 'verification'
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+____ TestActiveTabScope.test_empty_active_tab_never_downloads_another_tab _____
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:363: in test_empty_active_tab_never_downloads_another_tab
+    assert dom.downloaded == []
+E   AssertionError: assert [('https://ww...23年年度报告.pdf')] == []
+E     
+E     Left contains 2 more items, first extra item: ('https://www.cninfo.com.cn/new/disclosure/detail?id=9', 'C:\\Users\\郑曾波\\AppData\\Local\\Temp\\pytest-of-郑曾波\\pytest-1326\\test_empty_active_tab_never_do0\\downloads\\中密控股\\中密控股：2024年第三季度报告.pdf')
+E     Use -v to get more diff
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+[19:04:12] INFO stock_downloader: Processing page 1...
+[19:04:12] INFO stock_downloader: Page 1: found 2 links
+[19:04:12] INFO stock_downloader: Downloading: 中密控股：2024年第三季度报告
+[19:04:12] INFO stock_downloader: Downloading: 中密控股：2023年年度报告
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+INFO     stock_downloader:downloader.py:320 Processing page 1...
+INFO     stock_downloader:downloader.py:382 Page 1: found 2 links
+INFO     stock_downloader:downloader.py:419 Downloading: 中密控股：2024年第三季度报告
+INFO     stock_downloader:downloader.py:419 Downloading: 中密控股：2023年年度报告
+_ TestActiveTabScope.test_empty_active_tab_with_upstream_confirmation_stays_empty _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:373: in test_empty_active_tab_with_upstream_confirmation_stays_empty
+    result = downloader.download(_request(confirmed_empty=True))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:183: in _request
+    return DownloadRequest(**base)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DownloadRequest.__init__() got an unexpected keyword argument 'confirmed_empty'
+____ TestActiveTabScope.test_active_tab_links_are_the_only_ones_downloaded ____
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:395: in test_active_tab_links_are_the_only_ones_downloaded
+    assert [href for href, _ in dom.downloaded] == [active[1]]
+E   AssertionError: assert ['https://www.../detail?id=9'] == ['/new/disclo.../detail?id=1']
+E     
+E     At index 0 diff: 'https://www.cninfo.com.cn/new/disclosure/detail?id=1' != '/new/disclosure/detail?id=1'
+E     Left contains one more item: 'https://www.cninfo.com.cn/new/disclosure/detail?id=9'
+E     Use -v to get more diff
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+[19:04:12] INFO stock_downloader: Processing page 1...
+[19:04:12] INFO stock_downloader: Page 1: found 2 links
+[19:04:12] INFO stock_downloader: Downloading: 中密控股：2024年年度报告
+[19:04:12] INFO stock_downloader: Downloading: 中密控股：2024年第三季度报告
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856#periodicReports
+INFO     stock_downloader:downloader.py:320 Processing page 1...
+INFO     stock_downloader:downloader.py:382 Page 1: found 2 links
+INFO     stock_downloader:downloader.py:419 Downloading: 中密控股：2024年年度报告
+INFO     stock_downloader:downloader.py:419 Downloading: 中密控股：2024年第三季度报告
+______ TestVerificationOutcome.test_missing_file_fails_the_owner_result _______
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:425: in test_missing_file_fails_the_owner_result
+    assert result.success is False
+E   AssertionError: assert True is False
+E    +  where True = DownloadResult(success=True, downloaded_files=['C:\\Users\\郑曾波\\AppData\\Local\\Temp\\pytest-of-郑曾波\\pytest-1326\\test...], total_files=1, errors=[], duration_seconds=0.00013208389282226562, metadata={}, skipped_files=[], pages_traversed=0).success
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+_______ TestVerificationOutcome.test_zero_files_is_not_a_silent_success _______
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:439: in test_zero_files_is_not_a_silent_success
+    assert result.success is False
+E   assert True is False
+E    +  where True = DownloadResult(success=True, downloaded_files=[], total_files=0, errors=[], duration_seconds=0.00015735626220703125, metadata={}, skipped_files=[], pages_traversed=0).success
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+___ TestVerificationOutcome.test_verification_is_machine_readable_not_prose ___
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:450: in test_verification_is_machine_readable_not_prose
+    issue = result.verification.issues[0]
+            ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'DownloadResult' object has no attribute 'verification'
+---------------------------- Captured stdout call -----------------------------
+[19:04:12] INFO stock_downloader: Starting download for 300470
+[19:04:12] INFO stock_downloader: Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:downloader.py:152 Starting download for 300470
+INFO     stock_downloader:downloader.py:269 Navigating to: https://www.cninfo.com.cn/new/disclosure/stock?stockCode=300470&orgId=9900023856
+_ TestProtocolStreams.test_console_logger_writes_to_stderr_in_a_fresh_process _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:528: in test_console_logger_writes_to_stderr_in_a_fresh_process
+    assert completed.stdout == ""
+E   AssertionError: assert '[19:04:12] I...DERR-MARKER\n' == ''
+E     
+E     + [19:04:12] INFO stock_downloader: MB-SID-STDERR-MARKER
+__ TestBrowserHostResolution.test_critical_host_failure_aborts_before_launch __
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:638: in test_critical_host_failure_aborts_before_launch
+    with pytest.raises(browser_module.BrowserError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE BrowserError
+---------------------------- Captured stdout call -----------------------------
+[19:04:13] INFO stock_downloader: Playwright browser initialized
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:browser.py:93 Playwright browser initialized
+__ TestBrowserHostResolution.test_optional_bare_host_failure_still_launches ___
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:663: in test_optional_bare_host_failure_still_launches
+    assert len(resolver_args) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+---------------------------- Captured stdout call -----------------------------
+[19:04:13] INFO stock_downloader: Playwright browser initialized
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:browser.py:93 Playwright browser initialized
+_ TestBrowserHostResolution.test_resolved_addresses_come_from_dns_not_hardcoded _
+C:\Users\郑曾波\Projects\mb11-sid\tests\unit\test_legacy_download_contract.py:686: in test_resolved_addresses_come_from_dns_not_hardcoded
+    rules = next(
+E   StopIteration
+
+The above exception was the direct cause of the following exception:
+C:\Miniconda\Lib\site-packages\_pytest\runner.py:361: in from_call
+    result: TResult | None = func()
+                             ^^^^^^
+C:\Miniconda\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\pluggy\_hooks.py:513: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+C:\Miniconda\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+E   RuntimeError: generator raised StopIteration
+---------------------------- Captured stdout call -----------------------------
+[19:04:13] INFO stock_downloader: Playwright browser initialized
+------------------------------ Captured log call ------------------------------
+INFO     stock_downloader:browser.py:93 Playwright browser initialized
+________ test_report_suffix_keeps_consecutive_rounds_from_overwriting _________
+tests\unit\test_official_e2e_contract.py:248: in test_report_suffix_keeps_consecutive_rounds_from_overwriting
+    round1 = runner.report_path_for_config(config, "round1")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+___________ test_report_suffix_rejects_path_like_values[../escape] ____________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+_______________ test_report_suffix_rejects_path_like_values[..] _______________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+______________ test_report_suffix_rejects_path_like_values[a/b] _______________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+______________ test_report_suffix_rejects_path_like_values[a\\b] ______________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+___________ test_report_suffix_rejects_path_like_values[/absolute] ____________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+____________ test_report_suffix_rejects_path_like_values[round 1] _____________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+_______________ test_report_suffix_rejects_path_like_values[.] ________________
+tests\unit\test_official_e2e_contract.py:263: in test_report_suffix_rejects_path_like_values
+    runner.report_path_for_config(
+E   TypeError: report_path_for_config() takes 1 positional argument but 2 were given
+=========================== short test summary info ===========================
+FAILED tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_upstream_confirmed_empty_is_reported_for_that_request
+FAILED tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_second_request_does_not_inherit_the_first_confirmed_empty
+FAILED tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_third_request_recovers_content_after_an_empty_request
+FAILED tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_confirmed_empty_does_not_suppress_a_page_that_has_documents
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_posix_path_matches_by_components
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_windows_path_matches_case_insensitively
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_windows_path_is_case_sensitive_when_asked
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_backslash_subdir_input_is_normalised
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_sibling_directory_is_not_the_same_scope[prospectus-extra]
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_sibling_directory_is_not_the_same_scope[prospectus_old]
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_sibling_directory_is_not_the_same_scope[my-prospectus]
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_partial_component_prefix_does_not_match
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_parent_reference_is_rejected
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_absolute_subdir_is_rejected
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_download_in_the_wrong_sibling_directory_is_not_a_success
+FAILED tests/unit/test_legacy_download_contract.py::TestSaveSubdirComponentMatch::test_download_in_the_declared_directory_verifies
+FAILED tests/unit/test_legacy_download_contract.py::TestActiveTabScope::test_empty_active_tab_never_downloads_another_tab
+FAILED tests/unit/test_legacy_download_contract.py::TestActiveTabScope::test_empty_active_tab_with_upstream_confirmation_stays_empty
+FAILED tests/unit/test_legacy_download_contract.py::TestActiveTabScope::test_active_tab_links_are_the_only_ones_downloaded
+FAILED tests/unit/test_legacy_download_contract.py::TestVerificationOutcome::test_missing_file_fails_the_owner_result
+FAILED tests/unit/test_legacy_download_contract.py::TestVerificationOutcome::test_zero_files_is_not_a_silent_success
+FAILED tests/unit/test_legacy_download_contract.py::TestVerificationOutcome::test_verification_is_machine_readable_not_prose
+FAILED tests/unit/test_legacy_download_contract.py::TestProtocolStreams::test_console_logger_writes_to_stderr_in_a_fresh_process
+FAILED tests/unit/test_legacy_download_contract.py::TestBrowserHostResolution::test_critical_host_failure_aborts_before_launch
+FAILED tests/unit/test_legacy_download_contract.py::TestBrowserHostResolution::test_optional_bare_host_failure_still_launches
+FAILED tests/unit/test_legacy_download_contract.py::TestBrowserHostResolution::test_resolved_addresses_come_from_dns_not_hardcoded
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_keeps_consecutive_rounds_from_overwriting
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[../escape]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[..]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[a/b]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[a\\b]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[/absolute]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[round 1]
+FAILED tests/unit/test_official_e2e_contract.py::test_report_suffix_rejects_path_like_values[.]
+======================== 34 failed, 19 passed in 2.97s ========================

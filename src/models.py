@@ -1,8 +1,11 @@
 """Data models for the stock downloader."""
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+from .transport_states import LoadState
 
 
 @dataclass
@@ -47,3 +50,9 @@ class DownloadResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
     skipped_files: List[str] = field(default_factory=list)
     pages_traversed: int = 0
+    # CW-2.27D typed load state: replaces the historical boolean ``success``
+    # folding for zero-link / infrastructure conditions. Defaults preserve
+    # legacy behavior for callers that do not opt into the typed state.
+    load_state: Optional[LoadState] = None
+    error_code: Optional[str] = None
+    retryable: Optional[bool] = None

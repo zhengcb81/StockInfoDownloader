@@ -22,7 +22,7 @@ def setup_logger(
     )
 
     if console:
-        ch = logging.StreamHandler(sys.stdout)
+        ch = logging.StreamHandler(sys.stderr)
         ch.setFormatter(fmt)
         logger.addHandler(ch)
 

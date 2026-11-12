@@ -242,6 +242,29 @@ def test_official_and_extended_reports_have_distinct_paths():
     assert extended.name == "e2e_extended_report.json"
 
 
+def test_report_suffix_keeps_consecutive_rounds_from_overwriting():
+    config = PROJECT_ROOT / "config_e2e_official.json"
+    base = runner.report_path_for_config(config)
+    round1 = runner.report_path_for_config(config, "round1")
+    round2 = runner.report_path_for_config(config, "round2")
+
+    assert len({base, round1, round2}) == 3
+    for path in (round1, round2):
+        assert path.parent == PROJECT_ROOT
+        assert path.name.endswith("_report.json")
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    ["../escape", "..", "a/b", "a\\b", "/absolute", "round 1", "."],
+)
+def test_report_suffix_rejects_path_like_values(suffix):
+    with pytest.raises(ValueError):
+        runner.report_path_for_config(
+            PROJECT_ROOT / "config_e2e_official.json", suffix
+        )
+
+
 def test_runner_exit_is_nonzero_when_main_fails_but_directories_match(
     tmp_path, monkeypatch
 ):
@@ -274,7 +297,7 @@ def test_runner_exit_is_nonzero_when_main_fails_but_directories_match(
     )
     report_path = tmp_path / "report.json"
     monkeypatch.setattr(runner, "run_main_py", lambda *_args: False)
-    monkeypatch.setattr(runner, "report_path_for_config", lambda _path: report_path)
+    monkeypatch.setattr(runner, "report_path_for_config", lambda _path, _suffix=None, **__: report_path)
     monkeypatch.setattr(
         sys,
         "argv",

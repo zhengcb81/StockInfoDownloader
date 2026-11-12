@@ -3,6 +3,7 @@
 This is the heart of the project. ~350 lines doing what the old project needed
 29,000 lines for.
 """
+
 import json
 import re
 import time
@@ -12,11 +13,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
 from .browser import PlaywrightBrowser
-from .exceptions import BrowserError, DownloadError, OrgIdError
+from .exceptions import BrowserError, OrgIdError
 from .logger import log
 from .mapping import MappingManager
 from .models import DownloadRequest, DownloadResult
 from .string_utils import clean_filename
+from .transport_states import LoadState
 
 
 class FailedDownloadLogger:
@@ -122,6 +124,11 @@ class StockDownloader:
         self.pages_traversed: int = 0
         self.download_count: int = 0
 
+        # CW-2.27D typed load state. Set by ``_switch_tab`` after observing
+        # the SPA tab state and by the (future) cninfo announcement API
+        # client for CONFIRMED_EMPTY. Defaults to None until observed.
+        self._official_status: Optional[LoadState] = None
+
         # Failed download logger
         self._failed_logger = FailedDownloadLogger()
 
@@ -218,7 +225,7 @@ class StockDownloader:
             log.warning(f"Attempt {attempt + 1} failed: {last_result.errors}")
             if attempt < self.max_retries:
                 # Exponential backoff: 1s, 2s, 4s, ...
-                backoff = 2 ** attempt
+                backoff = 2**attempt
                 log.info(f"Waiting {backoff}s before retry...")
                 time.sleep(backoff)
                 # Clear cookies for fresh session
@@ -231,15 +238,60 @@ class StockDownloader:
         """Core download logic."""
         start = time.time()
         downloaded: List[str] = []
+        # Reset per-request typed status so prior observations do not leak.
+        # Preserve an upstream-preconfirmed CONFIRMED_EMPTY so the Phase 5
+        # announcement API client can pre-mark total=0 before SPA fallback.
+        if self._official_status != LoadState.CONFIRMED_EMPTY:
+            self._official_status = None
 
         try:
             self._navigate_to_stock_page(request)
             self._wait_for_page_load()
 
             if request.suffix:
-                self._switch_tab(request.suffix)
+                has_content = self._switch_tab(request.suffix)
+                if not has_content:
+                    # The historical code folded this into success/0 files.
+                    # Now the typed state decides:
+                    #   - CONFIRMED_EMPTY → upstream API explicitly confirmed 0.
+                    #   - INFRASTRUCTURE_FAIL → no official empty observed;
+                    #     SPA/DNS/resource fault must surface, not be masked.
+                    if self._official_status == LoadState.CONFIRMED_EMPTY:
+                        return DownloadResult(
+                            success=True,
+                            downloaded_files=[],
+                            total_files=0,
+                            duration_seconds=time.time() - start,
+                            load_state=LoadState.CONFIRMED_EMPTY,
+                            error_code=None,
+                            retryable=False,
+                        )
+                    if self._official_status is None:
+                        self._official_status = LoadState.INFRASTRUCTURE_FAIL
+                    return DownloadResult(
+                        success=False,
+                        downloaded_files=[],
+                        total_files=0,
+                        duration_seconds=time.time() - start,
+                        load_state=LoadState.INFRASTRUCTURE_FAIL,
+                        error_code="upstream_unavailable",
+                        retryable=True,
+                        errors=[
+                            "upstream observed neither official empty nor"
+                            " disclosure links after retry"
+                        ],
+                    )
 
             downloaded = self._download_pages(request)
+
+            # Post-download verification
+            verify_warnings = self._verify_downloads(request, downloaded)
+            if verify_warnings:
+                log.warning(
+                    f"Post-download verification found {len(verify_warnings)} issue(s):"
+                )
+                for w in verify_warnings:
+                    log.warning(f"  - {w}")
 
             return DownloadResult(
                 success=True,
@@ -248,6 +300,7 @@ class StockDownloader:
                 duration_seconds=time.time() - start,
                 skipped_files=self.skipped_files,
                 pages_traversed=self.pages_traversed,
+                metadata={"verification_warnings": verify_warnings},
             )
         except Exception as e:
             log.error(f"Download pipeline failed: {e}")
@@ -279,13 +332,62 @@ class StockDownloader:
                 return
             log.debug("Waiting for data links to load...")
 
-    def _switch_tab(self, suffix: str) -> None:
-        """Switch to the correct SPA tab."""
-        time.sleep(C.SPA_TAB_SWITCH_WAIT)
-        self.browser.execute_script(
-            f'document.querySelector(\'a[href*="{suffix}"]\')?.click()'
-        )
-        time.sleep(C.CONTENT_LOAD_WAIT)
+    # Map URL suffix to sidebar menu text (cninfo uses el-menu-item now)
+    _TAB_MENU_TEXT = {
+        "latestAnnouncement": "最新公告",
+        "periodicReports": "定期报告",
+        "research": "调研",
+    }
+
+    def _switch_tab(self, suffix: str) -> bool:
+        """Switch to the correct sidebar menu item, with verification and retry.
+
+        Always clicks the menu item — never assumes the page already shows
+        the correct tab. cninfo SPA defaults to "最新公告" on load, so the
+        previous approach of checking for pre-existing links was incorrect:
+        it would find default-tab links and skip the click entirely.
+
+        Returns True if the tab has content, False if genuinely empty.
+        """
+        menu_text = self._TAB_MENU_TEXT.get(suffix)
+
+        for attempt in range(3):
+            # Always click the correct sidebar menu item
+            if menu_text:
+                self.browser.execute_script(f"""
+                    const items = document.querySelectorAll('.el-menu-item');
+                    for (const item of items) {{
+                        if (item.textContent.trim() === '{menu_text}') {{
+                            item.click();
+                            break;
+                        }}
+                    }}
+                """)
+            time.sleep(C.CONTENT_LOAD_WAIT)
+
+            # Verify links appeared after switching
+            link_count = self.browser.execute_script("""
+                () => document.querySelectorAll(
+                    'a[href*="/new/disclosure/detail"]'
+                ).length
+            """)
+            log.debug(f"Tab switch check: {link_count} links found on page")
+
+            if link_count and link_count > 0:
+                log.info(f"Tab '{suffix}' switched: {link_count} links found")
+                break
+
+            log.warning(f"Tab switch attempt {attempt + 1} failed, no links found")
+        else:
+            # No links after 3 attempts. Preserve an upstream-confirmed
+            # CONFIRMED_EMPTY if it was already set (e.g. by the Phase 5
+            # announcement API client); otherwise record an infrastructure
+            # failure so the legacy ``success=True / 0 files`` mask is gone.
+            if self._official_status != LoadState.CONFIRMED_EMPTY:
+                self._official_status = LoadState.INFRASTRUCTURE_FAIL
+            log.info(f"Tab '{suffix}' has no content — skipping")
+            return False
+
         # Extra wait for latestAnnouncement tab (heavy SPA content)
         if suffix == "latestAnnouncement":
             # Wait for pagination element to render (not just links)
@@ -298,6 +400,8 @@ class StockDownloader:
                     break
                 log.debug(f"Waiting for pagination... (total={total})")
             self._wait_for_page_load()
+
+        return True
 
     # ── Page Traversal ────────────────────────────────────────────────
 
@@ -374,9 +478,7 @@ class StockDownloader:
 
     # ── Link Processing ───────────────────────────────────────────────
 
-    def _download_page_links(
-        self, request: DownloadRequest, page: int
-    ) -> List[str]:
+    def _download_page_links(self, request: DownloadRequest, page: int) -> List[str]:
         """Match and download links on the current page."""
         links = self._get_links()
         log.info(f"Page {page}: found {len(links)} links")
@@ -403,7 +505,9 @@ class StockDownloader:
     ) -> Optional[str]:
         """Download a single file."""
         target_name = clean_filename(text)
-        save_dir = Path(str(request.save_dir)) if request.save_dir else Path(self.save_dir)
+        save_dir = (
+            Path(str(request.save_dir)) if request.save_dir else Path(self.save_dir)
+        )
         company_dir = save_dir / (request.stock_name or f"Stock_{request.stock_code}")
         if request.save_subdir:
             dest = company_dir / request.save_subdir / f"{target_name}.pdf"
@@ -430,22 +534,90 @@ class StockDownloader:
                 )
         else:
             self._failed_logger.record(
-                request.stock_code, request.stock_name or "", text, href, "download_file returned False"
+                request.stock_code,
+                request.stock_name or "",
+                text,
+                href,
+                "download_file returned False",
             )
 
         time.sleep(1)
         return None
 
+    # ── Post-Download Verification ─────────────────────────────────────
+
+    def _verify_downloads(
+        self, request: DownloadRequest, downloaded: List[str]
+    ) -> List[str]:
+        """Verify downloaded files match config requirements.
+
+        Returns list of validation warnings. Empty = all OK.
+        """
+        warnings: List[str] = []
+
+        # CW-2.27H / Phase 7 mandatory baseline fix (user_override on the
+        # Phase 3 baseline-failure exemption). Surfacing an empty-download
+        # outcome as a validation warning prevents the historical
+        # "success=True / 0 files" mask now that Phase 3 typed LoadState
+        # has been propagated to _download_internal. Downstream callers
+        # receive an explicit "No files were downloaded" warning rather
+        # than a silent green result.
+        if not downloaded:
+            warnings.append("No files were downloaded")
+
+        for fpath in downloaded:
+            path = Path(fpath)
+
+            # 1. Check file exists and is valid size
+            if not path.exists():
+                warnings.append(f"File missing: {path.name}")
+                continue
+            if path.stat().st_size <= C.MIN_FILE_SIZE:
+                warnings.append(f"File too small (likely failed): {path.name}")
+                continue
+
+            # 2. Check filename matches allowed_keywords (if specified)
+            stem = path.stem  # filename without extension
+            if request.allowed_keywords:
+                if not _matches_keywords(stem, request.allowed_keywords):
+                    warnings.append(
+                        f"File '{stem}' does not match any allowed keyword: "
+                        f"{request.allowed_keywords}"
+                    )
+
+            # 3. Check filename does NOT match excluded_keywords
+            if request.excluded_keywords:
+                if _matches_excluded(stem, request.excluded_keywords):
+                    warnings.append(
+                        f"File '{stem}' matches excluded keyword but was "
+                        f"downloaded anyway: {request.excluded_keywords}"
+                    )
+
+            # 4. Check file is in expected save_subdir
+            if request.save_subdir:
+                expected = request.save_subdir.replace("/", "\\")  # Windows path
+                if expected not in str(path.parent):
+                    warnings.append(
+                        f"File '{path.name}' is in unexpected directory: "
+                        f"{path.parent} (expected subpath: {request.save_subdir})"
+                    )
+
+        return warnings
+
     def _get_links(self) -> List[Tuple[str, str]]:
-        """Extract detail links from the current page."""
+        """Extract detail links from the active tab pane only."""
         results: List[Tuple[str, str]] = []
 
-        # Try XPath selector first (more precise)
-        elements = self.browser.find_elements(C.DETAIL_LINKS_XPATH, by="xpath")
+        # Scope search to the active (non-hidden) tab pane
+        ACTIVE_TAB_XPATH = (
+            "//div[contains(@class,'el-tab-pane') and not(contains(@class,'is-hidden'))]"
+            "//a[contains(@href, '/new/disclosure/detail')]"
+        )
+        elements = self.browser.find_elements(ACTIVE_TAB_XPATH, by="xpath")
 
-        # Fallback to all <a> tags
+        # Fallback to original broad XPath if scoped search found nothing
         if not elements:
-            elements = self.browser.find_elements("a")
+            elements = self.browser.find_elements(C.DETAIL_LINKS_XPATH, by="xpath")
 
         for el in elements:
             try:

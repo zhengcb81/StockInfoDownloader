@@ -2,11 +2,11 @@
 
 No abstract base class, no factory pattern, no adapter layer. Just Playwright.
 """
-import os
+
 import random
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 try:
     from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
@@ -46,14 +46,46 @@ class PlaywrightBrowser:
     def initialize(self) -> bool:
         """Start Playwright and open a browser."""
         try:
+            import socket as _socket
+
             self._pw = sync_playwright().start()
+            launch_args = [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+            ]
+            # Resolve every critical cninfo host independently via system DNS.
+            # Hardcoded fallback IPs are intentionally forbidden: when system
+            # DNS fails the browser must fail fast so callers observe a typed
+            # INFRASTRUCTURE_FAIL — never silently alias www's IP to static's,
+            # because that has been confirmed to keep SPA assets unreachable.
+            #
+            # CW-2.27H / Phase 8 hardening: only www and static are CRITICAL
+            # for the SPA navigation + PDF transport pipeline. The bare host
+            # ``cninfo.com.cn`` is not used by any actual request and often
+            # fails to resolve (Akamai CDN routing quirk); treat it as
+            # best-effort and warn rather than kill browser initialisation.
+            _CRITICAL_HOSTS = ("www.cninfo.com.cn", "static.cninfo.com.cn")
+            _OPTIONAL_HOSTS = ("cninfo.com.cn",)
+            resolver_rules = []
+            for host in _CRITICAL_HOSTS:
+                try:
+                    ip = _socket.getaddrinfo(host, 443)[0][4][0]
+                except OSError as exc:
+                    raise BrowserError(
+                        f"critical cninfo host unresolved: {host} ({exc})"
+                    ) from exc
+                resolver_rules.append(f"MAP {host} {ip}")
+            for host in _OPTIONAL_HOSTS:
+                try:
+                    ip = _socket.getaddrinfo(host, 443)[0][4][0]
+                    resolver_rules.append(f"MAP {host} {ip}")
+                except OSError:
+                    log.debug(f"optional cninfo host unresolved (continuing): {host}")
+            launch_args.append(f"--host-resolver-rules={', '.join(resolver_rules)}")
             self._browser = self._pw.chromium.launch(
                 headless=self.headless,
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--disable-dev-shm-usage",
-                    "--no-sandbox",
-                ],
+                args=launch_args,
             )
             self._context = self._browser.new_context(
                 user_agent=random.choice(C.USER_AGENTS),
@@ -134,7 +166,9 @@ class PlaywrightBrowser:
     def navigate(self, url: str, wait_until: str = "domcontentloaded") -> bool:
         """Navigate to a URL."""
         try:
-            self.page.goto(url, wait_until=wait_until, timeout=C.PAGE_LOAD_TIMEOUT * 1000)
+            self.page.goto(
+                url, wait_until=wait_until, timeout=C.PAGE_LOAD_TIMEOUT * 1000
+            )
             # Random anti-crawler delay
             delay_range = self.config.get("anti_crawler", {}).get(
                 "random_delay_range", list(C.DEFAULT_DELAY_RANGE)
@@ -248,7 +282,9 @@ class PlaywrightBrowser:
         try:
             with self.page.expect_download(timeout=10000) as dl_info:
                 self.page.goto(
-                    url, wait_until="domcontentloaded", timeout=C.PAGE_LOAD_TIMEOUT * 1000
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=C.PAGE_LOAD_TIMEOUT * 1000,
                 )
             download = dl_info.value
             download.save_as(save_path)
@@ -270,14 +306,16 @@ class PlaywrightBrowser:
             log.debug(f"Direct download failed, trying button: {error_msg[:100]}")
         return None
 
-    def _try_button_download(self, url: str, save_path: str, timeout: int) -> Optional[bool]:
+    def _try_button_download(
+        self, url: str, save_path: str, timeout: int
+    ) -> Optional[bool]:
         """Try strategy 2: find and click a download button on the detail page."""
         try:
             self.page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
             pass
 
-        # Wait for download button to appear (SPA may not have rendered it yet)
+        # Find download button: instant check first, then short waits
         btn_selectors = [
             "button:has-text('公告下载')",
             "a:has-text('下载')",
@@ -286,17 +324,32 @@ class PlaywrightBrowser:
             "a:has-text('公告下载')",
         ]
         btn = None
+
+        # Phase 1: instant query — page is usually already rendered
         for selector in btn_selectors:
             try:
-                self.page.wait_for_selector(selector, timeout=8000, state="visible")
                 btn = self.page.query_selector(selector)
-                if btn:
+                if btn and btn.is_visible():
                     break
+                btn = None
             except Exception:
                 continue
 
+        # Phase 2: short waits only if instant check found nothing
         if not btn:
-            log.error("Download button not found")
+            for selector in btn_selectors:
+                try:
+                    self.page.wait_for_selector(selector, timeout=3000, state="visible")
+                    btn = self.page.query_selector(selector)
+                    if btn:
+                        break
+                except Exception:
+                    continue
+
+        if not btn:
+            log.debug(
+                "Download button not found (page may not support button download)"
+            )
             return False
 
         try:

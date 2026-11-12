@@ -4,9 +4,8 @@ Supports local JSON lookup + automatic web crawling when local data is missing.
 """
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from .exceptions import MappingError
 from .logger import log
 from .models import OrgIdMapping
 from .storage import JsonStorage
@@ -214,27 +213,24 @@ class MappingManager:
 
     def _crawl_org_id(self, stock_code: str) -> Optional[str]:
         """Crawl org_id from web and save to local mapping."""
-        try:
-            from .orgid import OrgIdCrawler
+        from .orgid import OrgIdCrawler
 
-            crawler = OrgIdCrawler(
-                browser_strategy=self._browser_strategy,
-                strategy_type=self._browser_strategy_type,
+        crawler = OrgIdCrawler(
+            browser_strategy=self._browser_strategy,
+            strategy_type=self._browser_strategy_type,
+        )
+        org_id = crawler.get_org_id(stock_code)
+        if org_id:
+            log.info(f"Crawled org_id: {stock_code} → {org_id}")
+            stock_name = self._crawl_stock_name(stock_code) or f"Stock_{stock_code}"
+            self.add_mapping(
+                stock_code=stock_code,
+                org_id=org_id,
+                stock_name=stock_name,
+                source="auto",
+                confidence=0.7,
             )
-            org_id = crawler.get_org_id(stock_code)
-            if org_id:
-                log.info(f"Crawled org_id: {stock_code} → {org_id}")
-                stock_name = self._crawl_stock_name(stock_code) or f"Stock_{stock_code}"
-                self.add_mapping(
-                    stock_code=stock_code,
-                    org_id=org_id,
-                    stock_name=stock_name,
-                    source="auto",
-                    confidence=0.7,
-                )
-                return org_id
-        except Exception as e:
-            log.error(f"Failed to crawl org_id for {stock_code}: {e}")
+            return org_id
         return None
 
     def _crawl_stock_name(self, stock_code: str) -> Optional[str]:
