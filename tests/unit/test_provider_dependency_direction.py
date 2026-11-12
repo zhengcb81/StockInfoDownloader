@@ -191,6 +191,117 @@ print(json.dumps({
 
 
 # ---------------------------------------------------------------------------
+# the existing period fixtures keep their filtering semantics
+# ---------------------------------------------------------------------------
+
+_PERIOD_CASES = [
+    (
+        "exact_legacy_year.json",
+        "002594",
+        {"document_kind": "annual_report", "fiscal_year": 2024},
+        ["900006001"],
+    ),
+    (
+        "semi_annual_visible.json",
+        "600000",
+        {"document_kind": "semi_annual_report", "as_of_date": "2026-09-01"},
+        ["900002001", "900002002"],
+    ),
+    (
+        "quarterly_cutover.json",
+        "600000",
+        {"document_kind": "quarterly_report", "as_of_date": "2026-06-01"},
+        ["900003001", "900003002"],
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "stock_code", "kwargs", "expected_ids"),
+    _PERIOD_CASES,
+    ids=[case[0].removesuffix(".json") for case in _PERIOD_CASES],
+)
+def test_announcement_filtering_keeps_each_period_fixture_semantics(
+    fixture_name, stock_code, kwargs, expected_ids
+):
+    """Annual / semi-annual / quarterly filtering stays period-correct.
+
+    The quarterly fixture contains a Q3/FY2026 record dated after the as-of
+    date; it must stay excluded.  No company-name branch decides the period.
+    """
+    spec = json.dumps(
+        {
+            "path": str(WORKTREE / "tests" / "fixtures" / "g4_latest" / fixture_name),
+            "stock_code": stock_code,
+            **kwargs,
+        }
+    )
+
+    result = _run_probe(
+        '''
+import urllib.request
+from src.cninfo_api import CninfoAnnouncementClient
+
+spec = json.loads(sys.argv[1])
+fixture = json.loads(Path(spec["path"]).read_text(encoding="utf-8"))
+page = fixture["pages"]["1"]
+body = json.dumps(page, ensure_ascii=False).encode("utf-8")
+
+
+class _Body:
+    def __init__(self, payload):
+        self.payload = payload
+        self.offset = 0
+        self.status = 200
+        self.headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+        }
+
+    def read(self, size=-1):
+        chunk = (
+            self.payload[self.offset:]
+            if size < 0
+            else self.payload[self.offset:self.offset + size]
+        )
+        self.offset += len(chunk)
+        return chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+
+urllib.request.urlopen = lambda *a, **k: _Body(body)
+
+kwargs = {
+    key: value
+    for key, value in spec.items()
+    if key in ("document_kind", "fiscal_year", "as_of_date")
+}
+records, state = CninfoAnnouncementClient().discover_announcements(
+    stock_code=spec["stock_code"],
+    org_id="gshk0001211",
+    max_pages=3,
+    **kwargs,
+)
+print(json.dumps({
+    "ids": [record.announcement_id for record in records],
+    "state": state.value,
+    "leaked": [name for name in BLOCKED if name in sys.modules],
+}))
+''',
+        spec,
+    )
+
+    assert result["state"] == "ready"
+    assert result["ids"] == expected_ids
+    assert result["leaked"] == []
+
+
+# ---------------------------------------------------------------------------
 # the adapter may still re-export the helper for historical callers
 # ---------------------------------------------------------------------------
 
