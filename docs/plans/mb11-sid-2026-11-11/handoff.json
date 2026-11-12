@@ -1,0 +1,149 @@
+{
+  "schema_version": "module-boundary-handoff/1",
+  "lane": "MB-SID",
+  "status": "REVIEWED",
+  "repository_root": "C:/Users/郑曾波/Projects/mb11-sid",
+  "base_commit": "c0f07e12d4ba3e232d712bb6e5e491832023b0a0",
+  "commit": "f1fff01394a41ec797d7317cce1c78b6778d2966",
+  "branch": "codex/mb11-sid",
+  "target_branch": "v2-clean-rewrite",
+  "pushed": true,
+  "changed_paths": [
+    "src/downloader.py",
+    "src/models.py",
+    "src/browser.py",
+    "src/logger.py",
+    "src/mapping.py",
+    "main.py",
+    "src/cninfo_report_metadata.py",
+    "src/cninfo_api.py",
+    "src/company_wiki_adapter.py",
+    "src/company_wiki_adapter_cli.py",
+    "tests/unit/test_legacy_download_contract.py",
+    "tests/unit/test_provider_error_contract.py",
+    "tests/unit/test_provider_dependency_direction.py",
+    "tests/unit/test_provider_runtime_artifact.py",
+    "tests/unit/test_downloader.py",
+    "tests/unit/test_config.py",
+    "tests/unit/test_official_e2e_contract.py",
+    "tests/e2e/official_e2e_test.py",
+    "README.md",
+    "config_template.json",
+    ".gitignore",
+    "docs/plans/mb11-sid-2026-11-11"
+  ],
+  "requirements": [
+    {
+      "id": "A0-1",
+      "result": "PASS",
+      "red_evidence": "tests/unit/test_legacy_download_contract.py::TestRequestScopedEmptyState::test_second_request_does_not_inherit_the_first_confirmed_empty; checkpoint run in evidence/red-wip-baseline.log",
+      "green_evidence": "same tests pass at f1fff01; state moved from the instance attribute _official_status to DownloadRequest.confirmed_empty"
+    },
+    {
+      "id": "A0-2",
+      "result": "PASS",
+      "red_evidence": "test_download_in_the_wrong_sibling_directory_is_not_a_success returned success=True on the checkpoint; six pure-helper cases cover POSIX/Windows/separators/siblings",
+      "green_evidence": "_subdir_components/_path_is_within_subdir shared by write and verify paths"
+    },
+    {
+      "id": "A0-3",
+      "result": "PASS",
+      "red_evidence": "test_empty_active_tab_never_downloads_another_tab: checkpoint downloaded the hidden tab's two links",
+      "green_evidence": "browser owns select_menu_item (active/inactive/unknown/missing) and find_active_tab_links (offsetParent); unknown suffix raises DownloadError; six scope cases"
+    },
+    {
+      "id": "A0-4",
+      "result": "PASS",
+      "red_evidence": "missing file / zero files / partial failure all returned success=True on the checkpoint; main.run_single returned False for a successful owner result",
+      "green_evidence": "VerificationResult with typed issue codes folded into success; main reads result.success only"
+    },
+    {
+      "id": "A0-5",
+      "result": "PASS",
+      "red_evidence": "fresh-process logger test and report-suffix rejection cases failed on the checkpoint",
+      "green_evidence": "logger binds stderr; report suffix is a validated single component, checked before the run"
+    },
+    {
+      "id": "SID-01",
+      "result": "PASS",
+      "red_evidence": "tests/unit/test_provider_error_contract.py: four transport failures reported upstream_unavailable/retryable=true through the public CLI (evidence/red-provider.log)",
+      "green_evidence": "host_not_allowed/pdf_magic_invalid/content_too_small non-retryable, timeout retryable, measured usage preserved, unknown usage not fabricated"
+    },
+    {
+      "id": "SID-02",
+      "result": "PASS",
+      "red_evidence": "test_announcement_filtering_runs_without_the_adapter_or_browser_layers failed with ImportError: provider domain import refused: src.company_wiki_adapter",
+      "green_evidence": "src/cninfo_report_metadata.py is the single owner; API and adapter import down; adapter keeps _report_metadata as the same function object"
+    },
+    {
+      "id": "RUNTIME-ISOLATION",
+      "result": "PASS",
+      "red_evidence": null,
+      "green_evidence": "tests/unit/test_provider_runtime_artifact.py: 14-file manifest, empty cwd, local HTTP double, staging-only writes, .part cleanup, sha256/byte_size receipt match"
+    }
+  ],
+  "public_contract_changes": [
+    "DownloadRequest.confirmed_empty: bool = False (trailing optional field)",
+    "DownloadResult.verification: VerificationResult (default ok=True, issues=())",
+    "new src.models.VerificationIssue / VerificationResult",
+    "new src.cninfo_report_metadata.report_metadata; company_wiki_adapter._report_metadata kept as the same function object",
+    "PlaywrightBrowser.select_menu_item / find_active_tab_links (new provider-internal accessors)",
+    "tests/e2e report_path_for_config gains an optional suffix and raises ValueError for path-like values",
+    "CLI JSON 1.0 shape unchanged; additional stable error codes may appear"
+  ],
+  "test_runs": [
+    {
+      "command": "python -B -m pytest tests/unit -q -p no:cacheprovider",
+      "exit_code": 0,
+      "passed": 334,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 61.25,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-review2.log"
+    },
+    {
+      "command": "python -B -m pytest tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/unit/test_cninfo_api_budget.py tests/unit/test_g5_provider_runtime.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 12.58,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-review2.log"
+    },
+    {
+      "command": "python -B -m pytest tests/unit/test_provider_error_contract.py tests/unit/test_provider_dependency_direction.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 1.97,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/unit-after-review2.log"
+    },
+    {
+      "command": "python -B -m pytest tests/unit/test_legacy_download_contract.py tests/unit/test_official_e2e_contract.py -q -p no:cacheprovider (checkpoint tree f593535)",
+      "exit_code": 1,
+      "passed": 6,
+      "failed": 24,
+      "skipped": 0,
+      "seconds": 3.81,
+      "log": "docs/plans/mb11-sid-2026-11-11/evidence/red-wip-baseline.log"
+    }
+  ],
+  "independent_review": {
+    "reviewer": "agent-b23d2f95-2581-4679-99fd-419cb819a871 (round 1), agent-0d946b9c-c87e-469b-9c64-c4449ad9e178 (round 2)",
+    "reviewed_code_commit": "1f4f44c (round 1), 5e4c3f7 (round 2)",
+    "report": "docs/plans/mb11-sid-2026-11-11/review.md",
+    "open_in_scope_findings": []
+  },
+  "environment_restored": true,
+  "network_calls": 1,
+  "model_calls": 0,
+  "out_of_scope_findings": [
+    "The real cninfo tab DOM was never captured: find_active_tab_links relies on offsetParent visibility, falls back to the whole document when no pane container exists, and does not cover visibility:hidden. One real DOM snapshot is needed to turn this assumption into evidence.",
+    "DownloadRequest.confirmed_empty has no producer in the legacy SPA path yet, so a genuinely empty tab is still reported as infrastructure_fail/upstream_unavailable and retried.",
+    "src/mapping.py dropped the catch-all in _crawl_org_id (accepted WIP); a crawler construction/import failure now surfaces as the raw exception text instead of 'Cannot resolve org_id'.",
+    "_TAB_MENU_TEXT hardcodes three Chinese menu labels; a label change makes select_menu_item return 'missing' and fails closed (no wrong-tab download).",
+    "tests/unit/test_downloader.py::TestBrowserStaticHostMapping still asserts on browser.py source text; behavioural DNS tests now cover the same ground."
+  ],
+  "next_root_action": "Merge f1fff01394a41ec797d7317cce1c78b6778d2966 into v2-clean-rewrite in an integration worktree, then run python -B -m pytest tests/unit -q -p no:cacheprovider once on the integrated tree; keep the original worktree's 11 uncommitted WIP files untouched."
+}
