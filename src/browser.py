@@ -6,7 +6,7 @@ No abstract base class, no factory pattern, no adapter layer. Just Playwright.
 import random
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
@@ -197,21 +197,112 @@ class PlaywrightBrowser:
             log.debug(f"find_elements failed ({selector}): {e}")
             return []
 
-    def find_active_tab_links(self) -> List[Any]:
-        """Return disclosure links inside the *visible* SPA tab pane only.
+    # ── SPA tab scope ─────────────────────────────────────────────────
+    #
+    # cninfo renders every tab into the DOM and hides the inactive panes.  A
+    # page-wide ``a[href*=detail]`` query therefore returns documents from tabs
+    # the caller never selected.  These three accessors are the only place that
+    # knows the pane markup; callers ask for "the active tab" instead of
+    # re-deriving a selector.
 
-        cninfo keeps every tab in the DOM and hides the inactive ones with
-        ``el-tab-pane is-hidden``.  A page-wide ``a[href*=detail]`` query
-        therefore returns documents from tabs the caller never selected; the
-        downloader would then collect another type or period.  This accessor is
-        the single place that knows the pane markup.
+    _PANE_SELECTOR = '.el-tab-pane, .tab-pane, [role="tabpanel"]'
+
+    def click_menu_item(self, text: str) -> bool:
+        """Click the sidebar/tab menu item whose visible text is ``text``.
+
+        Returns False when no such item exists, so the caller can distinguish
+        "the requested tab is not reachable on this page" from "the tab is
+        empty" instead of silently reading whichever tab happens to be active.
         """
-        selector = (
-            "//div[contains(@class,'el-tab-pane')"
-            " and not(contains(@class,'is-hidden'))]"
-            "//a[contains(@href, '/new/disclosure/detail')]"
-        )
-        return self.find_elements(selector, by="xpath")
+        script = """
+        (label) => {
+            const items = Array.from(
+                document.querySelectorAll(
+                    '.el-menu-item, .el-tabs__item, [role="tab"]'
+                )
+            );
+            const target = items.find(
+                (item) => (item.textContent || '').trim() === label
+            );
+            if (!target) return false;
+            target.click();
+            return true;
+        }
+        """
+        try:
+            return bool(self.page.evaluate(script, text))
+        except Exception as e:
+            log.debug(f"click_menu_item failed ({text!r}): {e}")
+            return False
+
+    def active_tab_label(self) -> Optional[str]:
+        """Return the selected menu item's text, or None when unknown.
+
+        ``None`` means "this page does not expose a selection marker we
+        recognise"; callers must not treat it as a mismatch.
+        """
+        script = """
+        () => {
+            const active = document.querySelector(
+                '.el-menu-item.is-active, .el-tabs__item.is-active,'
+                + ' [role="tab"][aria-selected="true"]'
+            );
+            return active ? (active.textContent || '').trim() : null;
+        }
+        """
+        try:
+            value = self.page.evaluate(script)
+        except Exception as e:
+            log.debug(f"active_tab_label failed: {e}")
+            return None
+        return value if isinstance(value, str) and value.strip() else None
+
+    def find_active_tab_links(self) -> List[Tuple[str, str]]:
+        """Return ``(href, text)`` for disclosure links in the visible pane.
+
+        Visibility uses ``offsetParent``, which is false for any element hidden
+        by ``display:none`` — whether that comes from an ``is-hidden`` class, an
+        inline style or a framework ``v-show``.  A class-only predicate would
+        miss the inline-style case and keep returning another tab's documents.
+
+        When the page has no recognised pane container at all, the whole
+        document is the active scope (there is nothing to switch away from).
+        When pane containers exist but none is visible, the result is empty:
+        the caller must not widen to the whole page.
+        """
+        script = """
+        (paneSelector) => {
+            const panes = Array.from(document.querySelectorAll(paneSelector));
+            const visible = panes.filter((pane) => pane.offsetParent !== null);
+            const roots = panes.length === 0 ? [document] : visible;
+            const out = [];
+            for (const root of roots) {
+                const links = root.querySelectorAll(
+                    'a[href*="/new/disclosure/detail"]'
+                );
+                for (const link of links) {
+                    out.push([
+                        link.getAttribute('href') || '',
+                        (link.textContent || '').trim(),
+                    ]);
+                }
+            }
+            return out;
+        }
+        """
+        try:
+            raw = self.page.evaluate(script, self._PANE_SELECTOR)
+        except Exception as e:
+            log.debug(f"find_active_tab_links failed: {e}")
+            return []
+        pairs: List[Tuple[str, str]] = []
+        for item in raw or []:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                continue
+            href, text = item
+            if isinstance(href, str) and href and isinstance(text, str) and text:
+                pairs.append((href, text))
+        return pairs
 
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
         """Find a single element."""

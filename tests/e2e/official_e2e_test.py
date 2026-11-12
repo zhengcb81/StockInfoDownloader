@@ -315,7 +315,9 @@ def report_path_for_config(config_path, suffix=""):
 
     ``suffix`` is a path-construction input, so it is validated rather than
     interpolated blindly: separators, parent references and absolute forms are
-    rejected instead of silently writing outside ``project_root``.
+    rejected instead of silently writing outside ``project_root``.  The pattern
+    requires an alphanumeric first character, which already excludes ``.`` and
+    ``..``.
     """
     stem = Path(config_path).stem
     suite = stem.removeprefix("config_e2e_")
@@ -326,8 +328,6 @@ def report_path_for_config(config_path, suffix=""):
             "report suffix must be a single path component of letters, digits,"
             f" '.', '_' or '-': {suffix!r}"
         )
-    if suffix in (".", ".."):
-        raise ValueError(f"report suffix must not be a parent reference: {suffix!r}")
     return project_root / f"e2e_{suite}_{suffix}_report.json"
 
 
@@ -371,6 +371,12 @@ def main():
         help="Optional suffix for the report filename (e.g. 'round1', 'round2') to avoid overwrite between consecutive runs",
     )
     args = parser.parse_args()
+
+    # Validate the report suffix before a multi-minute run, not after it.
+    try:
+        report_path_for_config(args.config, args.report_suffix)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     browser_strategy = args.browser_strategy
     log(f"Starting Official End-to-End Test (browser strategy: {browser_strategy})")

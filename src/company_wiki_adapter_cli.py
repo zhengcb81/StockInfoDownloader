@@ -227,6 +227,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     _redirect_console_logs_to_stderr()
     adapter: StockInfoCompanyWikiAdapter | None = None
     budget: ProviderAcquisitionBudget | None = None
+    failure: BaseException | None = None
+    result: dict[str, Any] | None = None
     try:
         value = _payload()
         if "acquisition_budget" in value:
@@ -274,11 +276,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     result_payload["acquisition_usage"] = budget.usage()
                 result = _response(**result_payload)
     except Exception as exc:
-        return _emit_failure(exc, budget)
+        failure = exc
     finally:
+        # Cleanup can log; it must happen *before* the protocol document so the
+        # documented "last stderr line is the JSON" contract keeps holding.
         if adapter is not None:
             with redirect_stdout(sys.stderr):
                 _cleanup(adapter)
+    if failure is not None:
+        return _emit_failure(failure, budget)
+    assert result is not None
     sys.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

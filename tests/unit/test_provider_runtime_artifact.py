@@ -323,7 +323,7 @@ def test_artifact_fetch_failure_leaves_no_part_file(artifact, tmp_path):
 
     assert result.returncode == 1
     assert result.stdout == ""
-    error = json.loads(result.stderr)["error"]
+    error = json.loads(result.stderr.strip().splitlines()[-1])["error"]
     assert error["code"] == "pdf_magic_invalid"
     assert error["retryable"] is False
     assert list(staging.glob("*.part")) == []

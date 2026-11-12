@@ -484,7 +484,11 @@ class StockInfoCompanyWikiAdapter:
         if not isinstance(staging_dir, Path):
             raise TypeError("staging_dir must be pathlib.Path")
         if not candidate.transport_url:
-            raise AdapterError("candidate missing transport_url")
+            raise AdapterError(
+                "candidate missing transport_url",
+                code="candidate_missing_transport",
+                retryable=False,
+            )
         staging_dir.mkdir(parents=True, exist_ok=True)
         allocated = staging_dir.resolve(strict=True)
         safe_title = clean_filename(candidate.title)[:120] or "document"
@@ -518,14 +522,26 @@ class StockInfoCompanyWikiAdapter:
             resolved = staged_path.resolve(strict=True)
             resolved.relative_to(allocated)
         except ValueError as exc:
-            raise AdapterError("derived destination escaped staging") from exc
+            raise AdapterError(
+                "derived destination escaped staging",
+                code="staging_escape",
+                retryable=False,
+            ) from exc
 
         stat = resolved.stat()
         if stat.st_size <= C.MIN_FILE_SIZE:
-            raise AdapterError("staged file is too small")
+            raise AdapterError(
+                "staged file is too small",
+                code="content_too_small",
+                retryable=False,
+            )
         with resolved.open("rb") as stream:
             if stream.read(5) != b"%PDF-":
-                raise AdapterError("staged file failed PDF magic validation")
+                raise AdapterError(
+                    "staged file failed PDF magic validation",
+                    code="pdf_magic_invalid",
+                    retryable=False,
+                )
         digest = hashlib.sha256()
         with resolved.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):

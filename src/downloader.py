@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
 from .browser import PlaywrightBrowser
-from .exceptions import BrowserError, OrgIdError
+from .exceptions import BrowserError, DownloadError, OrgIdError
 from .logger import log
 from .mapping import MappingManager
 from .models import (
@@ -179,6 +179,9 @@ class StockDownloader:
         self.skipped_files: List[str] = []
         self.pages_traversed: int = 0
         self.download_count: int = 0
+        # Failures observed while serving the *current* request.  The owner
+        # must not report success while it already knows a candidate failed.
+        self._request_failures: List[Tuple[str, str]] = []
 
         # Failed download logger
         self._failed_logger = FailedDownloadLogger()
@@ -213,6 +216,7 @@ class StockDownloader:
         # Reset state
         self.skipped_files = []
         self.pages_traversed = 0
+        self._request_failures = []
 
         try:
             # Resolve org_id
@@ -342,7 +346,9 @@ class StockDownloader:
 
             # Post-download verification.  The owner decides the outcome here;
             # callers read ``success`` and never re-judge diagnostics.
-            verification = self._verify_downloads(request, downloaded)
+            verification = self._verify_downloads(
+                request, downloaded, self._request_failures
+            )
             if not verification.ok:
                 log.warning(
                     f"Post-download verification found {len(verification.issues)}"
@@ -401,38 +407,52 @@ class StockDownloader:
     }
 
     def _switch_tab(self, suffix: str) -> bool:
-        """Switch to the correct sidebar menu item, with verification and retry.
+        """Switch to the requested sidebar menu item and prove the scope.
 
-        Always clicks the menu item — never assumes the page already shows
-        the correct tab. cninfo SPA defaults to "最新公告" on load, so the
-        previous approach of checking for pre-existing links was incorrect:
-        it would find default-tab links and skip the click entirely.
+        The requested tab must be *reachable and selected* before any link is
+        read.  Two failure modes are refused instead of being papered over:
 
-        Verification counts links in the *active pane only*.  A page-level
-        count would report the default tab's documents and then let the
-        downloader collect another type/period from a tab it never selected.
+        * an unknown suffix has no menu mapping, so the caller's intended scope
+          cannot be proven at all — that is a configuration error;
+        * a mapped suffix whose menu item is missing means the page markup
+          drifted; reading whichever tab is active would download another
+          type/period.
 
-        Returns True if the selected tab has content, False if it is empty.
+        Verification uses the active pane's links and, when the page exposes a
+        selection marker, the selected menu item's label.  A page-level link
+        count would report the default tab's documents.
+
+        Returns True if the selected tab has content, False if it is empty or
+        unreachable.
         """
         menu_text = self._TAB_MENU_TEXT.get(suffix)
+        if menu_text is None:
+            raise DownloadError(
+                f"unsupported tab suffix {suffix!r}; known tabs: "
+                f"{', '.join(sorted(self._TAB_MENU_TEXT))}"
+            )
 
         for attempt in range(3):
-            # Always click the correct sidebar menu item
-            if menu_text:
-                self.browser.execute_script(f"""
-                    const items = document.querySelectorAll('.el-menu-item');
-                    for (const item of items) {{
-                        if (item.textContent.trim() === '{menu_text}') {{
-                            item.click();
-                            break;
-                        }}
-                    }}
-                """)
+            if not self.browser.click_menu_item(menu_text):
+                log.warning(
+                    f"Tab switch attempt {attempt + 1}: menu item"
+                    f" {menu_text!r} not found on this page"
+                )
+                time.sleep(C.CONTENT_LOAD_WAIT)
+                continue
+
             time.sleep(C.CONTENT_LOAD_WAIT)
+
+            label = self.browser.active_tab_label()
+            if label is not None and label != menu_text:
+                log.warning(
+                    f"Tab switch attempt {attempt + 1}: selected tab is"
+                    f" {label!r}, expected {menu_text!r}"
+                )
+                continue
 
             link_count = len(self.browser.find_active_tab_links())
             log.debug(f"Tab switch check: {link_count} links in the active pane")
-
             if link_count > 0:
                 log.info(f"Tab '{suffix}' switched: {link_count} links found")
                 break
@@ -587,10 +607,12 @@ class StockDownloader:
             else:
                 error_msg = f"File invalid or too small: {dest}"
                 log.error(error_msg)
+                self._request_failures.append((text, error_msg))
                 self._failed_logger.record(
                     request.stock_code, request.stock_name or "", text, href, error_msg
                 )
         else:
+            self._request_failures.append((text, "download_file returned False"))
             self._failed_logger.record(
                 request.stock_code,
                 request.stock_name or "",
@@ -605,7 +627,10 @@ class StockDownloader:
     # ── Post-Download Verification ─────────────────────────────────────
 
     def _verify_downloads(
-        self, request: DownloadRequest, downloaded: List[str]
+        self,
+        request: DownloadRequest,
+        downloaded: List[str],
+        failures: Optional[List[Tuple[str, str]]] = None,
     ) -> VerificationResult:
         """Verify downloaded files match the request's declared scope.
 
@@ -615,6 +640,16 @@ class StockDownloader:
         the declared sub-directory, or simply zero files.
         """
         issues: List[VerificationIssue] = []
+
+        # A candidate the owner already failed to fetch is not a success, even
+        # when the other candidates downloaded fine.  Without this the result
+        # could be green while logs/failed_downloads.json recorded a real gap.
+        for title, reason in failures or ():
+            issues.append(
+                VerificationIssue(
+                    "download_failed", f"Candidate failed: {title} ({reason})"
+                )
+            )
 
         # An empty result is only positive when the announcement API confirmed
         # it (that path returns before verification).  Anything else is a
@@ -689,35 +724,28 @@ class StockDownloader:
         results: List[Tuple[str, str]] = []
 
         if tab_scoped:
-            elements = self.browser.find_active_tab_links()
+            pairs = self.browser.find_active_tab_links()
         else:
-            # Try XPath selector first (more precise)
             elements = self.browser.find_elements(C.DETAIL_LINKS_XPATH, by="xpath")
             # Fallback to all <a> tags (unscoped navigation only)
             if not elements:
                 elements = self.browser.find_elements("a")
+            pairs = []
+            for el in elements:
+                try:
+                    pairs.append(
+                        (
+                            self.browser.get_attribute(el, "href") or "",
+                            self.browser.get_text(el).strip(),
+                        )
+                    )
+                except Exception as e:
+                    log.debug(f"Link extraction error for element: {e}")
 
-        for el in elements:
-            try:
-                href = self.browser.get_attribute(el, "href") or ""
-                if "/detail" not in href:
-                    continue
-                text = self.browser.get_text(el).strip()
-                if not text:
-                    continue
-                abs_url = href if href.startswith("http") else C.BASE_URL + href
-                results.append((text, abs_url))
-            except Exception as e:
-                log.debug(f"Link extraction error for element: {e}")
+        for href, text in pairs:
+            if "/detail" not in href or not text:
+                continue
+            abs_url = href if href.startswith("http") else C.BASE_URL + href
+            results.append((text, abs_url))
 
         return results
-
-
-__all__ = [
-    "FailedDownloadLogger",
-    "StockDownloader",
-    "_matches_excluded",
-    "_matches_keywords",
-    "_path_is_within_subdir",
-    "_subdir_components",
-]

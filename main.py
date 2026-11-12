@@ -66,14 +66,15 @@ class UnifiedRunner:
                     reverse_order=page.get("reverse_order", False),
                 )
                 result = downloader.download(request)
+                page_label = page.get("name", page.get("suffix"))
                 if not result.success:
-                    log.warning(f"Failed: {page.get('name', page.get('suffix'))} for {stock_code}")
+                    log.warning(f"Failed: {page_label} for {stock_code}")
                     for issue in result.verification.issues:
                         log.warning(f"  [{issue.code}] {issue.message}")
                     success = False
                 else:
                     log.info(
-                        f"[{page.get('name')}] {len(result.downloaded_files)} "
+                        f"[{page_label}] {len(result.downloaded_files)} "
                         f"file(s) downloaded and verified OK"
                     )
         except Exception as e:
