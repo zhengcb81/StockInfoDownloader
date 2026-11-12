@@ -27,6 +27,7 @@ from .acquisition_budget import (
     ProviderAcquisitionBudget,
 )
 from . import constants as C
+from .cninfo_report_metadata import report_metadata
 from .transport_states import LoadState
 
 
@@ -766,12 +767,6 @@ class CninfoAnnouncementClient:
         document_kind: str,
         fiscal_year: int,
     ) -> tuple[list[CninfoAnnouncement], LoadState, _PageMeta]:
-        # Local import to keep cninfo_api self-contained and avoid a circular
-        # import surface (company_wiki_adapter does not import cninfo_api at
-        # module load; it resolves at discover() call time via the injected
-        # client).
-        from .company_wiki_adapter import _report_metadata
-
         total, raw, totalpages, has_more = self._validated_page(payload)
         meta = _PageMeta(
             total=total,
@@ -786,7 +781,7 @@ class CninfoAnnouncementClient:
         out: list[CninfoAnnouncement] = []
         for record in raw:
             parsed = self._parse_announcement(record, stock_code=stock_code)
-            kind, year, _form_type, _period, _amended = _report_metadata(parsed.title)
+            kind, year, _form_type, _period, _amended = report_metadata(parsed.title)
             if year != fiscal_year or kind != document_kind:
                 continue
             out.append(parsed)
@@ -819,8 +814,6 @@ class CninfoAnnouncementClient:
         fiscal_period: str | None,
         form_type: str | None,
     ) -> tuple[list[CninfoAnnouncement], _PageMeta]:
-        from .company_wiki_adapter import _report_metadata
-
         total, raw, totalpages, has_more = self._validated_page(payload)
         meta = _PageMeta(
             total=total,
@@ -834,7 +827,7 @@ class CninfoAnnouncementClient:
         out: list[CninfoAnnouncement] = []
         for record in raw:
             parsed = self._parse_announcement(record, stock_code=stock_code)
-            kind, year, form, period, _amended = _report_metadata(parsed.title)
+            kind, year, form, period, _amended = report_metadata(parsed.title)
             if kind != document_kind or year is None:
                 continue
             if parsed.sec_code != stock_code:

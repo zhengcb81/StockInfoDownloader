@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import parse_qs, urlparse
 
 from . import constants as C
+from .cninfo_report_metadata import report_metadata
 from .disclosure_matching import _matches_excluded, _matches_keywords
 from .string_utils import clean_filename
 
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
 
 ADAPTER_NAME = "stockinfo-cninfo"
 ADAPTER_VERSION = "1.3.0"
-_YEAR_RE = re.compile(r"(?<!\d)(20\d{2})(?=年)")
 
 MODE_EXACT = "exact"
 MODE_LATEST_AS_OF = "latest_as_of"
@@ -270,22 +270,10 @@ def _filing_date(source_url: str) -> str | None:
 # company-wiki 专用 filing request 的默认安全排除：调用者可增加但不能移除。
 _DEFAULT_EXCLUDED_TOKENS: tuple[str, ...] = ("摘要",)
 
-
-def _report_metadata(title: str) -> tuple[str, int | None, str, str, bool]:
-    compact = "".join(title.split())
-    year_match = _YEAR_RE.search(compact)
-    fiscal_year = int(year_match.group(1)) if year_match else None
-    amended = any(token in compact for token in ("修订", "更正", "更新后", "修正版"))
-    if any(token in compact for token in ("半年度报告", "半年报")):
-        return "semi_annual_report", fiscal_year, "interim_report", "H1", amended
-    if any(token in compact for token in ("季度报告", "一季报", "三季报")):
-        period = (
-            "Q1" if any(token in compact for token in ("一季度", "一季报")) else "Q3"
-        )
-        return "quarterly_report", fiscal_year, "quarterly_report", period, amended
-    if any(token in compact for token in ("年度报告", "年报")):
-        return "annual_report", fiscal_year, "annual_report", "FY", amended
-    return "other", fiscal_year, "other", "UNKNOWN", amended
+# Historical private name, kept as a re-export so existing callers and tests
+# keep working.  The decision itself lives in the pure domain module so the
+# announcement API can use it without importing this adapter.
+_report_metadata = report_metadata
 
 
 class StockInfoCompanyWikiAdapter:
@@ -515,8 +503,14 @@ class StockInfoCompanyWikiAdapter:
                 fetch_args["budget"] = acquisition_budget
             staged_path = self._cninfo_client.fetch_pdf(**fetch_args)
         except CninfoApiError as exc:
+            # Carry the upstream identity through the adapter boundary.  A bare
+            # AdapterError made the CLI fall back to
+            # ``upstream_unavailable/retryable=true`` for permanent failures
+            # such as a rejected host or a non-PDF body.
             raise AdapterError(
-                f"cninfo_transport failed: {exc.error_code}: {exc}"
+                f"cninfo_transport failed: {exc.error_code}: {exc}",
+                code=exc.error_code,
+                retryable=exc.retryable,
             ) from exc
 
         # Resolve symlinked/case paths for staging edge check.
