@@ -197,6 +197,22 @@ class PlaywrightBrowser:
             log.debug(f"find_elements failed ({selector}): {e}")
             return []
 
+    def find_active_tab_links(self) -> List[Any]:
+        """Return disclosure links inside the *visible* SPA tab pane only.
+
+        cninfo keeps every tab in the DOM and hides the inactive ones with
+        ``el-tab-pane is-hidden``.  A page-wide ``a[href*=detail]`` query
+        therefore returns documents from tabs the caller never selected; the
+        downloader would then collect another type or period.  This accessor is
+        the single place that knows the pane markup.
+        """
+        selector = (
+            "//div[contains(@class,'el-tab-pane')"
+            " and not(contains(@class,'is-hidden'))]"
+            "//a[contains(@href, '/new/disclosure/detail')]"
+        )
+        return self.find_elements(selector, by="xpath")
+
     def find_element(self, selector: str, by: str = "css") -> Optional[Any]:
         """Find a single element."""
         try:
