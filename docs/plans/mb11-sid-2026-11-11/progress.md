@@ -50,3 +50,10 @@
 - 交付代码 tip 更新为 90e7a25720581850783fd64ac055cd049eb58afe（含第二轮后复核测试替身的小改）；独立 agent 最终 PASS。
 - exact tip 全量单元测试 340 passed / 0 failed / 0 skipped / 37.23s，结果保存在 evidence/unit-root-final-20261113.log。
 - 进入独立集成：基线远端 v2-clean-rewrite=c0f07e12；原工区 11 项 tracked WIP 与分支 checkpoint 相符，未跟踪公司名单继续保留；集成测试通过后再精确清理重复 WIP。
+
+
+## ROOT 集成（2026-11-13）
+
+- 将完整交付推送分支快进到隔离集成树，目标基线 c0f07e12，集成 HEAD a96791397bfcae0be73ab90265bb198f5a9c8d7c。
+- 集成后全量 unit：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log。
+- 原工作区 11 项 tracked WIP 均已分类并证明被集成分支覆盖；重复 fixture 脚本仅差说明头。下一步只清除这些已吸收的修改/重复文件，保留两份公司名单，然后快进并推送目标分支。

@@ -58,3 +58,10 @@
 - 审查绑定：90e7a25720581850783fd64ac055cd049eb58afe。
 - 结论：PASS。复查点击作用域、延迟选中态、失败重试状态清理及 cleanup 不吞结果；无未修 in-scope finding。
 - ROOT 在同一代码 tip 上另行运行完整单元测试：340 passed / 0 failed / 0 skipped，37.23 秒。完整日志见 evidence/unit-root-final-20261113.log。
+
+
+## ROOT 集成验收（2026-11-13）
+
+- 最终产品代码仍绑定 90e7a25720581850783fd64ac055cd049eb58afe；包内独审 PASS。
+- 隔离集成分支以 v2-clean-rewrite 的远端 c0f07e12 为基线，快进至 a96791397bfcae0be73ab90265bb198f5a9c8d7c；完整 tests/unit 为 340 passed / 0 failed / 0 skipped，40.44 秒。
+- 整合包含原工作区 WIP checkpoint 和其后的修复；没有改变测试失败行为或放宽断言。日志证据见 evidence/unit-integrated-final-20261113.log。

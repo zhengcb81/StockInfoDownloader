@@ -224,3 +224,12 @@ python -B -m pytest tests/unit -q -p no:cacheprovider
 - ROOT 在 exact tip 90e7a25 上运行完整 tests/unit：340 passed / 0 failed / 0 skipped，37.23 秒；日志为 evidence/unit-root-final-20261113.log。交付分支现已推送并核实远端 ref 为 c2957c23cc68d0ded7762c0311b517afa4c87027。
 - 原目标主线远端仍为 v2-clean-rewrite @ c0f07e12。下一步在独立 worktree 集成完整交付分支（包括已在 A0 明示接收、随后通过行为测试逐项修复的 WIP checkpoint），集成后再次跑完整 tests/unit。
 - 原 SID 主工作区的 11 个 tracked WIP 路径与交付 checkpoint 一一对应；在集成通过前不恢复或删除。未跟踪的 a_share_companies.txt 和 companies.txt 是输入名单，保留；scripts/capture_byd_fy2024_fixture.py 若与已入交付树的 fixture 来源脚本字节相同，则集成后仅删除这个重复副本。
+
+
+## 10. ROOT 隔离集成验收（2026-11-13）
+
+- 集成基线：远端 v2-clean-rewrite @ c0f07e12d4ba3e232d712bb6e5e491832023b0a0。完整交付分支已快进到隔离集成树 HEAD a96791397bfcae0be73ab90265bb198f5a9c8d7c；交付代码 tip 90e7a25720581850783fd64ac055cd049eb58afe，经审独立 PASS。
+- 集成树完整运行 C:/Miniconda/python -B -X utf8 -m pytest tests/unit -q -p no:cacheprovider：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log。没有网络抓取、真实下载或外部模型调用。
+- 原主工作区的 11 项 tracked WIP 已逐一比对：10 个路径与交付 checkpoint f593535 的 Git blob 相同；剩下的 test_official_e2e_contract.py 也有相同的 report suffix 替身签名，但交付 checkpoint 多出后续 23 行安全合同用例。最终集成分支完整覆盖并增强了原 WIP。
+- 原主工作区未跟踪 capture_byd_fy2024_fixture.py 与已交付脚本只有 15 行 A0 用途说明头不同，其余逻辑相同；集成后该副本可以删除。a_share_companies.txt 和 companies.txt 是输入名单，明确保留。
+- 下一步：在原目标工作区只恢复已证明被分支覆盖的 11 个 tracked WIP，删除已比较过的重复 capture 脚本副本，快进 v2-clean-rewrite 到本集成 tip 并推送；两份公司名单不动。
