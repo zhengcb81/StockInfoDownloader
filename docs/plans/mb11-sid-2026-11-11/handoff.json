@@ -7,7 +7,7 @@
   "commit": "90e7a25720581850783fd64ac055cd049eb58afe",
   "branch": "codex/mb11-sid",
   "target_branch": "v2-clean-rewrite",
-  "pushed": false,
+  "pushed": true,
   "changed_paths": [
     ".gitignore",
     "README.md",
@@ -164,7 +164,7 @@
     "tests/unit/test_downloader.py::TestBrowserStaticHostMapping still asserts on browser.py source text; behavioural DNS tests now cover the same ground."
   ],
   "next_root_action": "Integrate the complete reviewed delivery branch onto v2-clean-rewrite in an isolated worktree, run tests/unit once there, and reconcile original WIP only after the integration passes.",
-  "docs_commit": "this PWF/scripts commit (no production code change after the reviewed tip)",
+  "docs_commit": "c2957c23cc68d0ded7762c0311b517afa4c87027",
   "deviations": [
     "tests/unit/test_provider_runtime_artifact.py is outside the literal write set (which lists two new provider tests); it was added because section C requires an isolated-runtime check. It changes no production surface and can be trimmed to its RUNTIME_FILES manifest if ROOT disagrees.",
     "scripts/ and scripts/README.md were added under the A0 instruction to receive capture_byd_fy2024_fixture.py as a test tool/note; the file is marked NO_RUNTIME_REFERENCE and its logic is unchanged.",
@@ -183,5 +183,6 @@
     "source_head": "201a8f059b658eb0b3c12cb7e4db2ef08e3907da",
     "recycled": true,
     "note": "Hashes verified identical before removal; the worktree had no unique tracked commit."
-  }
+  },
+  "push_verification": "git ls-remote --heads origin codex/mb11-sid -> c2957c23cc68d0ded7762c0311b517afa4c87027; local HEAD matches"
 }
