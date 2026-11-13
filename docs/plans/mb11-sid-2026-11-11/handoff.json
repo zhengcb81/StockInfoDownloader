@@ -225,6 +225,10 @@
     "mainline_fast_forwarded": true,
     "remote_push_verified": true,
     "remote_ref": "53b93585a661ae29d57b6a60a8dcc3f4371a9009",
-    "mainline_commit": "53b93585a661ae29d57b6a60a8dcc3f4371a9009; subsequent PWF closeout commit follows"
-  }
+    "mainline_commit": "53b93585a661ae29d57b6a60a8dcc3f4371a9009; subsequent PWF closeout commit follows",
+    "delivery_worktree_removed": true,
+    "integration_worktree_removed": true,
+    "cleanup_date": "2026-11-13"
+  },
+  "next": "none; SID mainline acceptance, push, and temporary worktree cleanup complete"
 }

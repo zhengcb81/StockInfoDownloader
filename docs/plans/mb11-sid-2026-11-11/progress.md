@@ -65,3 +65,9 @@
 - v2-clean-rewrite 快进到集成 tip 53b93585a661ae29d57b6a60a8dcc3f4371a9009，推送成功；origin/v2-clean-rewrite 已通过 ls-remote 核验。
 - 集成树测试 340 passed / 0 failed / 0 skipped，40.44 秒；独立复审 PASS。
 - handoff、handoff.json 和 task_plan 已改为最终状态；无剩余 ROOT 动作。
+
+
+## ROOT 临时工区收尾（2026-11-13）
+
+- 移除已验收的 MB-SID delivery/integration worktree；保留远端分支。
+- 原工作区两份用户公司名单存在且未改动；无其他已知临时工区。

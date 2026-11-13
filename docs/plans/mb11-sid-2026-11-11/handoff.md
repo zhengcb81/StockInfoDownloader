@@ -231,3 +231,10 @@ python -B -m pytest tests/unit/test_provider_dependency_direction.py tests/unit/
 - 主线 v2-clean-rewrite 已快进至 53b93585a661ae29d57b6a60a8dcc3f4371a9009 并推送；推送后 ls-remote 验证一致。该树包含交付代码、集成测试证据与既有审查报告。
 - 集成树完整 tests/unit：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log；精确交付代码独审 PASS，日志与 handoff.json 绑定一致。
 - 无下一步；MB-SID 已并入主线并推送。
+
+
+## 12. ROOT 临时工区收尾（2026-11-13）
+
+- MB-SID 专用交付 worktree 与隔离集成 worktree 均在 clean 且代码/收据已入主线后移除；远端分支保留。
+- a_share_companies.txt 与 companies.txt 是输入名单，留在原工作区；不属于临时目录。
+- 原工作区只剩这两份有明确用途的未跟踪名单；本卡无下一步。
