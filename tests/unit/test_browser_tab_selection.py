@@ -13,7 +13,7 @@ class _DelayedMenuPage:
     def evaluate(self, script: str, argument: list[str]) -> str:
         assert argument == [PlaywrightBrowser._MENU_SELECTOR, "定期报告"]
         if "target.click()" in script:
-            return "inactive"
+            return "clicked"
         return "active" if self.active else "inactive"
 
     def wait_for_function(self, script: str, argument: list[str], *, timeout: int) -> None:
