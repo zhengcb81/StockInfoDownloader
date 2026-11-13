@@ -43,3 +43,10 @@
 - 原工区 `v2-clean-rewrite` 仍是 11 modified / 743+ / 94-，`scripts/capture_byd_fy2024_fixture.py` 哈希未变（`86ad034f…2914`）。本卡没有对它执行 add/commit/restore/clean。
 - 新工区测试只用 pytest `tmp_path`；未在仓库内留下 `logs/`、`.planning/test-tmp` 或 staging 目录。
 - 未写生产 `config.json`、`src/stock_orgid_mapping.json`、cache/canonical 目录。
+
+
+## 2026-11-13 最终复核
+
+- 交付代码 tip 更新为 90e7a25720581850783fd64ac055cd049eb58afe（含第二轮后复核测试替身的小改）；独立 agent 最终 PASS。
+- exact tip 全量单元测试 340 passed / 0 failed / 0 skipped / 37.23s，结果保存在 evidence/unit-root-final-20261113.log。
+- 进入独立集成：基线远端 v2-clean-rewrite=c0f07e12；原工区 11 项 tracked WIP 与分支 checkpoint 相符，未跟踪公司名单继续保留；集成测试通过后再精确清理重复 WIP。

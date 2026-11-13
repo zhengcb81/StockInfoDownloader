@@ -50,3 +50,11 @@
 - 真实 cninfo 页面（无网络、无 DOM 快照）。
 - 真实 PDF 下载与 E2E（卡明确不默认执行）。
 - 远端 CI。
+
+
+## 最终复核（2026-11-13）
+
+- 审查者：独立 agent /root/audit_rf_sid_delivery（未参与代码修改）。
+- 审查绑定：90e7a25720581850783fd64ac055cd049eb58afe。
+- 结论：PASS。复查点击作用域、延迟选中态、失败重试状态清理及 cleanup 不吞结果；无未修 in-scope finding。
+- ROOT 在同一代码 tip 上另行运行完整单元测试：340 passed / 0 failed / 0 skipped，37.23 秒。完整日志见 evidence/unit-root-final-20261113.log。

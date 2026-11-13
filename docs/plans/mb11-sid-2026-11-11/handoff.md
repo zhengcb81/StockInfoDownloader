@@ -216,3 +216,11 @@ python -B -m pytest tests/unit -q -p no:cacheprovider
 3. **`DownloadRequest.confirmed_empty` 没有生产生产者**。legacy SPA 路径不会设置它，`main.py` 也不传；真空页仍按 `infrastructure_fail/upstream_unavailable` 重试。接 API 确认属后续集成工作。
 
 另外：本仓没有 `AGENTS.md`（卡要求开工读"本仓AGENTS"，实际无此文件）。
+
+
+## 9. 最终代码复核与根集成前验收（2026-11-13）
+
+- 最终代码 tip：90e7a25720581850783fd64ac055cd049eb58afe；最终独审 agent /root/audit_rf_sid_delivery 对 exact tip 判定 PASS。最终代码复核后仅调整测试替身点击返回值以与生产接口一致，没有产品代码变更。
+- ROOT 在 exact tip 90e7a25 上运行完整 tests/unit：340 passed / 0 failed / 0 skipped，37.23 秒；日志为 evidence/unit-root-final-20261113.log。
+- 原目标主线远端仍为 v2-clean-rewrite @ c0f07e12。下一步在独立 worktree 集成完整交付分支（包括已在 A0 明示接收、随后通过行为测试逐项修复的 WIP checkpoint），集成后再次跑完整 tests/unit。
+- 原 SID 主工作区的 11 个 tracked WIP 路径与交付 checkpoint 一一对应；在集成通过前不恢复或删除。未跟踪的 a_share_companies.txt 和 companies.txt 是输入名单，保留；scripts/capture_byd_fy2024_fixture.py 若与已入交付树的 fixture 来源脚本字节相同，则集成后仅删除这个重复副本。
