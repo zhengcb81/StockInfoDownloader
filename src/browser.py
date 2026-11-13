@@ -9,9 +9,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from playwright.sync_api import sync_playwright, Browser, Page, BrowserContext
+    from playwright.sync_api import (
+        sync_playwright, Browser, Page, BrowserContext,
+        TimeoutError as PlaywrightTimeoutError,
+    )
 except ImportError:
     sync_playwright = None  # type: ignore
+    PlaywrightTimeoutError = TimeoutError
 
 from . import constants as C
 from .exceptions import BrowserError
@@ -215,24 +219,16 @@ class PlaywrightBrowser:
     TAB_MISSING = "missing"
 
     def select_menu_item(self, text: str) -> str:
-        """Click the menu item whose visible text is ``text`` and report state.
+        """Click a menu item and wait briefly for an asynchronous selection.
 
         Returns one of ``TAB_ACTIVE`` / ``TAB_INACTIVE`` / ``TAB_UNKNOWN`` /
-        ``TAB_MISSING``:
-
-        * ``missing`` — no item carries that label; the requested scope is not
-          reachable, so the caller must not read whichever tab is active.
-        * ``inactive`` — an item was clicked but another item is still the
-          selected one.
-        * ``unknown`` — the click happened but the page exposes no selection
-          marker we recognise; the caller falls back to link evidence.
-        * ``active`` — the clicked item is the selected one.
-
-        The active check is scoped to the same item set as the click, so an
-        unrelated ``is-active`` elsewhere in the sidebar cannot be mistaken for
-        the tab selection.
+        ``TAB_MISSING``. The wait uses the existing SPA tab-switch timeout; it
+        does not infer success from the click itself. A state without a
+        recognised selection marker remains ``unknown`` for the caller's
+        existing active-pane link check.
         """
-        script = """
+        args = [self._MENU_SELECTOR, text]
+        click_script = """
         ([menuSelector, label]) => {
             const items = Array.from(document.querySelectorAll(menuSelector));
             const target = items.find(
@@ -240,6 +236,16 @@ class PlaywrightBrowser:
             );
             if (!target) return 'missing';
             target.click();
+            return 'clicked';
+        }
+        """
+        state_script = """
+        ([menuSelector, label]) => {
+            const items = Array.from(document.querySelectorAll(menuSelector));
+            const target = items.find(
+                (item) => (item.textContent || '').trim() === label
+            );
+            if (!target) return 'missing';
             const isSelected = (item) =>
                 item.classList.contains('is-active')
                 || item.getAttribute('aria-selected') === 'true';
@@ -248,11 +254,38 @@ class PlaywrightBrowser:
             return selected.includes(target) ? 'active' : 'inactive';
         }
         """
+        wait_for_active_script = """
+        ([menuSelector, label]) => {
+            const items = Array.from(document.querySelectorAll(menuSelector));
+            const target = items.find(
+                (item) => (item.textContent || '').trim() === label
+            );
+            if (!target) return true;
+            return target.classList.contains('is-active')
+                || target.getAttribute('aria-selected') === 'true';
+        }
+        """
         try:
-            value = self.page.evaluate(script, [self._MENU_SELECTOR, text])
+            clicked = self.page.evaluate(click_script, args)
+            if clicked == self.TAB_MISSING:
+                return self.TAB_MISSING
+
+            value = self.page.evaluate(state_script, args)
+            if value == self.TAB_INACTIVE:
+                try:
+                    timeout_ms = max(1, int(C.SPA_TAB_SWITCH_WAIT * 1000))
+                    self.page.wait_for_function(
+                        wait_for_active_script, args, timeout=timeout_ms
+                    )
+                except PlaywrightTimeoutError:
+                    # Re-read below: selection may have completed at the edge
+                    # of the timeout, or may remain genuinely inactive.
+                    pass
+                value = self.page.evaluate(state_script, args)
         except Exception as e:
             log.debug(f"select_menu_item failed ({text!r}): {e}")
             return self.TAB_MISSING
+
         if value in (
             self.TAB_ACTIVE,
             self.TAB_INACTIVE,
@@ -261,7 +294,6 @@ class PlaywrightBrowser:
         ):
             return value
         return self.TAB_UNKNOWN
-        return value if isinstance(value, str) and value.strip() else None
 
     def find_active_tab_links(self) -> List[Tuple[str, str]]:
         """Return ``(href, text)`` for disclosure links in the visible pane.

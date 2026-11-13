@@ -160,6 +160,9 @@ def _env(artifact_root, doubles, **extra):
     }
     env["PYTHONPATH"] = os.pathsep.join([str(doubles), str(artifact_root)])
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # The parent sends UTF-8 JSON over stdin; make the isolated child decode
+    # that protocol consistently on Windows hosts whose locale is GBK/CP936.
+    env["PYTHONUTF8"] = "1"
     env.update({k: str(v) for k, v in extra.items()})
     return env
 
