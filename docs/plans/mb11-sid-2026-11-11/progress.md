@@ -57,3 +57,11 @@
 - 将完整交付推送分支快进到隔离集成树，目标基线 c0f07e12，集成 HEAD a96791397bfcae0be73ab90265bb198f5a9c8d7c。
 - 集成后全量 unit：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log。
 - 原工作区 11 项 tracked WIP 均已分类并证明被集成分支覆盖；重复 fixture 脚本仅差说明头。下一步只清除这些已吸收的修改/重复文件，保留两份公司名单，然后快进并推送目标分支。
+
+
+## ROOT 主线并入收尾（2026-11-13）
+
+- 已清理由已审查交付完整替代的 11 个 tracked WIP 副本和唯一重复 capture 脚本；保留 a_share_companies.txt、companies.txt 与其他资料。
+- v2-clean-rewrite 快进到集成 tip 53b93585a661ae29d57b6a60a8dcc3f4371a9009，推送成功；origin/v2-clean-rewrite 已通过 ls-remote 核验。
+- 集成树测试 340 passed / 0 failed / 0 skipped，40.44 秒；独立复审 PASS。
+- handoff、handoff.json 和 task_plan 已改为最终状态；无剩余 ROOT 动作。

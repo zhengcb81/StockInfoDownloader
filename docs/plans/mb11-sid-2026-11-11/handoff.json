@@ -174,7 +174,7 @@
     "_TAB_MENU_TEXT hardcodes three Chinese menu labels; a label change makes select_menu_item return 'missing' and fails closed (no wrong-tab download).",
     "tests/unit/test_downloader.py::TestBrowserStaticHostMapping still asserts on browser.py source text; behavioural DNS tests now cover the same ground."
   ],
-  "next_root_action": "Reconcile the exact tracked WIP and duplicate capture script in the original target worktree, preserve both company lists, fast-forward v2-clean-rewrite to the integration tip, and push.",
+  "next_root_action": "none; SID integration and push verified",
   "docs_commit": "c2957c23cc68d0ded7762c0311b517afa4c87027",
   "deviations": [
     "tests/unit/test_provider_runtime_artifact.py is outside the literal write set (which lists two new provider tests); it was added because section C requires an isolated-runtime check. It changes no production surface and can be trimmed to its RUNTIME_FILES manifest if ROOT disagrees.",
@@ -199,7 +199,7 @@
   "root_integration": {
     "date": "2026-11-13",
     "base_commit": "c0f07e12d4ba3e232d712bb6e5e491832023b0a0",
-    "integration_head": "a96791397bfcae0be73ab90265bb198f5a9c8d7c",
+    "integration_head": "53b93585a661ae29d57b6a60a8dcc3f4371a9009",
     "delivery_code_commit": "90e7a25720581850783fd64ac055cd049eb58afe",
     "source_delivery_tip": "a96791397bfcae0be73ab90265bb198f5a9c8d7c",
     "independent_review": "PASS on final code tip 90e7a257; full unit rerun on integrated tree",
@@ -222,7 +222,9 @@
         "companies.txt"
       ]
     },
-    "mainline_fast_forwarded": false,
-    "remote_push_verified": false
+    "mainline_fast_forwarded": true,
+    "remote_push_verified": true,
+    "remote_ref": "53b93585a661ae29d57b6a60a8dcc3f4371a9009",
+    "mainline_commit": "53b93585a661ae29d57b6a60a8dcc3f4371a9009; subsequent PWF closeout commit follows"
   }
 }

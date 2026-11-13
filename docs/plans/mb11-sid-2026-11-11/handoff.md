@@ -191,21 +191,9 @@ python -B -m pytest tests/unit/test_provider_dependency_direction.py tests/unit/
 - **CI**：无远端 CI 配置；未接线。
 - **合并**：**未合并**。分支已推送，`v2-clean-rewrite` 未动。
 
-### ROOT 下一步（一条可执行命令）
+### ROOT 集成状态
 
-```bash
-git -C 'C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite' \
-  merge --no-ff f1fff01394a41ec797d7317cce1c78b6778d2966
-```
-
-集成后请在集成树集中跑一次：
-
-```bash
-python -B -m pytest tests/unit -q -p no:cacheprovider
-```
-
-必须使用的输入：目标主线 `v2-clean-rewrite`（当前 head `c0f07e12`）；本卡写集合见 §1；原工区 11 项 WIP 保持未提交，接收后由 ROOT 决定是否清理。
-
+交付时的集成命令和旧基线信息已过期；ROOT 已按 §10/§11 完成 WIP 对账、快进、测试和远端推送。
 
 ## 8. 偏差与待 ROOT 判断
 
@@ -232,4 +220,14 @@ python -B -m pytest tests/unit -q -p no:cacheprovider
 - 集成树完整运行 C:/Miniconda/python -B -X utf8 -m pytest tests/unit -q -p no:cacheprovider：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log。没有网络抓取、真实下载或外部模型调用。
 - 原主工作区的 11 项 tracked WIP 已逐一比对：10 个路径与交付 checkpoint f593535 的 Git blob 相同；剩下的 test_official_e2e_contract.py 也有相同的 report suffix 替身签名，但交付 checkpoint 多出后续 23 行安全合同用例。最终集成分支完整覆盖并增强了原 WIP。
 - 原主工作区未跟踪 capture_byd_fy2024_fixture.py 与已交付脚本只有 15 行 A0 用途说明头不同，其余逻辑相同；集成后该副本可以删除。a_share_companies.txt 和 companies.txt 是输入名单，明确保留。
-- 下一步：在原目标工作区只恢复已证明被分支覆盖的 11 个 tracked WIP，删除已比较过的重复 capture 脚本副本，快进 v2-clean-rewrite 到本集成 tip 并推送；两份公司名单不动。
+- 上述清理、快进及推送已于本轮完成；两份公司名单保留。最终状态与远端 ref 见 §11。
+
+
+## 11. ROOT 主线收尾（2026-11-13）
+
+- 原工作区中已确认重复的 11 个 tracked WIP 文件已恢复到基线；10 个与冻结 checkpoint blob 完全一致，剩余测试文件由交付版本多出的 23 行安全合同测试覆盖。
+- 已删除已比较确认重复的 scripts/capture_byd_fy2024_fixture.py 旧副本；交付树中的同名来源脚本保留。
+- 用户输入名单 a_share_companies.txt 与 companies.txt 保留，未清理其他未知资料。
+- 主线 v2-clean-rewrite 已快进至 53b93585a661ae29d57b6a60a8dcc3f4371a9009 并推送；推送后 ls-remote 验证一致。该树包含交付代码、集成测试证据与既有审查报告。
+- 集成树完整 tests/unit：340 passed / 0 failed / 0 skipped，40.44 秒；日志 evidence/unit-integrated-final-20261113.log；精确交付代码独审 PASS，日志与 handoff.json 绑定一致。
+- 无下一步；MB-SID 已并入主线并推送。
