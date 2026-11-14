@@ -73,3 +73,10 @@
 
 - 移除已验收的 MB-SID delivery/integration worktree；保留远端分支。
 - 原工作区两份用户公司名单存在且未改动；无其他已知临时工区。
+
+
+## 2026-11-14 ROOT 工作区清理复核
+
+- 实时主线 `v2-clean-rewrite` 与远端均为 `85f39ec5a7358b9de676ad99a21b1ed205565db0`，本地来源分支已并入；只剩两份用户公司名单未跟踪，保留。
+- 移除 SID 主仓重建缓存：`__pycache__` 14,029 B；`.pytest_cache` 23,483 B；`.ruff_cache` 1,889 B；空 `.benchmarks`。总计 10 文件/39,401 B。
+- downloads、logs、end2end_test、`cwp-cninfo-bounded-budget` 真实数据工区、lineage-cleanup-backup 回滚证据未动。

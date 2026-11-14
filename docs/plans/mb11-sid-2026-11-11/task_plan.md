@@ -13,13 +13,19 @@
 | 目标主线（实时确认，不假设为 `main`） | `v2-clean-rewrite` |
 | 开工 base HEAD | `d084c4aab48f5f83275f65982bf561e6870ff3a4` |
 | base remote HEAD | `d084c4aab48f5f83275f65982bf561e6870ff3a4`（`git ls-remote origin refs/heads/v2-clean-rewrite` 实测） |
-| 最新目标分支 HEAD（本卡收尾后的最终内容提交） | `73f436942e03df9276e1416f7771f29b26942876`（`v2-clean-rewrite`）；`git push` 后 `git ls-remote` 实测远端相同。提交链：`d084c4a`（base）→ `2fd2294`（首轮候选最终 HEAD，独立 reviewer 判 CHANGES REQUIRED）→ `73f4369`（修复复核 PASS 后发布）→ 之后若有纯交接记录修订提交，以 `git ls-remote origin refs/heads/v2-clean-rewrite` 为唯一准据 |
+| 最终源码/行为提交 | `73f436942e03df9276e1416f7771f29b26942876`（修复复核 PASS 后发布）；此后仅交接/PWF载体提交更新记录 |
+| 当前本地主线与实时远端 HEAD | `v2-clean-rewrite@85f39ec5a7358b9de676ad99a21b1ed205565db0` = `origin/v2-clean-rewrite`；本轮 `git ls-remote` 实测一致 |
 | 独审绑定 HEAD | 首轮 `2fd2294b387807b2031528120723ba7c90920470`；修复复核后最终 `PASS` 绑定 `73f436942e03df9276e1416f7771f29b26942876`，见 [交接](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-handoff.md) 与 [独立审查](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md)。交接 JSON 不能自指包含自身提交 SHA，故 `final` 记录「经审查并发布的内容提交」，沿用本仓 MB11 的 `commit`/`docs_commit` 分记惯例 |
 | tracked / untracked | tracked clean；未跟踪仅 `a_share_companies.txt`、`companies.txt` 两份**用户公司名单，原样保留** |
 | 注册 worktree | 收尾前 3 个 → 收尾后 2 个（主仓 + `cwp-cninfo-bounded-budget`） |
 | refs | 7 个本地分支（`codex/*` 6 个 + `v2-clean-rewrite` 主分支）全部是 `v2-clean-rewrite` 祖先；0 个 non-ancestor refs；远端仅 `origin/v2-clean-rewrite` |
 | 在途改动 | 无；本卡写集合无 `UNCLASSIFIED_HOLD` 冲突 |
 
+## 2026-11-14 工作区清理与主线复核
+
+- 当前 `v2-clean-rewrite` 与实时远端同为 `85f39ec5a7358b9de676ad99a21b1ed205565db0`；`git status` 为 tracked clean，所有本地 `codex/*` refs 均已包含在主线。`a_share_companies.txt`、`companies.txt` 是用户公司名单，保留为未跟踪用户数据。沙箱内 `git status` 因工作树访问限制返回误导性错误，提权后的只读 Git 核对正常。
+- 仅清理主仓可重建缓存：`__pycache__`（1 文件/14,029 B）、`.pytest_cache`（5 文件/23,483 B）、`.ruff_cache`（4 文件/1,889 B）与空 `.benchmarks`；共 10 文件/39,401 B、7 个目录（含根目录）已移除。
+- 保留 downloads、logs、end2end_test、G4 证据工区、回滚备份、名单及所有已提交 PWF；没有删除源文件、运行数据或唯一证据。
 ## 已完成（按 Git / 测试 / 交接收据）
 
 | 项目 | 状态 | 证据 |
