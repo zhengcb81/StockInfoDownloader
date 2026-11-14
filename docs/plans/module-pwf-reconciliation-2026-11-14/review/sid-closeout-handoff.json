@@ -10,30 +10,65 @@
   },
   "final": {
     "branch": "v2-clean-rewrite",
-    "head": "2fd2294b387807b2031528120723ba7c90920470",
-    "remote_head": "2fd2294b387807b2031528120723ba7c90920470",
-    "finalization_note": "字段已填齐。head/remote_head/reviewed_head 绑定独立审查的候选最终 HEAD 2fd2294b…：该 HEAD 推送时经 git ls-remote 确认远端与之相等。交接文件不能自指包含自身提交 SHA，因此填值与审查报告由随后的收尾元数据提交落地，该提交仅含交接 JSON 填值、审查报告与 F-02/F-03 文档修正，其父提交即本候选 HEAD，并由同一 reviewer 复核；最终发布 HEAD 见 sid-closeout-review.md §6。"
+    "head": "73f436942e03df9276e1416f7771f29b26942876",
+    "remote_head": "73f436942e03df9276e1416f7771f29b26942876",
+    "finalization_note": "2026-11-14 清单对照复核修正。提交链：d084c4a（base）→ 2fd2294（首轮候选最终 HEAD，独立 reviewer 绑定并判 CHANGES REQUIRED）→ 73f4369（修复复核后 PASS 并推送的最终内容 HEAD，git ls-remote 实测远端与之相等）→ 本文件所在的『清单对照修订』提交（纯文档：更正交接 SHA 记录、逐项化 dispositions、补齐 handoff.md 测试与远端结果，不改变已审内容；其 SHA 用 git log -1 / git ls-remote 查询）。final.head / remote_head 沿用本仓 MB11 的 commit(内容提交) 与 docs_commit(含交接元数据提交) 分记惯例，记录『经独立审查并发布的最终内容提交』，不指向交接文件自身所在提交——交接 JSON 无法自指包含自身提交 SHA。首轮版本曾把两值误填为 2fd2294（该提交从未成为远端 HEAD，且 finalization_note 中『该 HEAD 推送时确认远端相等』与事实不符），本次已更正为 73f4369 并在 handoff.md §1 写明当前远端以 git ls-remote 为准。"
   },
   "dispositions": [
     {
       "kind": "branch",
       "path": "refs/heads/v2-clean-rewrite",
       "status": "ACTIVE_KEEP",
-      "reason": "实时确认的目标主线与唯一长期主仓，base 与 origin 同为 d084c4a…。",
+      "reason": "实时确认的目标主线与唯一长期主仓；base 与 origin 同为 d084c4a…，收尾后本地与远端同为 73f4369…。",
       "evidence": "git rev-parse HEAD / git ls-remote origin refs/heads/v2-clean-rewrite"
     },
     {
       "kind": "branch",
-      "path": "refs/heads/codex/g4-main-sid, refs/heads/codex/g4-sid-latest, refs/heads/codex/g5-sid-runtime, refs/heads/codex/cninfo-bounded-budget, refs/heads/codex/mb11-sid, refs/heads/codex/root-mb11-sid-integration-20261113",
+      "path": "refs/heads/codex/g4-main-sid",
       "status": "ABSORBED",
-      "reason": "6 个 codex/* 交付/集成分支（另有 1 个主线分支 v2-clean-rewrite 见 ACTIVE_KEEP，共 7 个本地 head）全部是 v2-clean-rewrite 的祖先，作为历史交付证据保留，不删 ref；0 个 non-ancestor refs。",
-      "evidence": "逐个 git merge-base --is-ancestor 退出码 0；git for-each-ref"
+      "reason": "G4 MAIN 集成分支 @0cb3c1f，是 v2-clean-rewrite 的祖先；作为 G4 主验收历史证据保留，不删 ref。",
+      "evidence": "git for-each-ref；git merge-base --is-ancestor codex/g4-main-sid HEAD 退出码 0；.planning/g5-sid-runtime/main_wiring.md 以此分支为 G5 基线"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/g4-sid-latest",
+      "status": "ABSORBED",
+      "reason": "G4 latest_as_of 交付分支 @201a8f0，是 HEAD 祖先；交付代码 eb8495ce… 已并入主线，PWF/证据在 docs/implementation/g4-sid-latest/。",
+      "evidence": "git merge-base --is-ancestor codex/g4-sid-latest HEAD 退出码 0；MAIN_ACCEPTANCE.md 记 127 passed / 27.02s"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/g5-sid-runtime",
+      "status": "ABSORBED",
+      "reason": "G5 provider 解耦分支 @47e1059，是 HEAD 祖先；src/cninfo_identity.py、src/disclosure_matching.py、G5 测试与 .planning/g5-sid-runtime/ 12 个 PWF/evidence 文件全在 HEAD 树内。分支保留以重建已清理工区。",
+      "evidence": "git merge-base --is-ancestor codex/g5-sid-runtime HEAD 退出码 0；git ls-tree -r HEAD | grep g5；git diff --stat codex/g5-sid-runtime..HEAD 仅 MB11 后续改动"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/cninfo-bounded-budget",
+      "status": "ABSORBED",
+      "reason": "有界预算/G4 基线分支 @8ed5fdd，是 HEAD 祖先；对应注册工区 cwp-cninfo-bounded-budget 的物理现场按 EVIDENCE_KEEP 保留。",
+      "evidence": "git merge-base --is-ancestor codex/cninfo-bounded-budget HEAD 退出码 0；docs/implementation/g4-sid-latest/HANDOFF.md 记 base=8ed5fdd"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/mb11-sid",
+      "status": "ABSORBED",
+      "reason": "MB-SID 交付分支 @a967913，是 HEAD 祖先；340 passed 与两轮独审 PASS 收据在 docs/plans/mb11-sid-2026-11-11/。",
+      "evidence": "git merge-base --is-ancestor codex/mb11-sid HEAD 退出码 0；MB11 handoff.json commit=90e7a25 / root_integration.integration_head=53b9358"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/root-mb11-sid-integration-20261113",
+      "status": "ABSORBED",
+      "reason": "ROOT 集成快进 tip @53b9358，是 HEAD 祖先；MB11 交付并入主线的直接证据。",
+      "evidence": "git merge-base --is-ancestor codex/root-mb11-sid-integration-20261113 HEAD 退出码 0；MB11 progress.md「ROOT 主线并入收尾」"
     },
     {
       "kind": "worktree",
       "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite",
       "status": "ACTIVE_KEEP",
-      "reason": "主工区；含两份用户公司名单、downloads 真实返回数据、运行日志及 MB11/G4/G5 全部交接与测试证据。",
+      "reason": "主工区；含两份用户公司名单、downloads 真实返回数据、运行日志及 MB11/G4/G5 全部交接与测试证据，是唯一长期主仓目录。",
       "evidence": "git worktree list；git status --porcelain -uall；du -sb"
     },
     {
@@ -55,21 +90,91 @@
       "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/lineage-cleanup-backup-20261004",
       "status": "EVIDENCE_KEEP",
       "reason": "唯一回滚/审计材料：85,874 B staged patch、3,610 B unstaged patch、20,179 B 未入任何 commit 的 pre-budget cninfo_api.py、status_before.txt、README；README 明确要求不移入仓内。",
-      "evidence": "目录 5 文件 / 116,155 B；README 完整恢复步骤"
+      "evidence": "5 文件 / 116,155 B；README「完整恢复步骤」"
     },
     {
       "kind": "directory",
-      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/logs, C:/Users/郑曾波/Projects/StockInfoDLSimple/nul, C:/Users/郑曾波/Projects/StockInfoDLSimple/.claude, .codegraph, .mimocode, .ruff_cache, .benchmarks",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/logs",
       "status": "UNCLASSIFIED_HOLD",
-      "reason": "运行态进度文件、可疑名称文件与外部工具状态目录；归属/用途未查清，按卡规原样保留，不以名称推断可删。",
-      "evidence": "1 文件/175 B、1 文件/893 B、隐藏目录合计 3,467 文件 / 53,148,299 B"
+      "reason": "运行态 progress.json，归属/用途未查清，按卡规原样保留，不以名称推断可删。",
+      "evidence": "1 文件 / 175 B"
     },
     {
       "kind": "file",
-      "path": "docs/plans/mb11-sid-2026-11-11/, .planning/g5-sid-runtime/, docs/implementation/g4-sid-latest/, a_share_companies.txt, companies.txt",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/nul",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "名称可疑但内容/用途未查清（读取为空）；按卡规不以名称单独判定可删，原样保留。",
+      "evidence": "1 文件 / 893 B"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/.claude",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "外部工具状态目录，非 SID owner 归属，原样保留。",
+      "evidence": "1 文件 / 96 B"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/.codegraph",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "外部工具状态目录，非 SID owner 归属，原样保留。",
+      "evidence": "5 文件 / 2,018,281 B"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/.mimocode",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "外部工具状态/记忆目录，非 SID owner 归属，原样保留。",
+      "evidence": "3,453 文件 / 51,128,656 B"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/.ruff_cache",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "外部工具缓存目录，归属未查清，原样保留。",
+      "evidence": "8 文件 / 1,266 B"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/.benchmarks",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "空目录，归属未查清，原样保留（不做通配清理）。",
+      "evidence": "0 文件 / 0 B"
+    },
+    {
+      "kind": "directory",
+      "path": "docs/plans/mb11-sid-2026-11-11/",
       "status": "EVIDENCE_KEEP",
-      "reason": "历史 handoff/evidence/compliance/inputs 与两份用户公司名单均为唯一证据或用户资料；本卡只在其 15 个 MD 顶部加一行回链 banner，未删除或改写证据正文。",
-      "evidence": "git diff --stat 16 文件 / +94 -3；a_share_companies.txt 3,898 B、companies.txt 137 B 仍为未跟踪"
+      "reason": "MB11 handoff/review/evidence/inputs/compliance 唯一证据与 SID 唯一 canonical 入口；本卡只在 6 个 MD 顶部加回链 banner，未删改证据正文。",
+      "evidence": "git diff --stat；git ls-tree -r HEAD；MB11 handoff.json 可被 json.load 解析"
+    },
+    {
+      "kind": "directory",
+      "path": ".planning/g5-sid-runtime/",
+      "status": "EVIDENCE_KEEP",
+      "reason": "G5 子计划/历史证据（12 个 tracked 文件，含 handoff.json、dependency_map.json、5 份运行证据）；本卡补读 handoff.json 确认 public_contracts 为 stockinfo-cninfo/1.3.0 unchanged、delivery_status=ready_for_main，与 ABSORBED 结论一致，历史『未推远端/待 MAIN』为交付时点陈述。",
+      "evidence": "git ls-tree -r HEAD | grep g5-sid-runtime = 12 文件；python json.load(.planning/g5-sid-runtime/handoff.json)"
+    },
+    {
+      "kind": "directory",
+      "path": "docs/implementation/g4-sid-latest/",
+      "status": "EVIDENCE_KEEP",
+      "reason": "G4 交付 PWF、MAIN_ACCEPTANCE 与 golden request/response、red/green/unit/ruff/mypy 运行证据；4 个 MD 加历史回链，未删改正文。",
+      "evidence": "find docs/implementation/g4-sid-latest -type f；MAIN_ACCEPTANCE.md §127 passed"
+    },
+    {
+      "kind": "file",
+      "path": "a_share_companies.txt",
+      "status": "EVIDENCE_KEEP",
+      "reason": "用户公司名单，卡明确要求保留；未 add / 未删除 / 未改写，仍为未跟踪。",
+      "evidence": "git status --porcelain -uall = ?? a_share_companies.txt；3,898 B"
+    },
+    {
+      "kind": "file",
+      "path": "companies.txt",
+      "status": "EVIDENCE_KEEP",
+      "reason": "用户公司名单，卡明确要求保留；未 add / 未删除 / 未改写，仍为未跟踪。",
+      "evidence": "git status --porcelain -uall = ?? companies.txt；137 B"
     },
     {
       "kind": "wire",
@@ -96,27 +201,31 @@
   "tests": [
     {
       "command": "git diff --check",
-      "result": "exit 0，无空白错误"
+      "result": "PASS：exit 0，无空白错误（工作区与 base..HEAD 均复跑）"
     },
     {
       "command": "python -X utf8 -c \"json.load(...)\" 校验 sid-closeout-handoff.json 为裸 JSON、schema_version=1、固定顶层键与子字段",
-      "result": "PASS：裸 JSON、schema_version=1、13 个固定顶层键顺序精确一致、base/final/dispositions/cleanup/tests/independent_review 子字段齐全"
+      "result": "PASS：裸 JSON（无 BOM/围栏）、schema_version=1、13 个固定顶层键顺序精确一致、base/final/dispositions/cleanup/tests/independent_review 子字段齐全"
     },
     {
-      "command": "相对 Markdown 链接解析（canonical PWF、15 个历史 banner、本 handoff）",
-      "result": "PASS：20 个 MD 全量解析，收尾元数据提交纳入 sid-closeout-review.md 后新增链接 0 broken"
+      "command": "相对 Markdown 链接解析（canonical PWF、15 个历史 banner、三份交付文件）",
+      "result": "PASS：35 个 MD 全量解析，0 broken link"
     },
     {
       "command": "git diff --name-only d084c4a..HEAD -- src tests main.py",
-      "result": "空：收尾提交保持纯文档/PWF，无产品代码改动，按卡不重复跑全量产品回归"
+      "result": "PASS：空。收尾全程纯文档/PWF，无产品代码改动，按卡不重复跑全量产品回归"
     },
     {
-      "command": "git worktree list / git for-each-ref / git merge-base --is-ancestor / git ls-remote origin refs/heads/v2-clean-rewrite",
-      "result": "3→2 worktree；7 个本地分支（6 个 codex/* + 主分支）均为 HEAD 祖先；0 non-ancestor refs；base remote = d084c4a… 与本地一致"
+      "command": "git worktree list / git for-each-ref / git merge-base --is-ancestor (逐个 7 个本地 head) / git show-ref --verify refs/heads/codex/g5-sid-runtime",
+      "result": "PASS：3→2 worktree；7 个本地分支（6 个 codex/* + 主分支）全部为 HEAD 祖先、0 non-ancestor refs；被删工区的分支 ref 仍在；base remote = d084c4a… 与本地一致"
+    },
+    {
+      "command": "git push origin v2-clean-rewrite 后 git ls-remote origin refs/heads/v2-clean-rewrite",
+      "result": "PASS：远端 = 本地 HEAD = 73f436942e03df9276e1416f7771f29b26942876（清单对照修订提交推送后远端为本次修订提交，见 handoff.md §1 与 §11）"
     },
     {
       "command": "产品回归（本次未运行）",
-      "result": "本卡为纯文档/PWF 收尾，未改 src/ 或 tests/；按卡规定只做 JSON/link/git diff --check。主线既有收据：MB11 tests/unit 340 passed、G4 127 passed、G5 163 passed"
+      "result": "按卡规定：纯文档/PWF 收尾只做 JSON/link/git diff --check，不重复跑产品全量测试。主线既有收据：MB11 tests/unit 340 passed、G4 127 passed、G5 163 passed"
     }
   ],
   "independent_review": {
@@ -124,12 +233,13 @@
     "reviewed_head": "2fd2294b387807b2031528120723ba7c90920470",
     "result": "PASS",
     "report_path": "docs/plans/module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md",
-    "finalization_note": "首轮对候选最终 HEAD 判 CHANGES REQUIRED（唯一 must-fix F-01：交接 SHA 留白 + 报告未入树；另有 LOW F-02、INFO F-03/F-04）。owner 在收尾元数据提交中填齐字段、纳入本报告并修复 F-02/F-03，同一 reviewer 复核该提交后整体结论转 PASS。详见报告 §6。"
+    "finalization_note": "首轮对候选最终 HEAD 2fd2294… 判 CHANGES REQUIRED（唯一 must-fix F-01：交接 SHA 留白 + 报告未入树；另有 LOW F-02、INFO F-03/F-04）。owner 在收尾元数据提交 73f4369… 中填齐字段、纳入报告并修复 F-02/F-03，同一 reviewer 复核该提交后整体结论转 PASS（复核绑定 HEAD = 73f4369…）。2026-11-14 16:xx 用户要求清单对照复核，发现 final.head/remote_head 曾误填为从未成为远端 HEAD 的 2fd2294，已由 owner 更正为 73f4369 并提交清单对照修订，同一 reviewer 再次只读复核该修订提交，PASS 保持。详见报告 §6、§7。"
   },
   "remaining_items": [
     "G2-12：mode=latest_as_of 只验收了元数据发现与受控 loopback fetch，FF → ET → CWP 下载→入库→复用链尚未贯通（属 MAIN/CWP/FF，非本卡写集）",
     "cwp-cninfo-bounded-budget 与 lineage-cleanup-backup-20261004 按 EVIDENCE_KEEP 保留；后续 owner 出具无唯一内容/无配置引用收据后可再评估",
     "容器 logs/、nul 与隐藏工具目录为 UNCLASSIFIED_HOLD，待归属查清",
+    "ROOT 整合时需从 SID 仓 docs/plans/module-pwf-reconciliation-2026-11-14/review/ 读取本交接（卡禁止把文件写到 company-wiki）；若总控需要索引指针，由 ROOT 在总控计划内自行登记",
     "父业务 goal du11-source-closure-2026-10-18 仍为 paused，本卡不自动恢复"
   ],
   "next_step": "推进 G2-12 完整单意图 latest ensure 链：在本仓主线跑 provider 相关回归（test_g4_latest_discovery / test_g5_provider_runtime / test_g4_latest_cli_offline / test_g5_browserless_provider 及完整 tests/unit），再由 ROOT 在 CWP 做一次有限公开接口组合验收；SID 只维护 stockinfo-cninfo/1.3.0、wire schema_version 1.0、共享 ProviderAcquisitionBudget 与 discovery_incomplete/bounded_discovery_empty 诚实 GAP 语义，跨仓差异只开 owner handoff，不直接改邻仓。"

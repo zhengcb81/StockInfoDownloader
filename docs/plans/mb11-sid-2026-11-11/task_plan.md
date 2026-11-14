@@ -13,7 +13,8 @@
 | 目标主线（实时确认，不假设为 `main`） | `v2-clean-rewrite` |
 | 开工 base HEAD | `d084c4aab48f5f83275f65982bf561e6870ff3a4` |
 | base remote HEAD | `d084c4aab48f5f83275f65982bf561e6870ff3a4`（`git ls-remote origin refs/heads/v2-clean-rewrite` 实测） |
-| 最终 HEAD / 独审绑定 HEAD | 见 `review/sid-closeout-handoff.json` 的 `final` 与 `independent_review`（交接文件与本入口同批提交，不在文中自指 SHA） |
+| 最新目标分支 HEAD（本卡收尾后的最终内容提交） | `73f436942e03df9276e1416f7771f29b26942876`（`v2-clean-rewrite`）；`git push` 后 `git ls-remote` 实测远端相同。提交链：`d084c4a`（base）→ `2fd2294`（首轮候选最终 HEAD，独立 reviewer 判 CHANGES REQUIRED）→ `73f4369`（修复复核 PASS 后发布）→ 之后若有纯交接记录修订提交，以 `git ls-remote origin refs/heads/v2-clean-rewrite` 为唯一准据 |
+| 独审绑定 HEAD | 首轮 `2fd2294b387807b2031528120723ba7c90920470`；修复复核后最终 `PASS` 绑定 `73f436942e03df9276e1416f7771f29b26942876`，见 [交接](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-handoff.md) 与 [独立审查](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md)。交接 JSON 不能自指包含自身提交 SHA，故 `final` 记录「经审查并发布的内容提交」，沿用本仓 MB11 的 `commit`/`docs_commit` 分记惯例 |
 | tracked / untracked | tracked clean；未跟踪仅 `a_share_companies.txt`、`companies.txt` 两份**用户公司名单，原样保留** |
 | 注册 worktree | 收尾前 3 个 → 收尾后 2 个（主仓 + `cwp-cninfo-bounded-budget`） |
 | refs | 7 个本地分支（`codex/*` 6 个 + `v2-clean-rewrite` 主分支）全部是 `v2-clean-rewrite` 祖先；0 个 non-ancestor refs；远端仅 `origin/v2-clean-rewrite` |
