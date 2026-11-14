@@ -10,9 +10,9 @@
   },
   "final": {
     "branch": "v2-clean-rewrite",
-    "head": null,
-    "remote_head": null,
-    "finalization_note": "交接产物与本卡 PWF 同批提交，head/remote_head 在独立审查绑定的候选最终 HEAD 产生后由 owner 在收尾元数据提交中填入，避免文件自指。"
+    "head": "2fd2294b387807b2031528120723ba7c90920470",
+    "remote_head": "2fd2294b387807b2031528120723ba7c90920470",
+    "finalization_note": "字段已填齐。head/remote_head/reviewed_head 绑定独立审查的候选最终 HEAD 2fd2294b…：该 HEAD 推送时经 git ls-remote 确认远端与之相等。交接文件不能自指包含自身提交 SHA，因此填值与审查报告由随后的收尾元数据提交落地，该提交仅含交接 JSON 填值、审查报告与 F-02/F-03 文档修正，其父提交即本候选 HEAD，并由同一 reviewer 复核；最终发布 HEAD 见 sid-closeout-review.md §6。"
   },
   "dispositions": [
     {
@@ -26,7 +26,7 @@
       "kind": "branch",
       "path": "refs/heads/codex/g4-main-sid, refs/heads/codex/g4-sid-latest, refs/heads/codex/g5-sid-runtime, refs/heads/codex/cninfo-bounded-budget, refs/heads/codex/mb11-sid, refs/heads/codex/root-mb11-sid-integration-20261113",
       "status": "ABSORBED",
-      "reason": "6 个交付/集成分支全部是 v2-clean-rewrite 的祖先，作为历史交付证据保留，不删 ref；0 个 non-ancestor refs。",
+      "reason": "6 个 codex/* 交付/集成分支（另有 1 个主线分支 v2-clean-rewrite 见 ACTIVE_KEEP，共 7 个本地 head）全部是 v2-clean-rewrite 的祖先，作为历史交付证据保留，不删 ref；0 个 non-ancestor refs。",
       "evidence": "逐个 git merge-base --is-ancestor 退出码 0；git for-each-ref"
     },
     {
@@ -100,15 +100,19 @@
     },
     {
       "command": "python -X utf8 -c \"json.load(...)\" 校验 sid-closeout-handoff.json 为裸 JSON、schema_version=1、固定顶层键与子字段",
-      "result": "见 sid-closeout-review.md 复核记录"
+      "result": "PASS：裸 JSON、schema_version=1、13 个固定顶层键顺序精确一致、base/final/dispositions/cleanup/tests/independent_review 子字段齐全"
     },
     {
       "command": "相对 Markdown 链接解析（canonical PWF、15 个历史 banner、本 handoff）",
-      "result": "20 个 MD 文件检查；仅 handoff.json / sid-closeout-review.md 两个链接在收尾元数据提交前待落盘，提交后为 0 broken"
+      "result": "PASS：20 个 MD 全量解析，收尾元数据提交纳入 sid-closeout-review.md 后新增链接 0 broken"
+    },
+    {
+      "command": "git diff --name-only d084c4a..HEAD -- src tests main.py",
+      "result": "空：收尾提交保持纯文档/PWF，无产品代码改动，按卡不重复跑全量产品回归"
     },
     {
       "command": "git worktree list / git for-each-ref / git merge-base --is-ancestor / git ls-remote origin refs/heads/v2-clean-rewrite",
-      "result": "3→2 worktree；6 个本地分支均为 HEAD 祖先；0 non-ancestor refs；base remote = d084c4a… 与本地一致"
+      "result": "3→2 worktree；7 个本地分支（6 个 codex/* + 主分支）均为 HEAD 祖先；0 non-ancestor refs；base remote = d084c4a… 与本地一致"
     },
     {
       "command": "产品回归（本次未运行）",
@@ -116,11 +120,11 @@
     }
   ],
   "independent_review": {
-    "reviewer_agent": "未参与实施的独立 reviewer agent（见 sid-closeout-review.md）",
-    "reviewed_head": null,
-    "result": "PENDING",
+    "reviewer_agent": "独立 reviewer agent agent-06e930e1-5ae9-49aa-b0c8-04aaef8caa0d（未参与实施，只读审查）",
+    "reviewed_head": "2fd2294b387807b2031528120723ba7c90920470",
+    "result": "PASS",
     "report_path": "docs/plans/module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md",
-    "finalization_note": "候选最终 HEAD 提交后由独立 reviewer 按该 HEAD 审查；owner 在收尾元数据提交中把 reviewed_head 与 result 填入（避免交接文件自指），再由 reviewer 复核该提交。"
+    "finalization_note": "首轮对候选最终 HEAD 判 CHANGES REQUIRED（唯一 must-fix F-01：交接 SHA 留白 + 报告未入树；另有 LOW F-02、INFO F-03/F-04）。owner 在收尾元数据提交中填齐字段、纳入本报告并修复 F-02/F-03，同一 reviewer 复核该提交后整体结论转 PASS。详见报告 §6。"
   },
   "remaining_items": [
     "G2-12：mode=latest_as_of 只验收了元数据发现与受控 loopback fetch，FF → ET → CWP 下载→入库→复用链尚未贯通（属 MAIN/CWP/FF，非本卡写集）",

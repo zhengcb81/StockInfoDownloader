@@ -16,7 +16,7 @@
 | 最终 HEAD / 独审绑定 HEAD | 见 `review/sid-closeout-handoff.json` 的 `final` 与 `independent_review`（交接文件与本入口同批提交，不在文中自指 SHA） |
 | tracked / untracked | tracked clean；未跟踪仅 `a_share_companies.txt`、`companies.txt` 两份**用户公司名单，原样保留** |
 | 注册 worktree | 收尾前 3 个 → 收尾后 2 个（主仓 + `cwp-cninfo-bounded-budget`） |
-| refs | 6 个本地分支（含 `codex/*` 5 个）全部是 `v2-clean-rewrite` 祖先；0 个 non-ancestor refs；远端仅 `origin/v2-clean-rewrite` |
+| refs | 7 个本地分支（`codex/*` 6 个 + `v2-clean-rewrite` 主分支）全部是 `v2-clean-rewrite` 祖先；0 个 non-ancestor refs；远端仅 `origin/v2-clean-rewrite` |
 | 在途改动 | 无；本卡写集合无 `UNCLASSIFIED_HOLD` 冲突 |
 
 ## 已完成（按 Git / 测试 / 交接收据）
@@ -37,7 +37,7 @@
 | `Projects/StockInfoDLSimple/cwp-cninfo-bounded-budget` | `codex/cninfo-bounded-budget@8ed5fdd` / G4 基线 | `EVIDENCE_KEEP` | 注册工区且 clean；是 G4 基线 `8ed5fdd` 的物理现场，含 6 份 e2e 真实 PDF 与运行态 `logs/progress.json`、`src/stock_orgid_mapping.json`；名字涉及 CWP 面向任务，按保守原则保留，不按「已吸收/可重建」删除 |
 | `Projects/StockInfoDLSimple/lineage-cleanup-backup-20261004` | 2026-10-04 1.1.0→1.2.0 回滚材料 | `EVIDENCE_KEEP` | 5 个唯一文件（85,874B staged patch、3,610B unstaged patch、20,179B 未入任何 commit 的 pre-budget `cninfo_api.py`、`status_before.txt`、README），是唯一回滚/审计资料；README 明确要求不移入仓内 |
 | `Projects/StockInfoDLSimple/logs`、`nul`、隐藏工具目录 | 运行状态 / 外部工具 | `UNCLASSIFIED_HOLD` | 归属与用途未查清，合计极小；按卡规原样保留，不按名字当作临时文件删除 |
-| 5 个 `codex/*` 分支 refs | 各交付/集成分支 | `ABSORBED` | 全部是 HEAD 祖先，作为交付证据保留，不删 ref |
+| 6 个 `codex/*` 分支 refs | 各交付/集成分支 | `ABSORBED` | 全部是 HEAD 祖先，作为交付证据保留，不删 ref |
 
 ## 唯一下一步（SID 主线）
 

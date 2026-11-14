@@ -18,7 +18,7 @@
 | remote | `origin https://github.com/zhengcb81/StockInfoDownloader.git`（有 remote） |
 | tracked | clean |
 | 未跟踪例外 | `a_share_companies.txt`（3,898 B）、`companies.txt`（137 B）——用户公司名单，**原样保留**，未 add / 未删除 / 未改写 |
-| refs | 6 个本地分支：`v2-clean-rewrite`、`codex/g4-main-sid@0cb3c1f`、`codex/g4-sid-latest@201a8f0`、`codex/g5-sid-runtime@47e1059`、`codex/cninfo-bounded-budget@8ed5fdd`、`codex/mb11-sid@a967913`、`codex/root-mb11-sid-integration-20261113@53b9358`；逐一 `git merge-base --is-ancestor` 全部为 HEAD 祖先，0 个 non-ancestor refs |
+| refs | 7 个本地分支（`codex/*` 6 个 + `v2-clean-rewrite` 主分支）：`v2-clean-rewrite`、`codex/g4-main-sid@0cb3c1f`、`codex/g4-sid-latest@201a8f0`、`codex/g5-sid-runtime@47e1059`、`codex/cninfo-bounded-budget@8ed5fdd`、`codex/mb11-sid@a967913`、`codex/root-mb11-sid-integration-20261113@53b9358`；逐一 `git merge-base --is-ancestor` 全部为 HEAD 祖先，0 个 non-ancestor refs |
 | 在途改动 | 无；本卡写集合与其它 owner 无重叠，无 `UNCLASSIFIED_HOLD` 冲突需要协调 |
 
 ## 2. PWF 收敛与 G4/G5 状态校正
