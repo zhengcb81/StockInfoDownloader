@@ -230,10 +230,10 @@
   ],
   "independent_review": {
     "reviewer_agent": "独立 reviewer agent agent-06e930e1-5ae9-49aa-b0c8-04aaef8caa0d（未参与实施，只读审查）",
-    "reviewed_head": "2fd2294b387807b2031528120723ba7c90920470",
+    "reviewed_head": "99a32bda3faf893c39eb8212356ff1a015bdc0f8",
     "result": "PASS",
     "report_path": "docs/plans/module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md",
-    "finalization_note": "首轮对候选最终 HEAD 2fd2294… 判 CHANGES REQUIRED（唯一 must-fix F-01：交接 SHA 留白 + 报告未入树；另有 LOW F-02、INFO F-03/F-04）。owner 在收尾元数据提交 73f4369… 中填齐字段、纳入报告并修复 F-02/F-03，同一 reviewer 复核该提交后整体结论转 PASS（复核绑定 HEAD = 73f4369…）。2026-11-14 16:xx 用户要求清单对照复核，发现 final.head/remote_head 曾误填为从未成为远端 HEAD 的 2fd2294，已由 owner 更正为 73f4369 并提交清单对照修订，同一 reviewer 再次只读复核该修订提交，PASS 保持。详见报告 §6、§7。"
+    "finalization_note": "首轮对候选最终 HEAD 2fd2294… 判 CHANGES REQUIRED（唯一 must-fix F-01：交接 SHA 留白 + 报告未入树；另有 LOW F-02、INFO F-03/F-04）。owner 在收尾元数据提交 73f4369… 中填齐字段、纳入报告并修复 F-02/F-03，同一 reviewer 复核该提交后整体结论转 PASS（复核绑定 HEAD = 73f4369…）。2026-11-14 16:xx 用户要求清单对照复核，发现 final.head/remote_head 曾误填为从未成为远端 HEAD 的 2fd2294，已由 owner 更正为 73f4369 并提交清单对照修订，同一 reviewer 再次只读复核该修订提交，PASS 保持。详见报告 §6、§7。 ROOT acceptance found the top-level reviewed_head still pointed at the first-round CHANGES REQUIRED candidate 2fd2294; it now points to the final checklist re-audit revision 99a32bda (PASS). final.head/remote_head remain 73f4369 as the reviewed content commit; this metadata correction is receipt-only and its carrier tip is recorded in the company-wiki root PWF."
   },
   "remaining_items": [
     "G2-12：mode=latest_as_of 只验收了元数据发现与受控 loopback fetch，FF → ET → CWP 下载→入库→复用链尚未贯通（属 MAIN/CWP/FF，非本卡写集）",
