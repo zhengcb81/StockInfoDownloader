@@ -234,3 +234,13 @@ independent_review.finalization_note = "首轮对候选最终 HEAD 判 CHANGES R
 ---
 
 *本报告由未参与实施的独立 reviewer agent 以只读方式产出（含第二轮修复复核与第三轮清单对照复核）；除本报告自身外未写入任何文件，未对任何仓执行写类 Git 操作。*
+
+
+## 8. ROOT 收据字段复核（2026-11-14）
+
+- 复核者：未参与本次 SID 收据修复的独立 acceptance reviewer（`handoff_acceptance_review`），只读复核。
+- 绑定提交：`a31ae376cae206461524b67bc9c79fe5e84df0db`；差异仅为 `sid-closeout-handoff.json` 的 `independent_review.reviewed_head` 与说明字段。
+- 核对结果：PASS。`reviewed_head=99a32bda3faf893c39eb8212356ff1a015bdc0f8` 对应最新清单复核 PASS；首轮 `2fd2294` 的 CHANGES REQUIRED 结论保留在历史报告中，不再作为 JSON 的当前审查绑定。`final.head/final.remote_head=73f4369` 仍正确表示已审内容提交，handoff note 将 `99a32bda` 与后续 receipt-only carrier 区分。
+- 检查：`python -I` JSON 解析 PASS；`git diff --check 99a32bda..a31ae376` PASS；产品源码、测试、用户名单均未改变。该修订已在本地目标分支；远端发布按正常 push 后用 `git ls-remote` 核验。
+
+**结论：PASS** —— 收据修正准确，未改变 SID 已审内容与 owner 边界。
