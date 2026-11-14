@@ -1,3 +1,5 @@
+> **状态入口（2026-11-14）**：本文件为历史证据/子计划，SID 仓当前状态唯一以 [MB-SID task_plan](task_plan.md) 顶部 canonical 段为准；本文件的历史 Next Step 不代表当前待办。
+
 # MB-SID — 逐条合规对照
 
 对照对象：`inputs/MB-SID.md`（本卡）+ `inputs/handoff_contract.md`（交接格式）。

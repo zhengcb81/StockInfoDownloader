@@ -1,3 +1,5 @@
+> **状态入口（2026-11-14）**：本文件为历史证据/子计划，SID 仓当前状态唯一以 [MB-SID task_plan](task_plan.md) 顶部 canonical 段为准；本文件的历史 Next Step 不代表当前待办。
+
 # MB-SID — 交付 runtime 清单
 
 按卡"全卡共用完成规则"第一条：先列本仓实际交付 runtime 的活动入口、逻辑模块、公开面、状态 owner 和依赖方向，并给出兼容/退休分类。

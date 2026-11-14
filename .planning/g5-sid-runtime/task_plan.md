@@ -1,3 +1,5 @@
+> **状态入口（2026-11-14）**：本文件为 G5 子计划/历史证据；`codex/g5-sid-runtime@47e1059` 已是 `v2-clean-rewrite` 祖先，代码与 12 个 PWF/evidence 文件均已吸收进主线。当前状态唯一以 [MB-SID task_plan](../../docs/plans/mb11-sid-2026-11-11/task_plan.md) 顶部 canonical 段为准。
+
 # Task Plan: G5-SID-RUNTIME 纯API provider 解耦与完整预算
 
 Use this file as the durable roadmap for the task. Create it before complex work and keep it current as phases change.

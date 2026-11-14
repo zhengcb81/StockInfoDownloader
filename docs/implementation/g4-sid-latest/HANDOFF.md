@@ -1,3 +1,5 @@
+> **状态入口（2026-11-14）**：本文件为 G4 交付期历史证据；「MAIN 待做 1.3.0 路由升级」已 superseded —— SID `src/company_wiki_adapter.py` 为 `ADAPTER_VERSION=1.3.0`、CWP `config/source_acquisition.yaml` 为 `1.3.0`、[MAIN_ACCEPTANCE](MAIN_ACCEPTANCE.md) 记 CWP route `df7d7ba` 已发布。当前状态唯一以 [MB-SID task_plan](../../plans/mb11-sid-2026-11-11/task_plan.md) 顶部 canonical 段为准。
+
 # HANDOFF — G4-SID-LATEST
 
 **Lane** `G4-SID-LATEST` · **branch** `codex/g4-sid-latest` ·

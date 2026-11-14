@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "lane": "sid",
+  "repo_root": "C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite",
+  "canonical_pwf": "docs/plans/mb11-sid-2026-11-11/task_plan.md",
+  "base": {
+    "branch": "v2-clean-rewrite",
+    "head": "d084c4aab48f5f83275f65982bf561e6870ff3a4",
+    "remote_head": "d084c4aab48f5f83275f65982bf561e6870ff3a4"
+  },
+  "final": {
+    "branch": "v2-clean-rewrite",
+    "head": null,
+    "remote_head": null,
+    "finalization_note": "交接产物与本卡 PWF 同批提交，head/remote_head 在独立审查绑定的候选最终 HEAD 产生后由 owner 在收尾元数据提交中填入，避免文件自指。"
+  },
+  "dispositions": [
+    {
+      "kind": "branch",
+      "path": "refs/heads/v2-clean-rewrite",
+      "status": "ACTIVE_KEEP",
+      "reason": "实时确认的目标主线与唯一长期主仓，base 与 origin 同为 d084c4a…。",
+      "evidence": "git rev-parse HEAD / git ls-remote origin refs/heads/v2-clean-rewrite"
+    },
+    {
+      "kind": "branch",
+      "path": "refs/heads/codex/g4-main-sid, refs/heads/codex/g4-sid-latest, refs/heads/codex/g5-sid-runtime, refs/heads/codex/cninfo-bounded-budget, refs/heads/codex/mb11-sid, refs/heads/codex/root-mb11-sid-integration-20261113",
+      "status": "ABSORBED",
+      "reason": "6 个交付/集成分支全部是 v2-clean-rewrite 的祖先，作为历史交付证据保留，不删 ref；0 个 non-ancestor refs。",
+      "evidence": "逐个 git merge-base --is-ancestor 退出码 0；git for-each-ref"
+    },
+    {
+      "kind": "worktree",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite",
+      "status": "ACTIVE_KEEP",
+      "reason": "主工区；含两份用户公司名单、downloads 真实返回数据、运行日志及 MB11/G4/G5 全部交接与测试证据。",
+      "evidence": "git worktree list；git status --porcelain -uall；du -sb"
+    },
+    {
+      "kind": "worktree",
+      "path": "C:/Users/郑曾波/Projects/_g5/sid",
+      "status": "DELETE_AFTER_OWNER_CONFIRMATION",
+      "reason": "G5 已结案且分支 47e1059 是 HEAD 祖先；tracked 内容与 .planning/g5-sid-runtime 12 个 PWF/evidence 文件全在主线，ignored 仅 .mypy_cache/.ruff_cache 可重建缓存，无运行时配置引用，无 dirty/untracked；分支保留可重建。由 SID owner 依收据结案，实际归属即本 SID 仓注册工区。",
+      "evidence": "git -C <path> status --porcelain --ignored 仅两条 !!；git diff --name-status codex/g5-sid-runtime..HEAD；git ls-tree -r HEAD 含 G5 文件；主仓 config*.json 与 CWP config/ 无该路径引用；worktree remove 后 git worktree list 由 3 变 2 且 ref 仍在"
+    },
+    {
+      "kind": "worktree",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/cwp-cninfo-bounded-budget",
+      "status": "EVIDENCE_KEEP",
+      "reason": "注册工区且 clean，是 G4 基线 8ed5fdd 的物理现场；含 6 份 e2e 真实 PDF 与运行态 logs/progress.json、src/stock_orgid_mapping.json；名称涉及 CWP 面向任务，按卡规不以已吸收/可重建/名称单独判删，保守保留。",
+      "evidence": "git -C <path> status --porcelain --ignored；87 文件 / 19,422,917 B；git ls-tree -r HEAD 含同 6 份 PDF"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/lineage-cleanup-backup-20261004",
+      "status": "EVIDENCE_KEEP",
+      "reason": "唯一回滚/审计材料：85,874 B staged patch、3,610 B unstaged patch、20,179 B 未入任何 commit 的 pre-budget cninfo_api.py、status_before.txt、README；README 明确要求不移入仓内。",
+      "evidence": "目录 5 文件 / 116,155 B；README 完整恢复步骤"
+    },
+    {
+      "kind": "directory",
+      "path": "C:/Users/郑曾波/Projects/StockInfoDLSimple/logs, C:/Users/郑曾波/Projects/StockInfoDLSimple/nul, C:/Users/郑曾波/Projects/StockInfoDLSimple/.claude, .codegraph, .mimocode, .ruff_cache, .benchmarks",
+      "status": "UNCLASSIFIED_HOLD",
+      "reason": "运行态进度文件、可疑名称文件与外部工具状态目录；归属/用途未查清，按卡规原样保留，不以名称推断可删。",
+      "evidence": "1 文件/175 B、1 文件/893 B、隐藏目录合计 3,467 文件 / 53,148,299 B"
+    },
+    {
+      "kind": "file",
+      "path": "docs/plans/mb11-sid-2026-11-11/, .planning/g5-sid-runtime/, docs/implementation/g4-sid-latest/, a_share_companies.txt, companies.txt",
+      "status": "EVIDENCE_KEEP",
+      "reason": "历史 handoff/evidence/compliance/inputs 与两份用户公司名单均为唯一证据或用户资料；本卡只在其 15 个 MD 顶部加一行回链 banner，未删除或改写证据正文。",
+      "evidence": "git diff --stat 16 文件 / +94 -3；a_share_companies.txt 3,898 B、companies.txt 137 B 仍为未跟踪"
+    },
+    {
+      "kind": "wire",
+      "path": "stockinfo-cninfo/1.3.0 (public wire, schema_version 1.0)",
+      "status": "ACTIVE_KEEP",
+      "reason": "G4 旧待办「主线待做 1.3.0 路由升级」已 SUPERSEDED：SID 源码与测试为 1.3.0，CWP config/source_acquisition.yaml 为 1.3.0，CWP route df7d7ba 已发布；跨仓差异只记录，不改邻仓。",
+      "evidence": "src/company_wiki_adapter.py:30；tests/unit/test_g4_latest_discovery.py；tests/e2e/test_g4_latest_cli_offline.py；company-wiki@7361aad82 config/source_acquisition.yaml:9（只读）；docs/implementation/g4-sid-latest/MAIN_ACCEPTANCE.md"
+    }
+  ],
+  "dirty_exceptions": [
+    "a_share_companies.txt (3,898 B, untracked) — 用户公司名单，原样保留",
+    "companies.txt (137 B, untracked) — 用户公司名单，原样保留",
+    "主仓 ignored 运行态：.pytest_cache/, __pycache__/, downloads/ (1,578,575,618 B), logs/ (34,464,255 B), e2e_official_report*.json, src/stock_orgid_mapping.json — 真实数据/缓存，保留",
+    "被移除 _g5/sid 的 ignored 内容仅 .mypy_cache/ (599 文件/21,703,613 B) 与 .ruff_cache/ (5 文件/741 B) 可重建缓存；tracked 内容全在主线",
+    "无 tracked dirty；无其它 owner 的在途改动与本卡写集合重叠"
+  ],
+  "cleanup": {
+    "paths": [
+      "C:/Users/郑曾波/Projects/_g5/sid"
+    ],
+    "file_count": 713,
+    "bytes": 41315535
+  },
+  "tests": [
+    {
+      "command": "git diff --check",
+      "result": "exit 0，无空白错误"
+    },
+    {
+      "command": "python -X utf8 -c \"json.load(...)\" 校验 sid-closeout-handoff.json 为裸 JSON、schema_version=1、固定顶层键与子字段",
+      "result": "见 sid-closeout-review.md 复核记录"
+    },
+    {
+      "command": "相对 Markdown 链接解析（canonical PWF、15 个历史 banner、本 handoff）",
+      "result": "20 个 MD 文件检查；仅 handoff.json / sid-closeout-review.md 两个链接在收尾元数据提交前待落盘，提交后为 0 broken"
+    },
+    {
+      "command": "git worktree list / git for-each-ref / git merge-base --is-ancestor / git ls-remote origin refs/heads/v2-clean-rewrite",
+      "result": "3→2 worktree；6 个本地分支均为 HEAD 祖先；0 non-ancestor refs；base remote = d084c4a… 与本地一致"
+    },
+    {
+      "command": "产品回归（本次未运行）",
+      "result": "本卡为纯文档/PWF 收尾，未改 src/ 或 tests/；按卡规定只做 JSON/link/git diff --check。主线既有收据：MB11 tests/unit 340 passed、G4 127 passed、G5 163 passed"
+    }
+  ],
+  "independent_review": {
+    "reviewer_agent": "未参与实施的独立 reviewer agent（见 sid-closeout-review.md）",
+    "reviewed_head": null,
+    "result": "PENDING",
+    "report_path": "docs/plans/module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md",
+    "finalization_note": "候选最终 HEAD 提交后由独立 reviewer 按该 HEAD 审查；owner 在收尾元数据提交中把 reviewed_head 与 result 填入（避免交接文件自指），再由 reviewer 复核该提交。"
+  },
+  "remaining_items": [
+    "G2-12：mode=latest_as_of 只验收了元数据发现与受控 loopback fetch，FF → ET → CWP 下载→入库→复用链尚未贯通（属 MAIN/CWP/FF，非本卡写集）",
+    "cwp-cninfo-bounded-budget 与 lineage-cleanup-backup-20261004 按 EVIDENCE_KEEP 保留；后续 owner 出具无唯一内容/无配置引用收据后可再评估",
+    "容器 logs/、nul 与隐藏工具目录为 UNCLASSIFIED_HOLD，待归属查清",
+    "父业务 goal du11-source-closure-2026-10-18 仍为 paused，本卡不自动恢复"
+  ],
+  "next_step": "推进 G2-12 完整单意图 latest ensure 链：在本仓主线跑 provider 相关回归（test_g4_latest_discovery / test_g5_provider_runtime / test_g4_latest_cli_offline / test_g5_browserless_provider 及完整 tests/unit），再由 ROOT 在 CWP 做一次有限公开接口组合验收；SID 只维护 stockinfo-cninfo/1.3.0、wire schema_version 1.0、共享 ProviderAcquisitionBudget 与 discovery_incomplete/bounded_discovery_empty 诚实 GAP 语义，跨仓差异只开 owner handoff，不直接改邻仓。"
+}

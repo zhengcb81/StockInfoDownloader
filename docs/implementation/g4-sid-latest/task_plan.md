@@ -1,3 +1,5 @@
+> **状态入口（2026-11-14）**：本文件为 G4 交付期历史证据；「MAIN 待做 1.3.0 路由升级」已 superseded —— SID `src/company_wiki_adapter.py` 为 `ADAPTER_VERSION=1.3.0`、CWP `config/source_acquisition.yaml` 为 `1.3.0`、[MAIN_ACCEPTANCE](MAIN_ACCEPTANCE.md) 记 CWP route `df7d7ba` 已发布。当前状态唯一以 [MB-SID task_plan](../../plans/mb11-sid-2026-11-11/task_plan.md) 顶部 canonical 段为准。
+
 # G4-SID-LATEST — as-of latest A-share periodic report discovery
 
 **MAIN latest status:** accepted and published on v2-clean-rewrite; code eb8495ceb76892ff6f4a95889b6a19f0a78d769c. Final 127 responsibility/real CLI offline cases pass (27.02s), including three completeness regressions and four real committed CWP route cases. CWP route df7d7ba is published. Full unified ensure/FF/ET/CWP ingest/reuse remains MAIN G2-12; overall goal remains paused. See [MAIN_ACCEPTANCE](MAIN_ACCEPTANCE.md). The earlier worker status below is historical.
