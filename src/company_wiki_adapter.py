@@ -195,9 +195,13 @@ class DisclosureCandidate:
     # carries transport_url inside the opaque adapter_payload_json so company
     # wiki never mislabels transport URL as the source of truth.
     transport_url: str = ""
+    security_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        value = asdict(self)
+        if self.security_id is None:
+            value.pop("security_id")
+        return value
 
 
 @dataclass(frozen=True)
@@ -395,6 +399,8 @@ class StockInfoCompanyWikiAdapter:
 
         candidates: dict[str, DisclosureCandidate] = {}
         for record in records:
+            if record.sec_code != request.stock_code:
+                continue
             title = record.title
             if _matches_excluded(title, list(effective_excluded)):
                 continue
@@ -406,8 +412,6 @@ class StockInfoCompanyWikiAdapter:
                 if not title.strip():
                     continue
                 if not record.adjunct_url.strip():
-                    continue
-                if record.sec_code != request.stock_code:
                     continue
                 if record.filing_date > as_of_date:
                     continue
@@ -445,6 +449,7 @@ class StockInfoCompanyWikiAdapter:
                 language="zh-CN",
                 amended=amended,
                 transport_url=record.transport_url,  # opaque to company-wiki
+                security_id=record.sec_code,
             )
             prior = candidates.get(candidate_id)
             if prior is None:

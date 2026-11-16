@@ -365,7 +365,9 @@ def test_literal_cli_discovers_without_org_id_or_browser(owned_root, loopback):
     assert response["schema_version"] == "1.0"
     assert response["status"] == "ok"
     assert response["adapter"] == {"name": "stockinfo-cninfo", "version": "1.3.0"}
-    assert [c["provider_document_id"] for c in response["candidates"]] == ["900001001"]
+    assert [(c["provider_document_id"], c["security_id"]) for c in response["candidates"]] == [
+        ("900001001", SEC)
+    ]
     assert loopback.kinds == ["identity", "announcement"]
     assert loopback.identity_posts[0]["stock"] == f"{SEC},"
     assert loopback.announcement_posts[0]["stock"] == f"{SEC},{ORG}"
@@ -373,6 +375,27 @@ def test_literal_cli_discovers_without_org_id_or_browser(owned_root, loopback):
     assert response["acquisition_usage"]["response_bytes"] == expected
     assert loopback.sent_bytes == expected
     assert response["acquisition_usage"]["cost_usd"] == "0"
+    _assert_no_browser_artifacts(owned_root)
+
+
+@pytest.mark.parametrize("mode", ["exact", "latest_as_of"])
+def test_discover_does_not_borrow_listing_from_request(owned_root, loopback, mode):
+    config = _write_config(owned_root)
+    page = loopback.pages["1"]
+    verified = page["announcements"][0]
+    foreign = dict(verified, announcementId="900001002", secCode=_OTHER_SEC)
+    missing = dict(verified, announcementId="900001003")
+    del missing["secCode"]
+    page["announcements"].extend((foreign, missing))
+    page["totalRecordNum"] = len(page["announcements"])
+    request = _payload(mode=mode, as_of_date="2025-04-02")
+
+    proc = _run(owned_root, config, request, base_url=loopback.base)
+
+    assert proc.returncode == 0, proc.stderr
+    assert [c["provider_document_id"] for c in _one_json(proc.stdout)["candidates"]] == [
+        verified["announcementId"]
+    ]
     _assert_no_browser_artifacts(owned_root)
 
 

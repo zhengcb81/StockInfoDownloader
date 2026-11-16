@@ -712,6 +712,7 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
             assert candidate.candidate_id == "cninfo:900001001"
             assert candidate.provider_document_id == "900001001"
             assert candidate.entity == NAME
+            assert candidate.security_id == SEC
             assert candidate.fiscal_year == 2024
             assert candidate.fiscal_period == "FY"
             assert candidate.form_type == "annual_report"
@@ -721,6 +722,7 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
             assert budget.cost_usd_used == 0
 
             payload = json.loads(candidate.adapter_payload_json)
+            assert payload["security_id"] == SEC
             assert payload["fiscal_year"] == 2024
             assert payload["fiscal_period"] == "FY"
             assert payload["filing_date"] == "2025-03-20"
@@ -846,10 +848,10 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
             if expected_error is None:
                 candidates = adapter.discover_bounded(request, budget)
                 assert [
-                    (c.fiscal_year, c.fiscal_period, c.provider_document_id)
+                    (c.fiscal_year, c.fiscal_period, c.provider_document_id, c.security_id)
                     for c in candidates
                 ] == [
-                    (2024, "FY", "900001001"),
+                    (2024, "FY", "900001001", SEC),
                 ]
             else:
                 with pytest.raises(AdapterProcessError) as caught:

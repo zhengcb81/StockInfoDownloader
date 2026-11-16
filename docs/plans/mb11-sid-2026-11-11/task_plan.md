@@ -5,6 +5,14 @@
 > `.planning/g5-sid-runtime/` 与 `docs/implementation/g4-sid-latest/` 一律是**历史证据或子计划**，只回链本入口，不得另建第二个 START_HERE、不得据其历史 "Next Step" 判断当前工作。
 > 本次收尾交接：[handoff.md](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-handoff.md) · [handoff.json](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-handoff.json) · [独立审查](../module-pwf-reconciliation-2026-11-14/review/sid-closeout-review.md)。
 
+## 2026-11-16 · M3 CNINFO 候选证券身份
+
+FF 正式下载测试发现，SID 主线 `26704a037f67bf3370fe3be6e77d13529916d543` 发出的候选缺少 `security_id`。CWP 对照已解析挂牌身份时在下载前拒绝该候选。SID 的公告解析还会用请求证券代码补写缺少的上游 `secCode`，导致仅靠请求内容也能得到貌似有归属的候选。
+
+- 公开 CLI 的本机回环测试先复现三处失败。正常候选缺少 ID，exact 返回异股和缺码记录，latest 返回缺码记录。
+- 公告解析以 CNINFO 返回的 `secCode` 与请求挂牌作匹配。exact 和 latest 都跳过缺码或异股记录，保留同页已匹配候选及原期次、披露日和公告 ID。SID 在协议 `stockinfo-cninfo/1.3.0` 的发现响应附带已验证的 `security_id`，旧取件载荷仍可读取，预算和原件校验不变。
+- 影响范围中的单元与回环测试首次修复复验为 126 项通过、4 项因未指定 CWP 版本跳过。最终指定 CWP `f5d41d9f471a5ea9ed8dd6dc72abf477da743f7a` 定向复验 32 项通过，包含真实 SID CLI 和当前 CWP 公共适配器对证券 ID 的接收，以及已有的最新期次覆盖、预算和失败路径。下一步由 FF 用该 SID 候选在临时来源库正式复跑。
+
 ## 当前状态（实时 Git 核对，2026-11-14）
 
 | 项 | 值 |

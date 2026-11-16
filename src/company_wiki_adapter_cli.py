@@ -61,6 +61,7 @@ def _candidate(value: dict[str, Any]) -> DisclosureCandidate:
         language=value["language"],
         amended=value["amended"],
         transport_url=value.get("transport_url", ""),
+        security_id=value.get("security_id"),
     )
 
 

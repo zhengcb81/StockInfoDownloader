@@ -79,6 +79,7 @@ def test_parse_announcement_record_preserves_fy2024_full_identity():
     raw = _load_real_payload()["announcements"][1]  # FY2024 full
     parsed = client._parse_announcement(raw, stock_code="002594")
 
+    assert parsed is not None
     assert parsed.announcement_id == "1222881496"
     # Official China disclosure date from the captured epoch milliseconds
     assert parsed.filing_date == "2025-03-25"
@@ -496,6 +497,7 @@ def test_candidate_construction_exposes_detail_url_as_source_url():
     client = CninfoAnnouncementClient()
     raw = _load_real_payload()["announcements"][1]
     parsed = client._parse_announcement(raw, stock_code="002594")
+    assert parsed is not None
     # source_url field (when wired into DisclosureCandidate) must be the detail URL;
     # transport_url is only carried in opaque adapter_payload_json at adapter stage.
     assert parsed.detail_url == parsed.detail_url  # self-consistent
@@ -536,6 +538,7 @@ def test_official_china_disclosure_date_uses_exchange_timezone():
                announcementTime=1787155200000,
                adjunctUrl="finalpage/2026-08-20/1225482884.PDF")
     parsed = CninfoAnnouncementClient()._parse_announcement(raw, stock_code="688012")
+    assert parsed is not None
     assert parsed.filing_date == "2026-08-20"
     assert parsed.announcement_time_ms == 1787155200000
     assert "announcementTime=2026-08-20" in parsed.detail_url

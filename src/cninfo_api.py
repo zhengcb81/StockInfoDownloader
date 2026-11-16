@@ -781,6 +781,8 @@ class CninfoAnnouncementClient:
         out: list[CninfoAnnouncement] = []
         for record in raw:
             parsed = self._parse_announcement(record, stock_code=stock_code)
+            if parsed is None:
+                continue
             kind, year, _form_type, _period, _amended = report_metadata(parsed.title)
             if year != fiscal_year or kind != document_kind:
                 continue
@@ -827,10 +829,10 @@ class CninfoAnnouncementClient:
         out: list[CninfoAnnouncement] = []
         for record in raw:
             parsed = self._parse_announcement(record, stock_code=stock_code)
+            if parsed is None:
+                continue
             kind, year, form, period, _amended = report_metadata(parsed.title)
             if kind != document_kind or year is None:
-                continue
-            if parsed.sec_code != stock_code:
                 continue
             if parsed.filing_date > cutoff:
                 continue
@@ -848,12 +850,13 @@ class CninfoAnnouncementClient:
         record: dict,
         *,
         stock_code: str,
-    ) -> CninfoAnnouncement:
+    ) -> CninfoAnnouncement | None:
         try:
             announcement_id = str(record["announcementId"])
             announcement_time_ms = int(record["announcementTime"])
             title = str(record["announcementTitle"])
-            sec_code = str(record.get("secCode") or stock_code)
+            # A scoped query is not proof that each returned row belongs to it.
+            sec_code = str(record.get("secCode") or "")
             sec_name = str(record.get("secName") or "")
             org_id = str(record.get("orgId") or "")
             adjunct_type = str(record.get("adjunctType") or "PDF")
@@ -864,6 +867,8 @@ class CninfoAnnouncementClient:
                 error_code="schema_drift",
                 retryable=False,
             ) from exc
+        if sec_code != stock_code:
+            return None
         # Epoch milliseconds are UTC instants; publication dates and the
         # official detail query use China disclosure time (UTC+08:00).
         dt = datetime.fromtimestamp(announcement_time_ms / 1000.0, tz=timezone(timedelta(hours=8)))

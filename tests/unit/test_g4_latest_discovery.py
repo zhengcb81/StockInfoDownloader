@@ -765,9 +765,12 @@ def test_announcement_time_uses_china_disclosure_date():
         "announcementId": "900009012",
         "announcementTime": 1780273800000,  # 2026-06-01T00:30:00Z
         "announcementTitle": "示例公司2024年年度报告",
+        "secCode": SEC,
         "adjunctUrl": "finalpage/2026-06-01/900009012.PDF",
     }
-    assert client._parse_announcement(raw, stock_code=SEC).filing_date == "2026-06-01"
+    parsed = client._parse_announcement(raw, stock_code=SEC)
+    assert parsed is not None
+    assert parsed.filing_date == "2026-06-01"
 
 
 def test_exact_mode_keeps_year_filter_and_returns_empty_list_for_other_year():
