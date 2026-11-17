@@ -1,5 +1,9 @@
 # MB-SID — SID 唯一当前状态入口（canonical PWF）
 
+## 2026-11-17 · SID 自反馈并行线
+
+[FB-SID 施工卡与实施细则](../feedback-loop-2026-11-17/FB-SID.md) 已就绪。SID 独立 harness 从 CNINFO 公告归属、原生 CLI 与暂存收据出发，补反馈观察、可重放 issue、修理技能和离线回归，ROOT 负责跨仓验收。M3 对应的 FF 真实四例已在 11-16 验收。下文 G2-12 是既有业务线的下一节点，与本卡可并行。
+
 > **2026-11-14 · SID-PLAN-WORKTREE-CLOSEOUT 收口**：本文件是 `StockInfoDLSimple/v2-clean-rewrite` 仓**唯一**当前状态入口。
 > 同目录 `progress.md` / `findings.md` / `handoff.md` / `handoff.json` / `review.md` / `compliance.md` / `runtime_inventory.md` / `history/` / `inputs/` / `evidence/`，
 > `.planning/g5-sid-runtime/` 与 `docs/implementation/g4-sid-latest/` 一律是**历史证据或子计划**，只回链本入口，不得另建第二个 START_HERE、不得据其历史 "Next Step" 判断当前工作。
