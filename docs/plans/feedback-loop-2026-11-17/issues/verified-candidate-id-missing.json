@@ -1,0 +1,15 @@
+{
+  "issue_key": "verified-candidate-id-missing",
+  "runs": [
+    {
+      "actual": "missing",
+      "attempt_id": "try-1",
+      "check_id": "candidate-listing-identity",
+      "details_ref": null,
+      "evidence_ref": "case-byd-fy2024",
+      "run_id": "run-replay",
+      "step_id": "legacy-claim",
+      "version": "fixture-v1"
+    }
+  ]
+}

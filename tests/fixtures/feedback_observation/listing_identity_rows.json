@@ -1,0 +1,63 @@
+{
+  "__provenance__": {
+    "synthetic": true,
+    "source": "three rows derived from tests/fixtures/cninfo/byd_fy2024_announcement.json (local BYD FY2024 capture)",
+    "note": "One CNINFO-shaped page: row 1 carries a verified secCode for the requested listing, row 2 omits secCode, row 3 belongs to a different listing. No live network call is involved.",
+    "redaction": "Only fields required for listing-identity feedback are kept; no headers, cookies or response envelope bytes."
+  },
+  "request": {
+    "security_id": "002594",
+    "entity": "比亚迪",
+    "document_kind": "annual_report",
+    "fiscal_year": 2024
+  },
+  "announcements": [
+    {
+      "announcementId": "1222881496",
+      "announcementTime": 1742832000000,
+      "announcementTitle": "比亚迪股份有限公司2024年年度报告",
+      "secCode": "002594",
+      "secName": "比亚迪",
+      "orgId": "gshk0001211",
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2025-03-25/1222881496.PDF"
+    },
+    {
+      "announcementId": "1222881996",
+      "announcementTime": 1742832000000,
+      "announcementTitle": "比亚迪股份有限公司2024年年度报告",
+      "secName": "比亚迪",
+      "orgId": "gshk0001211",
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2025-03-25/1222881996.PDF"
+    },
+    {
+      "announcementId": "1222882996",
+      "announcementTime": 1742832000000,
+      "announcementTitle": "平安银行股份有限公司2024年年度报告",
+      "secCode": "000001",
+      "secName": "平安银行",
+      "orgId": "gssz0000001",
+      "adjunctType": "PDF",
+      "adjunctUrl": "finalpage/2025-03-25/1222882996.PDF"
+    }
+  ],
+  "legacy_claim_verified": {
+    "candidate_id": "cninfo:1222881496",
+    "provider": "cninfo",
+    "provider_document_id": "1222881496",
+    "identity_method": "announcement_id",
+    "market": "CN",
+    "entity": "比亚迪",
+    "title": "比亚迪股份有限公司2024年年度报告",
+    "source_url": "https://www.cninfo.com.cn/new/disclosure/detail?stockCode=002594&announcementId=1222881496",
+    "document_kind": "annual_report",
+    "form_type": "annual_report",
+    "filing_date": "2025-03-25",
+    "fiscal_year": 2024,
+    "fiscal_period": "FY",
+    "language": "zh-CN",
+    "amended": false,
+    "transport_url": "https://static.cninfo.com.cn/finalpage/2025-03-25/1222881496.PDF"
+  }
+}

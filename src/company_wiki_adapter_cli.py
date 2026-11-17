@@ -6,6 +6,7 @@ import argparse
 import logging
 from contextlib import redirect_stdout
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -226,6 +227,45 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     args = _parser().parse_args(argv)
     _redirect_console_logs_to_stderr()
+    # Diagnostics are opt-in: only a caller-provided sidecar path creates
+    # observations, and they never share the business stdout/stderr channels.
+    # The feedback_observation module is imported lazily so the provider's
+    # minimal runtime artifact (whose manifest intentionally omits it) keeps
+    # an unchanged transitive closure when no sidecar is injected.
+    sink = None
+    feedback = None
+    fb = None
+    if os.environ.get("RESEARCH_FEEDBACK_OUT", "").strip():
+        from . import feedback_observation as fb
+
+        sink = fb.FeedbackSink.from_env(version=ADAPTER_VERSION)
+        if args.action == "fetch":
+            step_id, check_id, expected = "fetch-1", fb.CHECK_STAGED_FETCH, "staged"
+        else:
+            step_id, check_id, expected = (
+                "discover-1",
+                fb.CHECK_CANDIDATE_IDENTITY,
+                "verified",
+            )
+        feedback = sink.action(step_id=step_id, check_id=check_id, expected=expected)
+        feedback.begin()
+
+    def _emit_budget(actual: str, disposition: str) -> None:
+        if fb is None or sink is None or budget is None or not sink.enabled:
+            return
+        sink.emit(
+            fb.make_observation(
+                run_id=sink.run_id,
+                attempt_id=sink.attempt_id,
+                step_id=f"{args.action}-budget",
+                check_id=fb.CHECK_ACQUISITION_BUDGET,
+                expected="within_budget",
+                actual=actual,
+                disposition=disposition,
+                version=ADAPTER_VERSION,
+            )
+        )
+
     adapter: StockInfoCompanyWikiAdapter | None = None
     budget: ProviderAcquisitionBudget | None = None
     failure: BaseException | None = None
@@ -248,11 +288,60 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if budget is None
                     else adapter.discover(request, acquisition_budget=budget)
                 )
+                if feedback is not None:
+                    security_id = request.stock_code
+                    verdicts = [
+                        fb.classify_candidate_identity(item.to_dict(), security_id)
+                        for item in candidates
+                    ]
+                    deviation = next(
+                        (
+                            item
+                            for item in verdicts
+                            if item["disposition"] == "deviation"
+                        ),
+                        None,
+                    )
+                    details: dict[str, Any] = {
+                        "action": (
+                            "discover_exact"
+                            if request.mode == "exact"
+                            else "discover_latest"
+                        ),
+                        "mode": request.mode,
+                        "security_id": security_id,
+                        "announcement_ids": [
+                            item.provider_document_id for item in candidates
+                        ],
+                        "budget_usage": budget.usage() if budget is not None else None,
+                        "source_result": "ok",
+                        "retried": False,
+                        "reused": False,
+                    }
+                    if deviation is None:
+                        first = candidates[0].provider_document_id if candidates else ""
+                        feedback.finish(
+                            "verified",
+                            disposition="expected",
+                            evidence_ref=(
+                                f"cninfo-ann:{first}" if first and fb.is_safe_ref(first) else None
+                            ),
+                            details=details,
+                        )
+                    else:
+                        details["error_code"] = deviation["actual"]
+                        feedback.finish(
+                            deviation["actual"],
+                            disposition="deviation",
+                            issue_key=deviation.get("issue_key"),
+                            details=details,
+                        )
                 result_payload: dict[str, Any] = {
                     "candidates": [item.to_dict() for item in candidates]
                 }
                 if budget is not None:
                     result_payload["acquisition_usage"] = budget.usage()
+                    _emit_budget("within_budget", "expected")
                 result = _response(**result_payload)
             else:
                 if args.staging_dir is None:
@@ -272,13 +361,57 @@ def main(argv: Sequence[str] | None = None) -> int:
                         acquisition_budget=budget,
                     )
                 )
+                if feedback is not None:
+                    document_id = receipt.provider_document_id
+                    feedback.finish(
+                        "staged",
+                        disposition="expected",
+                        evidence_ref=(
+                            f"cninfo-ann:{document_id}"
+                            if document_id and fb.is_safe_ref(document_id)
+                            else None
+                        ),
+                        details={
+                            "action": "fetch",
+                            "security_id": decoded.get("security_id"),
+                            "provider_document_id": document_id,
+                            "budget_usage": budget.usage() if budget is not None else None,
+                            "source_result": "staged",
+                            "retried": False,
+                            "reused": False,
+                        },
+                    )
                 result_payload = {"receipt": receipt.to_dict()}
                 if budget is not None:
                     result_payload["acquisition_usage"] = budget.usage()
+                    _emit_budget("within_budget", "expected")
                 result = _response(**result_payload)
     except Exception as exc:
         failure = exc
+        if feedback is not None and not feedback.finished:
+            code = getattr(exc, "code", None) or getattr(exc, "error_code", None)
+            if not isinstance(code, str) or not code or not fb.is_safe_ref(code):
+                code = (
+                    "budget_exceeded"
+                    if isinstance(exc, AcquisitionBudgetExceeded)
+                    else type(exc).__name__
+                )
+            feedback.finish(
+                code,
+                disposition="expected",
+                details={
+                    "action": args.action,
+                    "error_code": code,
+                    "retryable": getattr(exc, "retryable", None),
+                    "budget_usage": budget.usage() if budget is not None else None,
+                },
+            )
+            _emit_budget(code, "expected")
     finally:
+        # An interrupt before a terminal state must stay unknown, and cleanup
+        # must not turn that into a success report.
+        if feedback is not None and not feedback.finished:
+            feedback.finish("unknown", disposition="unknown")
         # Cleanup can log; it must happen *before* the protocol document so the
         # documented "last stderr line is the JSON" contract keeps holding.  A
         # cleanup failure must not swallow the original outcome.

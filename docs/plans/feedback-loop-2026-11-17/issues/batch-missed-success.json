@@ -1,0 +1,15 @@
+{
+  "issue_key": "batch-missed-success",
+  "runs": [
+    {
+      "actual": "missed-success",
+      "attempt_id": "try-1",
+      "check_id": "staged-fetch-receipt",
+      "details_ref": null,
+      "evidence_ref": "case-review-b3",
+      "run_id": "run-replay",
+      "step_id": "batch-1",
+      "version": "fixture-v1"
+    }
+  ]
+}
