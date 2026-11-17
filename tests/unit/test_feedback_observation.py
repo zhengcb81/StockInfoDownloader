@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -447,6 +448,71 @@ def test_details_are_whitelisted_and_referenced_opaquely(tmp_path):
     assert written["budget_usage"]["response_bytes"] == 17
     assert "raw_response" not in written
     assert "exception_text" not in written
+
+
+def test_details_record_time_and_stable_cause_chain(monkeypatch, tmp_path):
+    """FB-SID 33: observation details carry time and a stable cause chain."""
+    out = tmp_path / "obs.jsonl"
+    payload = {
+        "entity": "比亚迪",
+        "security_id": "002594",
+        "document_kind": "annual_report",
+        "fiscal_year": 2024,
+        "acquisition_budget": {
+            "schema_version": "1.0",
+            "max_response_bytes": 20,
+            "timeout_seconds": 5.0,
+            "max_cost_usd": "0",
+        },
+    }
+    code, stdout, stderr = _invoke(
+        monkeypatch,
+        payload,
+        adapter=_DiscoverAdapter(
+            [], charge=9, raise_exc=AcquisitionBudgetExceeded("SECRET response too large")
+        ),
+        env={fb.ENV_OUT: out},
+    )
+    assert code == 1 and stdout == ""
+    written = json.loads((tmp_path / (out.name + ".details.jsonl")).read_text(encoding="utf-8"))
+    # time: UTC ISO-8601 seconds, no secret/path
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", written["observed_at"])
+    # cause chain: stable tokens only; the raw message must not appear
+    assert written["cause_chain"] == ["budget_exceeded", "terminal"]
+    raw = (tmp_path / (out.name + ".details.jsonl")).read_text(encoding="utf-8")
+    assert "SECRET" not in raw and "response too large" not in raw
+
+
+def test_issue_ledger_records_recovery_condition_for_external_cause(tmp_path):
+    """FB-SID 37: temporary external conditions carry a recovery condition."""
+    ledger = fb.IssueLedger(tmp_path / "issues")
+    obs = fb.make_observation(
+        **_obs(
+            actual="upstream_timeout",
+            disposition="deviation",
+            issue_key="external-timeout",
+            evidence_ref="case-timeout",
+        )
+    )
+    assert ledger.record(obs, recovery_condition="retry-after-upstream-ready") is True
+    card = ledger.cards()[0]
+    assert card["recovery_condition"] == "retry-after-upstream-ready"
+    # a later run without a recovery condition never clears the first one
+    later = fb.make_observation(
+        **_obs(
+            run_id="run-b",
+            attempt_id="try-2",
+            actual="upstream_timeout",
+            disposition="deviation",
+            issue_key="external-timeout",
+            evidence_ref="case-timeout-2",
+        )
+    )
+    assert ledger.record(later) is True
+    assert ledger.cards()[0]["recovery_condition"] == "retry-after-upstream-ready"
+    # unsafe recovery tokens are refused (no path / command / raw text)
+    with pytest.raises(ValueError):
+        ledger.record(later, recovery_condition="C:/secret && rm -rf")
 
 
 # ---------------------------------------------------------------------------

@@ -403,6 +403,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "action": args.action,
                     "error_code": code,
                     "retryable": getattr(exc, "retryable", None),
+                    # Stable cause chain (FB-SID 33): typed code -> outcome
+                    # class.  No message text / path / exception repr leaks.
+                    "cause_chain": [
+                        code,
+                        "retryable" if getattr(exc, "retryable", None) else "terminal",
+                    ],
                     "budget_usage": budget.usage() if budget is not None else None,
                 },
             )

@@ -49,9 +49,13 @@ command is invalid by construction (`feedback_observation.is_safe_ref`).
    - deployment environment — wrong version pin / config (e.g. a CWP route that predates
      `security_id` is an environment mismatch, not a SID code bug);
    - external condition — CNINFO schema drift, timeout, budget exhaustion; record a recovery
-     condition instead of a code change.
+     condition instead of a code change. Attach it with
+     `IssueLedger.record(obs, recovery_condition="retry-after-upstream-ready")`; the token must
+     be opaque (no path/command/raw message) and, once set, a later run never clears it.
    Only a same-repo responsibility layer is fixed here. A neighbour-repo deviation is handed
-   to ROOT with public input/output and evidence; do not edit other repos.
+   to ROOT with public input/output and evidence; do not edit other repos. Every detail record
+   carries `observed_at` (UTC) and, on failure, a stable `cause_chain` of typed tokens — never
+   raw exception text.
 
 4. **Find the legitimate same-kind control.** For every deviation, name the near case that is
    *expected*: a row with a missing/foreign `secCode` is `skipped-missing-code` /

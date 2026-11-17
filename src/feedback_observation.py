@@ -22,6 +22,7 @@ public CLI wires it in at the native discover/fetch entry points.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -74,6 +75,8 @@ ISSUE_BATCH_MISSED_SUCCESS = "batch-missed-success"
 # Details are an explicit whitelist; everything else is dropped before write.
 DETAILS_ALLOWED_KEYS = (
     "action",
+    # Wall-clock time of the native step (FB-SID 33: "记录公开操作、时间").
+    "observed_at",
     "mode",
     "security_id",
     "announcement_ids",
@@ -82,9 +85,17 @@ DETAILS_ALLOWED_KEYS = (
     "source_result",
     "error_code",
     "retryable",
+    # Stable cause chain (FB-SID 33: "错误的稳定类型和原因链"), never raw
+    # exception text: an ordered tuple of stable reason tokens.
+    "cause_chain",
     "retried",
     "reused",
 )
+
+
+def utc_now() -> str:
+    """UTC ISO-8601 timestamp for an observation detail (no secret/path data)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 _REF_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$")
 _SLUG_PATTERN = re.compile(r"[^A-Za-z0-9]+")
@@ -408,8 +419,9 @@ class FeedbackSink:
             for key in DETAILS_ALLOWED_KEYS
             if key in details and details[key] is not None
         }
-        if not safe:
-            return None
+        # FB-SID 33: every native step records its observation time.  A caller
+        # may override with its own UTC timestamp; otherwise stamp it here.
+        safe.setdefault("observed_at", utc_now())
         ref = f"details:{step_id}"
         if not is_safe_ref(ref):
             return None
@@ -451,19 +463,34 @@ class IssueLedger:
         slug = _SLUG_PATTERN.sub("-", issue_key).strip("-") or "unclassified"
         return self.directory / f"{slug}.json"
 
-    def record(self, observation: Mapping[str, str]) -> bool:
-        """Attach a run to the card for its ``issue_key``; True if anything changed."""
+    def record(
+        self,
+        observation: Mapping[str, str],
+        *,
+        recovery_condition: str | None = None,
+    ) -> bool:
+        """Attach a run to the card for its ``issue_key``; True if anything changed.
+
+        ``recovery_condition`` is for temporary external conditions (FB-SID 37:
+        "临时外部条件写恢复条件").  It is a stable, opaque token -- never raw
+        exception text, a path or a command -- and is stored once on the card;
+        a later run without one never clears it.
+        """
         if observation.get("disposition") != "deviation":
             return False
         issue_key = observation.get("issue_key")
         if not issue_key or not is_safe_ref(issue_key):
             return False
+        if recovery_condition is not None and not is_safe_ref(recovery_condition):
+            raise ValueError("recovery_condition must be a safe opaque token")
         path = self._card_path(issue_key)
         card: dict[str, Any]
         if path.exists():
             card = json.loads(path.read_text(encoding="utf-8"))
         else:
             card = {"issue_key": issue_key, "runs": []}
+        if recovery_condition is not None and not card.get("recovery_condition"):
+            card["recovery_condition"] = recovery_condition
         entry = {
             "run_id": observation.get("run_id"),
             "attempt_id": observation.get("attempt_id"),
@@ -521,4 +548,5 @@ __all__ = [
     "make_observation",
     "needs_refetch",
     "observation_identity",
+    "utc_now",
 ]

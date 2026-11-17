@@ -1,0 +1,1 @@
+{"action": "discover", "budget_usage": {"cost_usd": "0", "response_bytes": 0, "schema_version": "1.0"}, "cause_chain": ["budget_exceeded", "terminal"], "details_ref": "details:discover-1", "error_code": "budget_exceeded", "observed_at": "2026-11-17T21:15:55Z"}
