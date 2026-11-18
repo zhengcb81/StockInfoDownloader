@@ -5,7 +5,7 @@ Only two seams are replaced:
 * ``urllib.request.urlopen`` — injected by ``g4_bootstrap/sitecustomize.py``
   when this directory's bootstrap is first on the child's ``PYTHONPATH``, and
   only to rewrite cninfo hosts onto a loopback ``ThreadingHTTPServer``;
-* ``git archive`` of the committed company-wiki ``5930a644...`` package, which
+* ``git archive`` of the committed company-wiki ``ce89127b6...`` package, which
   is exported read-only into this card's temp root so the *real*
   ``JsonCommandAdapter.discover_bounded`` can consume the 1.3.0 response.
 
@@ -33,13 +33,17 @@ from urllib.parse import parse_qs
 
 import pytest
 
+from tests.provider_runtime_fixture import copy_runtime
+
 WORKTREE = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "g4_latest"
 BOOTSTRAP = WORKTREE / "docs" / "implementation" / "g4-sid-latest" / "g4_bootstrap"
 CWP_REPO = Path(
     os.environ.get("G4_CWP_REPO", str(Path.home() / "Projects/company-wiki"))
 )
-CWP_COMMIT = os.environ.get("G4_CWP_COMMIT", "5930a644453ed46494c2c83c5ecfb97767fa9492")
+# Pin the deployed CWP consumer that carries the verified listing identity.
+# An earlier G4 snapshot predates DownloadCandidate.security_id.
+CWP_COMMIT = os.environ.get("G4_CWP_COMMIT", "ce89127b6ba1878935e2dd1e17b065e4153c88af")
 ORG = "gshk0001211"
 SEC = "600000"
 NAME = "示例公司"
@@ -570,7 +574,7 @@ def test_offline_fetch_over_budget_removes_partial_files(card_root, loopback):
 
 
 # ---------------------------------------------------------------------------
-# company-wiki 5930a644 consumption of the 1.3.0 response
+# company-wiki consumption of the 1.3.0 response
 # ---------------------------------------------------------------------------
 
 
@@ -605,12 +609,9 @@ def _export_cwp_package(dest: Path) -> None:
     shutil.rmtree(extract, ignore_errors=True)
 
 
-def _cwp_child_env(base_url: str) -> dict[str, str]:
+def _cwp_child_env(base_url: str, provider_root: Path) -> dict[str, str]:
     env = dict(os.environ)
-    python_path = [str(BOOTSTRAP), str(WORKTREE)]
-    if env.get("PYTHONPATH"):
-        python_path.append(env["PYTHONPATH"])
-    env["PYTHONPATH"] = os.pathsep.join(python_path)
+    env["PYTHONPATH"] = os.pathsep.join((str(BOOTSTRAP), str(provider_root)))
     env["G4_LOOPBACK"] = base_url
     env["PYTHONUTF8"] = "1"
     # Keep interpreter caches out of this worktree: only the sources this card
@@ -657,6 +658,8 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
     export_root = card_root / "cwp-export"
     export_root.mkdir(parents=True, exist_ok=True)
     _export_cwp_package(export_root)
+    provider_root = export_root / "sid-provider"
+    copy_runtime(provider_root)
 
     prior_modules = set(sys.modules)
     sys.path.insert(0, str(export_root))
@@ -703,7 +706,7 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
                 max_seconds=60,
                 max_cost_usd="0",
             )
-            os.environ.update(_cwp_child_env(loopback.base))
+            os.environ.update(_cwp_child_env(loopback.base, provider_root))
 
             candidates = adapter.discover_bounded(request, budget)
 
@@ -799,6 +802,8 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
     export_root = card_root / ("cwp-route-" + label)
     export_root.mkdir()
     _export_cwp_package(export_root)
+    provider_root = export_root / "sid-provider"
+    copy_runtime(provider_root)
     prior_modules = set(sys.modules)
     sys.path.insert(0, str(export_root))
     saved_env = {
@@ -844,7 +849,7 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
                 max_seconds=60,
                 max_cost_usd="0",
             )
-            os.environ.update(_cwp_child_env(loopback.base))
+            os.environ.update(_cwp_child_env(loopback.base, provider_root))
             if expected_error is None:
                 candidates = adapter.discover_bounded(request, budget)
                 assert [

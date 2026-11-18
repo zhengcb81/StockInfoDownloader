@@ -16,35 +16,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
 import pytest
 
-WORKTREE = Path(__file__).resolve().parents[2]
-SRC = WORKTREE / "src"
-FIXTURE_JSON = WORKTREE / "tests" / "fixtures" / "cninfo" / "byd_fy2024_announcement.json"
+from tests.provider_runtime_fixture import RUNTIME_FILES, copy_runtime
 
-# Explicit runtime manifest: the CLI's transitive closure, verified by the
-# dependency-direction probe.  browser.py / downloader.py / mapping.py / models.py
-# are deliberately absent — the provider runtime must not need them.
-RUNTIME_FILES = (
-    "__init__.py",
-    "acquisition_budget.py",
-    "cninfo_api.py",
-    "cninfo_identity.py",
-    "cninfo_report_metadata.py",
-    "company_wiki_adapter.py",
-    "company_wiki_adapter_cli.py",
-    "config.py",
-    "constants.py",
-    "disclosure_matching.py",
-    "exceptions.py",
-    "logger.py",
-    "string_utils.py",
-    "transport_states.py",
-)
+WORKTREE = Path(__file__).resolve().parents[2]
+FIXTURE_JSON = WORKTREE / "tests" / "fixtures" / "cninfo" / "byd_fy2024_announcement.json"
 
 PDF_BODY = b"%PDF-1.4\n" + b"mb11-sid-artifact-check\n" * 64
 
@@ -138,10 +118,7 @@ urllib.request.urlopen = _urlopen
 @pytest.fixture()
 def artifact(tmp_path):
     root = tmp_path / "artifact"
-    package = root / "src"
-    package.mkdir(parents=True)
-    for name in RUNTIME_FILES:
-        shutil.copy2(SRC / name, package / name)
+    copy_runtime(root)
 
     doubles = tmp_path / "doubles"
     doubles.mkdir()
@@ -157,6 +134,7 @@ def _env(artifact_root, doubles, **extra):
         k: v
         for k, v in os.environ.items()
         if k not in {"PYTHONPATH", "PYTHONHOME", "SID_FIXTURE_MODE"}
+        and not k.upper().startswith("RESEARCH_FEEDBACK_")
     }
     env["PYTHONPATH"] = os.pathsep.join([str(doubles), str(artifact_root)])
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -211,7 +189,10 @@ def test_artifact_runtime_has_no_browser_or_downloader_modules(artifact):
     assert "models.py" not in present
 
 
-def test_artifact_discover_and_fetch_work_from_an_empty_cwd(artifact, tmp_path):
+@pytest.mark.parametrize("feedback_mode", ["off", "enabled", "unwritable", "invalid_context"])
+def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
+    artifact, tmp_path, feedback_mode
+):
     artifact_root, doubles, empty_cwd = artifact
     config = _write_config(empty_cwd)
     staging = tmp_path / "staging"
@@ -244,6 +225,22 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(artifact, tmp_path):
         "SID_PDF_PATH": pdf_path,
     }
 
+    discover_out = tmp_path / "discover-observations.jsonl"
+    fetch_out = tmp_path / "fetch-observations.jsonl"
+    if feedback_mode == "unwritable":
+        discover_out.mkdir()
+        fetch_out.mkdir()
+    discover_feedback = (
+        {"RESEARCH_FEEDBACK_OUT": discover_out} if feedback_mode != "off" else {}
+    )
+    fetch_feedback = (
+        {"RESEARCH_FEEDBACK_OUT": fetch_out} if feedback_mode != "off" else {}
+    )
+
+    if feedback_mode == "invalid_context":
+        discover_feedback["RESEARCH_FEEDBACK_RUN_ID"] = "not/a/logical/id"
+        fetch_feedback["RESEARCH_FEEDBACK_RUN_ID"] = "not/a/logical/id"
+
     discover = _run(
         artifact_root,
         doubles,
@@ -263,6 +260,7 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(artifact, tmp_path):
             },
         },
         **common,
+        **discover_feedback,
     )
 
     assert discover.returncode == 0, discover.stderr
@@ -292,6 +290,7 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(artifact, tmp_path):
             },
         },
         **common,
+        **fetch_feedback,
     )
 
     assert fetch.returncode == 0, fetch.stderr
@@ -301,10 +300,71 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(artifact, tmp_path):
     staged = sorted(path.name for path in staging.iterdir())
     assert staged == [Path(receipt["staged_path"]).name]
     assert list(staging.glob("*.part")) == []
+    if feedback_mode == "enabled":
+        for path, check, expected in (
+            (discover_out, "candidate-listing-identity", "verified"),
+            (fetch_out, "staged-fetch-receipt", "staged"),
+        ):
+            events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            assert all(item["schema_version"] == "feedback-observation/1" for item in events)
+            identities = {(item["step_id"], item["check_id"]) for item in events}
+            assert len(identities) == len(events), events
+            assert any(item["check_id"] == "action-started" and
+                       item["disposition"] == "expected" for item in events), events
+            assert any(item["check_id"] == check and item["actual"] == expected
+                       for item in events), events
+            assert any(item["check_id"] == "acquisition-budget" and
+                       item["actual"] == "within_budget" for item in events), events
+    elif feedback_mode in {"off", "invalid_context"}:
+        assert not discover_out.exists() and not fetch_out.exists()
+        assert not Path(str(discover_out) + ".details.jsonl").exists()
+        assert not Path(str(fetch_out) + ".details.jsonl").exists()
+
     # The artifact tree itself stayed read-only.
     assert sorted(p.name for p in (artifact_root / "src").iterdir()) == sorted(
         RUNTIME_FILES
     )
+
+
+def test_discovery_steps_separate_sibling_periods_and_keep_replay_identity(artifact, tmp_path):
+    artifact_root, doubles, empty_cwd = artifact
+    config = _write_config(empty_cwd)
+    fixture = json.loads(FIXTURE_JSON.read_text(encoding="utf-8"))
+    request = {
+        "entity": "比亚迪",
+        "market": "CN",
+        "security_id": "002594",
+        "document_kind": "annual_report",
+        "org_id": "gshk0001211",
+        "acquisition_budget": {
+            "schema_version": "1.0", "max_response_bytes": 200000,
+            "timeout_seconds": 30, "max_cost_usd": "0",
+        },
+    }
+    checks_by_call = []
+    for index, year in enumerate((2024, 2023, 2024)):
+        sidecar = tmp_path / f"period-{index}.jsonl"
+        payload = {**request, "fiscal_year": year}
+        if index == 2:
+            payload = dict(reversed(list(payload.items())))
+        result = _run(
+            artifact_root, doubles, empty_cwd, ["discover", "--config", str(config)],
+            payload,
+            SID_ANNOUNCEMENT_JSON=json.dumps(fixture, ensure_ascii=False),
+            RESEARCH_FEEDBACK_OUT=sidecar,
+            RESEARCH_FEEDBACK_RUN_ID="sibling-discovery",
+            RESEARCH_FEEDBACK_ATTEMPT_ID="try-1",
+        )
+        assert result.returncode == 0, result.stderr
+        candidates = json.loads(result.stdout)["candidates"]
+        assert candidates and {row["fiscal_year"] for row in candidates} == {year}
+        observations = [json.loads(line) for line in sidecar.read_text(encoding="utf-8").splitlines()]
+        assert {row["check_id"] for row in observations} == {
+            "action-started", "candidate-listing-identity", "acquisition-budget",
+        }
+        checks_by_call.append({(row["step_id"], row["check_id"]) for row in observations})
+    assert checks_by_call[0].isdisjoint(checks_by_call[1])
+    assert checks_by_call[0] == checks_by_call[2]
 
 
 def test_artifact_fetch_failure_leaves_no_part_file(artifact, tmp_path):

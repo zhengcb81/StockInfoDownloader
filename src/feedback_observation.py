@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -62,6 +63,7 @@ OPTIONAL_FIELDS = (
 
 # Stable check identifiers.  ``expected``/``actual`` are stable words for the
 # corresponding check, not free-form messages.
+CHECK_ACTION_STARTED = "action-started"
 CHECK_CANDIDATE_IDENTITY = "candidate-listing-identity"
 CHECK_RAW_CANDIDATE_FILTER = "raw-candidate-filter"
 CHECK_ACQUISITION_BUDGET = "acquisition-budget"
@@ -108,6 +110,14 @@ def is_safe_ref(value: Any) -> bool:
     if ".." in value or "://" in value:
         return False
     return True
+
+
+def cninfo_announcement_ref(value: object) -> str | None:
+    """Only a provider-native numeric announcement ID leaves the caller wire."""
+    if not isinstance(value, str) or not value.isascii() or not value.isdecimal():
+        return None
+    ref = f"cninfo-ann:{value}"
+    return ref if is_safe_ref(ref) else None
 
 
 def _require_word(name: str, value: Any) -> str:
@@ -212,6 +222,24 @@ def classify_raw_record(record: Mapping[str, Any], security_id: str) -> dict[str
     return {"actual": actual, "disposition": "expected"}
 
 
+def request_step_id(action: str, value: Mapping[str, Any] | str) -> str:
+    """Bind the sidecar to a request, independently of file, process and key order.
+
+    Real retries get a fresh attempt_id from the caller. Replays of a receipt
+    retain the original identity. Never put the input or any locator in the ID.
+    """
+    if action == "fetch" and isinstance(value, Mapping):
+        nested = value.get("adapter_payload_json")
+        if isinstance(nested, str):
+            try:
+                value = {**value, "adapter_payload_json": json.loads(nested)}
+            except ValueError:
+                pass  # The business decoder owns the invalid input error.
+    canonical = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("ascii")).hexdigest()[:24]
+    return f"{action}-{digest}"
+
+
 def observation_identity(observation: Mapping[str, str]) -> str:
     """Canonical key for replay de-duplication (same event => same key)."""
     return json.dumps(observation, ensure_ascii=False, sort_keys=True)
@@ -269,7 +297,11 @@ def import_observations(
 
 
 def needs_refetch(observations: Iterable[Mapping[str, str]], *, step_id: str) -> bool:
-    """A terminal report for ``step_id`` forbids a second fetch of the same action."""
+    """Check for a missing terminal report; true requires native reconciliation.
+
+    A missing result is not permission to refetch, because a worker or a charge
+    may have survived loss of its response.
+    """
     for observation in observations:
         if observation.get("step_id") != step_id:
             continue
@@ -320,9 +352,10 @@ class ActionObservation:
         return base
 
     def begin(self) -> None:
-        self._sink.emit(
-            make_observation(**self._base, actual="started", disposition="unknown")
-        )
+        self._sink.emit(make_observation(**{
+            **self._base, "check_id": CHECK_ACTION_STARTED,
+            "expected": "started", "actual": "started", "disposition": "expected",
+        }))
 
     def __enter__(self) -> "ActionObservation":
         self.begin()
@@ -419,6 +452,15 @@ class FeedbackSink:
             for key in DETAILS_ALLOWED_KEYS
             if key in details and details[key] is not None
         }
+        # The business wire may include a malformed upstream identity. Keep it
+        # there for its owner, but never copy arbitrary values into diagnostics.
+        for name in ("provider_document_id", "security_id"):
+            value = safe.get(name)
+            if cninfo_announcement_ref(value) is None:
+                safe.pop(name, None)
+        if "announcement_ids" in safe:
+            safe["announcement_ids"] = [value for value in safe["announcement_ids"]
+                                        if cninfo_announcement_ref(value) is not None]
         # FB-SID 33: every native step records its observation time.  A caller
         # may override with its own UTC timestamp; otherwise stamp it here.
         safe.setdefault("observed_at", utc_now())
@@ -529,6 +571,7 @@ __all__ = [
     "DISPOSITIONS",
     "REQUIRED_FIELDS",
     "OPTIONAL_FIELDS",
+    "CHECK_ACTION_STARTED",
     "CHECK_CANDIDATE_IDENTITY",
     "CHECK_RAW_CANDIDATE_FILTER",
     "CHECK_ACQUISITION_BUDGET",
@@ -547,6 +590,8 @@ __all__ = [
     "load_observations",
     "make_observation",
     "needs_refetch",
+    "cninfo_announcement_ref",
     "observation_identity",
+    "request_step_id",
     "utc_now",
 ]

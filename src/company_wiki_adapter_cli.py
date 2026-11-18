@@ -37,8 +37,8 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _payload() -> dict[str, Any]:
-    value = json.loads(sys.stdin.read())
+def _payload(raw: str) -> dict[str, Any]:
+    value = json.loads(raw)
     if not isinstance(value, dict):
         raise ValueError("stdin payload must be a JSON object")
     return value
@@ -229,35 +229,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     _redirect_console_logs_to_stderr()
     # Diagnostics are opt-in: only a caller-provided sidecar path creates
     # observations, and they never share the business stdout/stderr channels.
-    # The feedback_observation module is imported lazily so the provider's
-    # minimal runtime artifact (whose manifest intentionally omits it) keeps
-    # an unchanged transitive closure when no sidecar is injected.
     sink = None
     feedback = None
     fb = None
-    if os.environ.get("RESEARCH_FEEDBACK_OUT", "").strip():
-        from . import feedback_observation as fb
 
-        sink = fb.FeedbackSink.from_env(version=ADAPTER_VERSION)
-        if args.action == "fetch":
-            step_id, check_id, expected = "fetch-1", fb.CHECK_STAGED_FETCH, "staged"
-        else:
-            step_id, check_id, expected = (
-                "discover-1",
-                fb.CHECK_CANDIDATE_IDENTITY,
-                "verified",
+    def _begin_feedback(input_value: dict[str, Any] | str) -> None:
+        nonlocal sink, feedback, fb
+        if not os.environ.get("RESEARCH_FEEDBACK_OUT", "").strip():
+            return
+        try:
+            from . import feedback_observation as fb
+
+            configured_sink = fb.FeedbackSink.from_env(version=ADAPTER_VERSION)
+            check_id, expected = (
+                (fb.CHECK_STAGED_FETCH, "staged") if args.action == "fetch"
+                else (fb.CHECK_CANDIDATE_IDENTITY, "verified")
             )
-        feedback = sink.action(step_id=step_id, check_id=check_id, expected=expected)
-        feedback.begin()
+            action = configured_sink.action(
+                step_id=fb.request_step_id(args.action, input_value),
+                check_id=check_id,
+                expected=expected,
+            )
+            action.begin()
+        except (ImportError, OSError, ValueError, RecursionError) as exc:
+            log.debug("feedback setup skipped: %s", type(exc).__name__)
+        else:
+            sink, feedback = configured_sink, action
 
     def _emit_budget(actual: str, disposition: str) -> None:
-        if fb is None or sink is None or budget is None or not sink.enabled:
+        if fb is None or sink is None or feedback is None or budget is None or not sink.enabled:
             return
         sink.emit(
             fb.make_observation(
                 run_id=sink.run_id,
                 attempt_id=sink.attempt_id,
-                step_id=f"{args.action}-budget",
+                step_id=feedback.step_id,
                 check_id=fb.CHECK_ACQUISITION_BUDGET,
                 expected="within_budget",
                 actual=actual,
@@ -271,7 +277,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     failure: BaseException | None = None
     result: dict[str, Any] | None = None
     try:
-        value = _payload()
+        raw_input = sys.stdin.read()
+        try:
+            value = _payload(raw_input)
+        except ValueError:
+            _begin_feedback(raw_input)
+            raise
+        _begin_feedback(value)
         if "acquisition_budget" in value:
             budget = ProviderAcquisitionBudget.from_payload(value["acquisition_budget"])
         with redirect_stdout(sys.stderr):
@@ -314,18 +326,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                             item.provider_document_id for item in candidates
                         ],
                         "budget_usage": budget.usage() if budget is not None else None,
-                        "source_result": "ok",
+                        "source_result": "ok" if candidates else "no_candidates",
                         "retried": False,
                         "reused": False,
                     }
                     if deviation is None:
-                        first = candidates[0].provider_document_id if candidates else ""
+                        first = candidates[0].provider_document_id if candidates else None
                         feedback.finish(
-                            "verified",
+                            "verified" if candidates else "no_candidates",
                             disposition="expected",
-                            evidence_ref=(
-                                f"cninfo-ann:{first}" if first and fb.is_safe_ref(first) else None
-                            ),
+                            evidence_ref=fb.cninfo_announcement_ref(first),
                             details=details,
                         )
                     else:
@@ -366,11 +376,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     feedback.finish(
                         "staged",
                         disposition="expected",
-                        evidence_ref=(
-                            f"cninfo-ann:{document_id}"
-                            if document_id and fb.is_safe_ref(document_id)
-                            else None
-                        ),
+                        evidence_ref=fb.cninfo_announcement_ref(document_id),
                         details={
                             "action": "fetch",
                             "security_id": decoded.get("security_id"),

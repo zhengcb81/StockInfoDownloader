@@ -2,7 +2,7 @@
 
 ## 2026-11-17 · SID 自反馈并行线
 
-[FB-SID 施工卡与实施细则](../feedback-loop-2026-11-17/FB-SID.md) 已就绪。SID 独立 harness 从 CNINFO 公告归属、原生 CLI 与暂存收据出发，补反馈观察、可重放 issue、修理技能和离线回归，ROOT 负责跨仓验收。M3 对应的 FF 真实四例已在 11-16 验收。下文 G2-12 是既有业务线的下一节点，与本卡可并行。
+[FB-SID 施工卡](../feedback-loop-2026-11-17/FB-SID.md) 在 `v2-clean-rewrite` 已完成并通过 [ROOT 签收](../feedback-loop-2026-11-17/handoff.md)。定向 79 项通过，包括真实 CLI 的最小运行包、双期次观察与四个离线 CWP 路由用例。M3 对应的 FF 真实四例已在 11-16 验收。下文 G2-12 是既有业务线的下一节点，自动对账由反馈总控 F4 接续。
 
 > **2026-11-14 · SID-PLAN-WORKTREE-CLOSEOUT 收口**：本文件是 `StockInfoDLSimple/v2-clean-rewrite` 仓**唯一**当前状态入口。
 > 同目录 `progress.md` / `findings.md` / `handoff.md` / `handoff.json` / `review.md` / `compliance.md` / `runtime_inventory.md` / `history/` / `inputs/` / `evidence/`，

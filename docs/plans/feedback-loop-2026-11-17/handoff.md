@@ -1,6 +1,26 @@
 # FB-SID — handoff
 
-状态入口：[FB-SID 施工卡](FB-SID.md)（本目录）。本文件只报告本轮实际事实，不替代 ROOT 的跨仓验收。
+状态入口：[FB-SID 施工卡](FB-SID.md)（本目录）。本节记录 ROOT 的最终签收；后面的 JSON 和 §1–6 保留作者交付时点以供追溯。
+
+## ROOT 签收 · 2026-11-18
+
+已独审并通过 `v2-clean-rewrite` 的交付验收。该分支是简版下载器的正式发布分支。
+
+- 最小 CLI 运行包包含 stdlib 观察模块；打开、关闭、不可写路径和无效诊断上下文均保留原业务线输出。
+  开始、终态和预算在同一个按规范化请求派生的步骤下用不同检查编号。同一 run/attempt 的两个年报期次均保留、
+  重投同一请求不新增；实际授权的重新尝试另带 attempt ID。空结果是 `no_candidates`，凭据路径和未证实证券不进观察。
+- 四个 CWP 路由用例改用包含证券字段的已提交 CWP `ce89127b6ba1878935e2dd1e17b065e4153c88af`。
+  二者调用同一最小运行包夹具，隔离本机历史 org-id 缓存；原请求数、身份和限额断言保持。
+- owner 反馈、适配器、最小运行包与 G4 定向组合共 **79 通过**，包括四个实际 CWP 路由用例，0 跳过。
+  已确认受控下载使用的暂存 SHA、同父尝试的两期观察、合规预算拒绝仍以业务错误信封结束并且不开修理单。
+  全量旧测试所报的其它历史失败在本次定向验收范围以外。
+- 最新脱敏样本：[双期次](evidence/root-20261118-sibling-periods.jsonl)、
+  [发现与暂存](evidence/root-20261118-discovery-and-fetch.jsonl)、
+  [预算拒绝](evidence/root-20261118-budget-rejection.jsonl)。明细与观察同名前缀，只有短身份和状态词。
+
+独审版本按实际源码 SHA-256 绑定：`src/company_wiki_adapter_cli.py` `71eff8610fcc46541856db2b125110babaf5f4cbdd4949f36880a7f1a665ee4f`；
+`src/feedback_observation.py` `fdba236d2ec34240b212b21bd704892dba70e0ae486018947b97d60b9626dec7`。
+交付只证明离线公开接口。进程被强制终止后只存开始记录时，自动查原作业仍由 ROOT F4 验收；缺终态不授权重跑。
 
 ```json
 {"lane":"FB-SID","owner":"stockinfo-dl-simple","base":"16499a036c34dc8522149dfcbe723a11a70e8b60","reviewed_commit":"1107c938574fc78b2b0de7419a0fff5ede203e76","published_commit":"1107c938574fc78b2b0de7419a0fff5ede203e76","status":"完成（本仓范围）；定向命令 1 项邻仓 CWP pin 失配预存失败交 ROOT","tests":[{"command":"C:/Miniconda/python.exe -B -m pytest -q tests/unit/test_feedback_observation.py","result":"31 passed / 0 failed（新增契约测试，RED 见 red-feedback-observation.log）"},{"command":"C:/Miniconda/python.exe -B -m pytest -q tests/unit/test_feedback_observation.py tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli_budget.py","result":"55 passed / 0 failed / 0 skipped（FB-SID.md 定向命令的 unit 子集）"},{"command":"C:/Miniconda/python.exe -B -m pytest -q tests/unit/test_feedback_observation.py tests/unit/test_company_wiki_adapter.py tests/unit/test_company_wiki_adapter_cli_budget.py tests/e2e/test_g4_latest_cli_offline.py","result":"67 passed / 1 failed / 4 skipped；唯一失败为 test_cwp_discover_bounded_consumes_the_1_3_0_response（外部 CWP 默认 pin 缺 security_id，baseline 复现，stash 已证，邻仓环境失配）"},{"command":"C:/Miniconda/python.exe -B -m pytest -q tests/unit/test_provider_runtime_artifact.py","result":"3 passed / 0 failed（G5 最小 runtime artifact 闭包未破坏，feedback 惰性 import）"},{"command":"C:/Miniconda/python.exe -B -m pytest -q tests/unit","result":"363 passed / 5 failed；5 项均为开工前已存在（stock_orgid_mapping.json 残留 + 历史 fixture pin），与 FB-SID 改动无关，stash 复跑确认"}],"native_refs":["stockinfo-cninfo/1.3.0 真实 CLI loopback：candidate ann=900001001 security_id=600000，stdout 单行、stderr 空、exit 0","tests/unit/test_feedback_observation.py::test_cli_process_interrupt_before_receipt_leaves_unknown","tests/unit/test_feedback_observation.py::test_budget_rejection_keeps_stderr_last_line_and_records_terminal","tests/unit/test_feedback_observation.py::test_real_adapter_keeps_only_the_verified_row_and_does_not_accuse_rejects[exact/latest]"],"sample_refs":["docs/plans/feedback-loop-2026-11-17/evidence/real-cli-sample.jsonl（正常发现+within_budget）","docs/plans/feedback-loop-2026-11-17/evidence/real-cli-budget-failure.jsonl（预算拒绝，stderr 末行 JSON、exit 1）","docs/plans/feedback-loop-2026-11-17/evidence/real-cli-budget-failure.details.jsonl（第33行时间+原因链：observed_at/cause_chain，原文异常不落盘）","docs/plans/feedback-loop-2026-11-17/evidence/replay-samples.jsonl（已证实/缺码/异股合法拒绝 + 具名偏差）","docs/plans/feedback-loop-2026-11-17/evidence/real-cli-sample.details.jsonl（明细白名单）","tests/fixtures/feedback_observation/listing_identity_rows.json（最小可重放 fixture）"],"review":"独立审查 agent-a3130f11（Explore，只读，未获作者预期结论）：首轮 VERDICT PASS / 0 阻断；审查范围=生产路径+故障路径+协议/泄露+误开单+重放+恢复，绑定源码 1107c93。2 项非阻断已修并在最终源码复核 PASS：①新增 CLI 级 KeyboardInterrupt→unknown 测试；②修正 SKILL pin 说明。随后按卡逐条审计又发现并补齐 3 处明文缺口（第 33/37 行）：details 记录 observed_at(UTC)+cause_chain(稳定 token，无原文异常)、IssueLedger.record 支持 recovery_condition(临时外部条件、安全不透明、只写一次不清空)、SKILL 同步；补齐后独立复核再次 PASS（31 passed，G5 artifact 3 passed）。审查确认全部 evidence/*.jsonl 零禁项泄露；CWP pin 预存失败见上。","cleanup":"本轮仅产生 OS 临时目录 fb-sample-*/fb-budget-* 与两个 /tmp 生成脚本，均已删除；测试 tmp_path 由 pytest 自动回收；仓内根无新增临时目录；a_share_companies.txt 与 companies.txt 为开工前用户公司名单，未跟踪、未改动、未提交；未提交运行目录/整份业务产物/调试副本（中间 full-unit.log 已删）。","remaining":["CWP/FF 入库、复用判断与公司池调度由 ROOT 在 combos 验收","真 CNINFO 现场（无网络）与 G2-12 latest_as_of 完整 ensure 链由 ROOT 决定","邻仓 CWP pin 与 DownloadCandidate.security_id 字段对齐属 ROOT/邻仓；本仓只交公开输入输出与证据"]}

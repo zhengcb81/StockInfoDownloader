@@ -294,8 +294,11 @@ def test_cli_discover_emits_sidecar_without_touching_business_streams(monkeypatc
     assert all(o["schema_version"] == "feedback-observation/1" for o in observations)
     assert all(o["owner"] == "stockinfo-dl-simple" for o in observations)
     assert all(o["run_id"] == "run-1" and o["attempt_id"] == "try-7" for o in observations)
-    assert any(o["actual"] == "started" for o in observations)
-    assert any(o["actual"] == "verified" for o in observations)
+    assert len({(o["step_id"], o["check_id"]) for o in observations}) == len(observations)
+    assert any(o["actual"] == "started" and o["disposition"] == "expected"
+               for o in observations)
+    assert any(o["actual"] == "no_candidates" for o in observations)
+    assert not any(o["actual"] == "verified" for o in observations)
     assert any(o["check_id"] == fb.CHECK_ACQUISITION_BUDGET for o in observations)
 
 
@@ -418,7 +421,9 @@ def test_cli_process_interrupt_before_receipt_leaves_unknown(monkeypatch, tmp_pa
     assert rows[0]["actual"] == "started"
     assert rows[-1]["actual"] == "unknown"
     assert rows[-1]["disposition"] == "unknown"
-    assert rows[-1]["step_id"] == "fetch-1"
+    assert rows[-1]["step_id"] == rows[0]["step_id"]
+    assert rows[0]["step_id"].startswith("fetch-")
+    assert fb.needs_refetch(rows, step_id=rows[0]["step_id"]) is True
     assert list((tmp_path / "stage").glob("*.pdf")) == []
 
 
@@ -434,7 +439,8 @@ def test_details_are_whitelisted_and_referenced_opaquely(tmp_path):
         details={
             "action": "discover_exact",
             "security_id": "002594",
-            "announcement_ids": ["1222881496"],
+            "announcement_ids": ["1222881496", "https://foreign.invalid/doc?key=unsafe"],
+            "provider_document_id": "https://foreign.invalid/doc?key=unsafe",
             "budget_usage": {"response_bytes": 17, "cost_usd": "0"},
             "retried": False,
             "reused": False,
@@ -446,6 +452,8 @@ def test_details_are_whitelisted_and_referenced_opaquely(tmp_path):
     assert fb.is_safe_ref(detail_ref)
     written = json.loads((tmp_path / (out.name + ".details.jsonl")).read_text(encoding="utf-8"))
     assert written["budget_usage"]["response_bytes"] == 17
+    assert written["announcement_ids"] == ["1222881496"]
+    assert "provider_document_id" not in written
     assert "raw_response" not in written
     assert "exception_text" not in written
 
