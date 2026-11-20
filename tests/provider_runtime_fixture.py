@@ -20,6 +20,7 @@ RUNTIME_FILES = (
     "constants.py",
     "disclosure_matching.py",
     "exceptions.py",
+    "feedback_candidate_capture.py",
     "feedback_observation.py",
     "logger.py",
     "string_utils.py",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 from contextlib import redirect_stdout
+from dataclasses import asdict
 import json
 import os
 from pathlib import Path
@@ -300,20 +301,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if budget is None
                     else adapter.discover(request, acquisition_budget=budget)
                 )
+                published = [item.to_dict() for item in candidates]
                 if feedback is not None:
                     security_id = request.stock_code
-                    verdicts = [
-                        fb.classify_candidate_identity(item.to_dict(), security_id)
-                        for item in candidates
+                    deviations = [
+                        (index, verdict)
+                        for index, payload in enumerate(published)
+                        if (verdict := fb.classify_candidate_identity(payload, security_id))[
+                            "disposition"
+                        ] == "deviation"
                     ]
-                    deviation = next(
-                        (
-                            item
-                            for item in verdicts
-                            if item["disposition"] == "deviation"
-                        ),
-                        None,
-                    )
                     details: dict[str, Any] = {
                         "action": (
                             "discover_exact"
@@ -330,7 +327,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "retried": False,
                         "reused": False,
                     }
-                    if deviation is None:
+                    if not deviations:
                         first = candidates[0].provider_document_id if candidates else None
                         feedback.finish(
                             "verified" if candidates else "no_candidates",
@@ -339,16 +336,44 @@ def main(argv: Sequence[str] | None = None) -> int:
                             details=details,
                         )
                     else:
-                        details["error_code"] = deviation["actual"]
+                        index, verdict = deviations[0]
+                        details["error_code"] = verdict["actual"]
+                        proof = None
+                        # One observation covers this discover step. A single
+                        # candidate proof cannot close additional deviations.
+                        if (
+                            len(deviations) == 1
+                            and verdict["issue_key"] == fb.ISSUE_VERIFIED_ID_MISSING
+                            and sink.path is not None
+                        ):
+                            try:
+                                from .feedback_candidate_capture import capture_missing_identity
+
+                                proof = capture_missing_identity(
+                                    sink.path,
+                                    {
+                                        "owner": fb.OWNER,
+                                        "origin_owner": fb.OWNER,
+                                        "run_id": sink.run_id,
+                                        "attempt_id": sink.attempt_id,
+                                        "step_id": feedback.step_id,
+                                        "check_id": feedback.check_id,
+                                        "version": sink.version,
+                                    },
+                                    security_id,
+                                    published[index],
+                                    asdict(candidates[index]),
+                                )
+                            except (ImportError, OSError, TypeError, ValueError, RecursionError) as exc:
+                                log.debug("candidate proof unavailable: %s", type(exc).__name__)
                         feedback.finish(
-                            deviation["actual"],
+                            verdict["actual"],
                             disposition="deviation",
-                            issue_key=deviation.get("issue_key"),
+                            issue_key=verdict["issue_key"],
+                            evidence_ref=proof,
                             details=details,
                         )
-                result_payload: dict[str, Any] = {
-                    "candidates": [item.to_dict() for item in candidates]
-                }
+                result_payload: dict[str, Any] = {"candidates": published}
                 if budget is not None:
                     result_payload["acquisition_usage"] = budget.usage()
                     _emit_budget("within_budget", "expected")

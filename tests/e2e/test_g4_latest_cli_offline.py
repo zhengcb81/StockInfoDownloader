@@ -24,7 +24,6 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -152,8 +151,9 @@ def loopback():
 
 
 @pytest.fixture(scope="module")
-def card_root():
-    root = Path(tempfile.mkdtemp(prefix="si4l-")).resolve()
+def card_root(tmp_path_factory):
+    # Honor --basetemp when the host needs a short Windows path.
+    root = tmp_path_factory.mktemp("si4l-")
     logs_in_worktree = WORKTREE / "logs"
     logs_existed = logs_in_worktree.exists()
     try:
