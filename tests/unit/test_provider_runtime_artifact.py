@@ -189,7 +189,7 @@ def test_artifact_runtime_has_no_browser_or_downloader_modules(artifact):
     assert "models.py" not in present
 
 
-@pytest.mark.parametrize("feedback_mode", ["off", "enabled", "unwritable", "invalid_context"])
+@pytest.mark.parametrize("feedback_mode", ["default", "enabled", "unwritable", "invalid_context"])
 def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
     artifact, tmp_path, feedback_mode
 ):
@@ -223,6 +223,7 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
         "SID_IDENTITY_JSON": json.dumps(identity, ensure_ascii=False),
         "SID_ANNOUNCEMENT_JSON": json.dumps(fixture, ensure_ascii=False),
         "SID_PDF_PATH": pdf_path,
+        "RESEARCH_FEEDBACK_STATE_ROOT": tmp_path / "state",
     }
 
     discover_out = tmp_path / "discover-observations.jsonl"
@@ -231,10 +232,10 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
         discover_out.mkdir()
         fetch_out.mkdir()
     discover_feedback = (
-        {"RESEARCH_FEEDBACK_OUT": discover_out} if feedback_mode != "off" else {}
+        {"RESEARCH_FEEDBACK_OUT": discover_out} if feedback_mode != "default" else {}
     )
     fetch_feedback = (
-        {"RESEARCH_FEEDBACK_OUT": fetch_out} if feedback_mode != "off" else {}
+        {"RESEARCH_FEEDBACK_OUT": fetch_out} if feedback_mode != "default" else {}
     )
 
     if feedback_mode == "invalid_context":
@@ -315,10 +316,19 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
                        for item in events), events
             assert any(item["check_id"] == "acquisition-budget" and
                        item["actual"] == "within_budget" for item in events), events
-    elif feedback_mode in {"off", "invalid_context"}:
+    elif feedback_mode in {"default", "invalid_context"}:
         assert not discover_out.exists() and not fetch_out.exists()
         assert not Path(str(discover_out) + ".details.jsonl").exists()
         assert not Path(str(fetch_out) + ".details.jsonl").exists()
+        inbox = tmp_path / "state" / "observations"
+        markers = [json.loads(path.read_bytes()) for path in inbox.glob("*.ready")]
+        if feedback_mode == "default":
+            assert {row["check_id"] for row in markers} >= {
+                "candidate-listing-identity", "staged-fetch-receipt", "action-started",
+            }
+            assert all(row["schema_version"] == "sid-ready/1" for row in markers)
+        else:
+            assert not markers
 
     # The artifact tree itself stayed read-only.
     assert sorted(p.name for p in (artifact_root / "src").iterdir()) == sorted(

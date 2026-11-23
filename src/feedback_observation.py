@@ -21,7 +21,7 @@ public CLI wires it in at the native discover/fetch entry points.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -30,6 +30,7 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping
 
+from .feedback_files import native_path
 from .logger import log
 
 SCHEMA_VERSION = "feedback-observation/1"
@@ -59,6 +60,8 @@ OPTIONAL_FIELDS = (
     "details_ref",
     "disposition",
     "origin_owner",
+    "terminal_check_id",
+    "refusal_code",
 )
 
 # Stable check identifiers.  ``expected``/``actual`` are stable words for the
@@ -68,11 +71,15 @@ CHECK_CANDIDATE_IDENTITY = "candidate-listing-identity"
 CHECK_RAW_CANDIDATE_FILTER = "raw-candidate-filter"
 CHECK_ACQUISITION_BUDGET = "acquisition-budget"
 CHECK_STAGED_FETCH = "staged-fetch-receipt"
+# F4-SID-FAILURES: the ordinary CLI settles its own tasks and runs.
+CHECK_ORDINARY_TASK = "ordinary-download-task"
+CHECK_RUN_SETTLEMENT = "ordinary-run-settlement"
 
 # Root-cause signatures.  One judged root cause maps to one in-repo issue card.
 ISSUE_VERIFIED_ID_MISSING = "verified-candidate-id-missing"
 ISSUE_VERIFIED_ID_MISMATCH = "verified-candidate-id-mismatch"
 ISSUE_BATCH_MISSED_SUCCESS = "batch-missed-success"
+ISSUE_ORDINARY_TASK_FAILED = "ordinary-task-failed"
 
 # Details are an explicit whitelist; everything else is dropped before write.
 DETAILS_ALLOWED_KEYS = (
@@ -92,12 +99,95 @@ DETAILS_ALLOWED_KEYS = (
     "cause_chain",
     "retried",
     "reused",
+    # F4-SID-FAILURES detail keys: the failure stage, whether anything was
+    # actually sent, how far execution got, and the run/task settlement.
+    "stage",
+    "sent",
+    "executed_state",
+    "stock_code",
+    "exit_code",
+    "succeeded",
+    "failed",
+    "skipped",
+    "cause_types",
+    # Coarse in-repo code location ("本仓相对代码位置"): a stable
+    # ``file.py:site`` token, never a line-numbered stack frame.
+    "code_site",
 )
 
 
 def utc_now() -> str:
     """UTC ISO-8601 timestamp for an observation detail (no secret/path data)."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def filter_details(details: Mapping[str, Any]) -> dict[str, Any]:
+    """Reduce raw diagnostics to the whitelisted, sanitized detail payload.
+
+    Identity refs keep their native numeric-only validation, stable tokens
+    must be opaque safe refs, counters must be plain integers, and everything
+    outside the whitelist is dropped.  Raw exception text, paths, commands and
+    URL queries can never pass through.
+    """
+    safe = {
+        key: details[key]
+        for key in DETAILS_ALLOWED_KEYS
+        if key in details and details[key] is not None
+    }
+    # The business wire may include a malformed upstream identity. Keep it
+    # there for its owner, but never copy arbitrary values into diagnostics.
+    for name in ("provider_document_id", "security_id"):
+        value = safe.get(name)
+        if cninfo_announcement_ref(value) is None:
+            safe.pop(name, None)
+    if "announcement_ids" in safe:
+        safe["announcement_ids"] = [value for value in safe["announcement_ids"]
+                                    if cninfo_announcement_ref(value) is not None]
+    for name in ("stage", "sent", "executed_state", "code_site", "observed_at"):
+        value = safe.get(name)
+        if not (isinstance(value, str) and is_safe_ref(value)):
+            safe.pop(name, None)
+    # Free-token fields stay token-only too: a raw exception message, path or
+    # command can never travel under error_code/cause_chain/cause_types.
+    for name in ("error_code", "action", "mode", "source_result"):
+        value = safe.get(name)
+        if not (isinstance(value, str) and is_safe_ref(value)):
+            safe.pop(name, None)
+    for name in ("cause_chain", "cause_types"):
+        if name in safe:
+            raw = safe[name]
+            tokens = [item for item in (raw if isinstance(raw, (list, tuple)) else [])
+                      if isinstance(item, str) and is_safe_ref(item)][:8]
+            if tokens:
+                safe[name] = tokens
+            else:
+                safe.pop(name, None)
+    for name in ("retried", "reused", "retryable"):
+        value = safe.get(name)
+        if not isinstance(value, bool):
+            safe.pop(name, None)
+    if "budget_usage" in safe:
+        usage = safe["budget_usage"]
+        if not (
+            isinstance(usage, dict)
+            and all(
+                isinstance(key, str)
+                and is_safe_ref(key)
+                and isinstance(item, (str, int, float))
+                and (not isinstance(item, str) or is_safe_ref(item))
+                for key, item in usage.items()
+            )
+        ):
+            safe.pop("budget_usage", None)
+    if "stock_code" in safe and not (
+        isinstance(safe["stock_code"], str) and is_safe_ref(safe["stock_code"])
+    ):
+        safe.pop("stock_code", None)
+    for name in ("exit_code", "succeeded", "failed", "skipped"):
+        value = safe.get(name)
+        if isinstance(value, bool) or not isinstance(value, int):
+            safe.pop(name, None)
+    return safe
 
 _REF_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$")
 _SLUG_PATTERN = re.compile(r"[^A-Za-z0-9]+")
@@ -143,6 +233,8 @@ def make_observation(
     parent_step_id: str | None = None,
     details_ref: str | None = None,
     origin_owner: str | None = None,
+    terminal_check_id: str | None = None,
+    refusal_code: str | None = None,
 ) -> dict[str, str]:
     """Build and validate one ``feedback-observation/1`` wire object."""
     value: dict[str, str] = {
@@ -166,6 +258,8 @@ def make_observation(
         ("parent_step_id", parent_step_id),
         ("details_ref", details_ref),
         ("origin_owner", origin_owner),
+        ("terminal_check_id", terminal_check_id),
+        ("refusal_code", refusal_code),
     ):
         if candidate is not None:
             value[name] = _require_word(name, candidate)
@@ -355,6 +449,7 @@ class ActionObservation:
         self._sink.emit(make_observation(**{
             **self._base, "check_id": CHECK_ACTION_STARTED,
             "expected": "started", "actual": "started", "disposition": "expected",
+            "terminal_check_id": self.check_id,
         }))
 
     def __enter__(self) -> "ActionObservation":
@@ -369,6 +464,7 @@ class ActionObservation:
         issue_key: str | None = None,
         evidence_ref: str | None = None,
         details: Mapping[str, Any] | None = None,
+        refusal_code: str | None = None,
     ) -> None:
         if self.finished:
             return
@@ -381,6 +477,7 @@ class ActionObservation:
                 issue_key=issue_key,
                 evidence_ref=evidence_ref,
                 details_ref=details_ref,
+                refusal_code=refusal_code,
             )
         )
         self.actual = actual
@@ -430,7 +527,7 @@ class FeedbackSink:
             return False
         line = json.dumps(observation, ensure_ascii=False, sort_keys=True)
         try:
-            with self.path.open("a", encoding="utf-8") as stream:
+            with native_path(self.path).open("a", encoding="utf-8") as stream:
                 stream.write(line + "\n")
             return True
         except OSError as exc:  # diagnostics must not change the business result
@@ -447,20 +544,7 @@ class FeedbackSink:
         """
         if self.path is None:
             return None
-        safe = {
-            key: details[key]
-            for key in DETAILS_ALLOWED_KEYS
-            if key in details and details[key] is not None
-        }
-        # The business wire may include a malformed upstream identity. Keep it
-        # there for its owner, but never copy arbitrary values into diagnostics.
-        for name in ("provider_document_id", "security_id"):
-            value = safe.get(name)
-            if cninfo_announcement_ref(value) is None:
-                safe.pop(name, None)
-        if "announcement_ids" in safe:
-            safe["announcement_ids"] = [value for value in safe["announcement_ids"]
-                                        if cninfo_announcement_ref(value) is not None]
+        safe = filter_details(details)
         # FB-SID 33: every native step records its observation time.  A caller
         # may override with its own UTC timestamp; otherwise stamp it here.
         safe.setdefault("observed_at", utc_now())
@@ -470,7 +554,7 @@ class FeedbackSink:
         document = {"details_ref": ref, **safe}
         target = Path(str(self.path) + ".details.jsonl")
         try:
-            with target.open("a", encoding="utf-8") as stream:
+            with native_path(target).open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(document, ensure_ascii=False, sort_keys=True) + "\n")
             return ref
         except OSError as exc:
@@ -576,15 +660,19 @@ __all__ = [
     "CHECK_RAW_CANDIDATE_FILTER",
     "CHECK_ACQUISITION_BUDGET",
     "CHECK_STAGED_FETCH",
+    "CHECK_ORDINARY_TASK",
+    "CHECK_RUN_SETTLEMENT",
     "ISSUE_VERIFIED_ID_MISSING",
     "ISSUE_VERIFIED_ID_MISMATCH",
     "ISSUE_BATCH_MISSED_SUCCESS",
+    "ISSUE_ORDINARY_TASK_FAILED",
     "ActionObservation",
     "FeedbackSink",
     "ImportResult",
     "IssueLedger",
     "classify_candidate_identity",
     "classify_raw_record",
+    "filter_details",
     "import_observations",
     "is_safe_ref",
     "load_observations",

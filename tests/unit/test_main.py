@@ -7,6 +7,21 @@ import pytest
 from src.exceptions import ConfigError
 
 
+@pytest.fixture(autouse=True)
+def _isolated_feedback_root(tmp_path, monkeypatch):
+    """Keep ordinary-run feedback inside the test sandbox.
+
+    main() now publishes observations and run receipts by default; without a
+    mapped state root those would land in the real user state directory.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RESEARCH_FEEDBACK_OUT", raising=False)
+    monkeypatch.delenv("RESEARCH_FEEDBACK_RUN_ID", raising=False)
+    monkeypatch.delenv("RESEARCH_FEEDBACK_ATTEMPT_ID", raising=False)
+    monkeypatch.delenv("RESEARCH_FEEDBACK_DIR", raising=False)
+    monkeypatch.setenv("RESEARCH_FEEDBACK_STATE_ROOT", str(tmp_path / "state"))
+
+
 class TestMainCLI:
     """Test main() argument parsing and execution priority."""
 

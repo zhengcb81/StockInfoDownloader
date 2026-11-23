@@ -1,6 +1,6 @@
 # F4-SID-FAILURES 下载失败记录防丢与普通任务结算
 
-状态为待实施。工作目录为 `C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite`，正式维护线 `v2-clean-rewrite`，审计基线 `ae94406730425659695f80d5ee59b7d9ea15544b`。使用本仓已有的发现、下载和 [F4 动作端口](f4-runtime.md)。现场两份未跟踪列表 `a_share_companies.txt`、`companies.txt` 属用户资料，测试使用单独合成的公司列表。
+本仓 A/B/C 实现、独立接收与针对性验收已完成。发布范围是本仓维护线，跨仓组合由 ROOT 记录。当前接口及结算见[最终交接 §9](F4-SID-FAILURES-handoff.md#9-root-独立接收与最终候选)。工作目录为 `C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite`，正式维护线 `v2-clean-rewrite`，审计基线 `ae94406730425659695f80d5ee59b7d9ea15544b`。使用本仓已有的发现、下载和 [F4 动作端口](f4-runtime.md)。现场两份未跟踪列表 `a_share_companies.txt`、`companies.txt` 属用户资料，测试使用单独合成的公司列表。
 
 ## 工作约定
 
@@ -50,7 +50,7 @@ python -B -m pytest -q tests/unit/test_failed_logger.py tests/unit/test_main.py 
 
 ### 直启发布接口
 
-显式 `RESEARCH_FEEDBACK_OUT` 沿用单次文件及其既有明细格式。未传 OUT 时写 owner 自有的持久状态根下 `observations`，`RESEARCH_FEEDBACK_DIR` 可指定隔离的公开收件目录；两个变量都有值时 OUT 优先。使用同目录临时文件、关闭写入，原子发布 `feedback-<32位小写UUID hex>.jsonl`，对应的脱敏明细就绪后，再原子写同 basename 的 `.ready`。该 JSON 标记写 `owner`、`run_id`、`attempt_id`、`step_id` 并绑定同一份原发生，不放路径或命令。ROOT 从公开收件目录消费并负责确认标记；owner 保留原生证据，用记录过的交付身份补发。覆盖数据已落而 ready 未发、已发但回告丢失、并发消费三个窗口。确认失败只影响交付状态；业务返回、原请求和计量保持原样。用三组隔离运行覆盖显式 OUT、仅 DIR，以及两者均未设置而将本机状态根映射至临时目录。交接写本机正式默认收件目录的**绝对路径**、相对状态根的计算方法以及示例文件名，供 ROOT 在 `native_observation_dirs` 配置。若已有实现符合这些语义直接复用。
+显式 `RESEARCH_FEEDBACK_OUT` 沿用单次文件及其既有明细格式。未传 OUT 时写 owner 自有的持久状态根下 `observations`，`RESEARCH_FEEDBACK_DIR` 可指定隔离的公开收件目录；两个变量都有值时 OUT 优先。使用同目录临时文件、关闭写入，原子发布 `feedback-<32位小写发生标识 hex>.jsonl`，对应的脱敏明细就绪后，再原子写同 basename 的 `.ready`。该 JSON 标记写 `owner`、`run_id`、`attempt_id`、`step_id` 并绑定同一份原发生，不放路径或命令。ROOT 从公开收件目录消费并负责确认标记；owner 保留原生证据，用记录过的交付身份补发。覆盖数据已落而 ready 未发、已发但回告丢失、并发消费三个窗口。确认失败只影响交付状态；业务返回、原请求和计量保持原样。用三组隔离运行覆盖显式 OUT、仅 DIR，以及两者均未设置而将本机状态根映射至临时目录。交接写本机正式默认收件目录的**绝对路径**、相对状态根的计算方法以及示例文件名，供 ROOT 在 `native_observation_dirs` 配置。若已有实现符合这些语义直接复用。
 
 ## 大节点 C 与交付
 

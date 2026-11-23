@@ -1,0 +1,12 @@
+{
+  "attempt_id": "try-89e73ca016da4dee8ba7858f63471282",
+  "finished_at": "2026-11-21T18:11:07Z",
+  "owner": "stockinfo-dl-simple",
+  "run_id": "sid-run-739978cd576e4209a5f7ef72a6c3a41e",
+  "schema_version": "sid-run-receipt/1",
+  "started_at": "2026-11-21T18:11:07Z",
+  "terminal": {
+    "exit_code": 1,
+    "result": "all_failed"
+  }
+}

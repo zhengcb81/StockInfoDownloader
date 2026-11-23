@@ -9,11 +9,13 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path, PurePath, PureWindowsPath
+from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
 from .browser import PlaywrightBrowser
 from .exceptions import BrowserError, DownloadError, OrgIdError
+from .feedback_files import atomic_text, exclusive_file, native_path
 from .logger import log
 from .mapping import MappingManager
 from .models import (
@@ -32,51 +34,93 @@ class FailedDownloadLogger:
     Uses batched writes: records are accumulated in memory and flushed
     to disk only when flush() is called, avoiding per-record file I/O
     and eliminating data-loss races in parallel downloads.
+
+    The batch is acknowledged (cleared) only *after* the write is durably
+    on disk (F4: ``log-ack-before-persistence``).  A refused write keeps
+    the whole batch queued — together with anything that arrived while the
+    write was in flight — so a later flush can recover it.  Records are
+    never dropped, duplicated or reordered by a retry.
     """
 
     def __init__(self, log_file: str = "logs/failed_downloads.json"):
         self.log_file = Path(log_file)
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
+        native_path(self.log_file).parent.mkdir(parents=True, exist_ok=True)
         self._pending: List[Dict[str, Any]] = []
+        self._pending_lock = Lock()
 
     def record(
         self, stock_code: str, stock_name: str, text: str, url: str, error: str
     ) -> None:
         """Append a failed download to the in-memory buffer."""
-        self._pending.append(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "stock_code": stock_code,
-                "stock_name": stock_name,
-                "file_name": text,
-                "url": url,
-                "error": error,
-            }
-        )
+        with self._pending_lock:
+            self._pending.append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "stock_code": stock_code,
+                    "stock_name": stock_name,
+                    "file_name": text,
+                    "url": url,
+                    "error": error,
+                }
+            )
 
     def get_failed(self) -> List[Dict[str, Any]]:
         """Return all pending (un-flushed) records."""
-        return self._pending.copy()
+        with self._pending_lock:
+            return self._pending.copy()
 
     def flush(self) -> None:
-        """Write all pending records to disk atomically."""
-        if not self._pending:
-            return
+        """Write all pending records to disk atomically.
+
+        The swap-then-restore dance keeps two invariants: records enqueued
+        while the write is in flight are never cleared, and a refused write
+        puts the whole batch back at the head of the queue in its original
+        order.  Only a successful ``os.replace`` acknowledges the batch.
+        """
+        with self._pending_lock:
+            if not self._pending:
+                return
+            batch, self._pending = self._pending, []
         try:
-            existing = []
-            if self.log_file.exists():
-                with open(self.log_file, "r", encoding="utf-8") as f:
-                    existing = json.load(f)
-            existing.extend(self._pending)
-            self._pending.clear()
-            with open(self.log_file, "w", encoding="utf-8") as f:
-                json.dump(existing, f, ensure_ascii=False, indent=2)
+            with exclusive_file(self.log_file):
+                existing = read_failed_records(self.log_file)
+                existing.extend(batch)
+                _atomic_write_json(self.log_file, existing)
         except Exception as e:
+            # Refused persistence: keep this batch (ahead of anything that
+            # arrived mid-write) so a later flush can still save it.
+            with self._pending_lock:
+                self._pending = batch + self._pending
             log.warning(f"Failed to save failed downloads log: {e}")
 
     def reset(self) -> None:
         """Clear pending records without writing to disk."""
-        self._pending.clear()
+        with self._pending_lock:
+            self._pending.clear()
+
+
+def read_failed_records(path: Path) -> List[Dict[str, Any]]:
+    """Read the persisted failure records; missing or empty file means none.
+
+    Old files written by earlier versions stay readable: the on-disk format
+    (a plain JSON list) is unchanged, so migration never loses entries.
+    """
+    try:
+        with native_path(path).open("r", encoding="utf-8") as f:
+            existing = json.load(f)
+        return existing if isinstance(existing, list) else []
+    except FileNotFoundError:
+        return []
+    except (json.JSONDecodeError, OSError) as e:
+        # Unreadable existing data must not silently swallow the batch into
+        # an overwrite: the caller keeps its queue and retries later.
+        raise ValueError(f"failed downloads log is unreadable: {e}") from e
+
+
+def _atomic_write_json(path: Path, records: List[Dict[str, Any]]) -> None:
+    """Write ``records`` to ``path`` via a temp file in the same directory."""
+    with atomic_text(path) as stream:
+        json.dump(records, stream, ensure_ascii=False, indent=2)
 
 
 def _matches_excluded(text: str, keywords: Optional[List[str]]) -> bool:

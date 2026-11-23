@@ -1,0 +1,188 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.9, pytest-9.1.1, pluggy-1.5.0
+benchmark: 5.2.3 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite
+configfile: pytest.ini
+plugins: anyio-4.13.0, Faker-40.19.1, langsmith-0.14.4, asyncio-1.3.0, base-url-2.1.0, benchmark-5.2.3, cov-7.0.0, html-4.1.1, metadata-3.1.1, mock-3.15.1, playwright-0.7.2, timeout-2.4.0, xdist-3.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 25 items
+
+tests\unit\test_f4_ordinary_failures.py FFFFFFF.FFF..FFFFFFFFFFFF        [100%]
+
+================================== FAILURES ===================================
+__ TestFailureLogPersistence.test_refused_flush_keeps_batch_until_persisted ___
+tests\unit\test_f4_ordinary_failures.py:408: in test_refused_flush_keeps_batch_until_persisted
+    assert state["after_refused"] == 2
+E   assert 0 == 2
+_ TestFailureLogPersistence.test_legacy_records_survive_refused_and_recovered_flush _
+tests\unit\test_f4_ordinary_failures.py:433: in test_legacy_records_survive_refused_and_recovered_flush
+    rows = _readback(str(log_file))
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_f4_ordinary_failures.py:357: in _readback
+    proc = subprocess.run(
+C:\Miniconda\Lib\subprocess.py:577: in run
+    raise CalledProcessError(retcode, process.args,
+E   subprocess.CalledProcessError: Command '['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-I', '-c', "import glob, json, sys\nrows = []\nfor path in sorted(glob.glob(sys.argv[1])):\n    text = open(path, encoding='utf-8').read()\n    if path.endswith('.ready'):\n        rows.append(json.loads(text))\n    else:\n        rows.extend(json.loads(line) for line in text.splitlines() if line.strip())\nprint(json.dumps(rows))\n", 'C:\\Users\\郑曾波\\AppData\\Local\\Temp\\pytest-of-郑曾波\\pytest-1979\\test_legacy_records_survive_re0\\work\\failed_downloads.json']' returned non-zero exit status 1.
+_ TestFailureLogPersistence.test_flush_failure_keeps_pending_and_later_arrivals_in_memory _
+tests\unit\test_f4_ordinary_failures.py:456: in test_flush_failure_keeps_pending_and_later_arrivals_in_memory
+    assert len(sink.get_failed()) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+E    +    where [] = get_failed()
+E    +      where get_failed = <src.downloader.FailedDownloadLogger object at 0x00000122D5B62BA0>.get_failed
+---------------------------- Captured stderr call -----------------------------
+[16:41:57] WARNING stock_downloader: Failed to save failed downloads log: offline log write fault
+------------------------------ Captured log call ------------------------------
+WARNING  stock_downloader:downloader.py:75 Failed to save failed downloads log: offline log write fault
+__ TestOrdinarySettlement.test_single_failed_task_is_not_reported_as_success __
+tests\unit\test_f4_ordinary_failures.py:478: in test_single_failed_task_is_not_reported_as_success
+    assert receipt["exit_code"] != 0
+E   assert 0 != 0
+_ TestOrdinarySettlement.test_two_tasks_settle_separately_one_success_one_failure _
+tests\unit\test_f4_ordinary_failures.py:515: in test_two_tasks_settle_separately_one_success_one_failure
+    assert _receipt(proc)["exit_code"] != 0
+E   assert 0 != 0
+___ TestOrdinarySettlement.test_successful_task_still_reports_all_completed ___
+tests\unit\test_f4_ordinary_failures.py:558: in test_successful_task_still_reports_all_completed
+    assert "All tasks completed" in proc.stderr
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: a bytes-like object is required, not 'str'
+_ TestOrdinarySettlement.test_broken_config_records_stage_without_side_effects _
+tests\unit\test_f4_ordinary_failures.py:580: in test_broken_config_records_stage_without_side_effects
+    assert settlement and settlement[0]["actual"] == "not_started"
+E   assert ([])
+_____ TestAdapterFailureDistinction.test_payload_rejection_records_stage ______
+tests\unit\test_f4_ordinary_failures.py:642: in test_payload_rejection_records_stage
+    assert details and details[0].get("stage") == "payload"
+E   AssertionError: assert ([{'action': 'discover', 'cause_chain': ['JSONDecodeError', 'terminal'], 'details_ref': 'details:discover-e08e437cb3c6bc0c917c14d6', 'error_code': 'JSONDecodeError', ...}] and None == 'payload')
+E    +  where None = <built-in method get of dict object at 0x00000122D5DF8D80>('stage')
+E    +    where <built-in method get of dict object at 0x00000122D5DF8D80> = {'action': 'discover', 'cause_chain': ['JSONDecodeError', 'terminal'], 'details_ref': 'details:discover-e08e437cb3c6bc0c917c14d6', 'error_code': 'JSONDecodeError', ...}.get
+_ TestAdapterFailureDistinction.test_fetch_staging_file_distinct_from_transport _
+tests\unit\test_f4_ordinary_failures.py:654: in test_fetch_staging_file_distinct_from_transport
+    assert proc.returncode == 1
+E   AssertionError: assert 2 == 1
+E    +  where 2 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-c', '\nimport json, sys\nfrom src.company_wi...         {discover,fetch}\r\nstockinfo-company-wiki-adapter: error: argument --staging-dir: expected one argument\r\n').returncode
+___ TestAdapterFailureDistinction.test_discover_transport_timeout_distinct ____
+tests\unit\test_f4_ordinary_failures.py:672: in test_discover_transport_timeout_distinct
+    row = next(d for d in details if d.get("stage") == "transport")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   StopIteration
+
+The above exception was the direct cause of the following exception:
+C:\Miniconda\Lib\site-packages\_pytest\runner.py:361: in from_call
+    result: TResult | None = func()
+                             ^^^^^^
+C:\Miniconda\Lib\site-packages\_pytest\runner.py:250: in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\pluggy\_hooks.py:513: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\pluggy\_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\site-packages\_pytest\logging.py:865: in pytest_runtest_call
+    yield
+C:\Miniconda\Lib\site-packages\_pytest\capture.py:900: in pytest_runtest_call
+    return (yield)
+            ^^^^^
+E   RuntimeError: generator raised StopIteration
+__________ TestAdapterFailureDistinction.test_budget_refusal_control __________
+tests\unit\test_f4_ordinary_failures.py:710: in test_budget_refusal_control
+    assert proc.returncode == 1
+E   assert 0 == 1
+E    +  where 0 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-c', '\nimport json, sys\nfrom pathlib import...s://static.cninfo.com.cn/finalpage/2025-03-25/1222881496.PDF"}], "schema_version": "1.0", "status": "ok"}', stderr=b'').returncode
+______ TestPublicationInterface.test_explicit_out_keeps_single_use_file _______
+tests\unit\test_f4_ordinary_failures.py:736: in test_explicit_out_keeps_single_use_file
+    assert rows, "explicit OUT keeps the single-use sidecar"
+E   AssertionError: explicit OUT keeps the single-use sidecar
+E   assert []
+_____ TestPublicationInterface.test_dir_only_publishes_ready_bound_inbox ______
+tests\unit\test_f4_ordinary_failures.py:747: in test_dir_only_publishes_ready_bound_inbox
+    assert inbox["data"] and inbox["ready"] and inbox["details"]
+E   assert ([])
+________ TestPublicationInterface.test_default_state_root_observations ________
+tests\unit\test_f4_ordinary_failures.py:765: in test_default_state_root_observations
+    assert rows
+E   assert []
+_______________ TestPublicationInterface.test_out_wins_over_dir _______________
+tests\unit\test_f4_ordinary_failures.py:778: in test_out_wins_over_dir
+    assert out.exists() and not inbox["dir"].exists()
+E   AssertionError: assert (False)
+E    +  where False = exists()
+E    +    where exists = WindowsPath('C:/Users/郑曾波/AppData/Local/Temp/pytest-of-郑曾波/pytest-1979/test_out_wins_over_dir0/work/out.jsonl').exists
+_ TestPublicationInterface.test_data_without_ready_window_redelivers_same_identity _
+tests\unit\test_f4_ordinary_failures.py:788: in test_data_without_ready_window_redelivers_same_identity
+    assert proc.returncode == 9  # killed between data and ready
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 1 == 9
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-c', '\nimport os, sys\nfrom pathlib import P...C:\\Users\\\xe9\x83\x91\xe6\x9b\xbe\xe6\xb3\xa2\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\src\\__init__.py)\r\n').returncode
+_ TestPublicationInterface.test_ready_without_ack_window_redelivers_without_duplicates _
+tests\unit\test_f4_ordinary_failures.py:815: in test_ready_without_ack_window_redelivers_without_duplicates
+    assert proc.returncode == 9  # delivered, but the ack was lost
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 1 == 9
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-c', '\nimport os, sys\nfrom pathlib import P...C:\\Users\\\xe9\x83\x91\xe6\x9b\xbe\xe6\xb3\xa2\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\src\\__init__.py)\r\n').returncode
+______ TestPublicationInterface.test_parallel_republishers_deliver_once _______
+tests\unit\test_f4_ordinary_failures.py:848: in test_parallel_republishers_deliver_once
+    assert child.returncode == 0, err
+E   AssertionError: b'C:\\Miniconda\\python.exe: No module named src.feedback_publish\r
+E     '
+E   assert 1 == 0
+E    +  where 1 = <Popen: returncode: 1 args: ['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8'...>.returncode
+______ TestPublicationInterface.test_duplicate_occurrence_publishes_once ______
+tests\unit\test_f4_ordinary_failures.py:872: in test_duplicate_occurrence_publishes_once
+    assert proc.returncode == 0, proc.stderr
+E   AssertionError: b'Traceback (most recent call last):\r
+E       File "<string>", line 3, in <module>\r
+E         from src import feedback_publish...(C:\\Users\\\xe9\x83\x91\xe6\x9b\xbe\xe6\xb3\xa2\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\src\\__init__.py)\r
+E     '
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Miniconda\\python.exe', '-B', '-X', 'utf8', '-c', "import json, sys\nfrom pathlib import P...C:\\Users\\\xe9\x83\x91\xe6\x9b\xbe\xe6\xb3\xa2\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\src\\__init__.py)\r\n').returncode
+____ TestPublicationInterface.test_unwritable_media_keeps_business_result _____
+tests\unit\test_f4_ordinary_failures.py:888: in test_unwritable_media_keeps_business_result
+    assert receipt["exit_code"] != 0, "business settlement must survive"
+E   AssertionError: business settlement must survive
+E   assert 0 != 0
+_ TestPublicationInterface.test_delivery_failure_keeps_pending_and_reconciles_cold _
+tests\unit\test_f4_ordinary_failures.py:899: in test_delivery_failure_keeps_pending_and_reconciles_cold
+    (state / "observations").write_text("occupied", encoding="ascii")
+C:\Miniconda\Lib\pathlib\_local.py:555: in write_text
+    return PathBase.write_text(self, data, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\pathlib\_abc.py:651: in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\pathlib\_local.py:537: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\郑曾波\\AppData\\Local\\Temp\\pytest-of-郑曾波\\pytest-1979\\test_delivery_failure_keeps_pe0\\work\\state\\observations'
+_ TestPublicationInterface.test_kill_mid_task_leaves_unconfirmed_receipt_and_next_attempt_independent _
+tests\unit\test_f4_ordinary_failures.py:933: in test_kill_mid_task_leaves_unconfirmed_receipt_and_next_attempt_independent
+    assert len(receipts) == 1 and receipts[0]["terminal"] is None
+E   assert (0 == 1)
+E    +  where 0 = len([])
+=========================== short test summary info ===========================
+FAILED tests/unit/test_f4_ordinary_failures.py::TestFailureLogPersistence::test_refused_flush_keeps_batch_until_persisted
+FAILED tests/unit/test_f4_ordinary_failures.py::TestFailureLogPersistence::test_legacy_records_survive_refused_and_recovered_flush
+FAILED tests/unit/test_f4_ordinary_failures.py::TestFailureLogPersistence::test_flush_failure_keeps_pending_and_later_arrivals_in_memory
+FAILED tests/unit/test_f4_ordinary_failures.py::TestOrdinarySettlement::test_single_failed_task_is_not_reported_as_success
+FAILED tests/unit/test_f4_ordinary_failures.py::TestOrdinarySettlement::test_two_tasks_settle_separately_one_success_one_failure
+FAILED tests/unit/test_f4_ordinary_failures.py::TestOrdinarySettlement::test_successful_task_still_reports_all_completed
+FAILED tests/unit/test_f4_ordinary_failures.py::TestOrdinarySettlement::test_broken_config_records_stage_without_side_effects
+FAILED tests/unit/test_f4_ordinary_failures.py::TestAdapterFailureDistinction::test_payload_rejection_records_stage
+FAILED tests/unit/test_f4_ordinary_failures.py::TestAdapterFailureDistinction::test_fetch_staging_file_distinct_from_transport
+FAILED tests/unit/test_f4_ordinary_failures.py::TestAdapterFailureDistinction::test_discover_transport_timeout_distinct
+FAILED tests/unit/test_f4_ordinary_failures.py::TestAdapterFailureDistinction::test_budget_refusal_control
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_explicit_out_keeps_single_use_file
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_dir_only_publishes_ready_bound_inbox
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_default_state_root_observations
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_out_wins_over_dir
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_data_without_ready_window_redelivers_same_identity
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_ready_without_ack_window_redelivers_without_duplicates
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_parallel_republishers_deliver_once
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_duplicate_occurrence_publishes_once
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_unwritable_media_keeps_business_result
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_delivery_failure_keeps_pending_and_reconciles_cold
+FAILED tests/unit/test_f4_ordinary_failures.py::TestPublicationInterface::test_kill_mid_task_leaves_unconfirmed_receipt_and_next_attempt_independent
+======================== 22 failed, 3 passed in 35.87s ========================

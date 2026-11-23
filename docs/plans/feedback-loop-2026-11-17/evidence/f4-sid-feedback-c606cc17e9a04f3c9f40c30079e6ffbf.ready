@@ -1,0 +1,10 @@
+{
+  "attempt_id": "try-89e73ca016da4dee8ba7858f63471282",
+  "check_id": "action-started",
+  "occurrence_id": "0038d140b779b5670f7c7fc8f60e2649e6d9419f186593c26cf2327b639fc539",
+  "origin_owner": "stockinfo-dl-simple",
+  "owner": "stockinfo-dl-simple",
+  "run_id": "sid-run-739978cd576e4209a5f7ef72a6c3a41e",
+  "schema_version": "sid-ready/1",
+  "step_id": "download-58ff8593dfffbfe2b4d34e31"
+}

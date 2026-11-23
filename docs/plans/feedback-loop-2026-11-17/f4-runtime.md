@@ -10,7 +10,7 @@
 
 ## 宿主接线
 
-工作目录使用发布后的 SID checkout，Python 使用可启动该仓的正常宿主运行时。下列固定命令中的数据库、旁路目录是部署专用的绝对路径：
+工作目录使用发布后的 SID checkout，Python 使用可启动该仓的正常宿主运行时。下列命令使用部署专用的绝对路径。现有 `--sidecar-dir` 保持兼容，组合恢复时对旧监督目录和直启收件目录各传一次。默认原生收件目录和最新契约见 [F4-SID-FAILURES 交接 §9](F4-SID-FAILURES-handoff.md#9-root-独立接收与最终候选)。
 
 ```text
 <python> -B -m src.feedback_owner --db <owner-db> --sidecar-dir <native-sidecars> triage

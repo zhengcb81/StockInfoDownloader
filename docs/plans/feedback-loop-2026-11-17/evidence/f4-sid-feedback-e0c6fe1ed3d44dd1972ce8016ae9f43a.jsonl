@@ -1,0 +1,1 @@
+{"actual": "completed", "attempt_id": "try-sample", "check_id": "ordinary-download-task", "details_ref": "details:download-07378410fa0e0037d934d0be", "disposition": "expected", "expected": "completed", "owner": "stockinfo-dl-simple", "run_id": "sid-sample", "schema_version": "feedback-observation/1", "step_id": "download-07378410fa0e0037d934d0be", "version": "ordinary-cli-1.0"}

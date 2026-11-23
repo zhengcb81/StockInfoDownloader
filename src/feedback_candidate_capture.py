@@ -7,11 +7,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from .feedback_observation import OWNER, cninfo_announcement_ref
+from .feedback_files import atomic_text, native_path
+from .feedback_observation import cninfo_announcement_ref
 
 CAPTURE = "sid-candidate-capture/1"
 CAPTURE_REF = "sid-candidate-capture:"
@@ -119,30 +119,15 @@ def capture_missing_identity(
     proof = digest(capture)
     configured = os.environ.get(CAPTURE_ENV)
     directory = Path(configured) if configured else sidecar.parent / CAPTURE_DIR
-    target = directory / f"{proof}.json"
-    temporary = None
+    target = native_path(directory / f"{proof}.json")
     try:
-        directory.mkdir(parents=True, exist_ok=True)
         raw = canonical_bytes(capture)
         if target.exists():
             if target.read_bytes() != raw:
                 return None
         else:
-            with NamedTemporaryFile(
-                "wb", dir=directory, prefix=".candidate-", delete=False
-            ) as stream:
-                temporary = Path(stream.name)
-                stream.write(raw)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, target)
-            temporary = None
+            with atomic_text(target) as stream:
+                stream.write(raw.decode("ascii"))
     except OSError:
         return None
-    finally:
-        if temporary is not None:
-            try:
-                temporary.unlink(missing_ok=True)
-            except OSError:
-                pass
     return CAPTURE_REF + proof

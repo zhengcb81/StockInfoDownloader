@@ -7,7 +7,6 @@ import logging
 from contextlib import redirect_stdout
 from dataclasses import asdict
 import json
-import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
@@ -24,6 +23,7 @@ from .company_wiki_adapter import (
     StockInfoCompanyWikiAdapter,
 )
 from .config import load_config
+from .feedback_publish import command_sink
 from .logger import log
 
 
@@ -149,6 +149,69 @@ _NON_RETRYABLE_TYPES = (
     "AcquisitionBudgetExceeded",
 )
 
+# Verification-stage AdapterError codes (post-fetch local checks).
+_VERIFICATION_CODES = {"staging_escape", "content_too_small", "pdf_magic_invalid"}
+
+
+def _cause_types(exc: BaseException) -> list[str]:
+    """Sanitized exception type chain: stable names only, no message text."""
+    chain: list[str] = []
+    current: BaseException | None = exc
+    for _ in range(6):
+        if current is None:
+            break
+        name = type(current).__name__
+        if name not in chain:
+            chain.append(name)
+        current = current.__cause__ or current.__context__
+    return chain
+
+
+def _resolve_stage(exc: BaseException, tracked: str, action: str) -> str:
+    """Map the failing phase to one stable stage token.
+
+    The tracked token already covers the CLI's own phases (payload, request,
+    config, budget).  Inside the adapter phase the exception itself decides:
+    provider-reported codes are transport/identity, local fetch errors are
+    staging, post-fetch checks are verification.  Distinct failure natures
+    keep distinct stages even when the outer code stays upstream_unavailable.
+    """
+    if tracked not in ("discover", "fetch"):
+        return tracked
+    if isinstance(exc, AcquisitionBudgetExceeded):
+        return "budget"
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code:
+        if code in _VERIFICATION_CODES:
+            return "verification"
+        if code == "org_id_unresolved":
+            return "identity"
+        if code == "candidate_missing_transport":
+            return "request"
+        return "transport"
+    if isinstance(exc, OSError):
+        return "staging" if action == "fetch" else "transport"
+    if isinstance(exc, (ValueError, TypeError, KeyError)):
+        return "request"
+    return "transport"
+
+
+def _sent_state(stage: str, *, prior_phase: str) -> str:
+    """Whether anything actually went out for this failure.
+
+    Only a refusal before any provider interaction is known-not-sent.  A raw
+    ``OSError`` inside ``fetch`` can be a pre-send staging setup failure *or*
+    a post-response local write failure (part file, replace, stat), so the
+    staging stage can never claim known-not-sent — it stays unknown.  A failed
+    transport attempt may or may not have reached the provider; post-fetch
+    checks mean a real response arrived.
+    """
+    if prior_phase in ("payload", "request", "config"):
+        return "not_sent"
+    if stage == "verification":
+        return "sent"
+    return "unknown"
+
 
 def _emit_failure(
     exc: BaseException,
@@ -226,22 +289,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-    args = _parser().parse_args(argv)
+    try:
+        args = _parser().parse_args(argv)
+    except SystemExit as failure:
+        if failure.code:
+            try:
+                sink = command_sink(ADAPTER_VERSION)
+                action = sink.action(step_id="adapter-arguments", check_id="adapter-request",
+                                     expected="parsed")
+                action.finish("invalid_arguments", disposition="expected",
+                              refusal_code="invalid_arguments",
+                              details={"action": "adapter-arguments", "stage": "arguments", "sent": "not_sent"})
+            except (OSError, ValueError, TypeError):
+                pass
+        raise
     _redirect_console_logs_to_stderr()
-    # Diagnostics are opt-in: only a caller-provided sidecar path creates
-    # observations, and they never share the business stdout/stderr channels.
+    # Explicit sidecars keep their format; direct execution uses owner delivery.
     sink = None
     feedback = None
     fb = None
 
     def _begin_feedback(input_value: dict[str, Any] | str) -> None:
         nonlocal sink, feedback, fb
-        if not os.environ.get("RESEARCH_FEEDBACK_OUT", "").strip():
-            return
         try:
             from . import feedback_observation as fb
 
-            configured_sink = fb.FeedbackSink.from_env(version=ADAPTER_VERSION)
+            configured_sink = command_sink(ADAPTER_VERSION)
             check_id, expected = (
                 (fb.CHECK_STAGED_FETCH, "staged") if args.action == "fetch"
                 else (fb.CHECK_CANDIDATE_IDENTITY, "verified")
@@ -277,6 +350,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     budget: ProviderAcquisitionBudget | None = None
     failure: BaseException | None = None
     result: dict[str, Any] | None = None
+    # The failing phase, tracked as the request moves through the CLI.  A
+    # refusal records which stage rejected it; the payload stage is the
+    # default because nothing else has started yet.
+    stage = "payload"
     try:
         raw_input = sys.stdin.read()
         try:
@@ -286,14 +363,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise
         _begin_feedback(value)
         if "acquisition_budget" in value:
+            stage = "budget"
             budget = ProviderAcquisitionBudget.from_payload(value["acquisition_budget"])
         with redirect_stdout(sys.stderr):
             request: AdapterDiscoveryRequest | None = None
             if args.action == "discover":
                 # Request shape is validated first: a malformed request must
                 # never construct the provider, its browser, or its network.
+                stage = "request"
                 request = _discovery_request(value)
+            stage = "config"
             adapter = _build_adapter(args.config)
+            stage = args.action
             if args.action == "discover":
                 assert request is not None
                 candidates = (
@@ -427,19 +508,32 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if isinstance(exc, AcquisitionBudgetExceeded)
                     else type(exc).__name__
                 )
+            # Same outer code family, but the details distinguish the real
+            # nature: failing stage, whether anything went out, and the
+            # sanitized exception type chain (F4: 不把性质不同的失败合并).
+            failure_stage = _resolve_stage(exc, stage, args.action)
+            sent = _sent_state(failure_stage, prior_phase=stage)
+            justified_refusal = sent == "not_sent" and failure_stage in {"payload", "request"}
+            expected = justified_refusal or isinstance(exc, AcquisitionBudgetExceeded)
             feedback.finish(
                 code,
-                disposition="expected",
+                disposition="expected" if expected else "deviation",
+                refusal_code="invalid_request" if justified_refusal else "budget_exceeded"
+                if isinstance(exc, AcquisitionBudgetExceeded) else None,
                 details={
                     "action": args.action,
+                    "code_site": "company_wiki_adapter_cli.py:failure-handler",
                     "error_code": code,
                     "retryable": getattr(exc, "retryable", None),
+                    "stage": failure_stage,
+                    "sent": sent,
                     # Stable cause chain (FB-SID 33): typed code -> outcome
                     # class.  No message text / path / exception repr leaks.
                     "cause_chain": [
                         code,
                         "retryable" if getattr(exc, "retryable", None) else "terminal",
                     ],
+                    "cause_types": _cause_types(exc),
                     "budget_usage": budget.usage() if budget is not None else None,
                 },
             )

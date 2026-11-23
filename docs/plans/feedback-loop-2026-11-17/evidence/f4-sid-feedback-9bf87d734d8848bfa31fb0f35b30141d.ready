@@ -1,0 +1,10 @@
+{
+  "attempt_id": "try-sample",
+  "check_id": "ordinary-run-settlement",
+  "occurrence_id": "d7a5fdd903ebf8eba18a3981c1d5dff0ad490b941a05576ee3ae540a592a32d2",
+  "origin_owner": "stockinfo-dl-simple",
+  "owner": "stockinfo-dl-simple",
+  "run_id": "sid-sample",
+  "schema_version": "sid-ready/1",
+  "step_id": "settlement-657b6564130312f3ea7f7a9d"
+}

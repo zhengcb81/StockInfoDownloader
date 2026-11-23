@@ -20,9 +20,11 @@ from .feedback_candidate_capture import (
     digest,
     repaired_candidate,
 )
+from .feedback_files import native_path
 from .feedback_observation import (
-    CHECK_ACTION_STARTED,
     CHECK_CANDIDATE_IDENTITY,
+    CHECK_ORDINARY_TASK,
+    CHECK_RUN_SETTLEMENT,
     CHECK_STAGED_FETCH,
     ISSUE_VERIFIED_ID_MISSING,
     OWNER,
@@ -32,8 +34,8 @@ from .feedback_observation import (
 ACTIONS = ("triage", "repair", "replay", "report")
 PUBLICATION = "sid-candidate-publication/1"
 KEY = re.compile(r"[0-9a-f]{64}")
-TERMINALS = {CHECK_CANDIDATE_IDENTITY, CHECK_STAGED_FETCH}
-SUCCEEDED = {"verified", "no_candidates", "staged", "missing", "mismatched"}
+TERMINALS = {CHECK_CANDIDATE_IDENTITY, CHECK_STAGED_FETCH, CHECK_ORDINARY_TASK, CHECK_RUN_SETTLEMENT}
+SUCCEEDED = {"verified", "no_candidates", "staged", "missing", "mismatched", "completed", "all_completed"}
 
 
 def _key(value: object) -> bool:
@@ -97,7 +99,7 @@ def _request(action: str, value: dict) -> tuple[str, dict]:
 def _rows(paths: Iterable[Path]) -> Iterable[tuple[Path, dict]]:
     for path in paths:
         try:
-            with path.open("rb") as source:
+            with native_path(path).open("rb") as source:
                 for line in source:
                     try:
                         row = json.loads(line, object_pairs_hook=_unique)
@@ -125,20 +127,20 @@ class OwnerRuntime:
         self,
         db: Path,
         sidecars: list[Path],
-        sidecar_dir: Path | None,
+        sidecar_dir: Path | list[Path] | None,
         capture_dir: Path | None,
     ):
         self.db = db
         self.sidecars = sidecars
-        self.sidecar_dir = sidecar_dir
+        self.sidecar_dirs = [sidecar_dir] if isinstance(sidecar_dir, Path) else sidecar_dir or []
         self.capture_dir = capture_dir
 
-    def _scope(self, row: dict) -> tuple[Path | None, list[dict]]:
+    def _scope(self, row: dict) -> tuple[Path | None, list[tuple[Path, dict]]]:
         paths = set(self.sidecars)
-        if self.sidecar_dir is not None:
+        for directory in self.sidecar_dirs:
             paths.update(
                 path
-                for path in self.sidecar_dir.glob("*.jsonl")
+                for path in native_path(directory).glob("*.jsonl")
                 if not path.name.endswith(".details.jsonl")
             )
         identity = tuple(row[name] for name in (*IDENTITY[:-1], "version"))
@@ -156,7 +158,7 @@ class OwnerRuntime:
                 if item != row:
                     return None, []
                 original = path
-            siblings.append(item)
+            siblings.append((path, item))
         return original, siblings
 
     def _projection(
@@ -177,7 +179,7 @@ class OwnerRuntime:
         )
         try:
             capture = json.loads(
-                (capture_dir / f"{proof}.json").read_bytes(), object_pairs_hook=_unique
+                native_path(capture_dir / f"{proof}.json").read_bytes(), object_pairs_hook=_unique
             )
             if (
                 not isinstance(capture, dict)
@@ -209,7 +211,14 @@ class OwnerRuntime:
         if original is None:
             return {"decision": "needs_evidence"}
         if row.get("disposition") == "expected":
-            return {"decision": "expected"}
+            result = {"decision": "expected"}
+            if row.get("refusal_code"):
+                result["gate_review"] = {
+                    "decision": "retain",
+                    "reason": "The original outcome comes from a local argument, request, or budget refusal.",
+                    "evidence_ref": row.get("evidence_ref") or f"sid-occurrence:{occurrence}",
+                }
+            return result
         if (
             row.get("check_id") != CHECK_CANDIDATE_IDENTITY
             or row.get("actual") != "missing"
@@ -334,19 +343,33 @@ class OwnerRuntime:
         original, siblings = self._scope(row)
         if original is None:
             return {"state": "unknown"}
+        specified = row.get("terminal_check_id")
+        terminal_checks = {specified} if specified else TERMINALS | {"adapter-request"}
         seen = {
-            digest(item): item for item in siblings if item.get("check_id") in TERMINALS
+            digest(item): (path, item) for path, item in siblings if item.get("check_id") in terminal_checks
         }
         status = "unconfirmed"
+        known_not_sent = False
         if len(seen) == 1:
-            terminal = next(iter(seen.values()))
+            path, terminal = next(iter(seen.values()))
             if terminal.get("actual") not in (None, "unknown", "started"):
                 status = "succeeded" if terminal["actual"] in SUCCEEDED else "failed"
+                ref = terminal.get("details_ref")
+                if ref:
+                    explicit_details = Path(str(path) + ".details.jsonl")
+                    native_details = path.with_suffix(".details.jsonl")
+                    matches = [
+                        item for _, item in _rows([explicit_details, native_details])
+                        if item.get("details_ref") == ref
+                    ]
+                    # A sidecar might contain diagnostics from more than one check. Only
+                    # a single explicit, original not-sent report proves zero work.
+                    known_not_sent = len(matches) == 1 and matches[0].get("sent") == "not_sent"
         return {
             "state": "done",
             "result": {
-                "status": "cost_unknown",
-                "cost_state": "unknown",
+                "status": "known" if known_not_sent else "cost_unknown",
+                "cost_state": "not_applicable" if known_not_sent else "unknown",
                 "job_status": status,
                 "evidence_ref": row.get("evidence_ref")
                 or f"sid-occurrence:{occurrence}",
@@ -413,7 +436,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True, type=Path)
     parser.add_argument("--sidecar", action="append", type=Path, default=[])
-    parser.add_argument("--sidecar-dir", type=Path)
+    parser.add_argument("--sidecar-dir", action="append", type=Path, default=[])
     parser.add_argument("--capture-dir", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
     for action in (*ACTIONS, "reconcile"):
