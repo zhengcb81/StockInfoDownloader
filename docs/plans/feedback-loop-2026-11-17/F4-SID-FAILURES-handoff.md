@@ -132,11 +132,12 @@ d90ddde6d2fce47d1517a43ef06f398a261e7dc07b09900b944abb94e6efd426  tests/unit/tes
 f2b17edd8abaa649b9438c815c2c7a26db2d9c08a3f93aad3c597f868b1fece2  tests/unit/test_main.py
 c053a2817998d641fbc66dae367620c7523f553d4c1e42d181f63445959527ce  tests/provider_runtime_fixture.py
 f54ccb4aca115061905ef7b5972da3a662802dd1c3c35668ba8515a61620c70b  tests/unit/test_provider_runtime_artifact.py
+0ca2c83c041ca3b77db125e7baff4e2df83ed2c4b344ab04a58f0300122c6cd7  tests/e2e/test_g4_latest_cli_offline.py
 ```
 
 ### 接收复验
 
 - Windows Python 3.13.9，7 个集中测试文件合计 **90/90**，另跑原大节点 C 离线矩阵 **19/19**。新覆盖包含跨实例合并、拒写时临时文件清理、默认适配器事件双目录冷对账、长路径的发布后消费再送和并行首次终态保护。
 - SID 的浏览器无关制品清单加入实际传递依赖 feedback_files.py 和 feedback_publish.py。独立制品测试 **7/7**，其中 test_artifact_discover_and_fetch_work_from_an_empty_cwd[default] 从空工作目录运行 discover 和 fetch，两类操作均产出默认收件标记。旧显式 OUT、不可写 OUT、无效显式上下文有对照。
-- G4 固定 CWP 版本下的 **13 个** loopback 传输与公开 adapter 交互用例通过。另四项旧 committed-route 测试在 Windows 子进程读同一 CWP revision 的 YAML 前置步骤退出 128，未触达 SID。相同 blob 在独立 Git 进程经过 cat-file/show 核实可读，此四项仍待总控组合；保持原测试断言。
+- 固定 CWP 版本 7e0ecebb01096e202d5ec11847cd28e927edf4c9，G4 离线组合 **17/17** 通过，含四个 committed-route。接收首轮四项在 Git 前置退出 128，stderr 显示缺 GIT_CONFIG_VALUE_0。原因是旧测试把环境整份回写，Windows 删除了宿主注入的空值。夹具现只更新实际需要的四个变量并完整恢复，保留宿主设置和业务断言。
 - 新回归和制品验证全部离线。G4 只连本机 loopback 夹具。真实网络、付费和额外下载次数均为 0。接收中创建的隔离运行目录已清理。

@@ -610,14 +610,14 @@ def _export_cwp_package(dest: Path) -> None:
 
 
 def _cwp_child_env(base_url: str, provider_root: Path) -> dict[str, str]:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join((str(BOOTSTRAP), str(provider_root)))
-    env["G4_LOOPBACK"] = base_url
-    env["PYTHONUTF8"] = "1"
-    # Keep interpreter caches out of this worktree: only the sources this card
-    # owns should ever appear on disk here.
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    return env
+    # Update only fixture-owned variables. On Windows, reassigning unrelated
+    # empty environment values can drop them from the next child process.
+    return {
+        "PYTHONPATH": os.pathsep.join((str(BOOTSTRAP), str(provider_root))),
+        "G4_LOOPBACK": base_url,
+        "PYTHONUTF8": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
 
 
 def _seed_org_mapping(root: Path) -> Path:
@@ -663,9 +663,8 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
 
     prior_modules = set(sys.modules)
     sys.path.insert(0, str(export_root))
-    saved_env = {
-        key: os.environ.get(key) for key in ("PYTHONPATH", "G4_LOOPBACK", "PYTHONUTF8")
-    }
+    child_env = _cwp_child_env(loopback.base, provider_root)
+    saved_env = {key: os.environ.get(key) for key in child_env}
     try:
         with _chdir(card_root):
             from company_wiki.source_catalog.adapter_process import (
@@ -706,7 +705,7 @@ def test_cwp_discover_bounded_consumes_the_1_3_0_response(card_root, loopback):
                 max_seconds=60,
                 max_cost_usd="0",
             )
-            os.environ.update(_cwp_child_env(loopback.base, provider_root))
+            os.environ.update(child_env)
 
             candidates = adapter.discover_bounded(request, budget)
 
@@ -806,9 +805,8 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
     copy_runtime(provider_root)
     prior_modules = set(sys.modules)
     sys.path.insert(0, str(export_root))
-    saved_env = {
-        key: os.environ.get(key) for key in ("PYTHONPATH", "G4_LOOPBACK", "PYTHONUTF8")
-    }
+    child_env = _cwp_child_env(loopback.base, provider_root)
+    saved_env = {key: os.environ.get(key) for key in child_env}
     try:
         with _chdir(card_root):
             from company_wiki.source_catalog.adapter_process import (
@@ -849,7 +847,7 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
                 max_seconds=60,
                 max_cost_usd="0",
             )
-            os.environ.update(_cwp_child_env(loopback.base, provider_root))
+            os.environ.update(child_env)
             if expected_error is None:
                 candidates = adapter.discover_bounded(request, budget)
                 assert [
