@@ -66,6 +66,22 @@ class TestLoadCompanies:
         with pytest.raises(ConfigError, match="Companies file not found"):
             load_companies("/nonexistent/companies.txt")
 
+    def test_unreadable_file_keeps_native_cause(self, tmp_path):
+        """F4-SID-START-INPUT: a list that exists but cannot be read is one
+        typed entry error; the native OS error stays on the chain."""
+        directory = tmp_path / "list-dir"
+        directory.mkdir()
+        with pytest.raises(ConfigError, match="Cannot read companies file") as stop:
+            load_companies(str(directory))
+        assert isinstance(stop.value.__cause__, OSError)
+
+    def test_undecodable_file_keeps_native_cause(self, tmp_path):
+        f = tmp_path / "companies.txt"
+        f.write_bytes(b"300470 \xff\xfe\n")
+        with pytest.raises(ConfigError, match="Cannot read companies file") as stop:
+            load_companies(str(f))
+        assert type(stop.value.__cause__).__name__ == "UnicodeDecodeError"
+
     def test_trailing_whitespace_stripped(self, tmp_path):
         """Trailing whitespace on company name should be stripped."""
         f = tmp_path / "companies.txt"

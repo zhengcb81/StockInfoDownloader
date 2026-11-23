@@ -10,11 +10,18 @@ startup receipt) before argument parsing and any side effect, settles what
 each task really returned, and publishes ``feedback-observation/1``
 observations through the direct-launch publication interface.  A genuine
 task failure is never reported as "All tasks completed" with exit 0.
+
+F4-SID-START-INPUT: the decision *what to run* lives in one place
+(``plan_work``).  A list that cannot be read is an entry refusal on record
+(run id, stage, native cause chain, nothing dispatched); an empty work list is
+a legitimate ``no_tasks`` run, never "all tasks completed"; and only sub-items
+that really start are counted as attempted.
 """
 import argparse
 import concurrent.futures
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.config import load_companies, load_config
 from src import constants as C
 from src.downloader import StockDownloader
+from src.exceptions import ConfigError
 from src.logger import log, setup_logger
 from src.mapping import MappingManager
 from src.models import DownloadRequest
@@ -81,21 +89,109 @@ def _open_feedback():
         return None
 
 
+# ── input sources: the one place that decides what a launch runs ──────────
+
+SETTLEMENT_KEYS = ("attempted", "succeeded", "failed", "skipped")
+
+
+def _new_settlement() -> Dict[str, int]:
+    """One business tally for the whole launch, kept by the runner.
+
+    ``attempted`` counts the sub-items that really started (one company or
+    one test case each); a refused or empty launch leaves every key at zero.
+    """
+    return {key: 0 for key in SETTLEMENT_KEYS}
+
+
+@dataclass
+class WorkPlan:
+    """What one launch was asked to run, and where the ask came from."""
+
+    source: str  # cli-stock | companies-file | test-cases | config-companies | config-stock | none
+    stock_code: Optional[str] = None
+    companies: Optional[List[Dict[str, Any]]] = None
+    test_cases: Optional[List[Dict[str, Any]]] = None
+    # Company-list runs resume through the progress tracker under this name.
+    progress_name: Optional[str] = None
+    reason: str = ""  # source == "none": why nothing was asked
+
+
+def _specified_items(config: Dict[str, Any], key: str) -> Optional[List[Any]]:
+    """The list a caller actually specified, or None for absent/empty."""
+    value = config.get(key)
+    if isinstance(value, list) and value:
+        return value
+    return None
+
+
+def plan_work(
+    cli_stock_code: Optional[str],
+    companies_path: Optional[str],
+    config: Dict[str, Any],
+) -> WorkPlan:
+    """Decide the input source of one launch, in the documented priority.
+
+        CLI stock_code > --companies file > config.test_cases
+        > config.companies > config.stock_code > nothing to run
+
+    A source counts as specified only when it carries at least one item.  The
+    empty ``companies``/``test_cases`` lists the config loader injects by
+    default -- and an explicitly empty list, indistinguishable after the merge
+    -- therefore never shadow a non-empty lower-priority source.
+
+    Only an explicit ``--companies`` path is read here.  An unreadable list
+    raises ``ConfigError`` with its native cause on the chain; the caller
+    refuses the launch.  An explicit list without entries, or a launch that
+    names no item at all, is an empty work list (``source="none"``): that is
+    legitimate, never a refusal.
+    """
+    if cli_stock_code:
+        return WorkPlan("cli-stock", stock_code=cli_stock_code)
+    if companies_path:
+        companies = load_companies(companies_path)
+        if not companies:
+            name = Path(companies_path).name or companies_path
+            return WorkPlan("none", reason=f"companies list {name} has no entries")
+        return WorkPlan(
+            "companies-file",
+            companies=companies,
+            progress_name=Path(companies_path).name or companies_path,
+        )
+    test_cases = _specified_items(config, "test_cases")
+    if test_cases is not None:
+        return WorkPlan("test-cases", test_cases=test_cases)
+    companies = _specified_items(config, "companies")
+    if companies is not None:
+        return WorkPlan("config-companies", companies=companies, progress_name="config.json")
+    if config.get("stock_code"):
+        return WorkPlan("config-stock", stock_code=config["stock_code"])
+    return WorkPlan(
+        "none", reason="no stock code, companies list, test cases or config companies"
+    )
+
+
 class UnifiedRunner:
-    """Manages execution of download tasks."""
+    """Manages execution of download tasks.
+
+    Every sub-item that starts is counted in ``self.settlement`` exactly once
+    (``attempted`` at start, then ``succeeded``/``failed`` at its end), so the
+    business exit and the published settlement read the same tally.
+    """
 
     def __init__(self, config: Dict[str, Any], progress: Optional[ProgressTracker] = None,
-                 feedback=None):
+                 feedback=None, settlement: Optional[Dict[str, int]] = None):
         self.config = config
         self.save_dir = config["save_dir"]
         self.progress = progress
         self.feedback = feedback
+        self.settlement = settlement if settlement is not None else _new_settlement()
 
     def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
         """Run download for a single stock code."""
         name = company_name or get_real_stock_name(stock_code)
         pages = self.config.get("pages", [])
 
+        self.settlement["attempted"] += 1
         downloader = StockDownloader(self.config)
         success = True
         try:
@@ -168,6 +264,7 @@ class UnifiedRunner:
             success = False
         finally:
             downloader.cleanup()
+        self.settlement["succeeded" if success else "failed"] += 1
         return success
 
     def run_test_cases(self, test_cases: List[Dict[str, Any]]) -> bool:
@@ -182,6 +279,8 @@ class UnifiedRunner:
                 f"Downloading {stock_code} ({stock_name}) - {suffix}"
             )
 
+            self.settlement["attempted"] += 1
+            case_success = False
             downloader = StockDownloader(self.config)
             request = DownloadRequest(
                 stock_code=stock_code,
@@ -216,6 +315,7 @@ class UnifiedRunner:
                             ],
                         )
                 else:
+                    case_success = True
                     if self.feedback is not None and step_id is not None:
                         self.feedback.task_finished(
                             step_id=step_id,
@@ -239,13 +339,18 @@ class UnifiedRunner:
                     )
             finally:
                 downloader.cleanup()
+            self.settlement["succeeded" if case_success else "failed"] += 1
         return overall_success
 
     def run_multi(
         self, companies: List[Dict[str, Any]], parallel: bool = False, workers: int = 3
     ) -> Dict[str, int]:
-        """Run downloads for multiple companies and settle the real results."""
-        settlement = {"succeeded": 0, "failed": 0, "skipped": 0}
+        """Run downloads for multiple companies and settle the real results.
+
+        Returns the runner's shared settlement tally (``attempted`` plus the
+        ``succeeded``/``failed``/``skipped`` counts).
+        """
+        settlement = self.settlement
         if not companies:
             log.error("No companies provided")
             return settlement
@@ -257,9 +362,7 @@ class UnifiedRunner:
             skipped = len(companies) - len(pending_codes)
             if skipped:
                 log.info(f"Skipping {skipped} already completed")
-            if self.feedback is not None:
-                self.feedback.mark_skipped(skipped)
-            settlement["skipped"] = skipped
+            settlement["skipped"] += skipped
             companies = [c for c in companies if c["stock_code"] in pending_codes]
             if not companies:
                 log.info("All companies already completed")
@@ -277,17 +380,16 @@ class UnifiedRunner:
                 for future in concurrent.futures.as_completed(futures):
                     c = futures[future]
                     try:
+                        # run_single has already tallied this sub-item's end.
                         success = future.result()
-                        if success:
-                            settlement["succeeded"] += 1
-                        else:
-                            settlement["failed"] += 1
                         if self.progress:
                             if success:
                                 self.progress.mark_completed(c["stock_code"])
                             else:
                                 self.progress.mark_failed(c["stock_code"])
                     except Exception as e:
+                        # run_single started the sub-item but could not tally
+                        # its end (e.g. cleanup raised): it still failed.
                         settlement["failed"] += 1
                         log.error(f"Parallel task for {c['stock_code']} failed: {e}")
                         if self.progress:
@@ -299,10 +401,6 @@ class UnifiedRunner:
                 code = c["stock_code"]
                 name = c.get("company_name", get_real_stock_name(code))
                 success = self.run_single(code, name)
-                if success:
-                    settlement["succeeded"] += 1
-                else:
-                    settlement["failed"] += 1
                 if self.progress:
                     if success:
                         self.progress.mark_completed(code)
@@ -315,14 +413,18 @@ class UnifiedRunner:
         return settlement
 
 
-def _fold_settlement(result: Any, settlement: Dict[str, int]) -> Dict[str, int]:
-    """Fold a branch's business outcome into the run settlement counters."""
-    if isinstance(result, dict):
-        for key in ("succeeded", "failed", "skipped"):
-            settlement[key] = int(result.get(key, 0) or 0)
-    elif isinstance(result, bool):
-        settlement["succeeded" if result else "failed"] += 1
-    return settlement
+def _refuse(feedback, *, stage: str, exc: Optional[BaseException] = None) -> None:
+    """Record an entry refusal: stage, native cause chain, nothing dispatched."""
+    if feedback is None:
+        return
+    chain = _exception_cause_chain(exc) if exc is not None else None
+    feedback.run_refused(
+        stage=stage,
+        exit_code=1,
+        error_code=type(exc).__name__ if exc is not None else None,
+        cause_chain=chain,
+        cause_types=chain,
+    )
 
 
 def main():
@@ -355,57 +457,36 @@ def main():
         config = load_config(args.config)
     except Exception as e:
         log.error(f"Failed to load config: {e}")
-        if feedback is not None:
-            feedback.run_refused(stage="config", exit_code=1)
+        _refuse(feedback, stage="config", exc=e)
         sys.exit(1)
 
-    # Create progress tracker for multi-company runs
-    progress: Optional[ProgressTracker] = None
-    companies_file_name: Optional[str] = None
-
-    if args.companies:
-        companies_file_name = Path(args.companies).name
-    runner = UnifiedRunner(config, feedback=feedback)
-
-    # Priority: CLI stock_code > --companies file > test_cases > companies > config stock_code
-    settlement: Dict[str, int] = {"succeeded": 0, "failed": 0, "skipped": 0}
-    if args.stock_code:
-        settlement = _fold_settlement(runner.run_single(args.stock_code), settlement)
-    elif args.companies:
-        company_list = load_companies(args.companies)
-        progress = ProgressTracker()
-        progress.init_run(companies_file_name or args.companies, len(company_list))
-        log.info(progress.summary())
-        runner = UnifiedRunner(config, progress=progress, feedback=feedback)
-        settlement = _fold_settlement(
-            runner.run_multi(company_list, parallel=args.parallel, workers=args.workers),
-            settlement,
-        )
-    elif "test_cases" in config:
-        settlement = _fold_settlement(runner.run_test_cases(config["test_cases"]), settlement)
-    elif "companies" in config:
-        company_list = config["companies"]
-        progress = ProgressTracker()
-        progress.init_run("config.json", len(company_list))
-        log.info(progress.summary())
-        runner = UnifiedRunner(config, progress=progress, feedback=feedback)
-        settlement = _fold_settlement(
-            runner.run_multi(company_list, parallel=args.parallel, workers=args.workers),
-            settlement,
-        )
-    elif "stock_code" in config:
-        settlement = _fold_settlement(runner.run_single(config["stock_code"]), settlement)
-    else:
-        log.error(
-            "No stock code provided. Usage: python main.py <stock_code> or provide config.json"
-        )
-        if feedback is not None:
-            feedback.run_refused(stage="usage", exit_code=1)
+    # Decide what this launch runs (the one input-source decision point).
+    settlement = _new_settlement()
+    try:
+        plan = plan_work(args.stock_code, args.companies, config)
+    except ConfigError as e:
+        # An unreadable explicit list refuses the launch before any dispatch;
+        # the run id, the stage and the native cause chain stay on record.
+        log.error(f"Failed to read companies list: {e}")
+        _refuse(feedback, stage="companies", exc=e)
         sys.exit(1)
+
+    runner = UnifiedRunner(config, feedback=feedback, settlement=settlement)
+    if plan.source in ("companies-file", "config-companies"):
+        progress = ProgressTracker()
+        progress.init_run(plan.progress_name, len(plan.companies))
+        log.info(progress.summary())
+        runner = UnifiedRunner(config, progress=progress, feedback=feedback, settlement=settlement)
+        runner.run_multi(plan.companies, parallel=args.parallel, workers=args.workers)
+    elif plan.source in ("cli-stock", "config-stock"):
+        runner.run_single(plan.stock_code)
+    elif plan.source == "test-cases":
+        runner.run_test_cases(plan.test_cases)
+    # plan.source == "none": an empty work list starts nothing, by design.
 
     exit_code = 1 if settlement["failed"] else 0
     if feedback is not None:
-        feedback.run_finished(exit_code=exit_code)
+        feedback.run_finished(exit_code=exit_code, settlement=settlement)
     if exit_code:
         summary = (
             f"Tasks settled: {settlement['succeeded']} succeeded, "
@@ -415,7 +496,16 @@ def main():
             summary += f", {settlement['skipped']} skipped"
         log.warning(summary)
         sys.exit(exit_code)
-    log.info("All tasks completed")
+    if settlement["attempted"] == 0:
+        # Nothing started: report exactly that, never "all tasks completed".
+        if settlement["skipped"]:
+            log.info(
+                f"No tasks to run: all {settlement['skipped']} companies already completed"
+            )
+        else:
+            log.info(f"No tasks to run: {plan.reason}")
+    else:
+        log.info("All tasks completed")
 
 
 if __name__ == "__main__":

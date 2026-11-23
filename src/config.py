@@ -66,14 +66,23 @@ def load_companies(path: str) -> List[Dict[str, str]]:
     Returns a list of dicts, each with at least ``stock_code`` and
     optionally ``company_name``.
 
-    Raises ConfigError if the file does not exist.
+    Raises ConfigError if the file does not exist or cannot be read.  A read
+    failure keeps the native OS/decoding error as ``__cause__`` so the launch
+    can report one typed entry error with its original cause chain.
     """
     p = Path(path)
     if not p.exists():
         raise ConfigError(f"Companies file not found: {path}")
 
+    try:
+        text = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        raise ConfigError(
+            f"Cannot read companies file {path}: {type(e).__name__}"
+        ) from e
+
     companies: List[Dict[str, str]] = []
-    for raw_line in p.read_text(encoding="utf-8").splitlines():
+    for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue

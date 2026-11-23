@@ -106,6 +106,9 @@ DETAILS_ALLOWED_KEYS = (
     "executed_state",
     "stock_code",
     "exit_code",
+    # F4-SID-START-INPUT: sub-items that really started; the business
+    # settlement counts of the launch.
+    "attempted",
     "succeeded",
     "failed",
     "skipped",
@@ -183,7 +186,7 @@ def filter_details(details: Mapping[str, Any]) -> dict[str, Any]:
         isinstance(safe["stock_code"], str) and is_safe_ref(safe["stock_code"])
     ):
         safe.pop("stock_code", None)
-    for name in ("exit_code", "succeeded", "failed", "skipped"):
+    for name in ("exit_code", "attempted", "succeeded", "failed", "skipped"):
         value = safe.get(name)
         if isinstance(value, bool) or not isinstance(value, int):
             safe.pop(name, None)

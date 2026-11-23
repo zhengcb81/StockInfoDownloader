@@ -1,4 +1,5 @@
 """Unit tests for main() CLI integration."""
+import json
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -106,8 +107,12 @@ class TestMainCLI:
             mock_runner.run_multi.assert_called_once()
             mock_runner.run_test_cases.assert_not_called()
 
-    def test_missing_companies_file_exits_with_error(self, tmp_path):
-        """--companies with nonexistent file should exit with error."""
+    def test_missing_companies_file_refuses_the_launch_on_record(self, tmp_path):
+        """--companies with a nonexistent file refuses the launch (exit 1).
+
+        F4-SID-START-INPUT: the refusal is recorded through the feedback
+        publisher with its stage and native cause chain, and no task runs.
+        """
         missing_file = tmp_path / "nonexistent.txt"
 
         mock_config = self._mock_config()
@@ -115,8 +120,94 @@ class TestMainCLI:
         with (
             patch("main.load_config", return_value=mock_config),
             patch("main.setup_logger"),
+            patch("main.UnifiedRunner") as MockRunner,
         ):
             with patch.object(sys, "argv", ["main.py", "--companies", str(missing_file)]):
                 from main import main
-                with pytest.raises(ConfigError, match="Companies file not found"):
+                with pytest.raises(SystemExit) as stop:
                     main()
+
+            assert stop.value.code == 1
+            MockRunner.return_value.run_multi.assert_not_called()
+            MockRunner.return_value.run_single.assert_not_called()
+
+        def rows(pattern):
+            return [
+                json.loads(line)
+                for path in sorted((tmp_path / "state" / "observations").glob(pattern))
+                if not path.name.endswith(".details.jsonl") or "details" in pattern
+                for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+            ]
+
+        settlement = [r for r in rows("feedback-*.jsonl") if r["check_id"] == "ordinary-run-settlement"]
+        assert len(settlement) == 1
+        assert settlement[0]["actual"] == "not_started"
+        assert settlement[0]["disposition"] == "expected"
+        refused = [d for d in rows("feedback-*.details.jsonl") if d.get("stage") == "companies"]
+        assert len(refused) == 1
+        assert refused[0]["cause_chain"] == ["ConfigError"]
+        assert refused[0]["sent"] == "not_sent"
+        assert refused[0]["attempted"] == 0
+
+
+class TestPlanWork:
+    """The one input-source decision point, in the documented priority."""
+
+    def _companies_file(self, tmp_path, text="300470 中密控股\n"):
+        path = tmp_path / "companies.txt"
+        path.write_text(text, encoding="utf-8")
+        return str(path)
+
+    def test_priority_cli_stock_over_list_over_test_cases_over_companies(self, tmp_path):
+        from main import plan_work
+
+        config = {
+            "test_cases": [{"stock_code": "999999"}],
+            "companies": [{"stock_code": "888888"}],
+            "stock_code": "777777",
+        }
+        assert plan_work("000001", self._companies_file(tmp_path), config).source == "cli-stock"
+        assert plan_work(None, self._companies_file(tmp_path), config).source == "companies-file"
+        assert plan_work(None, None, config).source == "test-cases"
+
+    def test_priority_companies_over_config_stock_code(self, tmp_path):
+        from main import plan_work
+
+        config = {"companies": [{"stock_code": "888888"}], "stock_code": "777777"}
+        plan = plan_work(None, None, config)
+        assert plan.source == "config-companies"
+        assert plan.companies == [{"stock_code": "888888"}]
+        assert plan.progress_name == "config.json"
+
+    def test_default_empty_keys_never_shadow_real_config(self, tmp_path):
+        from main import plan_work
+
+        config = {
+            "test_cases": [],  # injected by load_config
+            "companies": [{"stock_code": "888888"}],
+            "stock_code": "777777",
+        }
+        assert plan_work(None, None, config).source == "config-companies"
+        config = {"test_cases": [], "companies": [], "stock_code": "777777"}
+        assert plan_work(None, None, config).stock_code == "777777"
+
+    def test_no_item_anywhere_is_an_empty_work_list_not_a_refusal(self, tmp_path):
+        from main import plan_work
+
+        plan = plan_work(None, None, {"test_cases": [], "companies": []})
+        assert plan.source == "none"
+        assert plan.reason
+
+    def test_comment_only_list_is_an_empty_work_list(self, tmp_path):
+        from main import plan_work
+
+        path = self._companies_file(tmp_path, "# nothing here\n\n")
+        plan = plan_work(None, path, {"companies": [{"stock_code": "888888"}]})
+        assert plan.source == "none"
+        assert "no entries" in plan.reason
+
+    def test_missing_list_raises_typed_error_with_no_side_effect(self, tmp_path):
+        from main import plan_work
+
+        with pytest.raises(ConfigError, match="Companies file not found"):
+            plan_work(None, str(tmp_path / "missing.txt"), {})

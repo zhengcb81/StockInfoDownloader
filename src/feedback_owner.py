@@ -35,7 +35,9 @@ ACTIONS = ("triage", "repair", "replay", "report")
 PUBLICATION = "sid-candidate-publication/1"
 KEY = re.compile(r"[0-9a-f]{64}")
 TERMINALS = {CHECK_CANDIDATE_IDENTITY, CHECK_STAGED_FETCH, CHECK_ORDINARY_TASK, CHECK_RUN_SETTLEMENT}
-SUCCEEDED = {"verified", "no_candidates", "staged", "missing", "mismatched", "completed", "all_completed"}
+# ``no_tasks`` (F4-SID-START-INPUT): an explicit empty work list.  Nothing
+# started and nothing was sent, so the job is a legitimate success at zero cost.
+SUCCEEDED = {"verified", "no_candidates", "staged", "missing", "mismatched", "completed", "all_completed", "no_tasks"}
 
 
 def _key(value: object) -> bool:

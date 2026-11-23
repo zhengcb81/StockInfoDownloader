@@ -31,7 +31,6 @@ import argparse
 import json
 import os
 from pathlib import Path
-import threading
 from typing import Any, Mapping
 import uuid
 
@@ -617,10 +616,6 @@ class OrdinaryRunFeedback:
             state_root=self.root,
         )
         self.write_failures = 0
-        self.succeeded = 0
-        self.failed = 0
-        self.skipped = 0
-        self._count_lock = threading.Lock()
         if not write_startup_receipt(self.run_id, self.attempt_id, root=self.root):
             self.write_failures += 1
 
@@ -675,25 +670,28 @@ class OrdinaryRunFeedback:
                 "reused": False,
             },
         )
-        # run_multi drives these from parallel workers: keep the settlement
-        # counters consistent with the honest exit code under concurrency.
-        with self._count_lock:
-            if success:
-                self.succeeded += 1
-            else:
-                self.failed += 1
-
-    def mark_skipped(self, count: int) -> None:
-        with self._count_lock:
-            self.skipped += count
 
     # ── run settlement ────────────────────────────────────────────────
 
     def settlement_step_id(self) -> str:
         return "settlement-" + digest([self.run_id, self.attempt_id])[:24]
 
-    def run_refused(self, *, stage: str, exit_code: int) -> None:
-        """The run was refused before any task started (e.g. broken config)."""
+    def run_refused(
+        self,
+        *,
+        stage: str,
+        exit_code: int,
+        error_code: str | None = None,
+        cause_chain: list[str] | None = None,
+        cause_types: list[str] | None = None,
+    ) -> None:
+        """The run was refused before any task started (e.g. broken config,
+        an unreadable companies list).
+
+        The original run id, the stage and the native exception type chain
+        stay on record; ``not_sent`` is a known fact because nothing was
+        dispatched.  ``exit_code`` keeps the business status the entry returned.
+        """
         self._publish(
             step_id=self.settlement_step_id(),
             check_id="ordinary-run-settlement",
@@ -707,34 +705,57 @@ class OrdinaryRunFeedback:
                 "stage": stage,
                 "executed_state": "not_started",
                 "sent": "not_sent",
+                "attempted": 0,
                 "exit_code": exit_code,
+                "error_code": error_code,
+                "cause_chain": cause_chain,
+                "cause_types": cause_types,
             },
         )
         self._finish_receipt({"result": "not_started", "exit_code": exit_code})
 
-    def run_finished(self, *, exit_code: int) -> str:
-        with self._count_lock:
-            succeeded, failed, skipped = self.succeeded, self.failed, self.skipped
-        if failed == 0:
+    def run_finished(self, *, exit_code: int, settlement: Mapping[str, int]) -> str:
+        """Publish the business settlement of the launch.
+
+        ``settlement`` is the runner's own tally: ``attempted`` counts the
+        sub-items that really started.  A launch in which nothing started and
+        nothing was skipped is an explicit empty work list (``no_tasks``) --
+        legitimate and expected, never "all tasks completed"; a launch whose
+        companies were all already completed keeps ``all_completed`` with
+        ``attempted: 0`` and the skip count.
+        """
+        attempted = int(settlement.get("attempted", 0) or 0)
+        succeeded = int(settlement.get("succeeded", 0) or 0)
+        failed = int(settlement.get("failed", 0) or 0)
+        skipped = int(settlement.get("skipped", 0) or 0)
+        if attempted == 0 and skipped == 0:
+            actual = "no_tasks"
+        elif failed == 0:
             actual = "all_completed"
         elif succeeded > 0:
             actual = "partial"
         else:
             actual = "all_failed"
+        details: dict[str, Any] = {
+            "action": "ordinary-run",
+            "code_site": "main.py:main",
+            "attempted": attempted,
+            "succeeded": succeeded,
+            "failed": failed,
+            "skipped": skipped,
+            "exit_code": exit_code,
+        }
+        if attempted == 0:
+            # Nothing started, so nothing could have been sent.
+            details["executed_state"] = "not_started"
+            details["sent"] = "not_sent"
         self._publish(
             step_id=self.settlement_step_id(),
             check_id="ordinary-run-settlement",
             expected="all_completed",
             actual=actual,
-            disposition="expected" if actual == "all_completed" else "deviation",
-            details={
-                "action": "ordinary-run",
-                "code_site": "main.py:main",
-                "succeeded": succeeded,
-                "failed": failed,
-                "skipped": skipped,
-                "exit_code": exit_code,
-            },
+            disposition="expected" if failed == 0 else "deviation",
+            details=details,
         )
         self._finish_receipt({"result": actual, "exit_code": exit_code})
         return actual
