@@ -123,7 +123,7 @@ f319f02d2fc0d9f34079c13fa5edfdd51607e8fd09f108096750e51c1d716a6e  src/feedback_p
 - 预存事项（非本卡引入）：§6 所列 11 项全量失败、本机 `stock_orgid_mapping.json` 缓存残留。
 - 清理：本卡创建的测试临时目录（`%TEMP%/si-*`、`f4si-*`、HEAD 归档树 `si-head`）、失败生成器遗留的旧 refusal 样本、仓内 `.planning/test-tmp/`（全量测试残留）已删除；两份用户名单、`.mimosa/` 与 `evidence/.mimosa/` 保持未跟踪不动。本卡的直启子进程全部映射状态根，未写入真实状态根。
 
-- **待操作者确认的既有污染**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入了本会话测试产生的合成观察（734 个文件，mtime 全在 2026-11-23 23:30–23:44，之前无历史文件）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费，必须清掉。已新增 `tests/conftest.py` 的 autouse 夹具阻断后续写入（128 项显式/默认目标测试复验通过）。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
+- **待操作者确认的既有污染**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入了本会话测试与复审探针产生的合成观察（最后核对 **801 个文件**：`deliveries` 283、`observations` 495、`pending` 22、根 1；该目录在本会话前无文件，全部为本会话产物）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费，必须清掉。已新增 `tests/conftest.py` 的 autouse 夹具阻断 pytest 测试的后续写入（128 项显式/默认目标测试复验通过）；不经过 pytest 的直接 CLI 探针仍需自行映射状态根（复审探针因此又产生 6 个文件）。完整清单在 `%TEMP%/si-state-root-pollution-manifest.txt`（801 行，逐文件时间戳与绝对路径）。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
 
 ## 10. 提交与发布
 
