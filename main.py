@@ -20,6 +20,7 @@ that really start are counted as attempted.
 import argparse
 import concurrent.futures
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -101,6 +102,16 @@ def _new_settlement() -> Dict[str, int]:
     one test case each); a refused or empty launch leaves every key at zero.
     """
     return {key: 0 for key in SETTLEMENT_KEYS}
+
+
+# run_multi drives sub-items from a thread pool; keep the shared tally exact
+# under parallel work (the F4-SID-FAILURES card already required this lock).
+_SETTLEMENT_LOCK = threading.Lock()
+
+
+def _bump(settlement: Dict[str, int], key: str, amount: int = 1) -> None:
+    with _SETTLEMENT_LOCK:
+        settlement[key] += amount
 
 
 @dataclass
@@ -191,7 +202,7 @@ class UnifiedRunner:
         name = company_name or get_real_stock_name(stock_code)
         pages = self.config.get("pages", [])
 
-        self.settlement["attempted"] += 1
+        _bump(self.settlement, "attempted")
         downloader = StockDownloader(self.config)
         success = True
         try:
@@ -264,7 +275,7 @@ class UnifiedRunner:
             success = False
         finally:
             downloader.cleanup()
-        self.settlement["succeeded" if success else "failed"] += 1
+        _bump(self.settlement, "succeeded" if success else "failed")
         return success
 
     def run_test_cases(self, test_cases: List[Dict[str, Any]]) -> bool:
@@ -279,7 +290,7 @@ class UnifiedRunner:
                 f"Downloading {stock_code} ({stock_name}) - {suffix}"
             )
 
-            self.settlement["attempted"] += 1
+            _bump(self.settlement, "attempted")
             case_success = False
             downloader = StockDownloader(self.config)
             request = DownloadRequest(
@@ -339,7 +350,7 @@ class UnifiedRunner:
                     )
             finally:
                 downloader.cleanup()
-            self.settlement["succeeded" if case_success else "failed"] += 1
+            _bump(self.settlement, "succeeded" if case_success else "failed")
         return overall_success
 
     def run_multi(
@@ -362,7 +373,7 @@ class UnifiedRunner:
             skipped = len(companies) - len(pending_codes)
             if skipped:
                 log.info(f"Skipping {skipped} already completed")
-            settlement["skipped"] += skipped
+            _bump(settlement, "skipped", skipped)
             companies = [c for c in companies if c["stock_code"] in pending_codes]
             if not companies:
                 log.info("All companies already completed")
@@ -390,7 +401,7 @@ class UnifiedRunner:
                     except Exception as e:
                         # run_single started the sub-item but could not tally
                         # its end (e.g. cleanup raised): it still failed.
-                        settlement["failed"] += 1
+                        _bump(settlement, "failed")
                         log.error(f"Parallel task for {c['stock_code']} failed: {e}")
                         if self.progress:
                             self.progress.mark_failed(c["stock_code"])
