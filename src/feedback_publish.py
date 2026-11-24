@@ -671,6 +671,23 @@ class OrdinaryRunFeedback:
             },
         )
 
+    def file_log_unavailable(self, *, cause_types: list[str]) -> None:
+        """Record a file logging failure alongside the original business result."""
+        self._publish(
+            step_id="logging-setup",
+            check_id="ordinary-file-log",
+            expected="configured",
+            actual="unavailable",
+            disposition="deviation",
+            details={
+                "action": "ordinary-run",
+                "code_site": "main.py:setup_logger",
+                "stage": "logging",
+                "source_result": "console_logging",
+                "cause_types": cause_types,
+            },
+        )
+
     # ── run settlement ────────────────────────────────────────────────
 
     def settlement_step_id(self) -> str:

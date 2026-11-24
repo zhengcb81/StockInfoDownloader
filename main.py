@@ -479,8 +479,13 @@ def main():
             level=str(log_cfg.get("level", "INFO")),
             log_file=str(configured_log_file or ""),
         )
-    except OSError as e:
-        log.warning("Failed to attach file logger (%s): %s", configured_log_file, e, exc_info=True)
+    except OSError as exc:
+        log.warning(
+            "File logging unavailable (%s), continuing with console logging",
+            type(exc).__name__,
+        )
+        if feedback is not None:
+            feedback.file_log_unavailable(cause_types=_exception_cause_chain(exc))
 
     # Decide what this launch runs (the one input-source decision point).
     settlement = _new_settlement()

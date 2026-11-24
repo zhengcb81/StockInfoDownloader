@@ -367,6 +367,57 @@ class TestAuditedFailures:
         assert sorted(progress["completed"]) == ["900001", "900002"]
 
 
+
+
+def test_unavailable_file_log_preserves_run_and_leaves_safe_cold_diagnostics(tmp_path):
+    work = _work(tmp_path)
+    private_directory = work / "sid-s2-private-path-marker"
+    private_directory.write_text("keep this blocker", encoding="ascii")
+    _write_config(
+        work,
+        stock_code="900001",
+        logging={"log_file": str(private_directory / "run.log")},
+    )
+    proc, calls = _launch(tmp_path, ["--config", "config.json"])
+    assert _exit(proc) == 0
+    assert calls == ["900001"]
+    assert private_directory.read_text(encoding="ascii") == "keep this blocker"
+    assert "All tasks completed" in _stderr_text(proc)
+    assert b"sid-s2-private-path-marker" not in proc.stderr
+    assert b"Traceback" not in proc.stderr
+
+    rows = _observations(tmp_path)
+    settlement = _settlement(rows)
+    failed, = [row for row in rows if row.get("check_id") == "ordinary-file-log"]
+    assert (failed["actual"], failed["disposition"]) == ("unavailable", "deviation")
+    assert failed["run_id"] == settlement["run_id"]
+    assert failed["attempt_id"] == settlement["attempt_id"]
+    assert failed["step_id"] != settlement["step_id"]
+    details, = [row for row in _details(tmp_path) if row["details_ref"] == failed["details_ref"]]
+    assert details["stage"] == "logging"
+    assert details["source_result"] == "console_logging"
+    assert details["cause_types"][0] in {"FileExistsError", "NotADirectoryError"}
+    assert "sid-s2-private-path-marker" not in json.dumps(details)
+
+    first, second = _cold_reconcile_twice(tmp_path)
+    assert first == second
+    assert first["result"]["job_status"] == "succeeded"
+    assert first["result"]["cost_state"] == "unknown"
+    assert _count_file(tmp_path).read_text(encoding="ascii").splitlines() == calls
+
+
+def test_writable_file_log_needs_no_logging_failure_observation(tmp_path):
+    work = _work(tmp_path)
+    configured_log = work / "owned-log" / "run.log"
+    _write_config(work, logging={"log_file": str(configured_log)})
+    proc, calls = _launch(tmp_path, ["--config", "config.json"])
+    assert (_exit(proc), calls) == (0, [])
+    assert "No tasks to run" in configured_log.read_text(encoding="utf-8")
+    rows = _observations(tmp_path)
+    assert _settlement(rows)["actual"] == "no_tasks"
+    assert all(row.get("check_id") != "ordinary-file-log" for row in rows)
+
+
 # ── one decision point: the documented priority ───────────────────────────
 
 
