@@ -467,7 +467,8 @@ def main():
     try:
         config = load_config(args.config)
     except Exception as e:
-        log.error(f"Failed to load config: {e}", exc_info=True)
+        # Typed input refusals keep their cause chain in the owner receipt.
+        log.error("Failed to load config: %s", e, exc_info=not isinstance(e, ConfigError))
         _refuse(feedback, stage="config", exc=e)
         sys.exit(1)
 
@@ -488,7 +489,7 @@ def main():
     except ConfigError as e:
         # An unreadable explicit list refuses the launch before any dispatch;
         # the run id, the stage and the native cause chain stay on record.
-        log.error(f"Failed to read companies list: {e}", exc_info=True)
+        log.error("Failed to read companies list: %s", e)
         _refuse(feedback, stage="companies", exc=e)
         sys.exit(1)
 

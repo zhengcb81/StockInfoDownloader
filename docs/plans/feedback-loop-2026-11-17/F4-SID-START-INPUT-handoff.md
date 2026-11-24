@@ -10,7 +10,7 @@
 | 工作目录 | `C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite` |
 | 开工基线 | `521941ef`（本地 = origin/v2-clean-rewrite，工作区仅既有未跟踪文件） |
 | 分支 / 远端 | `v2-clean-rewrite` / origin/v2-clean-rewrite（快进，无合并提交） |
-| 最终源码 | 见 §7（规范 Git blob 原始字节 SHA-256）及提交 SHA |
+| 最终源码 | 原卡见 §7 的 Windows 文件字节及提交 SHA，S1 叠加验收见 §11 |
 | 写入范围 | 仅本仓直启任务清单（`main.py`）、配置读取必要职责（`src/config.py` 的 `load_companies`）、原生反馈接线（`src/feedback_publish.py`、`src/feedback_observation.py`、`src/feedback_owner.py` 各一处词汇/白名单新增）、定向测试（含 `tests/conftest.py` 与 G4 e2e 子进程的反馈状态根隔离）、PWF 与 evidence。供应商、下载限额、CWP adapter、生产名单与正式配置未改。 |
 
 ## 2. 三个原发生的 RED 实测与修复
@@ -87,9 +87,9 @@ C:/Miniconda/python.exe -B docs/plans/feedback-loop-2026-11-17/evidence/f4-sid-n
 - **调用数**：真实网络 0 次（子进程 audit hook 全程拒绝 `socket.connect`/`getaddrinfo`），付费/计费 0 次；冷读不构造 provider、不下载、不发现。
 - 必须显式传 `--basetemp=<短目录>`：不传时 pytest 清理共享临时根会触发本机批量删除确认钩子（SAFE_DELETE_BULK_CONFIRM_REQUIRED），运行被中断。
 
-## 7. 最终源码 SHA-256（规范 Git blob 原始字节）
+## 7. 原卡收尾 SHA-256（Windows 工作区字节）
 
-最终源码候选提交 `32664fe`（主体）与 `78dd784`（并行计数加锁）；文档提交在其后，仅改 `docs/**`，不追自引用 SHA。SHA-256 为规范 Git blob 原始字节（工作区与上述提交内容一致）：
+原卡源码为 `32664fe`（主体）和 `78dd784`（并行计数加锁），`c2dfdf7` 另补 G4 夹具隔离。下列摘要对应收尾提交 `9e35347` 的原 Windows 工作区字节。Git 导出的 LF 与本机检出的 CRLF 可能不同，不能把本表当作规范 Git blob 摘要。
 
 ```text
 907818dfd105d2cb6f856b5444f2e52cc8a1bd417811d342f1ad16561086e16f  main.py
@@ -123,19 +123,34 @@ b5c2d9fe3e1ff567d276d82902cff8aa49f006b6178583a771f08e8bac389b15  tests/e2e/test
 - **无输入的启动退出 0 并报告 `No tasks to run`**（此前退出 0 且报 `All tasks completed`）。保留退出 0 是因为 `python main.py --clean` 这类既有调用依赖它；原代码里"usage 拒绝退出 1"的分支自配置默认注入空键以来就不可达，本卡将其收敛为合法空工作项。若 ROOT 希望"无输入"成为 usage 拒绝，属另一张卡的决策。
 - `run_multi` 返回 runner 的共享台账（`{"attempted","succeeded","failed","skipped"}`，是原三元组的超集）；`run_test_cases`/`run_single` 仍返回 `bool`。
 - README 第 40 行的优先级合同与实现一致，未改 README（不在本卡写入范围）；建议 ROOT 在下一次 README 修订时补一句"空列表不参与遮蔽"。
-- 预存事项（非本卡引入）：§6 所列 11 项全量失败、本机 `stock_orgid_mapping.json` 缓存残留。
+- 预存事项（非本卡引入）：§6 所列 5 项全量失败、本机 `stock_orgid_mapping.json` 缓存残留。
 - 清理：本卡创建的测试临时目录（`%TEMP%/si-*`、`f4si-*`、HEAD 归档树 `si-head`）、失败生成器遗留的旧 refusal 样本、仓内 `.planning/test-tmp/`（全量测试残留）已删除；两份用户名单、`.mimosa/` 与 `evidence/.mimosa/` 保持未跟踪不动。本卡的直启子进程全部映射状态根，未写入真实状态根。
 
 - **已清理的既有污染（操作者确认后执行）**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）与复审探针曾在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入本会话的合成观察（约 800 个文件：`deliveries` 288、`observations` 504、`pending` 22、根 `delivery.lock` 1；该目录在本会话前无文件）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费。已按操作者选择逐一移入 Windows 回收站：**815/815 成功、0 失败**，回收站条目 +1630（=815×2，每项 $I+$R），状态根剩余 **0 个文件**（空目录保留供复用），可随时还原。清单留档 `%TEMP%/si-state-root-pollution-manifest.txt`。
-- 防再犯：`tests/conftest.py` 的 autouse 夹具阻断 pytest 进程内与继承 `os.environ` 的子进程写入（128 项显式/默认目标测试复验通过）；G4 离线 e2e 的 CWP 子进程白名单环境补上 `RESEARCH_FEEDBACK_STATE_ROOT`（`_cwp_child_env`），复跑 17 通过、真实收件目录零新增。仍以白名单自建环境且未映射的其它子进程测试（若有）属既有测试卫生缺口，交 ROOT。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
+- 防再犯：`tests/conftest.py` 的 autouse 夹具阻断 pytest 进程内与继承 `os.environ` 的子进程写入（128 项显式/默认目标测试复验通过）；G4 离线 e2e 的 CWP 子进程白名单环境补上 `RESEARCH_FEEDBACK_STATE_ROOT`（`_cwp_child_env`），复跑 17 通过、真实收件目录零新增。仍以白名单自建环境且未映射的其它子进程测试（若有）属既有测试卫生缺口，交 ROOT。操作者已经确认清理，本节记录的 815 项为实测结果。
 
 ## 10. 提交与发布
 
 ```text
 32664fe fix(sid): decide the ordinary launch input in one place and report empty work honestly
 78dd784 fix(sid): lock the parallel business settlement tally
-<test commit> test(sid): keep the feedback state root out of the real owner inbox
-<docs commit> docs(sid): F4-SID-START-INPUT PWF and handoff   # 即本文件所在提交，不追自引用 SHA
+68fe6ad docs(sid): F4-SID-START-INPUT PWF, handoff and cold-read evidence
+c2dfdf7 test(sid): keep the feedback state root out of the real owner inbox
+9e35347 docs(sid): close the state-root cleanup after operator confirmation
 ```
 
 发布线为正式维护分支 `v2-clean-rewrite`；开工时本地与 origin 同为 `521941e`，两次源码提交均为快进。未合并其它分支，未改写历史，未跳过钩子。
+
+## 11. S1 叠加回归复验（2026-11-24）
+
+S1 发布基线 `24ce0be` 重启了文件日志并修正分页吞错，同时对两个已识别的输入错误强制打印堆栈。F4 的普通输入拒绝约定是退出 1、简明 stderr、由原生回执保留原因链。组合 RED 在原四个拒绝场景得到 4 失败，新增意外故障正控通过。
+
+修复只调整 `main.py` 对预期 `ConfigError` 的日志选择。名单缺失或不可读、配置损坏及反馈暂不可用时，CLI 继续输出简明错误。意外配置异常仍保留 stderr 堆栈。原生观测的阶段、异常类型链、未派发与费用不适用状态沿既有 owner 端口读取。文件日志配置、分页错误和任务选择保持原语义。
+
+```powershell
+C:/Miniconda/python.exe -B -m pytest -q -p no:cacheprovider --basetemp=<独立短目录> tests/unit/test_f4_start_input.py tests/unit/test_s1_logging_and_browser_errors.py tests/unit/test_main.py tests/unit/test_config.py tests/unit/test_feedback_owner.py
+```
+
+最终定向验收 55 项通过。新加的真实 CLI 子进程用例注入意外 `RuntimeError`，保留完整堆栈，经不同进程两次查回同一原失败及未派发结算。Ruff E402/F821 与 `git diff --check` 通过。所有样本都隔离，用量与真实网络调用均为零。
+
+独立审查基于冻结的源码与测试，通过 5 个真实子进程用例。已复验名单与配置的原原因、意外异常堆栈、合法跳过以及已派发失败费用仍未知。原记录均可冷读，测试目录已清理。

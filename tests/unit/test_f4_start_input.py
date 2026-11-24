@@ -60,6 +60,7 @@ sys.addaudithook(_no_network)
 # disk, so "how many sub-items really started" is read back by another process.
 ARGV_DRIVER = '''
 import json, runpy, sys
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import patch
 from src.downloader import StockDownloader
@@ -79,8 +80,12 @@ def _engine(self, request):
     files = [] if request.stock_code in zero else ["stub.pdf"]
     return DownloadResult(success=True, downloaded_files=files, total_files=len(files))
 
+config_override = (
+    patch("src.config.load_config", side_effect=RuntimeError("offline configuration dependency failure"))
+    if spec["unexpected_config_error"] else nullcontext()
+)
 status = 0
-with patch.object(StockDownloader, "download", _engine), \\
+with config_override, patch.object(StockDownloader, "download", _engine), \\
         patch.object(MappingManager, "get_stock_name", return_value="fixture"):
     sys.argv = [spec["main"], *spec["argv"]]
     try:
@@ -205,6 +210,7 @@ def _launch(
     *,
     fail: tuple[str, ...] = (),
     zero: tuple[str, ...] = (),
+    unexpected_config_error: bool = False,
     **env_extra: str,
 ) -> tuple[subprocess.CompletedProcess, list[str]]:
     """Run the real ``main.py`` once; return the process and its engine calls."""
@@ -215,6 +221,7 @@ def _launch(
         "count_file": str(_count_file(root)),
         "fail": list(fail),
         "zero": list(zero),
+        "unexpected_config_error": unexpected_config_error,
     }
     (work / "spec.json").write_text(json.dumps(spec), encoding="utf-8")
     proc = _run(
@@ -555,6 +562,18 @@ class TestEntryReadFailures:
         assert detail["sent"] == "not_sent"
         assert detail["attempted"] == 0
         assert detail["cause_chain"][:2] == ["ConfigError", "JSONDecodeError"]
+        first, second = _cold_reconcile_twice(tmp_path)
+        assert first == second
+        assert first["result"]["job_status"] == "failed"
+        assert first["result"]["cost_state"] == "not_applicable"
+
+    def test_unexpected_config_error_keeps_its_traceback(self, tmp_path):
+        proc, calls = _launch(tmp_path, [], unexpected_config_error=True)
+        assert _exit(proc) == 1 and calls == []
+        stderr = _stderr_text(proc)
+        assert "Traceback (most recent call last)" in stderr
+        assert "RuntimeError: offline configuration dependency failure" in stderr
+        assert _settlement_detail(tmp_path)["cause_chain"] == ["RuntimeError"]
         first, second = _cold_reconcile_twice(tmp_path)
         assert first == second
         assert first["result"]["job_status"] == "failed"
