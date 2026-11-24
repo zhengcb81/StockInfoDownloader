@@ -11,7 +11,7 @@
 | 开工基线 | `521941ef`（本地 = origin/v2-clean-rewrite，工作区仅既有未跟踪文件） |
 | 分支 / 远端 | `v2-clean-rewrite` / origin/v2-clean-rewrite（快进，无合并提交） |
 | 最终源码 | 见 §7（规范 Git blob 原始字节 SHA-256）及提交 SHA |
-| 写入范围 | 仅本仓直启任务清单（`main.py`）、配置读取必要职责（`src/config.py` 的 `load_companies`）、原生反馈接线（`src/feedback_publish.py`、`src/feedback_observation.py`、`src/feedback_owner.py` 各一处词汇/白名单新增）、定向测试、PWF 与 evidence。供应商、下载限额、CWP adapter、生产名单与正式配置未改。 |
+| 写入范围 | 仅本仓直启任务清单（`main.py`）、配置读取必要职责（`src/config.py` 的 `load_companies`）、原生反馈接线（`src/feedback_publish.py`、`src/feedback_observation.py`、`src/feedback_owner.py` 各一处词汇/白名单新增）、定向测试（含 `tests/conftest.py` 与 G4 e2e 子进程的反馈状态根隔离）、PWF 与 evidence。供应商、下载限额、CWP adapter、生产名单与正式配置未改。 |
 
 ## 2. 三个原发生的 RED 实测与修复
 
@@ -98,6 +98,7 @@ f319f02d2fc0d9f34079c13fa5edfdd51607e8fd09f108096750e51c1d716a6e  src/feedback_p
 82ed74d40c335b7cef62150e53a02e64a6488b1b44100a3120b770cb50466d1d  src/feedback_observation.py
 70a622ec1354f77b6f70c393ce3c32da8f3e511c3c78020d3729af936899d4e8  src/feedback_owner.py
 43817fa01c9eacd6fbf0dea53cbd663dbdbbe474726fe81d473f6e80e7fbbfba  tests/conftest.py
+b5c2d9fe3e1ff567d276d82902cff8aa49f006b6178583a771f08e8bac389b15  tests/e2e/test_g4_latest_cli_offline.py
 2df496ecb058de39f2d430ab890d0ee7ddb1b103a3e1e39e108c6bbe9da62fba  tests/unit/test_main.py
 45d90d149a04d709e45dbbdaed4263414ace940c1c71abf59d91e07295c294c7  tests/unit/test_config.py
 3880a7500ddb061e98ab09ab007e532559af37fe7c31197ce2f5cb5a02e7fda9  tests/unit/test_f4_start_input.py
@@ -125,13 +126,14 @@ f319f02d2fc0d9f34079c13fa5edfdd51607e8fd09f108096750e51c1d716a6e  src/feedback_p
 - 预存事项（非本卡引入）：§6 所列 11 项全量失败、本机 `stock_orgid_mapping.json` 缓存残留。
 - 清理：本卡创建的测试临时目录（`%TEMP%/si-*`、`f4si-*`、HEAD 归档树 `si-head`）、失败生成器遗留的旧 refusal 样本、仓内 `.planning/test-tmp/`（全量测试残留）已删除；两份用户名单、`.mimosa/` 与 `evidence/.mimosa/` 保持未跟踪不动。本卡的直启子进程全部映射状态根，未写入真实状态根。
 
-- **待操作者确认的既有污染**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入了本会话测试与复审探针产生的合成观察（最后核对 **801 个文件**：`deliveries` 283、`observations` 495、`pending` 22、根 1；该目录在本会话前无文件，全部为本会话产物）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费，必须清掉。已新增 `tests/conftest.py` 的 autouse 夹具阻断 pytest 测试的后续写入（128 项显式/默认目标测试复验通过）；不经过 pytest 的直接 CLI 探针仍需自行映射状态根（复审探针因此又产生 6 个文件）。完整清单在 `%TEMP%/si-state-root-pollution-manifest.txt`（801 行，逐文件时间戳与绝对路径）。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
+- **待操作者确认的既有污染**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入了本会话测试与复审探针产生的合成观察（最后核对 **801 个文件**：`deliveries` 283、`observations` 495、`pending` 22、根 1；该目录在本会话前无文件，全部为本会话产物）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费，必须清掉。已新增 `tests/conftest.py` 的 autouse 夹具阻断 pytest 进程内与继承 `os.environ` 的子进程写入（128 项显式/默认目标测试复验通过），并给 G4 离线 e2e 的 CWP 子进程白名单环境补上 `RESEARCH_FEEDBACK_STATE_ROOT`（`_cwp_child_env`）：复跑 17 通过、真实收件目录零新增。仍以白名单自建环境且未映射的其它子进程测试（若有）属既有测试卫生缺口，交 ROOT。完整清单在 `%TEMP%/si-state-root-pollution-manifest.txt`（逐文件时间戳与绝对路径）。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
 
 ## 10. 提交与发布
 
 ```text
 32664fe fix(sid): decide the ordinary launch input in one place and report empty work honestly
 78dd784 fix(sid): lock the parallel business settlement tally
+<test commit> test(sid): keep the feedback state root out of the real owner inbox
 <docs commit> docs(sid): F4-SID-START-INPUT PWF and handoff   # 即本文件所在提交，不追自引用 SHA
 ```
 
