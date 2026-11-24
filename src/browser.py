@@ -642,8 +642,12 @@ class PlaywrightBrowser:
                 }
             """)
             return info if info else {"current_page": 1, "total_pages": 1}
-        except Exception:
+        except PlaywrightTimeoutError as exc:
+            log.warning("Timed out reading pagination info: %s", exc, exc_info=True)
             return {"current_page": 1, "total_pages": 1}
+        except Exception as exc:
+            log.error("Failed to read pagination info: %s", exc, exc_info=True)
+            raise BrowserError(f"Failed to read pagination info: {exc}") from exc
 
     def is_healthy(self) -> bool:
         """Check if the browser is still responsive."""

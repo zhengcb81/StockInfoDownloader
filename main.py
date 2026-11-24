@@ -467,9 +467,19 @@ def main():
     try:
         config = load_config(args.config)
     except Exception as e:
-        log.error(f"Failed to load config: {e}")
+        log.error(f"Failed to load config: {e}", exc_info=True)
         _refuse(feedback, stage="config", exc=e)
         sys.exit(1)
+
+    log_cfg = config.get("logging") if isinstance(config.get("logging"), dict) else {}
+    configured_log_file = log_cfg.get("log_file", "") if log_cfg.get("log_to_file", True) else ""
+    try:
+        setup_logger(
+            level=str(log_cfg.get("level", "INFO")),
+            log_file=str(configured_log_file or ""),
+        )
+    except OSError as e:
+        log.warning("Failed to attach file logger (%s): %s", configured_log_file, e, exc_info=True)
 
     # Decide what this launch runs (the one input-source decision point).
     settlement = _new_settlement()
@@ -478,7 +488,7 @@ def main():
     except ConfigError as e:
         # An unreadable explicit list refuses the launch before any dispatch;
         # the run id, the stage and the native cause chain stay on record.
-        log.error(f"Failed to read companies list: {e}")
+        log.error(f"Failed to read companies list: {e}", exc_info=True)
         _refuse(feedback, stage="companies", exc=e)
         sys.exit(1)
 
