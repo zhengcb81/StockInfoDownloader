@@ -617,6 +617,9 @@ def _cwp_child_env(base_url: str, provider_root: Path) -> dict[str, str]:
         "G4_LOOPBACK": base_url,
         "PYTHONUTF8": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
+        # F4-SID-START-INPUT: the SID feedback publisher must not write its
+        # observations into the real owner inbox from a test child.
+        "RESEARCH_FEEDBACK_STATE_ROOT": str(provider_root / "feedback-state"),
     }
 
 
