@@ -83,7 +83,7 @@ C:/Miniconda/python.exe -B docs/plans/feedback-loop-2026-11-17/evidence/f4-sid-n
 - GREEN 定向 13 个文件：**210 通过 / 0 失败**（`evidence/f4-sid-start-input-green-20261123.log`）。其中新文件 16 项、`test_main.py` 10 项（含 `TestPlanWork` 6 项）、`test_config.py` 新增 2 项原生 cause 测试。
 - G4 离线组合（固定 CWP `7e0ecebb…`）：**17 通过**（`evidence/f4-sid-start-input-g4-offline-20261123.log`）。
 - 大节点 C 矩阵重跑：**19/19 covered**（`evidence/f4-sid-node-c-20261123-start-input.json`；空配置一例现记 `no_tasks`，矩阵脚本只改该一例的期望词，2026-11-21 的旧 JSON 保留为历史证据）。
-- 全量 `tests/unit`：**423 通过 / 18 失败**（`evidence/f4-sid-start-input-full-unit-20261123.log`）。同一命令在 `git archive 521941ef` 的干净导出树上为 **405 通过 / 12 失败**。差集已逐项归因：11 项两树共有的预存失败（`test_provider_error_contract` 7 项、`test_g5_provider_runtime` 2 项、`test_legacy_download_contract` 1 项、`test_provider_dependency_direction` 1 项）；本树多出的 4 项 `test_g5_provider_runtime` 全部断言 `src/stock_orgid_mapping.json` 不存在，该文件是本机 2026-07-31 遗留的 gitignore 本地缓存（未跟踪，不随归档导出），与本卡无关、未删除；另 1 项 `test_official_e2e_contract::test_runner_exit_is_nonzero…` 单独运行通过，属顺序相关抖动（基线树上失败的是同文件的另一项 `test_retained_false_case…`）。
+- 全量 `tests/unit`（最终 HEAD `1c9d8f3`）：**436 通过 / 5 失败**（`evidence/f4-sid-start-input-full-unit-20261123.log`）。5 项逐项归因、均与本卡无关：4 项 `test_g5_provider_runtime` 断言 `src/stock_orgid_mapping.json` 不存在，该文件是本机 2026-07-31 遗留的 gitignore 本地缓存（未跟踪、不随 `git archive` 导出）——在干净的 `521941e` 导出树上这 4 项通过；1 项 `test_provider_dependency_direction::test_announcement_filtering_keeps_each_period_fixture_semantics[exact_legacy_year]` 在干净的 `521941e` 导出树上同样失败（历史 fixture pin），与本卡无关。全量日志与 G4 日志均取自最终 HEAD；此前一次全量与 G4 并发执行时出现过 loopback 竞争导致的额外失败，已用顺序重跑取代。
 - **调用数**：真实网络 0 次（子进程 audit hook 全程拒绝 `socket.connect`/`getaddrinfo`），付费/计费 0 次；冷读不构造 provider、不下载、不发现。
 - 必须显式传 `--basetemp=<短目录>`：不传时 pytest 清理共享临时根会触发本机批量删除确认钩子（SAFE_DELETE_BULK_CONFIRM_REQUIRED），运行被中断。
 
@@ -113,6 +113,8 @@ f319f02d2fc0d9f34079c13fa5edfdd51607e8fd09f108096750e51c1d716a6e  src/feedback_p
 | 2 [non-blocking] | 并行模式把计数移入工作线程且删除了旧 `_count_lock`，`dict[k] += 1` 理论上可丢增量 | **已修**：`main.py` 增加 `_SETTLEMENT_LOCK` 与 `_bump()`，所有台账递增都走锁；8 轮 × 10 线程 × 500 次压力探针 0 丢失，提交 `78dd784` |
 
 复审确认：`plan_work` 优先级与 README 一致，默认空键不遮蔽真实配置；五类结果在发布明细与 `feedback_owner reconcile` 中可区分；`tests/conftest.py` 不影响任何显式 OUT/DIR/RUN_ID/ATTEMPT_ID 调用；没有本提交引入的阻断缺陷。复审未发现的问题以探针输出为准；首位 agent 的探针中没有出现 PUBLISHED 观察的路径/命令/原文泄漏（`leak []`）。
+
+修复后另起一名只读 agent 对**最终源码**复核（`78dd784` 相对 `32664fe` 只改 `main.py` 的加锁接线）：`git diff 78dd784..HEAD -- main.py src tests` 为空；§7 的 9 个 SHA-256 与工作区逐一一致；无绕过 `_bump` 的递增、无重入/死锁风险；并行异常路径（`cleanup()` 抛出）只补计一次 `failed`，不重复也不漏计。判定 **PASS / 0 阻断**。残留非阻断备注：`_SETTLEMENT_LOCK` 是进程级全局锁（多 runner 并发只多争用）；`BaseException`（如 `KeyboardInterrupt`）不被 `except Exception` 捕获，属既有边界。
 
 ## 9. 有意的行为变化与交 ROOT 的事项
 
