@@ -126,7 +126,8 @@ b5c2d9fe3e1ff567d276d82902cff8aa49f006b6178583a771f08e8bac389b15  tests/e2e/test
 - 预存事项（非本卡引入）：§6 所列 11 项全量失败、本机 `stock_orgid_mapping.json` 缓存残留。
 - 清理：本卡创建的测试临时目录（`%TEMP%/si-*`、`f4si-*`、HEAD 归档树 `si-head`）、失败生成器遗留的旧 refusal 样本、仓内 `.planning/test-tmp/`（全量测试残留）已删除；两份用户名单、`.mimosa/` 与 `evidence/.mimosa/` 保持未跟踪不动。本卡的直启子进程全部映射状态根，未写入真实状态根。
 
-- **待操作者确认的既有污染**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入了本会话测试与复审探针产生的合成观察（最后核对约 800 个文件：`deliveries` 288、`observations` 504、`pending` 22、根 1；该目录在本会话前无文件，全部为本会话产物，逐文件清单以 manifest 为准）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费，必须清掉。已新增 `tests/conftest.py` 的 autouse 夹具阻断 pytest 进程内与继承 `os.environ` 的子进程写入（128 项显式/默认目标测试复验通过），并给 G4 离线 e2e 的 CWP 子进程白名单环境补上 `RESEARCH_FEEDBACK_STATE_ROOT`（`_cwp_child_env`）：复跑 17 通过、真实收件目录零新增。仍以白名单自建环境且未映射的其它子进程测试（若有）属既有测试卫生缺口，交 ROOT。完整清单在 `%TEMP%/si-state-root-pollution-manifest.txt`（逐文件时间戳与绝对路径）。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
+- **已清理的既有污染（操作者确认后执行）**：未映射反馈目标的适配器回归套件（如 `tests/unit/test_company_wiki_adapter_cli.py`、`test_g5_provider_runtime.py`、`test_provider_error_contract.py`）与复审探针曾在真实默认收件目录 `C:/Users/郑曾波/.stockinfo-dl-simple` 写入本会话的合成观察（约 800 个文件：`deliveries` 288、`observations` 504、`pending` 22、根 `delivery.lock` 1；该目录在本会话前无文件）。这不是本卡代码引入的行为（ROOT §9 默认发布以来即存在），但会被 ROOT 当作真实观察消费。已按操作者选择逐一移入 Windows 回收站：**815/815 成功、0 失败**，回收站条目 +1630（=815×2，每项 $I+$R），状态根剩余 **0 个文件**（空目录保留供复用），可随时还原。清单留档 `%TEMP%/si-state-root-pollution-manifest.txt`。
+- 防再犯：`tests/conftest.py` 的 autouse 夹具阻断 pytest 进程内与继承 `os.environ` 的子进程写入（128 项显式/默认目标测试复验通过）；G4 离线 e2e 的 CWP 子进程白名单环境补上 `RESEARCH_FEEDBACK_STATE_ROOT`（`_cwp_child_env`），复跑 17 通过、真实收件目录零新增。仍以白名单自建环境且未映射的其它子进程测试（若有）属既有测试卫生缺口，交 ROOT。删除这 734 个个人目录下的文件需要操作者明确确认，届时按批次移入回收站；**在确认前不要进行跨仓组合验收**。
 
 ## 10. 提交与发布
 
