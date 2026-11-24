@@ -1,0 +1,10 @@
+{
+  "attempt_id": "try-ae809e469fa34aee90009641790fd09b",
+  "check_id": "ordinary-download-task",
+  "occurrence_id": "fd877d36e737b120b98b863848f69bea1d035ef2d55eadec6819f013dec97a5a",
+  "origin_owner": "stockinfo-dl-simple",
+  "owner": "stockinfo-dl-simple",
+  "run_id": "sid-run-f5cf6d1db25f477db5c03ecf48cdd138",
+  "schema_version": "sid-ready/1",
+  "step_id": "download-58ff8593dfffbfe2b4d34e31"
+}

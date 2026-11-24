@@ -1,6 +1,31 @@
 # StockInfoDLSimple 的 F4 本机运行
 
-**2026-11-21 当前施工入口**为[下载失败记录防丢与普通任务结算](F4-SID-FAILURES.md)。这份卡以普通 CLI 的原生失败为起点，覆盖两条已经登记的 F4 发生。下文保留原运行端口与此前验收范围。
+**2026-11-23 当前施工入口**为[直启任务清单与失败复原](F4-SID-START-INPUT.md)，交付见[独立交接](F4-SID-START-INPUT-handoff.md)。此前 **2026-11-21 的施工入口**是[下载失败记录防丢与普通任务结算](F4-SID-FAILURES.md)。后者以普通 CLI 的原生失败为起点，覆盖两条已经登记的 F4 发生。下文保留原运行端口与此前验收范围。
+
+## 普通直启的输入合同与结算词汇（F4-SID-START-INPUT）
+
+普通直启 `main.py` 的输入来源只在 `plan_work` 一处决策，优先级沿用 README 既有合同：
+
+```text
+CLI stock_code > --companies 文件 > config.test_cases > config.companies > config.stock_code > 无输入
+```
+
+- **来源"已指定"的判据是至少含一项。** 配置读取默认注入的空 `companies`/`test_cases`（以及合并后无法区分的显式空列表）不参与遮蔽：空 `test_cases` 让位于非空 `companies`，两者皆空时落到 `stock_code`。
+- **只有显式 `--companies` 才触发名单读取**，读取发生在任何派发之前。文件不存在或不可读（原生 OS 错误、解码错误）统一为带原生 `__cause__` 的 `ConfigError`。
+- **五类结果各自的公开词汇**（`ordinary-run-settlement` 的 `actual`，明细在同名 `.details.jsonl`）：
+
+| 情形 | 退出 | `actual` | `disposition` | 明细要点 |
+|---|---|---|---|---|
+| 名单读取失败（含配置读取失败） | 1 | `not_started` | `expected` | `stage`=`companies`/`config`，`cause_chain` 原生类型链，`attempted`=0，`sent`=`not_sent` |
+| 显式空工作项 / 无输入 | 0 | `no_tasks` | `expected` | `attempted`=0，`skipped`=0，`sent`=`not_sent` |
+| 合法全跳过 | 0 | `all_completed` | `expected` | `attempted`=0，`skipped`=N，`sent`=`not_sent` |
+| 供应商返回零候选 | 0 | `all_completed` | `expected` | 任务确已启动：`attempted`≥1，无 `sent` 键（费用保持未知） |
+| 实际失败 | 1 | `all_failed` / `partial` | `deviation` | `attempted`=`succeeded`+`failed`，无 `sent` 键 |
+
+`attempted` 只统计真正启动的子项（每个公司或每个测试用例一次），由 `UnifiedRunner.settlement` 这一份业务台账同时驱动退出码和发布内容。
+
+- **冷读**：`src.feedback_owner reconcile` 对 `no_tasks` 返回 `job_status=succeeded`、`status=known`、`cost_state=not_applicable`；对 `not_started` 返回 `job_status=failed` 且费用不适用；对已启动的运行保持 `cost_unknown`。`no_tasks` 是对 `SUCCEEDED` 词汇的纯新增。
+- 显式空名单不再写 `logs/progress.json`；无输入的启动退出 0 并如实报告 `No tasks to run`，不再是 `All tasks completed`。
 
 ## 入口和职责
 

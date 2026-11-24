@@ -1,0 +1,1 @@
+{"action": "ordinary-run", "attempted": 0, "cause_chain": ["ConfigError"], "cause_types": ["ConfigError"], "code_site": "main.py:main", "details_ref": "details:settlement-5064574c1f25f27070d935ff", "error_code": "ConfigError", "executed_state": "not_started", "exit_code": 1, "observed_at": "2026-11-23T23:46:06Z", "sent": "not_sent", "stage": "companies"}

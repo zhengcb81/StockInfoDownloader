@@ -1,0 +1,1 @@
+{"action": "ordinary-download", "code_site": "main.py:download", "details_ref": "details:download-58ff8593dfffbfe2b4d34e31", "executed_state": "attempted", "observed_at": "2026-11-23T23:46:14Z", "retried": false, "reused": false, "stage": "download-result", "stock_code": "900001"}

@@ -1,0 +1,197 @@
+{
+ "denominator": 19,
+ "covered": 19,
+ "results": [
+  {
+   "case": "ordinary-engine-permission",
+   "injected": "main.py <code> with engine PermissionError",
+   "verdict": "covered",
+   "measured": {
+    "exit_nonzero": "ok",
+    "no_all_tasks_completed": "ok",
+    "task_failed_deviation": "ok",
+    "settlement_all_failed": "ok",
+    "receipt_all_failed": "ok",
+    "cause_permissionerror": "ok"
+   }
+  },
+  {
+   "case": "ordinary-two-tasks-partial",
+   "injected": "--companies with one failing engine",
+   "verdict": "covered",
+   "measured": {
+    "exit_nonzero": "ok",
+    "two_terminals": "ok",
+    "actuals_split": "ok",
+    "settlement_partial": "ok",
+    "progress_marks_each": "ok"
+   }
+  },
+  {
+   "case": "ordinary-success",
+   "injected": "main.py <code> with engine success",
+   "verdict": "covered",
+   "measured": {
+    "exit_zero": "ok",
+    "all_tasks_completed": "ok",
+    "settlement_all_completed": "ok"
+   }
+  },
+  {
+   "case": "ordinary-broken-config",
+   "injected": "main.py --config broken JSON",
+   "verdict": "covered",
+   "measured": {
+    "exit_nonzero": "ok",
+    "no_side_effects": "ok",
+    "settlement_not_started": "ok",
+    "stage_config": "ok"
+   }
+  },
+  {
+   "case": "ordinary-empty-config-vacuous",
+   "injected": "main.py with an empty config (defaults inject test_cases: [])",
+   "verdict": "covered",
+   "measured": {
+    "exit_zero_vacuous_success": "ok",
+    "zero_tasks_recorded": "ok",
+    "pre_existing_semantics_note": "ok"
+   }
+  },
+  {
+   "case": "adapter-bad-action",
+   "injected": "adapter CLI --bad-action",
+   "verdict": "covered",
+   "measured": {
+    "exit_two": "ok",
+    "local_refusal_not_sent": "ok",
+    "no_business_result": "ok"
+   }
+  },
+  {
+   "case": "adapter-discover-transport-timeout",
+   "injected": "discover with TimeoutError at the transport boundary",
+   "verdict": "covered",
+   "measured": {
+    "exit_nonzero": "ok",
+    "outer_code_upstream": "ok",
+    "stage_transport": "ok",
+    "sent_unknown_timeout": "ok"
+   }
+  },
+  {
+   "case": "adapter-valid-candidates",
+   "injected": "discover with fixture announcements",
+   "verdict": "covered",
+   "measured": {
+    "exit_zero": "ok",
+    "candidates_present": "ok",
+    "verified_expected": "ok"
+   }
+  },
+  {
+   "case": "adapter-missing-identity",
+   "injected": "discover with serialization missing security_id",
+   "verdict": "covered",
+   "measured": {
+    "exit_zero": "ok",
+    "deviation_named": "ok"
+   }
+  },
+  {
+   "case": "adapter-fetch-staging-file",
+   "injected": "fetch --staging-dir pointing at an ordinary file",
+   "verdict": "covered",
+   "measured": {
+    "exit_one": "ok",
+    "outer_code_upstream": "ok",
+    "staging_unknown_sent_fileexists": "ok"
+   }
+  },
+  {
+   "case": "adapter-budget-refusal",
+   "injected": "discover with a 100-byte response budget against a 1MB body",
+   "verdict": "covered",
+   "measured": {
+    "exit_one_budget_envelope": "ok",
+    "budget_observation": "ok"
+   }
+  },
+  {
+   "case": "failure-log-refused-write",
+   "injected": "two records, refused persistence, mid-flush arrival, recovery",
+   "verdict": "covered",
+   "measured": {
+    "queue_kept_after_refusal": "ok",
+    "four_distinct_persisted": "ok"
+   }
+  },
+  {
+   "case": "failure-log-legacy-migration",
+   "injected": "legacy failure file plus refused then recovered flush",
+   "verdict": "covered",
+   "measured": {
+    "legacy_first_intact": "ok",
+    "new_record_appended": "ok"
+   }
+  },
+  {
+   "case": "kill-mid-task-unknown",
+   "injected": "engine os._exit mid task, then a successful sibling attempt",
+   "verdict": "covered",
+   "measured": {
+    "engine_reached": "ok",
+    "killed_receipt_unconfirmed": "ok",
+    "sibling_independent": "ok"
+   }
+  },
+  {
+   "case": "reconcile-cold-read",
+   "injected": "new process, read-only reconcile of the kill state",
+   "verdict": "covered",
+   "measured": {
+    "receipts_visible": "ok",
+    "unconfirmed_listed": "ok"
+   }
+  },
+  {
+   "case": "window-data-without-ready",
+   "injected": "kill between data file and ready marker, then republish",
+   "verdict": "covered",
+   "measured": {
+    "same_delivery_identity": "ok",
+    "ready_written_once": "ok",
+    "pending_acked": "ok"
+   }
+  },
+  {
+   "case": "window-ready-without-ack",
+   "injected": "kill after delivery before ack, then republish",
+   "verdict": "covered",
+   "measured": {
+    "no_new_files": "ok",
+    "pending_acked": "ok"
+   }
+  },
+  {
+   "case": "window-parallel-republishers",
+   "injected": "two republish processes on the same pending occurrence",
+   "verdict": "covered",
+   "measured": {
+    "both_exit_zero": "ok",
+    "one_publication": "ok",
+    "pending_acked": "ok"
+   }
+  },
+  {
+   "case": "publication-modes",
+   "injected": "explicit OUT, DIR-only, and default state root",
+   "verdict": "covered",
+   "measured": {
+    "out_file_written": "ok",
+    "dir_ready_bound": "ok",
+    "state_root_observations": "ok"
+   }
+  }
+ ]
+}

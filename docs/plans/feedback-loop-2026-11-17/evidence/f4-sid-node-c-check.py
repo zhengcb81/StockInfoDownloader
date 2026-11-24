@@ -118,8 +118,10 @@ rows = obs(work)
 settle = [r for r in rows if r.get("check_id") == "ordinary-run-settlement"]
 record("ordinary-empty-config-vacuous", "main.py with an empty config (defaults inject test_cases: [])", {
     "exit_zero_vacuous_success": (proc.returncode == 0, proc.returncode),
-    "zero_tasks_recorded": (settle and settle[0]["actual"] == "all_completed", settle[0]["actual"] if settle else None),
-    "pre_existing_semantics_note": (True, "usage refusal is unreachable via the public entry because the config loader always injects empty test_cases/companies; only the broken-config refusal is injectable"),
+    # F4-SID-START-INPUT: an empty work list is reported as ``no_tasks`` (0 attempted,
+    # nothing sent); the historical run of this matrix recorded ``all_completed``.
+    "zero_tasks_recorded": (bool(settle) and settle[0]["actual"] == "no_tasks", settle[0]["actual"] if settle else None),
+    "pre_existing_semantics_note": (True, "F4-SID-START-INPUT: no input at all is a legitimate empty work list (no_tasks, exit 0); a usage refusal stays unreachable via the public entry because the config loader always injects empty test_cases/companies"),
 })
 
 work = new_work("c6")

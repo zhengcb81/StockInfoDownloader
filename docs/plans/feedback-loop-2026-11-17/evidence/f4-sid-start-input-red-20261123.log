@@ -1,0 +1,125 @@
+============================= test session starts =============================
+collected 16 items
+
+tests\unit\test_f4_start_input.py FFF...FFFFFFFFFF                       [100%]
+
+================================== FAILURES ===================================
+_____ TestAuditedFailures.test_missing_list_is_a_refusal_not_a_traceback ______
+tests\unit\test_f4_start_input.py:305: in test_missing_list_is_a_refusal_not_a_traceback
+    assert "Traceback" not in _stderr_text(proc)
+E   assert 'Traceback' not in 'Traceback (...sing.txt\r\n'
+E     
+E     'Traceback' is contained here:
+E       Traceback (most recent call last):
+E     ? +++++++++
+E         File "<string>", line 27, in <module>
+E           runpy.run_path(spec["main"], run_name="__main__")
+E           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+E     
+E     ...Full output truncated (11 lines hidden), use '-vv' to show
+__ TestAuditedFailures.test_comment_only_list_is_an_explicit_empty_work_item __
+tests\unit\test_f4_start_input.py:328: in test_comment_only_list_is_an_explicit_empty_work_item
+    assert "All tasks completed" not in _stderr_text(proc)
+E   AssertionError: assert 'All tasks completed' not in '[23:23:23] ...ompleted\r\n'
+E     
+E     'All tasks completed' is contained here:
+E       wnloader: All tasks completed
+__________ TestAuditedFailures.test_config_companies_actually_start ___________
+tests\unit\test_f4_start_input.py:353: in test_config_companies_actually_start
+    assert sorted(calls) == ["900001", "900002"]
+E   AssertionError: assert [] == ['900001', '900002']
+E     
+E     Right contains 2 more items, first extra item: '900001'
+E     Use -v to get more diff
+___ TestInputPriority.test_config_stock_code_runs_when_both_lists_are_empty ___
+tests\unit\test_f4_start_input.py:413: in test_config_stock_code_runs_when_both_lists_are_empty
+    assert calls == ["900009"]
+E   AssertionError: assert [] == ['900009']
+E     
+E     Right contains one more item: '900009'
+E     Use -v to get more diff
+______ TestInputPriority.test_no_input_at_all_is_no_tasks_not_a_failure _______
+tests\unit\test_f4_start_input.py:420: in test_no_input_at_all_is_no_tasks_not_a_failure
+    assert "All tasks completed" not in _stderr_text(proc)
+E   AssertionError: assert 'All tasks completed' not in '[23:23:36] ...ompleted\r\n'
+E     
+E     'All tasks completed' is contained here:
+E       [23:23:36] INFO stock_downloader: All tasks completed
+E     ?                                   +++++++++++++++++++
+_ TestOutcomesStayDistinct.test_all_skipped_is_legitimate_and_not_confused_with_real_work _
+tests\unit\test_f4_start_input.py:450: in test_all_skipped_is_legitimate_and_not_confused_with_real_work
+    assert (detail["attempted"], detail["skipped"], detail["sent"]) == (0, 2, "not_sent")
+            ^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'attempted'
+__ TestOutcomesStayDistinct.test_provider_zero_candidates_is_a_started_task ___
+tests\unit\test_f4_start_input.py:471: in test_provider_zero_candidates_is_a_started_task
+    assert (detail["attempted"], detail["succeeded"]) == (1, 1)
+            ^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'attempted'
+__________ TestOutcomesStayDistinct.test_genuine_failure_still_fails __________
+tests\unit\test_f4_start_input.py:486: in test_genuine_failure_still_fails
+    assert (detail["attempted"], detail["succeeded"], detail["failed"]) == (1, 0, 1)
+            ^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'attempted'
+__ TestEntryReadFailures.test_missing_list_cold_reads_failed_known_not_sent ___
+tests\unit\test_f4_start_input.py:504: in test_missing_list_cold_reads_failed_known_not_sent
+    assert _receipts(tmp_path)[0]["terminal"]["result"] == "not_started"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: 'NoneType' object is not subscriptable
+_ TestEntryReadFailures.test_unreadable_list_keeps_its_io_cause_distinct_from_a_wrong_path _
+tests\unit\test_f4_start_input.py:520: in test_unreadable_list_keeps_its_io_cause_distinct_from_a_wrong_path
+    assert "Traceback" not in _stderr_text(missing_proc)
+E   assert 'Traceback' not in 'Traceback (...sing.txt\r\n'
+E     
+E     'Traceback' is contained here:
+E       Traceback (most recent call last):
+E     ? +++++++++
+E         File "<string>", line 27, in <module>
+E           runpy.run_path(spec["main"], run_name="__main__")
+E           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+E     
+E     ...Full output truncated (11 lines hidden), use '-vv' to show
+____ TestEntryReadFailures.test_broken_config_keeps_its_native_cause_chain ____
+tests\unit\test_f4_start_input.py:556: in test_broken_config_keeps_its_native_cause_chain
+    assert detail["attempted"] == 0
+           ^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'attempted'
+__ TestEntryReadFailures.test_feedback_unavailable_keeps_the_business_result __
+tests\unit\test_f4_start_input.py:574: in test_feedback_unavailable_keeps_the_business_result
+    assert "Traceback" not in _stderr_text(proc)
+E   assert 'Traceback' not in 'Traceback (...sing.txt\r\n'
+E     
+E     'Traceback' is contained here:
+E       Traceback (most recent call last):
+E     ? +++++++++
+E         File "<string>", line 27, in <module>
+E           runpy.run_path(spec["main"], run_name="__main__")
+E           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+E     
+E     ...Full output truncated (11 lines hidden), use '-vv' to show
+_____________________ test_explicit_out_reports_no_tasks ______________________
+tests\unit\test_f4_start_input.py:592: in test_explicit_out_reports_no_tasks
+    assert settlement["actual"] == "no_tasks"
+E   AssertionError: assert 'all_completed' == 'no_tasks'
+E     
+E     - no_tasks
+E     + all_completed
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/unit/test_f4_start_input.py::TestInputPriority::test_explicit_list_overrides_every_config_source
+PASSED tests/unit/test_f4_start_input.py::TestInputPriority::test_cli_positional_keeps_the_highest_priority
+PASSED tests/unit/test_f4_start_input.py::TestInputPriority::test_config_test_cases_outrank_config_companies
+FAILED tests/unit/test_f4_start_input.py::TestAuditedFailures::test_missing_list_is_a_refusal_not_a_traceback
+FAILED tests/unit/test_f4_start_input.py::TestAuditedFailures::test_comment_only_list_is_an_explicit_empty_work_item
+FAILED tests/unit/test_f4_start_input.py::TestAuditedFailures::test_config_companies_actually_start
+FAILED tests/unit/test_f4_start_input.py::TestInputPriority::test_config_stock_code_runs_when_both_lists_are_empty
+FAILED tests/unit/test_f4_start_input.py::TestInputPriority::test_no_input_at_all_is_no_tasks_not_a_failure
+FAILED tests/unit/test_f4_start_input.py::TestOutcomesStayDistinct::test_all_skipped_is_legitimate_and_not_confused_with_real_work
+FAILED tests/unit/test_f4_start_input.py::TestOutcomesStayDistinct::test_provider_zero_candidates_is_a_started_task
+FAILED tests/unit/test_f4_start_input.py::TestOutcomesStayDistinct::test_genuine_failure_still_fails
+FAILED tests/unit/test_f4_start_input.py::TestEntryReadFailures::test_missing_list_cold_reads_failed_known_not_sent
+FAILED tests/unit/test_f4_start_input.py::TestEntryReadFailures::test_unreadable_list_keeps_its_io_cause_distinct_from_a_wrong_path
+FAILED tests/unit/test_f4_start_input.py::TestEntryReadFailures::test_broken_config_keeps_its_native_cause_chain
+FAILED tests/unit/test_f4_start_input.py::TestEntryReadFailures::test_feedback_unavailable_keeps_the_business_result
+FAILED tests/unit/test_f4_start_input.py::test_explicit_out_reports_no_tasks
+======================== 13 failed, 3 passed in 31.01s ========================

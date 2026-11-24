@@ -1,0 +1,593 @@
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 48%]
+.......................................................F..F.F........FF. [ 65%]
+.FFF...............................F.................................... [ 81%]
+...........F..............................................F...FFFFFF..F. [ 97%]
+.........                                                                [100%]
+================================== FAILURES ===================================
+_ test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked _
+tests\unit\test_g5_provider_runtime.py:453: in test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked
+    assert not (WORKTREE / "src" / "stock_orgid_mapping.json").exists()
+E   AssertionError: assert not True
+E    +  where True = exists()
+E    +    where exists = ((WindowsPath('C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite') / 'src') / 'stock_orgid_mapping.json').exists
+______________ test_local_cache_resolves_org_id_without_any_http ______________
+tests\unit\test_g5_provider_runtime.py:536: in test_local_cache_resolves_org_id_without_any_http
+    candidates = adapter.discover(_request())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter.py:386: in discover
+    records, state = self._cninfo_client.discover_announcements(**call_args)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\cninfo_api.py:173: in discover_announcements
+    raw_json = self._post_json(body, budget=budget)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\cninfo_api.py:561: in _post_json
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\test_g5_provider_runtime.py:282: in __call__
+    raise AssertionError(f"unexpected HTTP request: {request!r}")
+E   AssertionError: unexpected HTTP request: <urllib.request.Request object at 0x00000260A86D6990>
+____________ test_default_cache_candidates_follow_the_legacy_order ____________
+tests\unit\test_g5_provider_runtime.py:583: in test_default_cache_candidates_follow_the_legacy_order
+    assert not paths[0].exists()
+E   AssertionError: assert not True
+E    +  where True = exists()
+E    +    where exists = WindowsPath('C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite/src/stock_orgid_mapping.json').exists
+_______ test_cli_reports_identity_transport_failure_with_measured_usage _______
+tests\unit\test_g5_provider_runtime.py:285: in __call__
+    raise item
+E   urllib.error.URLError: <urlopen error connection refused>
+
+The above exception was the direct cause of the following exception:
+src\company_wiki_adapter.py:386: in discover
+    records, state = self._cninfo_client.discover_announcements(**call_args)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\cninfo_api.py:173: in discover_announcements
+    raw_json = self._post_json(body, budget=budget)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\cninfo_api.py:612: in _post_json
+    raise CninfoApiError(
+E   src.cninfo_api.CninfoApiError: API network: connection refused
+
+The above exception was the direct cause of the following exception:
+src\company_wiki_adapter_cli.py:383: in main
+    else adapter.discover(request, acquisition_budget=budget)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter.py:388: in discover
+    raise AdapterError(
+E   src.company_wiki_adapter.AdapterError: cninfo_api_discover failed: upstream_unavailable: API network: connection refused
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:774: in test_cli_reports_identity_transport_failure_with_measured_usage
+    code, stdout, stderr = _invoke(
+tests\unit\test_g5_provider_runtime.py:373: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:518: in main
+    feedback.finish(
+src\feedback_observation.py:475: in finish
+    self._sink.emit(
+src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:764: in test_cli_reports_identity_transport_failure_with_measured_usage
+    with _owned_root("cli-identity-error") as root:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\contextlib.py:162: in __exit__
+    self.gen.throw(value)
+tests\unit\test_g5_provider_runtime.py:66: in _owned_root
+    shutil.rmtree(path, ignore_errors=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1362: in _safe_shutil_rmtree
+    _try_trash(abs_path, recursive=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+___ test_cli_reports_identity_failure_as_identity_error_not_empty_discovery ___
+tests\unit\test_g5_provider_runtime.py:815: in test_cli_reports_identity_failure_as_identity_error_not_empty_discovery
+    code, stdout, stderr = _invoke(
+tests\unit\test_g5_provider_runtime.py:373: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:805: in test_cli_reports_identity_failure_as_identity_error_not_empty_discovery
+    with _owned_root("cli-identity-failure") as root:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\contextlib.py:162: in __exit__
+    self.gen.throw(value)
+tests\unit\test_g5_provider_runtime.py:66: in _owned_root
+    shutil.rmtree(path, ignore_errors=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1362: in _safe_shutil_rmtree
+    _try_trash(abs_path, recursive=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+_____________ test_cli_tolerates_an_adapter_without_a_downloader ______________
+tests\unit\test_g5_provider_runtime.py:900: in test_cli_tolerates_an_adapter_without_a_downloader
+    code, stdout, stderr = _invoke(
+tests\unit\test_g5_provider_runtime.py:373: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:896: in test_cli_tolerates_an_adapter_without_a_downloader
+    with _owned_root("cli-cleanup") as root:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\contextlib.py:162: in __exit__
+    self.gen.throw(value)
+tests\unit\test_g5_provider_runtime.py:66: in _owned_root
+    shutil.rmtree(path, ignore_errors=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1362: in _safe_shutil_rmtree
+    _try_trash(abs_path, recursive=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+___________ test_cli_failure_is_not_masked_by_a_missing_downloader ____________
+tests\unit\test_g5_provider_runtime.py:922: in test_cli_failure_is_not_masked_by_a_missing_downloader
+    code, stdout, stderr = _invoke(
+tests\unit\test_g5_provider_runtime.py:373: in _invoke
+    code = module.main(list(argv))
+           ^^^^^^^^^^^^^^^^^^^^^^^
+src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:918: in test_cli_failure_is_not_masked_by_a_missing_downloader
+    with _owned_root("cli-failure") as root:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\contextlib.py:162: in __exit__
+    self.gen.throw(value)
+tests\unit\test_g5_provider_runtime.py:66: in _owned_root
+    shutil.rmtree(path, ignore_errors=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1362: in _safe_shutil_rmtree
+    _try_trash(abs_path, recursive=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+_________ test_fetch_is_pure_and_never_touches_identity_or_downloader _________
+tests\unit\test_g5_provider_runtime.py:959: in test_fetch_is_pure_and_never_touches_identity_or_downloader
+    assert not (WORKTREE / "src" / "stock_orgid_mapping.json").exists()
+E   AssertionError: assert not True
+E    +  where True = exists()
+E    +    where exists = ((WindowsPath('C:/Users/郑曾波/Projects/StockInfoDLSimple/v2-clean-rewrite') / 'src') / 'stock_orgid_mapping.json').exists
+
+During handling of the above exception, another exception occurred:
+tests\unit\test_g5_provider_runtime.py:938: in test_fetch_is_pure_and_never_touches_identity_or_downloader
+    with _owned_root("fetch-identity-free") as root:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\contextlib.py:162: in __exit__
+    self.gen.throw(value)
+tests\unit\test_g5_provider_runtime.py:66: in _owned_root
+    shutil.rmtree(path, ignore_errors=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1362: in _safe_shutil_rmtree
+    _try_trash(abs_path, recursive=True)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+---------------------------- Captured stderr call -----------------------------
+[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":50,"threshold":50,"scope":"turn","targets":["C:\\Users\\郑曾波\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\.planning\\test-tmp\\g5-runtime\\22824-fetch-identity-free"],"targetCount":1}
+___ TestProtocolStreams.test_cli_stdout_carries_only_the_protocol_document ____
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_legacy_download_contract.py:642: in test_cli_stdout_carries_only_the_protocol_document
+    payload = json.loads(completed.stderr.strip().splitlines()[-1])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Miniconda\Lib\json\decoder.py:363: in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+E   json.decoder.JSONDecodeError: Expecting value: line 1 column 2 (char 1)
+______ test_runner_exit_is_nonzero_when_main_fails_but_directories_match ______
+tests\unit\test_official_e2e_contract.py:307: in test_runner_exit_is_nonzero_when_main_fails_but_directories_match
+    exit_code = runner.main()
+                ^^^^^^^^^^^^^
+tests\e2e\official_e2e_test.py:455: in main
+    os.unlink(temp_config)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1270: in _safe_remove
+    _try_trash(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+..\..\..\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+---------------------------- Captured stdout call -----------------------------
+[23:37:18] Starting Official End-to-End Test (browser strategy: playwright)
+[23:37:18] Checking expected_results directory integrity...
+[23:37:18] Expected companies: ['珂玛科技']
+[23:37:18] Expected baseline is valid: 1 PDF(s).
+[23:37:18] Preparing test directory: C:\Users\郑曾波\AppData\Local\Temp\si-unit-full\test_runner_exit_is_nonzero_wh0\actual
+[23:37:18] Executing main.py with test config...
+[23:37:18] main.py exit status: failed
+---------------------------- Captured stderr call -----------------------------
+[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED] {"count":50,"threshold":50,"scope":"turn","targets":["C:\\Users\\郑曾波\\Projects\\StockInfoDLSimple\\v2-clean-rewrite\\tmp83pbvjkz.json"],"targetCount":1}
+_ test_announcement_filtering_keeps_each_period_fixture_semantics[exact_legacy_year] _
+tests\unit\test_provider_dependency_direction.py:300: in test_announcement_filtering_keeps_each_period_fixture_semantics
+    assert result["ids"] == expected_ids
+E   AssertionError: assert [] == ['900006001']
+E     
+E     Right contains one more item: '900006001'
+E     Use -v to get more diff
+______________ test_host_outside_the_allowlist_is_non_retryable _______________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:141: in test_host_outside_the_allowlist_is_non_retryable
+    code, stdout, stderr, staging = _run_fetch(monkeypatch, tmp_path, payload)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+_____________________ test_non_pdf_body_is_non_retryable ______________________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:155: in test_non_pdf_body_is_non_retryable
+    code, stdout, stderr, staging = _run_fetch(monkeypatch, tmp_path, _payload())
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+____________________ test_too_small_body_is_non_retryable _____________________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:170: in test_too_small_body_is_non_retryable
+    code, stdout, stderr, staging = _run_fetch(monkeypatch, tmp_path, _payload())
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+_____________________ test_transport_timeout_is_retryable _____________________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:191: in test_transport_timeout_is_retryable
+    code, stdout, stderr, staging = _run_fetch(monkeypatch, tmp_path, _payload())
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+__________ test_failure_reports_measured_usage_not_zero_placeholders __________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:212: in test_failure_reports_measured_usage_not_zero_placeholders
+    _code, _stdout, stderr, _staging = _run_fetch(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+_____________ test_failure_without_a_budget_does_not_invent_usage _____________
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:230: in test_failure_without_a_budget_does_not_invent_usage
+    _code, _stdout, stderr, _staging = _run_fetch(monkeypatch, tmp_path, payload)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:118: in _run_fetch
+    code = cli.main(
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+____ test_failure_document_is_the_last_stderr_line_even_after_cleanup_logs ____
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\tests\unit\test_provider_error_contract.py:317: in test_failure_document_is_the_last_stderr_line_even_after_cleanup_logs
+    code = cli.main(["fetch", "--staging-dir", str(staging), "--config", str(config)])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:364: in main
+    _begin_feedback(value)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\company_wiki_adapter_cli.py:327: in _begin_feedback
+    action.begin()
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_observation.py:452: in begin
+    self._sink.emit(make_observation(**{
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:507: in emit
+    delivered = self._publisher.emit(dict(observation), details) == DELIVERED
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:406: in emit
+    return self._deliver_dir(observation, details)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:457: in _deliver_dir
+    self._ack(occurrence)
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:481: in _ack
+    return ack_pending(self.root, occurrence)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\郑曾波\Projects\StockInfoDLSimple\v2-clean-rewrite\src\feedback_publish.py:168: in ack_pending
+    native_path(pending_dir(root) / f"{occurrence}.json").unlink(missing_ok=True)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1388: in _safe_path_unlink
+    _try_trash(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1129: in _try_trash
+    _check_bulk_delete_guard(abs_path)
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:1005: in _check_bulk_delete_guard
+    _exit_bulk_guard_control(
+C:\Users\郑曾波\AppData\Local\Programs\WorkBuddyAI\resources\app.asar.unpacked\cli\vendor\sandbox-center-runtime-kit\shim\sitecustomize.py:978: in _exit_bulk_guard_control
+    raise SystemExit(1)
+E   SystemExit: 1
+=========================== short test summary info ===========================
+FAILED tests/unit/test_g5_provider_runtime.py::test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked
+FAILED tests/unit/test_g5_provider_runtime.py::test_local_cache_resolves_org_id_without_any_http
+FAILED tests/unit/test_g5_provider_runtime.py::test_default_cache_candidates_follow_the_legacy_order
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_reports_identity_transport_failure_with_measured_usage
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_reports_identity_failure_as_identity_error_not_empty_discovery
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_tolerates_an_adapter_without_a_downloader
+FAILED tests/unit/test_g5_provider_runtime.py::test_cli_failure_is_not_masked_by_a_missing_downloader
+FAILED tests/unit/test_g5_provider_runtime.py::test_fetch_is_pure_and_never_touches_identity_or_downloader
+FAILED tests/unit/test_legacy_download_contract.py::TestProtocolStreams::test_cli_stdout_carries_only_the_protocol_document
+FAILED tests/unit/test_official_e2e_contract.py::test_runner_exit_is_nonzero_when_main_fails_but_directories_match
+FAILED tests/unit/test_provider_dependency_direction.py::test_announcement_filtering_keeps_each_period_fixture_semantics[exact_legacy_year]
+FAILED tests/unit/test_provider_error_contract.py::test_host_outside_the_allowlist_is_non_retryable
+FAILED tests/unit/test_provider_error_contract.py::test_non_pdf_body_is_non_retryable
+FAILED tests/unit/test_provider_error_contract.py::test_too_small_body_is_non_retryable
+FAILED tests/unit/test_provider_error_contract.py::test_transport_timeout_is_retryable
+FAILED tests/unit/test_provider_error_contract.py::test_failure_reports_measured_usage_not_zero_placeholders
+FAILED tests/unit/test_provider_error_contract.py::test_failure_without_a_budget_does_not_invent_usage
+FAILED tests/unit/test_provider_error_contract.py::test_failure_document_is_the_last_stderr_line_even_after_cleanup_logs
+18 failed, 423 passed in 174.50s (0:02:54)
+exit=1
