@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 from contextlib import redirect_stdout
 from dataclasses import asdict
 import json
@@ -23,8 +22,8 @@ from .company_wiki_adapter import (
     StockInfoCompanyWikiAdapter,
 )
 from .config import load_config
-from .feedback_publish import command_sink
-from .logger import log
+from .feedback_publish import command_sink, state_root
+from .logger import legacy_cleanup_console, log, machine_logging, setup_config_logging, setup_logger
 
 
 SCHEMA_VERSION = "1.0"
@@ -105,16 +104,17 @@ def _discovery_request(value: dict[str, Any]) -> AdapterDiscoveryRequest:
     )
 
 
-def _build_adapter(config_path: str) -> StockInfoCompanyWikiAdapter:
+def _build_adapter(config_path: str | None) -> StockInfoCompanyWikiAdapter:
     """Build the pure-API provider runtime.
 
-    The config is still loaded so a malformed or unreadable file keeps failing
-    the command before any provider work, exactly as before.  No
+    Direct callers supplying a path still get config validation. The CLI
+    passes None because it already loaded that config for its own diagnostics. No
     ``StockDownloader`` is constructed: that would create the failed-download
     log directory and wire the browser-backed mapping in, neither of which the
     company-wiki discover/fetch runtime needs.
     """
-    load_config(config_path)
+    if config_path is not None:
+        load_config(config_path)
     return StockInfoCompanyWikiAdapter(None)
 
 
@@ -126,7 +126,8 @@ def _cleanup(adapter: StockInfoCompanyWikiAdapter) -> None:
     """
     downloader = getattr(adapter, "downloader", None)
     if downloader is not None:
-        downloader.cleanup()
+        with legacy_cleanup_console():
+            downloader.cleanup()
 
 
 def _response(**payload: Any) -> dict[str, Any]:
@@ -262,29 +263,29 @@ def _emit_failure(
     return 1
 
 
-def _redirect_console_logs_to_stderr() -> None:
-    """Keep the JSON-lines stdout channel free of logger diagnostics.
-
-    The logger owner already creates its console handler on ``sys.stderr``;
-    this guard exists for hosts that attach an extra handler to stdout (for
-    example a capturing harness).  ``StreamHandler.setStream`` flushes the
-    *previous* stream first, which raises when that stream's owner already
-    closed it, so a closed stream is detached without flushing instead of
-    crashing the protocol path.
-    """
-    for handler in log.handlers:
-        if isinstance(handler, logging.StreamHandler) and not isinstance(
-            handler, logging.FileHandler
-        ):
-            if getattr(handler, "stream", None) is sys.stderr:
-                continue
-            try:
-                handler.setStream(sys.stderr)
-            except ValueError:
-                handler.stream = sys.stderr
+def _configure_command_log(config: dict[str, Any] | None) -> None:
+    """Open the configured file or the existing SID-owned diagnostic location."""
+    failure_type = None
+    if config is not None:
+        try:
+            setup_config_logging(config, console=False)
+            return
+        except (OSError, RuntimeError, ValueError) as exc:
+            failure_type = type(exc).__name__
+    try:
+        setup_logger(log_file=str(state_root() / "logs" / "adapter.log"), console=False)
+    except (OSError, RuntimeError, ValueError):
+        return
+    if failure_type is not None:
+        log.warning("adapter_log_setup_failed exception_type=%s", failure_type)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    with machine_logging():
+        return _main(argv)
+
+
+def _main(argv: Sequence[str] | None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     if hasattr(sys.stderr, "reconfigure"):
@@ -293,6 +294,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args = _parser().parse_args(argv)
     except SystemExit as failure:
         if failure.code:
+            _configure_command_log(None)
             try:
                 sink = command_sink(ADAPTER_VERSION)
                 action = sink.action(step_id="adapter-arguments", check_id="adapter-request",
@@ -300,10 +302,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 action.finish("invalid_arguments", disposition="expected",
                               refusal_code="invalid_arguments",
                               details={"action": "adapter-arguments", "stage": "arguments", "sent": "not_sent"})
+                log.warning("adapter_arguments_refused run_id=%s exit_code=%s", sink.run_id, failure.code)
             except (OSError, ValueError, TypeError):
                 pass
         raise
-    _redirect_console_logs_to_stderr()
+    config_failure = None
+    try:
+        config = load_config(args.config)
+    except Exception as exc:
+        config = None
+        config_failure = exc
+    _configure_command_log(config)
     # Explicit sidecars keep their format; direct execution uses owner delivery.
     sink = None
     feedback = None
@@ -326,7 +335,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             action.begin()
         except (ImportError, OSError, ValueError, RecursionError) as exc:
-            log.debug("feedback setup skipped: %s", type(exc).__name__)
+            log.warning("feedback_setup_failed exception_type=%s", type(exc).__name__)
         else:
             sink, feedback = configured_sink, action
 
@@ -373,7 +382,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 stage = "request"
                 request = _discovery_request(value)
             stage = "config"
-            adapter = _build_adapter(args.config)
+            if config_failure is not None:
+                raise config_failure
+            adapter = _build_adapter(None)
             stage = args.action
             if args.action == "discover":
                 assert request is not None
@@ -500,6 +511,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result = _response(**result_payload)
     except Exception as exc:
         failure = exc
+        failure_stage = _resolve_stage(exc, stage, args.action)
+        sent = _sent_state(failure_stage, prior_phase=stage)
+        log.warning(
+            "adapter_failure run_id=%s step_id=%s action=%s phase=%s sent=%s",
+            sink.run_id if sink is not None else "unbound",
+            feedback.step_id if feedback is not None else "unbound",
+            args.action,
+            failure_stage,
+            sent,
+            exc_info=True,
+        )
         if feedback is not None and not feedback.finished:
             code = getattr(exc, "code", None) or getattr(exc, "error_code", None)
             if not isinstance(code, str) or not code or not fb.is_safe_ref(code):
@@ -511,8 +533,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Same outer code family, but the details distinguish the real
             # nature: failing stage, whether anything went out, and the
             # sanitized exception type chain (F4: 不把性质不同的失败合并).
-            failure_stage = _resolve_stage(exc, stage, args.action)
-            sent = _sent_state(failure_stage, prior_phase=stage)
             justified_refusal = sent == "not_sent" and failure_stage in {"payload", "request"}
             expected = justified_refusal or isinstance(exc, AcquisitionBudgetExceeded)
             feedback.finish(
@@ -550,8 +570,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             try:
                 with redirect_stdout(sys.stderr):
                     _cleanup(adapter)
-            except Exception as cleanup_error:  # pragma: no cover - defensive
-                log.warning(f"adapter cleanup failed: {cleanup_error}")
+            except Exception:  # pragma: no cover - defensive
+                log.warning("adapter cleanup failed", exc_info=True)
     if failure is not None:
         return _emit_failure(failure, budget)
     if result is None:  # pragma: no cover - defensive

@@ -395,7 +395,8 @@ class Publisher:
         except (ValueError, TypeError) as exc:
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
-            log.debug("feedback observation refused: %s", type(exc).__name__)
+            log.warning("feedback_observation_refused run_id=%s exception_type=%s",
+                        self.run_id, self.last_write_error)
             return DEFERRED
         return self.emit(observation, details)
 
@@ -407,7 +408,8 @@ class Publisher:
         except (OSError, ValueError, TypeError, RecursionError) as exc:
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
-            log.debug("feedback delivery deferred: %s", type(exc).__name__)
+            log.warning("feedback_delivery_deferred run_id=%s exception_type=%s",
+                        self.run_id, self.last_write_error)
             return DEFERRED
 
     def _deliver_out(
@@ -784,7 +786,8 @@ class OrdinaryRunFeedback:
             status = self.publisher.publish(**kwargs)
         except (OSError, ValueError, TypeError, RecursionError) as exc:
             self.write_failures += 1
-            log.debug("ordinary feedback publish failed: %s", type(exc).__name__)
+            log.warning("ordinary_feedback_publish_failed run_id=%s exception_type=%s",
+                        self.run_id, type(exc).__name__)
             return DEFERRED
         if status != DELIVERED:
             self.write_failures += 1

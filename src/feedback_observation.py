@@ -536,7 +536,10 @@ class FeedbackSink:
         except OSError as exc:  # diagnostics must not change the business result
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
-            log.debug("feedback sidecar write failed: %s", type(exc).__name__)
+            log.warning(
+                "feedback_write_failed stage=observation run_id=%s attempt_id=%s exception_type=%s",
+                self.run_id, self.attempt_id, self.last_write_error,
+            )
             return False
 
     def write_details(self, step_id: str, details: Mapping[str, Any]) -> str | None:
@@ -563,6 +566,10 @@ class FeedbackSink:
         except OSError as exc:
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
+            log.warning(
+                "feedback_write_failed stage=details run_id=%s attempt_id=%s exception_type=%s",
+                self.run_id, self.attempt_id, self.last_write_error,
+            )
             return None
 
     def action(
