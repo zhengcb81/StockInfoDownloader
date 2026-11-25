@@ -26,8 +26,8 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-import shutil
 import sys
+from tempfile import TemporaryDirectory
 import time
 from typing import Any
 from urllib.error import URLError
@@ -36,7 +36,6 @@ from urllib.parse import parse_qs
 import pytest
 
 WORKTREE = Path(__file__).resolve().parents[2]
-TEST_ROOT = WORKTREE / ".planning" / "test-tmp" / "g5-runtime"
 SEC = "600000"
 ORG = "gshk0001211"
 NAME = "示例公司"
@@ -53,32 +52,18 @@ _PROVIDER_MODULES = ("src.company_wiki_adapter_cli", "src.company_wiki_adapter")
 
 
 @contextmanager
-def _owned_root(label: str):
-    """One scratch directory under ``<worktree>/.planning/test-tmp/g5-runtime``."""
-    TEST_ROOT.parent.mkdir(parents=True, exist_ok=True)
-    TEST_ROOT.mkdir(parents=True, exist_ok=True)
-    path = TEST_ROOT / f"{os.getpid()}-{label}"
-    path.mkdir(parents=True, exist_ok=True)
-    try:
-        yield path
-    finally:
-        _leave_owned_root(path)
-        shutil.rmtree(path, ignore_errors=True)
-        for candidate in (TEST_ROOT, TEST_ROOT.parent):
-            try:
-                candidate.rmdir()
-            except OSError:
-                pass
-
-
-def _leave_owned_root(path: Path) -> None:
-    """Windows cannot delete the process working directory."""
-    try:
-        resolved = path.resolve()
-        if Path.cwd().resolve() == resolved or resolved in Path.cwd().resolve().parents:
-            os.chdir(WORKTREE)
-    except OSError:
-        return
+def _owned_root():
+    """Give this example disposable state outside the source checkout."""
+    original_cwd = Path.cwd()
+    with TemporaryDirectory(prefix="sid-g5-") as temporary:
+        root = Path(temporary)
+        try:
+            yield root
+        finally:
+            current_cwd = Path.cwd().resolve()
+            resolved_root = root.resolve()
+            if current_cwd == resolved_root or resolved_root in current_cwd.parents:
+                os.chdir(original_cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +394,7 @@ def test_provider_modules_import_without_browser_or_downloader():
 
 
 def test_build_adapter_is_pure_api_and_writes_no_failure_log(monkeypatch):
-    with _owned_root("build-adapter") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         with _browserless_runtime():
@@ -428,7 +413,7 @@ def test_literal_cli_discovers_without_org_id_while_browser_imports_are_blocked(
     announcement = _announcement_payload()
     transport = _Transport(identity, announcement)
 
-    with _owned_root("literal-cli") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         monkeypatch.setattr("urllib.request.urlopen", transport)
@@ -460,7 +445,7 @@ def test_cli_fetch_runs_on_a_downloader_less_adapter(monkeypatch):
 
     pdf = b"%PDF-" + b"g5-cli-fetch-" * 32
     candidate = _candidate().to_dict()
-    with _owned_root("cli-fetch") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         staging = root / "staging"
         monkeypatch.chdir(root)
@@ -520,7 +505,7 @@ def test_local_cache_resolves_org_id_without_any_http(monkeypatch):
 
     transport = _Transport(_announcement_payload())
     monkeypatch.setattr("urllib.request.urlopen", transport)
-    with _owned_root("cache-hit") as root:
+    with _owned_root() as root:
         cache_path = root / "stock_orgid_mapping.json"
         cache_path.write_text(
             json.dumps({SEC: {"orgId": ORG, "name": NAME}}, ensure_ascii=False),
@@ -546,7 +531,7 @@ def test_local_cache_resolves_org_id_without_any_http(monkeypatch):
 def test_cache_lookup_rejects_entries_without_a_usable_org_id():
     from src.cninfo_identity import LocalOrgIdCache
 
-    with _owned_root("cache-schema") as root:
+    with _owned_root() as root:
         cache_path = root / "stock_orgid_mapping.json"
         cache_path.write_text(
             json.dumps(
@@ -572,7 +557,7 @@ def test_cache_lookup_rejects_entries_without_a_usable_org_id():
 def test_default_cache_candidates_follow_the_legacy_order(monkeypatch):
     from src.cninfo_identity import LocalOrgIdCache, candidate_paths
 
-    with _owned_root("cache-order") as root:
+    with _owned_root() as root:
         monkeypatch.chdir(root)
         paths = candidate_paths(None)
         assert len(paths) == 3
@@ -761,7 +746,7 @@ def test_cli_reports_identity_transport_failure_with_measured_usage(monkeypatch)
     identity = _identity_payload(pad=64)
     transport = _Transport(identity, URLError("connection refused"))
     monkeypatch.setattr("urllib.request.urlopen", transport)
-    with _owned_root("cli-identity-error") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         monkeypatch.setattr(
@@ -802,7 +787,7 @@ def test_cli_reports_identity_failure_as_identity_error_not_empty_discovery(
 
     transport = _Transport(_identity_payload(sec_code=_OTHER_SEC))
     monkeypatch.setattr("urllib.request.urlopen", transport)
-    with _owned_root("cli-identity-failure") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         monkeypatch.setattr(
@@ -857,30 +842,38 @@ def test_legacy_positional_downloader_constructor_is_still_accepted():
     assert adapter.version == "1.3.0"
 
 
-def test_disclosure_matching_helpers_equal_the_downloader_helpers():
-    from src.disclosure_matching import _matches_excluded, _matches_keywords
-    from src.downloader import (
-        _matches_excluded as legacy_excluded,
-        _matches_keywords as legacy_keywords,
-    )
+def test_provider_and_downloader_share_the_public_title_matching_owner():
+    from src import company_wiki_adapter as adapter
+    from src import disclosure_matching as policy
+    from src import downloader
 
-    cases = [
-        ("", None),
-        ("", []),
-        ("比亚迪2024年年度报告", ["摘要"]),
-        ("比亚迪 2024 年 年度报告 摘要", ["摘要"]),
-        ("比亚迪2024年年度报告摘要", ["摘 要"]),
-        ("示例公司公告20250725", ["公告20250725"]),
-        ("示例公司公告2025-07-25", ["公告20250725"]),
-        ("示例公司2024年年度报告", ["半年度报告"]),
-        ("Quarterly Report", ["quarterly"]),
-        ("季度报告", []),
-        (None, None),
-        ("文本", None),
-    ]
-    for text, keywords in cases:
-        assert _matches_excluded(text, keywords) == legacy_excluded(text, keywords)
-        assert _matches_keywords(text, keywords) == legacy_keywords(text, keywords)
+    assert adapter.matches_excluded is downloader.matches_excluded is policy.matches_excluded
+    assert adapter.matches_keywords is downloader.matches_keywords is policy.matches_keywords
+    assert downloader._matches_excluded is policy.matches_excluded
+    assert downloader._matches_keywords is policy.matches_keywords
+
+
+@pytest.mark.parametrize(
+    "text,keywords,excluded,allowed",
+    [
+        ("", None, False, True),
+        ("", [], False, True),
+        ("示例公司2024年年度报告", ["摘要"], False, False),
+        ("示例公司 2024 年 年度报告 摘要", ["摘 要"], True, True),
+        ("示例公司披露日期20250725", ["公告20250725"], False, True),
+        ("示例公司公告2025-07-25", ["公告20250725"], False, False),
+        ("Quarterly Report", ["quarterly"], True, True),
+        (None, None, False, True),
+        ("报告", [""], True, True),
+    ],
+)
+def test_title_matching_owner_preserves_whitespace_date_and_empty_rules(
+    text, keywords, excluded, allowed
+):
+    from src.disclosure_matching import matches_excluded, matches_keywords
+
+    assert matches_excluded(text, keywords) is excluded
+    assert matches_keywords(text, keywords) is allowed
 
 
 def test_cli_tolerates_an_adapter_without_a_downloader(monkeypatch):
@@ -893,7 +886,7 @@ def test_cli_tolerates_an_adapter_without_a_downloader(monkeypatch):
         def discover(self, request, *, acquisition_budget=None):
             return ()
 
-    with _owned_root("cli-cleanup") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         monkeypatch.setattr(cli, "_build_adapter", lambda _config: _PureAdapter())
@@ -915,7 +908,7 @@ def test_cli_failure_is_not_masked_by_a_missing_downloader(monkeypatch):
         def discover(self, request, *, acquisition_budget=None):
             raise ValueError("contract violation")
 
-    with _owned_root("cli-failure") as root:
+    with _owned_root() as root:
         config = _write_config(root)
         monkeypatch.chdir(root)
         monkeypatch.setattr(cli, "_build_adapter", lambda _config: _BrokenAdapter())
@@ -935,7 +928,7 @@ def test_fetch_is_pure_and_never_touches_identity_or_downloader(monkeypatch):
     from src.cninfo_api import CninfoAnnouncementClient
 
     pdf = b"%PDF-" + b"g5-pure-fetch-" * 32
-    with _owned_root("fetch-identity-free") as root:
+    with _owned_root() as root:
         staging = root / "staging"
         monkeypatch.chdir(root)
         monkeypatch.setattr("urllib.request.urlopen", lambda *a, **kw: _PdfBody(pdf))

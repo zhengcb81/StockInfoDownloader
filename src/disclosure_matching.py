@@ -1,19 +1,12 @@
-"""Pure title-filter helpers for the provider runtime.
-
-``src.downloader`` owns browser automation, a failed-download log and a lazy
-Playwright handle; the company-wiki provider only needs these two string
-predicates, so they live here with byte-identical behaviour.  The differential
-counterexample in ``tests/unit/test_g5_provider_runtime.py`` proves the
-equivalence against the historical downloader helpers.
-"""
+"""Title matching shared by the downloader and the CNINFO provider adapter."""
 
 from __future__ import annotations
 
 import re
-from typing import List, Optional
+from typing import Optional, Sequence
 
 
-def matches_excluded(text: str, keywords: Optional[List[str]]) -> bool:
+def matches_excluded(text: str, keywords: Optional[Sequence[str]]) -> bool:
     """Check if text matches any excluded keyword."""
     if not keywords:
         return False
@@ -25,7 +18,7 @@ def matches_excluded(text: str, keywords: Optional[List[str]]) -> bool:
     return False
 
 
-def matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
+def matches_keywords(text: str, keywords: Optional[Sequence[str]]) -> bool:
     """Check if text matches any keyword.
 
     Supports date-based matching: if keyword contains an 8-digit date (e.g.

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import constants as C
 from .browser import PlaywrightBrowser
+from .disclosure_matching import matches_excluded, matches_keywords
 from .exceptions import BrowserError, DownloadError, OrgIdError
 from .feedback_files import atomic_text, exclusive_file, native_path
 from .logger import log
@@ -123,36 +124,9 @@ def _atomic_write_json(path: Path, records: List[Dict[str, Any]]) -> None:
         json.dump(records, stream, ensure_ascii=False, indent=2)
 
 
-def _matches_excluded(text: str, keywords: Optional[List[str]]) -> bool:
-    """Check if text matches any excluded keyword."""
-    if not keywords:
-        return False
-    cleaned = "".join(text.split()).lower()
-    for k in keywords:
-        ck = "".join(k.split()).lower()
-        if ck in cleaned:
-            return True
-    return False
-
-
-def _matches_keywords(text: str, keywords: Optional[List[str]]) -> bool:
-    """Check if text matches any keyword.
-
-    Supports date-based matching: if keyword contains an 8-digit date (e.g.
-    "公告20250725"), extracts the date and checks if it appears in the text.
-    """
-    if not keywords:
-        return True
-    cleaned = "".join(text.split()).lower()
-    for k in keywords:
-        ck = "".join(k.split()).lower()
-        if ck in cleaned:
-            return True
-        # Date-based match: extract 8-digit date from keyword and match date only
-        date_match = re.search(r"\d{8}", k)
-        if date_match and date_match.group() in cleaned:
-            return True
-    return False
+# Compatibility for existing imports of the downloader's former helpers.
+_matches_excluded = matches_excluded
+_matches_keywords = matches_keywords
 
 
 def _subdir_components(save_subdir: str) -> Tuple[str, ...]:
@@ -613,10 +587,10 @@ class StockDownloader:
 
         downloaded: List[str] = []
         for text, href in links:
-            if _matches_excluded(text, request.excluded_keywords):
+            if matches_excluded(text, request.excluded_keywords):
                 log.debug(f"Skipping excluded: {text}")
                 continue
-            if _matches_keywords(text, request.allowed_keywords):
+            if matches_keywords(text, request.allowed_keywords):
                 result = self._download_single_link(request, text, href)
                 if result:
                     downloaded.append(result)
@@ -725,7 +699,7 @@ class StockDownloader:
 
             # 2. Check filename matches allowed_keywords (if specified)
             stem = path.stem  # filename without extension
-            if request.allowed_keywords and not _matches_keywords(
+            if request.allowed_keywords and not matches_keywords(
                 stem, request.allowed_keywords
             ):
                 issues.append(
@@ -737,7 +711,7 @@ class StockDownloader:
                 )
 
             # 3. Check filename does NOT match excluded_keywords
-            if request.excluded_keywords and _matches_excluded(
+            if request.excluded_keywords and matches_excluded(
                 stem, request.excluded_keywords
             ):
                 issues.append(

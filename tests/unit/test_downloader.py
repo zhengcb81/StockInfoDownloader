@@ -9,6 +9,9 @@ from src.downloader import StockDownloader, _matches_keywords, _matches_excluded
 from src.models import DownloadRequest
 
 
+BROWSER_SOURCE = Path(__file__).resolve().parents[2] / "src" / "browser.py"
+
+
 class TestMatchesKeywords:
     def test_no_keywords_matches_all(self):
         assert _matches_keywords("anything", None) is True
@@ -419,13 +422,13 @@ class TestBrowserStaticHostMapping:
     """Hardcoded fallback IP must be removed; static host mapped separately."""
 
     def test_no_hardcoded_cninfo_fallback_ip(self):
-        src = Path("src/browser.py").read_text(encoding="utf-8")
+        src = BROWSER_SOURCE.read_text(encoding="utf-8")
         assert "148.153.240.73" not in src, (
             "hardcoded fallback IP must be removed; resolve per-host on demand"
         )
 
     def test_resolves_static_and_www_hosts_separately(self):
-        src = Path("src/browser.py").read_text(encoding="utf-8")
+        src = BROWSER_SOURCE.read_text(encoding="utf-8")
         # Critical hosts (www + static) must each be resolved independently —
         # bare ``cninfo.com.cn`` is best-effort and NOT required since the
         # SPA + PDF pipeline never requests that host (Akamai CDN quirk).

@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import constants as C
 from .cninfo_report_metadata import report_metadata
-from .disclosure_matching import _matches_excluded, _matches_keywords
+from .disclosure_matching import matches_excluded, matches_keywords
 from .string_utils import clean_filename
 
 if TYPE_CHECKING:
@@ -402,9 +402,9 @@ class StockInfoCompanyWikiAdapter:
             if record.sec_code != request.stock_code:
                 continue
             title = record.title
-            if _matches_excluded(title, list(effective_excluded)):
+            if matches_excluded(title, effective_excluded):
                 continue
-            if request.allowed_keywords and not _matches_keywords(
+            if request.allowed_keywords and not matches_keywords(
                 title, list(request.allowed_keywords)
             ):
                 continue
