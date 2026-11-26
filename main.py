@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -37,6 +38,7 @@ from src.logger import log, setup_logger
 from src.mapping import MappingManager
 from src.models import DownloadRequest
 from src.progress import ProgressTracker
+from src.runtime_steps import capture_steps, checkpoint
 
 
 def get_real_stock_name(stock_code: str) -> str:
@@ -197,13 +199,17 @@ class UnifiedRunner:
         self.feedback = feedback
         self.settlement = settlement if settlement is not None else _new_settlement()
 
+    def _steps(self, step_id: Optional[str]):
+        writer = getattr(self.feedback, "checkpoint", None)
+        return capture_steps(partial(writer, step_id) if step_id and callable(writer) else None)
+
     def run_single(self, stock_code: str, company_name: Optional[str] = None) -> bool:
         """Run download for a single stock code."""
-        name = company_name or get_real_stock_name(stock_code)
+        name = company_name
         pages = self.config.get("pages", [])
 
         _bump(self.settlement, "attempted")
-        downloader = StockDownloader(self.config)
+        downloader = None
         success = True
         try:
             for page in pages:
@@ -225,7 +231,15 @@ class UnifiedRunner:
                         stock_code=stock_code, task_key=_task_key(request)
                     )
                 try:
-                    result = downloader.download(request)
+                    with self._steps(step_id):
+                        if not name:
+                            checkpoint("stock-name", "resolving", stock_code=stock_code)
+                            name = get_real_stock_name(stock_code)
+                            checkpoint("stock-name", "resolved", stock_code=stock_code)
+                        request.stock_name = name
+                        if downloader is None:
+                            downloader = StockDownloader(self.config)
+                        result = downloader.download(request)
                 except Exception as e:
                     # The outer handler logs "Task failed" once; here only the
                     # per-task terminal observation is recorded.
@@ -274,7 +288,8 @@ class UnifiedRunner:
             log.error(f"Task failed for {stock_code}: {e}")
             success = False
         finally:
-            downloader.cleanup()
+            if downloader is not None:
+                downloader.cleanup()
         _bump(self.settlement, "succeeded" if success else "failed")
         return success
 
@@ -283,19 +298,17 @@ class UnifiedRunner:
         overall_success = True
         for i, tc in enumerate(test_cases):
             stock_code = tc["stock_code"]
-            stock_name = get_real_stock_name(stock_code)
             suffix = tc.get("suffix", "research")
             log.info(
                 f"[Test case {i+1}/{len(test_cases)}] "
-                f"Downloading {stock_code} ({stock_name}) - {suffix}"
+                f"Downloading {stock_code} - {suffix}"
             )
 
             _bump(self.settlement, "attempted")
             case_success = False
-            downloader = StockDownloader(self.config)
+            downloader = None
             request = DownloadRequest(
                 stock_code=stock_code,
-                stock_name=stock_name,
                 suffix=suffix,
                 allowed_keywords=tc.get("allowed_keywords"),
                 excluded_keywords=tc.get("excluded_keywords"),
@@ -309,7 +322,12 @@ class UnifiedRunner:
                     stock_code=stock_code, task_key=_task_key(request)
                 )
             try:
-                result = downloader.download(request)
+                with self._steps(step_id):
+                    checkpoint("stock-name", "resolving", stock_code=stock_code)
+                    request.stock_name = get_real_stock_name(stock_code)
+                    checkpoint("stock-name", "resolved", stock_code=stock_code)
+                    downloader = StockDownloader(self.config)
+                    result = downloader.download(request)
                 if not result.success:
                     log.warning(f"Test case {i+1} failed: {stock_code}/{suffix}")
                     overall_success = False
@@ -349,7 +367,8 @@ class UnifiedRunner:
                         cause_types=_exception_cause_chain(e),
                     )
             finally:
-                downloader.cleanup()
+                if downloader is not None:
+                    downloader.cleanup()
             _bump(self.settlement, "succeeded" if case_success else "failed")
         return overall_success
 

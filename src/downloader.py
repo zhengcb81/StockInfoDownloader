@@ -8,6 +8,7 @@ import json
 import re
 import time
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path, PurePath, PureWindowsPath
 from threading import Lock
 from typing import Any, Dict, List, Optional, Tuple
@@ -15,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from . import constants as C
 from .browser import PlaywrightBrowser
 from .disclosure_matching import matches_excluded, matches_keywords
-from .exceptions import BrowserError, DownloadError, OrgIdError
+from .exceptions import BrowserDownloadError, BrowserError, DownloadError, OrgIdError, PaginationError
 from .feedback_files import atomic_text, exclusive_file, native_path
 from .logger import log
 from .mapping import MappingManager
@@ -25,6 +26,7 @@ from .models import (
     VerificationIssue,
     VerificationResult,
 )
+from .runtime_steps import checkpoint, exception_types
 from .string_utils import clean_filename
 from .transport_states import LoadState
 
@@ -45,7 +47,6 @@ class FailedDownloadLogger:
 
     def __init__(self, log_file: str = "logs/failed_downloads.json"):
         self.log_file = Path(log_file)
-        native_path(self.log_file).parent.mkdir(parents=True, exist_ok=True)
         self._pending: List[Dict[str, Any]] = []
         self._pending_lock = Lock()
 
@@ -238,6 +239,7 @@ class StockDownloader:
 
         try:
             # Resolve org_id
+            checkpoint("identity", "resolving", stock_code=request.stock_code)
             if not request.org_id:
                 force_crawl = self.config.get("force_crawl_mapping", False)
                 request.org_id = self.mapping.get_org_id(
@@ -256,10 +258,12 @@ class StockDownloader:
                     or f"Stock_{request.stock_code}"
                 )
 
+            checkpoint("identity", "confirmed", stock_code=request.stock_code)
             # Download with retry
             return self._download_with_retry(request, start)
 
         except Exception as e:
+            checkpoint("request", "failed", error_code=type(e).__name__, cause_types=exception_types(e))
             log.error(f"Download failed for {request.stock_code}: {e}")
             return DownloadResult(
                 success=False,
@@ -284,6 +288,7 @@ class StockDownloader:
         last_result = DownloadResult(success=False)
 
         for attempt in range(self.max_retries + 1):
+            checkpoint("download-attempt", "started", attempt=attempt + 1)
             if attempt > 0:
                 log.info(f"Retry attempt {attempt}/{self.max_retries}")
                 try:
@@ -296,6 +301,9 @@ class StockDownloader:
             # successful retry and duplicate the same issue.
             self._request_failures = []
             last_result = self._download_internal(request)
+            checkpoint("download-attempt", "confirmed" if last_result.success else "failed",
+                       attempt=attempt + 1, source_result=last_result.error_code,
+                       files_confirmed=last_result.total_files)
             if last_result.success:
                 return last_result
 
@@ -328,8 +336,10 @@ class StockDownloader:
         upstream_confirmed_empty = bool(request.confirmed_empty)
 
         try:
+            checkpoint("navigation", "dispatching")
             self._navigate_to_stock_page(request)
             self._wait_for_page_load()
+            checkpoint("navigation", "observed")
 
             if request.suffix:
                 has_content = self._switch_tab(request.suffix)
@@ -364,7 +374,7 @@ class StockDownloader:
                         ],
                     )
 
-            downloaded = self._download_pages(request)
+            self._download_pages(request, downloaded)
 
             # Post-download verification.  The owner decides the outcome here;
             # callers read ``success`` and never re-judge diagnostics.
@@ -391,7 +401,28 @@ class StockDownloader:
                 retryable=False if not verification.ok else None,
                 errors=[] if verification.ok else ["verification_failed"],
             )
+        except BrowserError as exc:
+            if isinstance(exc, PaginationError):
+                code = "pagination_failed"
+                checkpoint(
+                    "pagination", "failed", page=exc.page, target_page=exc.target_page,
+                    source_result=exc.operation, files_confirmed=len(downloaded),
+                    error_code=code, cause_types=exception_types(exc),
+                )
+            else:
+                code = "browser_failed"
+                checkpoint("browser", "failed", error_code=type(exc).__name__, cause_types=exception_types(exc))
+            log.error("%s cause_types=%s", exc, exception_types(exc))
+            return DownloadResult(
+                success=False, downloaded_files=downloaded, total_files=len(downloaded),
+                skipped_files=self.skipped_files, pages_traversed=self.pages_traversed,
+                verification=VerificationResult(ok=False, issues=(VerificationIssue(code, str(exc)),)),
+                duration_seconds=time.time() - start, error_code=code,
+                retryable=True, errors=[code],
+            )
         except Exception as e:
+            checkpoint("download-pipeline", "failed", error_code=type(e).__name__,
+                       cause_types=exception_types(e), files_confirmed=len(downloaded))
             log.error(f"Download pipeline failed: {e}")
             return DownloadResult(
                 success=False,
@@ -501,82 +532,66 @@ class StockDownloader:
 
     # ── Page Traversal ────────────────────────────────────────────────
 
-    def _download_pages(self, request: DownloadRequest) -> List[str]:
-        """Download files across multiple pages."""
-        all_downloaded: List[str] = []
-
+    def _download_pages(self, request: DownloadRequest, downloaded: List[str]) -> None:
+        """Keep confirmed files with the owner even when a later page fails."""
         if request.reverse_order:
-            all_downloaded = self._download_reverse(request)
+            self._download_reverse(request, downloaded)
         else:
-            all_downloaded = self._download_forward(request)
+            self._download_forward(request, downloaded)
 
-        return all_downloaded
-
-    def _download_forward(self, request: DownloadRequest) -> List[str]:
+    def _download_forward(self, request: DownloadRequest, downloaded: List[str]) -> None:
         """Download from page 1 forward."""
-        all_downloaded: List[str] = []
-
         for page in range(1, request.max_pages + 1):
             log.info(f"Processing page {page}...")
             self.pages_traversed = page
-            downloaded = self._download_page_links(request, page)
-            all_downloaded.extend(downloaded)
-
-            if not self.browser.go_to_next_page():
+            downloaded.extend(self._download_page_links(request, page))
+            if page == request.max_pages:
+                checkpoint("pagination", "limit_reached", page=page)
                 break
-            time.sleep(C.PAGINATION_WAIT)
+            checkpoint("pagination", "advancing", page=page, target_page=page + 1)
+            if not self.browser.go_to_next_page():
+                checkpoint("pagination", "last_page", page=page)
+                break
+            checkpoint("pagination", "observed", page=page + 1)
+            self._wait_for_page_load(tab_scoped=bool(request.suffix))
 
-        return all_downloaded
-
-    def _download_reverse(self, request: DownloadRequest) -> List[str]:
-        """Download from last page backward."""
+    def _download_reverse(self, request: DownloadRequest, downloaded: List[str]) -> None:
+        """Download from the observed last page backward."""
         page_info = self.browser.get_current_page_info()
-        total_pages = page_info.get("total_pages", 1)
-        log.info(f"Reverse order: total_pages={total_pages}")
+        current_page, total_pages = page_info["current_page"], page_info["total_pages"]
+        if current_page != total_pages:
+            checkpoint("pagination", "advancing", page=current_page, target_page=total_pages)
+            if not self.browser.go_to_last_page():
+                raise PaginationError("last", current_page, total_pages)
+            self._wait_for_page_load(tab_scoped=bool(request.suffix))
+            current_page = total_pages
+            checkpoint("pagination", "observed", page=current_page)
 
-        # Jump to last page
-        self.browser.go_to_last_page()
-        time.sleep(C.PAGINATION_WAIT)
-        self._wait_for_page_load(tab_scoped=bool(request.suffix))
-
-        current_info = self.browser.get_current_page_info()
-        current_page = current_info.get("current_page", total_pages)
-        log.info(f"Jumped to last page: {current_page}")
-
-        all_downloaded: List[str] = []
         pages_to_check = min(request.max_pages, current_page)
-
         for i in range(pages_to_check):
             page = current_page - i
             log.info(f"Processing page {page}/{total_pages}...")
             self.pages_traversed = i + 1
-
-            downloaded = self._download_page_links(request, page)
-            all_downloaded.extend(downloaded)
-
-            # Early exit if we found files
-            if downloaded and request.allowed_keywords:
-                log.info(f"Found target files on page {page}, stopping")
+            current_files = self._download_page_links(request, page)
+            downloaded.extend(current_files)
+            if current_files and request.allowed_keywords:
+                checkpoint("pagination", "matched", page=page)
                 break
-
-            # Go to previous page
-            if i < pages_to_check - 1 and page > 1:
-                self.browser.execute_script("""
-                    (() => {
-                        const prev = document.querySelector('.btn-prev');
-                        if (prev && !prev.disabled) prev.click();
-                    })()
-                """)
-                time.sleep(C.PAGINATION_WAIT)
-                self._wait_for_page_load(tab_scoped=bool(request.suffix))
-
-        return all_downloaded
+            if i == pages_to_check - 1:
+                checkpoint("pagination", "first_page" if page == 1 else "limit_reached", page=page)
+                break
+            checkpoint("pagination", "advancing", page=page, target_page=page - 1)
+            if not self.browser.go_to_previous_page():
+                raise PaginationError("previous", page, page - 1)
+            self._wait_for_page_load(tab_scoped=bool(request.suffix))
+            checkpoint("pagination", "observed", page=page - 1)
 
     # ── Link Processing ───────────────────────────────────────────────
 
     def _download_page_links(self, request: DownloadRequest, page: int) -> List[str]:
         """Match and download links on the current page."""
         links = self._get_links(tab_scoped=bool(request.suffix))
+        checkpoint("page", "observed", page=page, candidate_count=len(links))
         log.info(f"Page {page}: found {len(links)} links")
 
         if not links:
@@ -591,13 +606,13 @@ class StockDownloader:
                 log.debug(f"Skipping excluded: {text}")
                 continue
             if matches_keywords(text, request.allowed_keywords):
-                result = self._download_single_link(request, text, href)
+                result = self._download_single_link(request, text, href, page=page)
                 if result:
                     downloaded.append(result)
         return downloaded
 
     def _download_single_link(
-        self, request: DownloadRequest, text: str, href: str
+        self, request: DownloadRequest, text: str, href: str, *, page: int | None = None,
     ) -> Optional[str]:
         """Download a single file."""
         target_name = clean_filename(text)
@@ -613,17 +628,33 @@ class StockDownloader:
             )
         else:
             dest = company_dir / f"{target_name}.pdf"
+        input_ref = "document-" + sha256(href.encode("utf-8")).hexdigest()
 
         # Skip if already exists
         if dest.exists() and dest.stat().st_size > C.MIN_FILE_SIZE:
             log.info(f"File exists, skipping: {dest}")
             self.skipped_files.append(str(dest))
+            checkpoint("download", "reused", page=page, input_ref=input_ref)
             return str(dest)
 
         log.info(f"Downloading: {text}")
-        if self.browser.download_file(href, str(dest)):
+        checkpoint("download", "dispatching", page=page, input_ref=input_ref)
+        try:
+            transferred = self.browser.download_file(href, str(dest))
+        except BrowserDownloadError as exc:
+            checkpoint(
+                "download", "failed", page=page, input_ref=input_ref, source_result=exc.phase,
+                sent=exc.sent, error_code=type(exc).__name__, cause_types=exception_types(exc),
+            )
+            self._request_failures.append((text, str(exc)))
+            self._failed_logger.record(
+                request.stock_code, request.stock_name or "", text, href, str(exc),
+            )
+            return None
+        if transferred:
             if dest.exists() and dest.stat().st_size > C.MIN_FILE_SIZE:
                 self.download_count += 1
+                checkpoint("download", "confirmed", page=page, input_ref=input_ref)
                 time.sleep(C.POST_DOWNLOAD_WAIT)
                 return str(dest)
             else:
@@ -643,6 +674,7 @@ class StockDownloader:
                 "download_file returned False",
             )
 
+        checkpoint("download", "failed", page=page, input_ref=input_ref)
         time.sleep(1)
         return None
 

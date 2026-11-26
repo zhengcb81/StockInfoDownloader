@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, suppress
 from dataclasses import asdict
+from functools import partial
 import json
 from pathlib import Path
 import sys
@@ -22,8 +23,11 @@ from .company_wiki_adapter import (
     StockInfoCompanyWikiAdapter,
 )
 from .config import load_config
-from .feedback_publish import command_sink, state_root
-from .logger import legacy_cleanup_console, log, machine_logging, setup_config_logging, setup_logger
+from .feedback_publish import RunReceipt, command_sink, state_root
+from .logger import (
+    diagnostic_file_failed, legacy_cleanup_console, log, machine_logging, setup_config_logging, setup_logger,
+)
+from .runtime_steps import capture_steps
 
 
 SCHEMA_VERSION = "1.0"
@@ -263,21 +267,30 @@ def _emit_failure(
     return 1
 
 
-def _configure_command_log(config: dict[str, Any] | None) -> None:
+def _configure_command_log(config: dict[str, Any] | None) -> bool:
     """Open the configured file or the existing SID-owned diagnostic location."""
     failure_type = None
     if config is not None:
         try:
             setup_config_logging(config, console=False)
-            return
+            return True
         except (OSError, RuntimeError, ValueError) as exc:
             failure_type = type(exc).__name__
     try:
         setup_logger(log_file=str(state_root() / "logs" / "adapter.log"), console=False)
     except (OSError, RuntimeError, ValueError):
-        return
+        return False
     if failure_type is not None:
         log.warning("adapter_log_setup_failed exception_type=%s", failure_type)
+    return True
+
+
+def _unavailable_notice(run: RunReceipt, logging_available: bool, sink) -> None:
+    if ((not logging_available or diagnostic_file_failed()) and not run.available
+            and (sink is None or sink.write_failures)):
+        run_id, attempt_id = run.identity
+        with suppress(OSError, ValueError):
+            sys.stderr.write(f"SID diagnostics unavailable run_id={run_id} attempt_id={attempt_id}\n")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -294,9 +307,11 @@ def _main(argv: Sequence[str] | None) -> int:
         args = _parser().parse_args(argv)
     except SystemExit as failure:
         if failure.code:
-            _configure_command_log(None)
+            run = RunReceipt(entry="adapter", version=ADAPTER_VERSION)
+            logging_available = _configure_command_log(None)
+            sink = None
             try:
-                sink = command_sink(ADAPTER_VERSION)
+                sink = command_sink(ADAPTER_VERSION, identity=run.identity)
                 action = sink.action(step_id="adapter-arguments", check_id="adapter-request",
                                      expected="parsed")
                 action.finish("invalid_arguments", disposition="expected",
@@ -305,14 +320,19 @@ def _main(argv: Sequence[str] | None) -> int:
                 log.warning("adapter_arguments_refused run_id=%s exit_code=%s", sink.run_id, failure.code)
             except (OSError, ValueError, TypeError):
                 pass
+            run.checkpoint("adapter-entry", {"stage": "arguments", "executed_state": "refused", "sent": "not_sent"})
+            run.finish({"result": "not_started", "exit_code": failure.code})
+            _unavailable_notice(run, logging_available, sink)
         raise
+    run = RunReceipt(entry="adapter", version=ADAPTER_VERSION)
+    run.checkpoint("adapter-entry", {"stage": "config", "executed_state": "loading", "sent": "not_sent"})
     config_failure = None
     try:
         config = load_config(args.config)
     except Exception as exc:
         config = None
         config_failure = exc
-    _configure_command_log(config)
+    logging_available = _configure_command_log(config)
     # Explicit sidecars keep their format; direct execution uses owner delivery.
     sink = None
     feedback = None
@@ -323,7 +343,7 @@ def _main(argv: Sequence[str] | None) -> int:
         try:
             from . import feedback_observation as fb
 
-            configured_sink = command_sink(ADAPTER_VERSION)
+            configured_sink = command_sink(ADAPTER_VERSION, identity=run.identity)
             check_id, expected = (
                 (fb.CHECK_STAGED_FETCH, "staged") if args.action == "fetch"
                 else (fb.CHECK_CANDIDATE_IDENTITY, "verified")
@@ -364,6 +384,7 @@ def _main(argv: Sequence[str] | None) -> int:
     # default because nothing else has started yet.
     stage = "payload"
     try:
+        run.checkpoint("adapter-entry", {"stage": stage, "executed_state": "awaiting_input", "sent": "not_sent"})
         raw_input = sys.stdin.read()
         try:
             value = _payload(raw_input)
@@ -371,6 +392,8 @@ def _main(argv: Sequence[str] | None) -> int:
             _begin_feedback(raw_input)
             raise
         _begin_feedback(value)
+        step_id = feedback.step_id if feedback is not None else "adapter-entry"
+        run.checkpoint(step_id, {"stage": stage, "executed_state": "parsed", "sent": "not_sent"})
         if "acquisition_budget" in value:
             stage = "budget"
             budget = ProviderAcquisitionBudget.from_payload(value["acquisition_budget"])
@@ -388,11 +411,18 @@ def _main(argv: Sequence[str] | None) -> int:
             stage = args.action
             if args.action == "discover":
                 assert request is not None
-                candidates = (
-                    adapter.discover(request)
-                    if budget is None
-                    else adapter.discover(request, acquisition_budget=budget)
-                )
+                run.checkpoint(step_id, {"stage": stage, "executed_state": "dispatching",
+                                         "security_id": request.stock_code, "mode": request.mode, "sent": "unknown"})
+                with capture_steps(partial(run.checkpoint, step_id)):
+                    candidates = (
+                        adapter.discover(request)
+                        if budget is None
+                        else adapter.discover(request, acquisition_budget=budget)
+                    )
+                run.checkpoint(step_id, {
+                    "stage": stage, "executed_state": "observed", "candidate_count": len(candidates),
+                    "budget_usage": budget.usage() if budget is not None else None,
+                })
                 published = [item.to_dict() for item in candidates]
                 if feedback is not None:
                     security_id = request.stock_code
@@ -479,15 +509,20 @@ def _main(argv: Sequence[str] | None) -> int:
                 decoded = json.loads(raw)
                 if not isinstance(decoded, dict):
                     raise ValueError("adapter_payload_json must contain an object")
-                receipt = (
-                    adapter.fetch(_candidate(decoded), args.staging_dir)
-                    if budget is None
-                    else adapter.fetch(
-                        _candidate(decoded),
-                        args.staging_dir,
-                        acquisition_budget=budget,
+                candidate = _candidate(decoded)
+                run.checkpoint(step_id, {"stage": stage, "executed_state": "dispatching",
+                                         "provider_document_id": candidate.provider_document_id, "sent": "unknown"})
+                with capture_steps(partial(run.checkpoint, step_id)):
+                    receipt = (
+                        adapter.fetch(candidate, args.staging_dir)
+                        if budget is None
+                        else adapter.fetch(candidate, args.staging_dir, acquisition_budget=budget)
                     )
-                )
+                run.checkpoint(step_id, {
+                    "stage": "staging", "executed_state": "confirmed",
+                    "provider_document_id": receipt.provider_document_id,
+                    "budget_usage": budget.usage() if budget is not None else None,
+                })
                 if feedback is not None:
                     document_id = receipt.provider_document_id
                     feedback.finish(
@@ -513,9 +548,15 @@ def _main(argv: Sequence[str] | None) -> int:
         failure = exc
         failure_stage = _resolve_stage(exc, stage, args.action)
         sent = _sent_state(failure_stage, prior_phase=stage)
+        if feedback is None:
+            _begin_feedback("adapter-entry")
+        run.checkpoint(feedback.step_id if feedback is not None else "adapter-entry", {
+            "stage": failure_stage, "executed_state": "failed", "sent": sent, "cause_types": _cause_types(exc),
+            "budget_usage": budget.usage() if budget is not None else None,
+        })
         log.warning(
             "adapter_failure run_id=%s step_id=%s action=%s phase=%s sent=%s",
-            sink.run_id if sink is not None else "unbound",
+            run.identity[0],
             feedback.step_id if feedback is not None else "unbound",
             args.action,
             failure_stage,
@@ -573,9 +614,15 @@ def _main(argv: Sequence[str] | None) -> int:
             except Exception:  # pragma: no cover - defensive
                 log.warning("adapter cleanup failed", exc_info=True)
     if failure is not None:
+        run.finish({"result": "failed", "exit_code": 1})
+        _unavailable_notice(run, logging_available, sink)
         return _emit_failure(failure, budget)
     if result is None:  # pragma: no cover - defensive
+        run.finish({"result": "failed", "exit_code": 1})
+        _unavailable_notice(run, logging_available, sink)
         return _emit_failure(RuntimeError("provider produced no result"), budget)
+    run.finish({"result": "completed", "exit_code": 0})
+    _unavailable_notice(run, logging_available, sink)
     sys.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

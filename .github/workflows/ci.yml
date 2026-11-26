@@ -27,6 +27,7 @@ jobs:
           python -m pytest -q -o addopts="" --tb=short
           tests/unit/test_s5_adapter_logging.py
           tests/unit/test_s1_logging_and_browser_errors.py
+          tests/unit/test_sid_runtime_closure.py
           tests/unit/test_company_wiki_adapter_cli.py
           tests/unit/test_company_wiki_adapter_cli_budget.py
           tests/unit/test_feedback_observation.py

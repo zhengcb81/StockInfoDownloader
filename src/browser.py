@@ -3,9 +3,12 @@
 No abstract base class, no factory pattern, no adapter layer. Just Playwright.
 """
 
+import os
 import random
 import time
+from contextlib import suppress
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
@@ -18,8 +21,10 @@ except ImportError:
     PlaywrightTimeoutError = TimeoutError
 
 from . import constants as C
-from .exceptions import BrowserError
+from .exceptions import BrowserDownloadError, BrowserError, PaginationError
+from .feedback_files import native_path
 from .logger import log
+from .runtime_steps import checkpoint, exception_types
 
 
 class PlaywrightBrowser:
@@ -130,7 +135,7 @@ class PlaywrightBrowser:
             return True
         except Exception as e:
             log.error(f"Browser init failed: {e}")
-            raise BrowserError(f"Failed to initialize browser: {e}")
+            raise BrowserError(f"Failed to initialize browser: {e}") from e
 
     def close(self) -> None:
         """Shut down browser and Playwright."""
@@ -422,181 +427,151 @@ class PlaywrightBrowser:
 
     # ── Download ──────────────────────────────────────────────────────
 
-    def _try_direct_download(self, url: str, save_path: str) -> Optional[bool]:
-        """Try strategy 1: navigate to detail page and capture automatic download."""
+    @staticmethod
+    def _save_download(download: Any, target: Path) -> None:
+        temporary = None
         try:
-            with self.page.expect_download(timeout=10000) as dl_info:
-                self.page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=C.PAGE_LOAD_TIMEOUT * 1000,
-                )
-            download = dl_info.value
-            download.save_as(save_path)
-            if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                log.info(f"Direct download successful: {save_path}")
-                return True
-        except Exception as e:
-            error_msg = str(e)
-            if "Download is starting" in error_msg:
-                # Download was triggered but goto threw — try to capture it
-                try:
-                    download = self.page.wait_for_event("download", timeout=5000)
-                    download.save_as(save_path)
-                    if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                        log.info(f"Captured started download: {save_path}")
-                        return True
-                except Exception:
-                    pass
-            log.debug(f"Direct download failed, trying button: {error_msg[:100]}")
-        return None
+            with NamedTemporaryFile(dir=target.parent, suffix=".part", delete=False) as stream:
+                temporary = Path(stream.name)
+            download.save_as(temporary)
+            if temporary.stat().st_size <= C.MIN_FILE_SIZE:
+                raise OSError("Downloaded data is incomplete")
+            os.replace(temporary, target)
+        except Exception as error:
+            raise BrowserDownloadError("staging", "sent") from error
+        finally:
+            if temporary is not None:
+                with suppress(OSError):
+                    temporary.unlink(missing_ok=True)
 
-    def _try_button_download(
-        self, url: str, save_path: str, timeout: int
-    ) -> Optional[bool]:
-        """Try strategy 2: find and click a download button on the detail page."""
+    def _direct_download(self, detail: Page, url: str) -> Any:
         try:
-            self.page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-
-        # Find download button: instant check first, then short waits
-        btn_selectors = [
-            "button:has-text('公告下载')",
-            "a:has-text('下载')",
-            ".download-link",
-            "button:has-text('下载')",
-            "a:has-text('公告下载')",
-        ]
-        btn = None
-
-        # Phase 1: instant query — page is usually already rendered
-        for selector in btn_selectors:
+            with detail.expect_download(timeout=10000) as received:
+                detail.goto(url, wait_until="domcontentloaded", timeout=C.PAGE_LOAD_TIMEOUT * 1000)
+            return received.value
+        except Exception as error:
+            if "Download is starting" not in str(error):
+                raise BrowserDownloadError("direct", "unknown") from error
             try:
-                btn = self.page.query_selector(selector)
-                if btn and btn.is_visible():
-                    break
-                btn = None
-            except Exception:
-                continue
+                return detail.wait_for_event("download", timeout=5000)
+            except Exception as unfinished:
+                raise BrowserDownloadError("direct", "sent") from unfinished
 
-        # Phase 2: short waits only if instant check found nothing
-        if not btn:
-            for selector in btn_selectors:
-                try:
-                    self.page.wait_for_selector(selector, timeout=3000, state="visible")
-                    btn = self.page.query_selector(selector)
-                    if btn:
-                        break
-                except Exception:
-                    continue
-
-        if not btn:
-            log.debug(
-                "Download button not found (page may not support button download)"
-            )
-            return False
-
+    @staticmethod
+    def _button_download(detail: Page, timeout: int) -> Any:
+        selectors = (
+            "button:has-text('公告下载')", "a:has-text('下载')", ".download-link",
+            "button:has-text('下载')", "a:has-text('公告下载')",
+        )
         try:
-            with self.page.expect_download(timeout=timeout * 1000) as dl_info:
-                btn.click()
-                log.info("Clicked download button, waiting for file...")
-            download = dl_info.value
-            download.save_as(save_path)
-            if Path(save_path).stat().st_size > C.MIN_FILE_SIZE:
-                log.info(f"Button download successful: {save_path}")
-                return True
-            else:
-                log.warning(f"Downloaded file too small: {save_path}")
-                return False
-        except Exception as e:
-            log.debug(f"Button download failed: {e}")
-        return None
+            button = next(
+                (node for selector in selectors
+                 if (node := detail.query_selector(selector)) and node.is_visible()),
+                None,
+            )
+            if button is None:
+                for selector in selectors:
+                    try:
+                        button = detail.wait_for_selector(selector, timeout=3000, state="visible")
+                    except PlaywrightTimeoutError:
+                        continue
+                    if button:
+                        break
+            if button is None:
+                raise LookupError("No download button was exposed")
+            with detail.expect_download(timeout=timeout * 1000) as received:
+                button.click()
+            return received.value
+        except Exception as cause:
+            raise BrowserDownloadError("button", "unknown") from cause
 
     def download_file(self, url: str, save_path: str, timeout: int = 60) -> bool:
-        """Download a file from a detail page URL.
-
-        cninfo has two download modes:
-        1. Direct download — navigation triggers immediate PDF download
-        2. Button download — detail page has a "公告下载" button
-        We try both.
-        """
+        """Fetch into an independent detail page and commit only complete bytes."""
+        target = native_path(Path(save_path))
         try:
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            log.info(f"Attempting download: {url}")
-
-            # Strategy 1: direct download
-            result = self._try_direct_download(url, save_path)
-            if result is True:
-                return True
-
-            # Strategy 2: button click
-            result = self._try_button_download(url, save_path, timeout)
-            if result is True:
-                return True
-
-            return False
-        except Exception as e:
-            log.error(f"Download failed for {url}: {e}")
-            return False
+            target.parent.mkdir(parents=True, exist_ok=True)
+            detail = self._context.new_page()
+        except Exception as cause:
+            raise BrowserDownloadError("setup", "not_sent") from cause
+        try:
+            try:
+                download = self._direct_download(detail, url)
+            except BrowserDownloadError as error:
+                checkpoint("direct-download", "failed", sent=error.sent, cause_types=exception_types(error))
+                if error.sent == "sent":
+                    raise
+                download = self._button_download(detail, timeout)
+            self._save_download(download, target)
+            return True
+        finally:
+            try:
+                detail.close()
+            except Exception as error:
+                log.warning("Could not close document page exception_type=%s", type(error).__name__)
 
     # ── Pagination ────────────────────────────────────────────────────
 
     def go_to_next_page(self, timeout: int = 10) -> bool:
-        """Click the 'next page' button."""
-        try:
-            btn = self.page.query_selector(C.NEXT_PAGE_CSS)
-            if btn and not btn.is_disabled():
-                btn.click()
-                time.sleep(C.PAGINATION_WAIT)
-                return True
+        """Advance to the next page. False means the last page was observed."""
+        position = self.get_current_page_info()
+        current = position["current_page"]
+        return self._turn_page(
+            current, current + 1, "next", C.NEXT_PAGE_CSS, timeout,
+            boundary=current == position["total_pages"],
+        )
+
+    def go_to_previous_page(self, timeout: int = 10) -> bool:
+        """Go to the previous page. False means the first page was observed."""
+        current = self.get_current_page_info()["current_page"]
+        if current == 1:
             return False
-        except Exception:
-            return False
+        return self._turn_page(current, current - 1, "previous", C.PREV_PAGE_CSS, timeout)
 
     def go_to_page(self, page_number: int, timeout: int = 10) -> bool:
         """Navigate to a specific page number."""
+        position = self.get_current_page_info()
+        current = position["current_page"]
+        if page_number == current or not 1 <= page_number <= position["total_pages"]:
+            return False
+        return self._turn_page(current, page_number, "numbered", None, timeout)
+
+    def go_to_last_page(self, timeout: int = 10) -> bool:
+        """Jump to the observed last page using a dedicated or numbered button."""
+        position = self.get_current_page_info()
+        current, total = position["current_page"], position["total_pages"]
+        if current == total:
+            return False
+        return self._turn_page(current, total, "last", C.LAST_PAGE_CSS, timeout)
+
+    def _turn_page(self, current: int, destination: int, operation: str,
+                   selector: Optional[str], timeout: int, *, boundary: bool = False) -> bool:
+        """Verify arrival before any caller may process the target page."""
         try:
-            pages = self.page.query_selector_all(".el-pager li.number")
-            for pg in pages:
-                if pg.text_content() == str(page_number):
-                    pg.click()
-                    time.sleep(C.PAGINATION_WAIT)
-                    return True
-            return False
-        except Exception:
-            return False
-
-    def go_to_last_page(self) -> bool:
-        """Navigate to the last page using the .btn-last button.
-
-        Falls back to clicking the last visible page number if .btn-last
-        is not available.
-        """
-        try:
-            # Primary: click the dedicated "last page" button
-            btn = self.page.query_selector(C.LAST_PAGE_CSS)
-            if btn and not btn.is_disabled():
-                btn.click()
-                time.sleep(C.PAGINATION_WAIT)
-                return True
-
-            # Fallback: get total pages from page info and navigate directly
-            info = self.get_current_page_info()
-            total = info.get("total_pages", 1)
-            if total > 1:
-                return self.go_to_page(total)
-            return False
-        except Exception:
-            return False
+            button = self.page.query_selector(selector) if selector else None
+            if operation in ("last", "numbered") and (button is None or button.is_disabled()):
+                button = next(
+                    (item for item in self.page.query_selector_all(".el-pager li.number")
+                     if (item.text_content() or "").strip() == str(destination)),
+                    None,
+                )
+            if button is None or button.is_disabled():
+                if boundary:
+                    return False
+                raise RuntimeError("Expected pagination control is unavailable")
+            button.click()
+            self.page.wait_for_function(
+                "(destination) => Number(document.querySelector('.el-pager .active')?.textContent) === destination",
+                arg=destination, timeout=timeout * 1000,
+            )
+            time.sleep(C.PAGINATION_WAIT)
+        except Exception as exc:
+            raise PaginationError(operation, current, destination) from exc
+        return True
 
     def has_next_page(self, timeout: int = 5) -> bool:
         """Check if there is a next page available."""
-        try:
-            btn = self.page.query_selector(C.NEXT_PAGE_CSS)
-            return btn is not None and not btn.is_disabled()
-        except Exception:
-            return False
+        position = self.get_current_page_info()
+        return position["current_page"] < position["total_pages"]
 
     def get_current_page_info(self) -> Dict[str, Any]:
         """Get current page number and total pages.
@@ -606,7 +581,7 @@ class PlaywrightBrowser:
         always shows the final page number, even when the full list is
         ellipsis-truncated (e.g. 1 2 3 4 ... 38).
 
-        We also check .el-pagination__total as a fallback.
+        The total-record label is not a page count.
         """
         try:
             info = self.page.evaluate("""
@@ -624,27 +599,16 @@ class PlaywrightBrowser:
                         }
                     }
 
-                    // Strategy 2: .el-pagination__total fallback
-                    const el = document.querySelector('.el-pagination__total');
-                    const totalText = el ? el.textContent : '';
-                    const totalMatch = totalText.match(/\\d+/);
-                    const totalFromText = totalMatch ? parseInt(totalMatch[0]) : 0;
-
-                    // Use pager result (more reliable), fall back to text
-                    const total_pages = totalFromPager > 1 ? totalFromPager
-                                      : totalFromText > 0 ? totalFromText
-                                      : 1;
-
                     return {
                         current_page: active ? parseInt(active.textContent) : 1,
-                        total_pages: total_pages,
+                        total_pages: totalFromPager,
                     };
                 }
             """)
-            return info if info else {"current_page": 1, "total_pages": 1}
-        except PlaywrightTimeoutError as exc:
-            log.warning("Timed out reading pagination info: %s", exc, exc_info=True)
-            return {"current_page": 1, "total_pages": 1}
+            current, total = info["current_page"], info["total_pages"]
+            if type(current) is not int or type(total) is not int or not 1 <= current <= total:
+                raise ValueError("Pagination returned inconsistent page numbers")
+            return info
         except Exception as exc:
             log.error("Failed to read pagination info: %s", exc, exc_info=True)
             raise BrowserError(f"Failed to read pagination info: {exc}") from exc

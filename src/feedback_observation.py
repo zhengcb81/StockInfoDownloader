@@ -116,6 +116,13 @@ DETAILS_ALLOWED_KEYS = (
     # Coarse in-repo code location ("本仓相对代码位置"): a stable
     # ``file.py:site`` token, never a line-numbered stack frame.
     "code_site",
+    "page",
+    "target_page",
+    "candidate_count",
+    "files_confirmed",
+    "attempt",
+    "input_ref",
+    "http_status",
 )
 
 
@@ -152,7 +159,7 @@ def filter_details(details: Mapping[str, Any]) -> dict[str, Any]:
             safe.pop(name, None)
     # Free-token fields stay token-only too: a raw exception message, path or
     # command can never travel under error_code/cause_chain/cause_types.
-    for name in ("error_code", "action", "mode", "source_result"):
+    for name in ("error_code", "action", "mode", "source_result", "input_ref"):
         value = safe.get(name)
         if not (isinstance(value, str) and is_safe_ref(value)):
             safe.pop(name, None)
@@ -186,7 +193,8 @@ def filter_details(details: Mapping[str, Any]) -> dict[str, Any]:
         isinstance(safe["stock_code"], str) and is_safe_ref(safe["stock_code"])
     ):
         safe.pop("stock_code", None)
-    for name in ("exit_code", "attempted", "succeeded", "failed", "skipped"):
+    for name in ("exit_code", "attempted", "succeeded", "failed", "skipped", "page",
+                 "target_page", "candidate_count", "files_confirmed", "attempt", "http_status"):
         value = safe.get(name)
         if isinstance(value, bool) or not isinstance(value, int):
             safe.pop(name, None)

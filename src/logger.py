@@ -80,13 +80,19 @@ class _FileHandler(RotatingFileHandler):
     reported_error = False
 
     def handleError(self, record: logging.LogRecord) -> None:
-        if self.warn_on_error and not self.reported_error and sys.stderr is not None:
-            self.reported_error = True
+        first_failure = not self.reported_error
+        self.reported_error = True
+        if self.warn_on_error and first_failure and sys.stderr is not None:
             error_type = type(sys.exc_info()[1]).__name__
             try:
                 print(f"warning: SID log write unavailable ({error_type})", file=sys.stderr)
             except (OSError, ValueError):
                 pass
+
+
+def diagnostic_file_failed() -> bool:
+    """Report an actual failure from the currently attached local file sink."""
+    return any(isinstance(handler, _FileHandler) and handler.reported_error for handler in log.handlers)
 
 
 def _remove_handler(logger: logging.Logger, handler: logging.Handler) -> None:

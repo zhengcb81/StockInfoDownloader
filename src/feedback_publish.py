@@ -47,6 +47,7 @@ from .feedback_observation import (
     make_observation,
 )
 from .logger import log
+from .runtime_steps import implementation_version
 
 ENV_DIR = "RESEARCH_FEEDBACK_DIR"
 ENV_STATE_ROOT = "RESEARCH_FEEDBACK_STATE_ROOT"
@@ -196,7 +197,8 @@ def _delivery_record(
 
 
 def write_startup_receipt(
-    run_id: str, attempt_id: str, *, root: Path | None = None
+    run_id: str, attempt_id: str, *, root: Path | None = None,
+    entry: str | None = None, version: str | None = None,
 ) -> bool:
     """Mark the run as started; called before any side effect."""
     if not (is_safe_ref(run_id) and is_safe_ref(attempt_id)):
@@ -206,14 +208,23 @@ def write_startup_receipt(
         with exclusive_file(state_root(root) / "run-receipts"):
             if path.exists():
                 return True  # a started receipt is never rewritten
-            _atomic_json(path, {
+            payload = {
                 "schema_version": RECEIPT_SCHEMA,
                 "owner": OWNER,
                 "run_id": run_id,
                 "attempt_id": attempt_id,
                 "started_at": utc_now_pub(),
                 "terminal": None,
-            })
+            }
+            if entry is not None:
+                payload["entry"] = entry
+            if version is not None:
+                payload["version"] = version
+                try:
+                    payload["implementation"] = implementation_version()
+                except OSError:
+                    payload["implementation"] = "unknown"
+            _atomic_json(path, payload)
             return True
     except OSError as exc:
         log.debug("startup receipt unavailable: %s", type(exc).__name__)
@@ -258,10 +269,55 @@ def read_receipts(root: Path | None = None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for path in sorted(native_path(runs_dir(root)).glob("*.json")):
         try:
-            rows.append(json.loads(path.read_text(encoding="utf-8")))
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+            events = _read_checkpoints(path.with_suffix(".jsonl"))
+            if events:
+                receipt["checkpoints"] = events
+            rows.append(receipt)
         except (OSError, ValueError):
             continue
     return rows
+
+
+def write_checkpoint(
+    run_id: str, attempt_id: str, step_id: str, details: Mapping[str, Any],
+    *, root: Path | None = None,
+) -> bool:
+    """Record one already-known step before optional observation delivery."""
+    if not all(is_safe_ref(item) for item in (run_id, attempt_id, step_id)):
+        return False
+    path = native_path(runs_dir(root) / f"{run_id}__{attempt_id}.jsonl")
+    payload = {**filter_details(details), "step_id": step_id, "observed_at": utc_now_pub()}
+    try:
+        with exclusive_file(path), path.open("a+b") as stream:
+            separator = b""
+            if stream.seek(0, os.SEEK_END):
+                stream.seek(-1, os.SEEK_END)
+                separator = b"" if stream.read(1) == b"\n" else b"\n"
+            stream.write(separator + (json.dumps(payload, ensure_ascii=True) + "\n").encode("ascii"))
+            stream.flush()
+            os.fsync(stream.fileno())
+        return True
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def _read_checkpoints(path: Path) -> list[dict[str, Any]]:
+    events = []
+    try:
+        with path.open("rb") as stream:
+            for line in stream:
+                if not line.endswith(b"\n"):
+                    break
+                try:
+                    record = json.loads(line)
+                    if isinstance(record, dict) and is_safe_ref(record.get("step_id")):
+                        events.append({**filter_details(record), "step_id": record["step_id"]})
+                except (UnicodeError, ValueError, RecursionError):
+                    continue
+    except OSError:
+        pass
+    return events
 
 
 def read_pending(root: Path | None = None) -> list[dict[str, Any]]:
@@ -513,11 +569,13 @@ class NativeFeedbackSink(FeedbackSink):
         return delivered
 
 
-def command_sink(version: str) -> FeedbackSink:
+def command_sink(version: str, *, identity: tuple[str, str] | None = None) -> FeedbackSink:
     target = resolve_target()
     if target[0] == "out":
+        if identity is not None:
+            return FeedbackSink(target[1], run_id=identity[0], attempt_id=identity[1], version=version)
         return FeedbackSink.from_env(version=version)
-    run_id, attempt_id = establish_identity()
+    run_id, attempt_id = identity if identity is not None else establish_identity()
     return NativeFeedbackSink(Publisher(
         run_id=run_id, attempt_id=attempt_id, version=version, target=target,
     ))
@@ -596,6 +654,25 @@ def task_step_id(task_key: Mapping[str, Any]) -> str:
     return request_step_id("download", dict(task_key))
 
 
+class RunReceipt:
+    """One owner run ledger, independent of any observation destination."""
+
+    def __init__(self, *, entry: str, version: str):
+        self.identity = establish_identity()
+        self.root = state_root()
+        self.available = write_startup_receipt(*self.identity, root=self.root, entry=entry, version=version)
+
+    def checkpoint(self, step_id: str, details: Mapping[str, Any]) -> bool:
+        written = write_checkpoint(*self.identity, step_id, details, root=self.root)
+        self.available = self.available and written
+        return written
+
+    def finish(self, terminal: Mapping[str, Any]) -> bool:
+        written = finish_receipt(*self.identity, terminal, root=self.root)
+        self.available = self.available and written
+        return written
+
+
 class OrdinaryRunFeedback:
     """Identity, startup receipt and settlement publication for one run.
 
@@ -605,9 +682,10 @@ class OrdinaryRunFeedback:
     """
 
     def __init__(self, *, version: str = ORDINARY_VERSION) -> None:
-        self.run_id, self.attempt_id = establish_identity()
+        self.receipt = RunReceipt(entry="ordinary", version=version)
+        self.run_id, self.attempt_id = self.receipt.identity
         self.version = version
-        self.root = state_root()
+        self.root = self.receipt.root
         target = resolve_target(self.root)
         self.target_kind, self.target_path = target
         self.publisher = Publisher(
@@ -618,8 +696,14 @@ class OrdinaryRunFeedback:
             state_root=self.root,
         )
         self.write_failures = 0
-        if not write_startup_receipt(self.run_id, self.attempt_id, root=self.root):
+        if not self.receipt.available:
             self.write_failures += 1
+
+    def checkpoint(self, step_id: str, details: Mapping[str, Any]) -> None:
+        if not self.receipt.checkpoint(step_id, details):
+            self.write_failures += 1
+            log.warning("ordinary_checkpoint_unavailable run_id=%s attempt_id=%s step_id=%s",
+                        self.run_id, self.attempt_id, step_id)
 
     # ── per-task observations ─────────────────────────────────────────
 
@@ -794,7 +878,7 @@ class OrdinaryRunFeedback:
         return status
 
     def _finish_receipt(self, terminal: Mapping[str, Any]) -> None:
-        if not finish_receipt(self.run_id, self.attempt_id, terminal, root=self.root):
+        if not self.receipt.finish(terminal):
             self.write_failures += 1
 
 

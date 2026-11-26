@@ -328,7 +328,7 @@ class TestSaveSubdirComponentMatch:
         page = _FakePage({"定期报告": []})
         downloader = _downloader(tmp_path)
         downloader._browser = page
-        downloader._download_pages = lambda _request: [str(stray)]
+        downloader._download_pages = lambda _request, confirmed: confirmed.append(str(stray))
 
         result = downloader.download(_request(suffix=None, save_subdir="raw/prospectus"))
 
@@ -345,7 +345,7 @@ class TestSaveSubdirComponentMatch:
         page = _FakePage({"定期报告": []})
         downloader = _downloader(tmp_path)
         downloader._browser = page
-        downloader._download_pages = lambda _request: [str(good)]
+        downloader._download_pages = lambda _request, confirmed: confirmed.append(str(good))
 
         result = downloader.download(_request(suffix=None, save_subdir="raw/prospectus"))
 
@@ -464,9 +464,9 @@ class TestVerificationOutcome:
         page = _FakePage({"定期报告": []})
         downloader = _downloader(tmp_path)
         downloader._browser = page
-        downloader._download_pages = lambda _request: [
+        downloader._download_pages = lambda _request, confirmed: confirmed.extend([
             str(tmp_path / "downloads" / "gone.pdf")
-        ]
+        ])
 
         result = downloader.download(_request(suffix=None))
 
@@ -480,7 +480,7 @@ class TestVerificationOutcome:
         page = _FakePage({"定期报告": []})
         downloader = _downloader(tmp_path)
         downloader._browser = page
-        downloader._download_pages = lambda _request: []
+        downloader._download_pages = lambda _request, _confirmed: None
 
         result = downloader.download(_request(suffix=None))
 
@@ -530,7 +530,7 @@ class TestVerificationOutcome:
         page = _FakePage({"定期报告": []})
         downloader = _downloader(tmp_path)
         downloader._browser = page
-        downloader._download_pages = lambda _request: []
+        downloader._download_pages = lambda _request, _confirmed: None
 
         result = downloader.download(_request(suffix=None))
 

@@ -17,12 +17,31 @@ class BrowserError(DownloaderError):
     """Raised when browser automation fails."""
 
 
+class PaginationError(BrowserError):
+    """The browser could not confirm a requested page transition."""
+
+    def __init__(self, operation: str, page: int, target_page: int):
+        self.operation = operation
+        self.page = page
+        self.target_page = target_page
+        super().__init__(f"Pagination {operation} failed from page {page} to page {target_page}")
+
+
 class ConfigError(DownloaderError):
     """Raised when configuration is invalid or missing."""
 
 
 class DownloadError(DownloaderError):
     """Raised when a file download fails."""
+
+
+class BrowserDownloadError(DownloadError):
+    """Expose the stage and the last known provider effect to the caller."""
+
+    def __init__(self, phase: str, sent: str):
+        self.phase = phase
+        self.sent = sent
+        super().__init__(f"Browser download failed at {phase}")
 
 
 class MappingError(DownloaderError):

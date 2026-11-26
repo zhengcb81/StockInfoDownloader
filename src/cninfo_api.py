@@ -28,6 +28,7 @@ from .acquisition_budget import (
 )
 from . import constants as C
 from .cninfo_report_metadata import report_metadata
+from .runtime_steps import checkpoint
 from .transport_states import LoadState
 
 
@@ -170,6 +171,7 @@ class CninfoAnnouncementClient:
                 page_num=page_num,
                 page_size=30,
             )
+            checkpoint("announcement-page", "dispatching", page=page_num, sent="unknown")
             raw_json = self._post_json(body, budget=budget)
             page_records, page_state, meta = self._filter_page(
                 raw_json,
@@ -177,6 +179,8 @@ class CninfoAnnouncementClient:
                 document_kind=document_kind,
                 fiscal_year=fiscal_year,
             )
+            checkpoint("announcement-page", "observed", page=page_num,
+                       candidate_count=meta.raw_count, sent="sent")
             if page_state == LoadState.READY:
                 state = LoadState.READY
                 records.extend(page_records)
@@ -235,6 +239,7 @@ class CninfoAnnouncementClient:
                 page_size=30,
                 se_date=se_date,
             )
+            checkpoint("announcement-page", "dispatching", page=page_num, sent="unknown")
             raw_json = self._post_json(body, budget=budget)
             try:
                 page_records, meta = self._filter_latest_page(
@@ -257,6 +262,8 @@ class CninfoAnnouncementClient:
                     error_code="discovery_incomplete",
                     retryable=False,
                 ) from exc
+            checkpoint("announcement-page", "observed", page=page_num,
+                       candidate_count=meta.raw_count, sent="sent")
             pages_read += 1
             if total_declared is None:
                 total_declared = meta.total
@@ -333,8 +340,10 @@ class CninfoAnnouncementClient:
                 "isHLtitle": "true",
             }
         ).encode("utf-8")
+        checkpoint("identity-query", "dispatching", stock_code=stock_code, sent="unknown")
         payload = self._post_json(body, budget=budget)
         _total, raw, _totalpages, _has_more = self._validated_page(payload)
+        checkpoint("identity-query", "observed", stock_code=stock_code, candidate_count=len(raw), sent="sent")
         matches: set[str] = set()
         for record in raw:
             if not isinstance(record, dict):
@@ -405,8 +414,10 @@ class CninfoAnnouncementClient:
                     if budget is None
                     else min(self._timeout, budget.remaining_seconds)
                 )
+                checkpoint("pdf-transport", "dispatching", sent="unknown")
                 with urllib.request.urlopen(request, timeout=timeout) as response:
                     status = response.status
+                    checkpoint("pdf-transport", "headers_received", sent="sent", http_status=status)
                     content_type = response.headers.get("Content-Type", "")
                     if budget is None:
                         body = response.read()
@@ -476,6 +487,7 @@ class CninfoAnnouncementClient:
             if final_path.exists():
                 final_path.unlink()
             part_path.replace(final_path)
+            checkpoint("pdf-transport", "confirmed", sent="sent", files_confirmed=1)
             return final_path
         except BaseException:
             if part_path.exists():
@@ -723,12 +735,12 @@ class CninfoAnnouncementClient:
             # Some responses use string; coerce defensively.
             try:
                 total = int(total)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as exc:
                 raise CninfoApiError(
                     f"API 'totalRecordNum' must be int, got {type(total).__name__}",
                     error_code="schema_drift",
                     retryable=False,
-                )
+                ) from exc
         announcements = payload.get("announcements")
         # The cninfo historical-announcement API returns ``announcements=null``
         # when the requested page has no more matches (totalRecordNum==0 on
