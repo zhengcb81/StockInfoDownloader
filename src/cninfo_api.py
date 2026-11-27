@@ -13,9 +13,12 @@ staging directory.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from http.client import IncompleteRead
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 import json
 from typing import Any
 from urllib.parse import quote, urlencode, urlparse
@@ -28,6 +31,7 @@ from .acquisition_budget import (
 )
 from . import constants as C
 from .cninfo_report_metadata import report_metadata
+from .feedback_files import native_path, replace_file
 from .runtime_steps import checkpoint
 from .transport_states import LoadState
 
@@ -386,12 +390,7 @@ class CninfoAnnouncementClient:
         if not safe_name.lower().endswith(".pdf"):
             safe_name = f"{safe_name}.pdf"
         final_path = allocated / safe_name
-        part_path = allocated / f"{safe_name}.part"
-        if part_path.exists():
-            try:
-                part_path.unlink()
-            except OSError:
-                pass
+        part_path: Path | None = None
         try:
             request = urllib.request.Request(
                 transport_url,
@@ -419,15 +418,11 @@ class CninfoAnnouncementClient:
                     status = response.status
                     checkpoint("pdf-transport", "headers_received", sent="sent", http_status=status)
                     content_type = response.headers.get("Content-Type", "")
-                    if budget is None:
-                        body = response.read()
-                        body_size = len(body)
-                    else:
-                        body = b""
-                        with part_path.open("wb") as stream:
-                            body_size = self._copy_bounded_response(
-                                response, stream, budget
-                            )
+                    with NamedTemporaryFile(
+                        "wb", dir=native_path(allocated), prefix=".sid-", suffix=".part", delete=False
+                    ) as stream:
+                        part_path = Path(stream.name)
+                        body_size = self._copy_response(response, stream, budget)
             except urllib.error.HTTPError as exc:
                 raise CninfoApiError(
                     f"transport HTTP {exc.code}: {exc.reason}",
@@ -462,8 +457,6 @@ class CninfoAnnouncementClient:
                     retryable=True,
                     http_status=status,
                 )
-            if budget is None:
-                part_path.write_bytes(body)
             if body_size <= C.MIN_FILE_SIZE:
                 raise CninfoApiError(
                     f"content too small: {body_size} bytes <= MIN_FILE_SIZE={C.MIN_FILE_SIZE}",
@@ -471,11 +464,8 @@ class CninfoAnnouncementClient:
                     retryable=False,
                     http_status=status,
                 )
-            if budget is None:
-                prefix = body[:5]
-            else:
-                with part_path.open("rb") as stream:
-                    prefix = stream.read(5)
+            with part_path.open("rb") as stream:
+                prefix = stream.read(5)
             if prefix != b"%PDF-":
                 raise CninfoApiError(
                     "content failed PDF magic validation (expecting %PDF- prefix)",
@@ -483,19 +473,13 @@ class CninfoAnnouncementClient:
                     retryable=False,
                     http_status=status,
                 )
-            # Atomic OS-level rename into final destination
-            if final_path.exists():
-                final_path.unlink()
-            part_path.replace(final_path)
+            replace_file(part_path, final_path)
             checkpoint("pdf-transport", "confirmed", sent="sent", files_confirmed=1)
             return final_path
-        except BaseException:
-            if part_path.exists():
-                try:
-                    part_path.unlink()
-                except OSError:
-                    pass
-            raise
+        finally:
+            if part_path is not None:
+                with suppress(OSError):
+                    part_path.unlink(missing_ok=True)
 
     # ── INTERNAL: request construction ─────────────────────────────────
 
@@ -669,36 +653,48 @@ class CninfoAnnouncementClient:
         return length if length >= 0 else None
 
     @classmethod
-    def _copy_bounded_response(
+    def _copy_response(
         cls,
         response: Any,
         destination: Any,
-        budget: ProviderAcquisitionBudget,
+        budget: ProviderAcquisitionBudget | None,
     ) -> int:
         declared = cls._declared_length(response)
-        if declared is not None and declared > budget.remaining_response_bytes:
+        if budget is not None and declared is not None and declared > budget.remaining_response_bytes:
             raise AcquisitionBudgetExceeded(
                 "declared response size exceeds remaining response-byte budget"
             )
         total = 0
         while declared is None or total < declared:
-            budget.ensure_open()
-            remaining = budget.remaining_response_bytes
-            if remaining <= 0:
-                # Without a declared body length, probing EOF would require
-                # reading beyond the cap. Refuse conservatively instead.
-                raise AcquisitionBudgetExceeded(
-                    "response-byte budget exhausted before body completion"
-                )
-            requested = min(_READ_CHUNK_BYTES, remaining)
-            chunk = response.read(requested)
+            requested = _READ_CHUNK_BYTES
+            if declared is not None:
+                requested = min(requested, declared - total)
+            if budget is not None:
+                budget.ensure_open()
+                requested = min(requested, budget.remaining_response_bytes)
+                if requested <= 0:
+                    # Probing for EOF without a declared length would exceed the cap.
+                    raise AcquisitionBudgetExceeded(
+                        "response-byte budget exhausted before body completion"
+                    )
+            try:
+                chunk = response.read(requested)
+            except IncompleteRead as exc:
+                if budget is not None:
+                    budget.consume_response_bytes(len(exc.partial))
+                raise CninfoApiError(
+                    "response body was truncated",
+                    error_code="upstream_unavailable",
+                    retryable=True,
+                ) from exc
             if not chunk:
                 break
-            if len(chunk) > requested:
-                raise AcquisitionBudgetExceeded(
-                    "provider transport returned more bytes than requested"
-                )
-            budget.consume_response_bytes(len(chunk))
+            if budget is not None:
+                if len(chunk) > requested:
+                    raise AcquisitionBudgetExceeded(
+                        "provider transport returned more bytes than requested"
+                    )
+                budget.consume_response_bytes(len(chunk))
             destination.write(chunk)
             total += len(chunk)
         if declared is not None and total != declared:
@@ -716,7 +712,7 @@ class CninfoAnnouncementClient:
         from io import BytesIO
 
         buffer = BytesIO()
-        cls._copy_bounded_response(response, buffer, budget)
+        cls._copy_response(response, buffer, budget)
         return buffer.getvalue()
 
     # ── INTERNAL: schema-strict filtering ───────────────────────────────

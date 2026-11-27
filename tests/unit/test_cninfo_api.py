@@ -394,7 +394,7 @@ def test_fetch_pdf_writes_part_then_atomic_rename_on_success(tmp_path, monkeypat
     body = b"%PDF-1.7\n" + b"x" * (C.MIN_FILE_SIZE + 1000)
     fake_resp = MagicMock()
     fake_resp.status = 200
-    fake_resp.headers = {"Content-Type": "application/pdf"}
+    fake_resp.headers = {"Content-Type": "application/pdf", "Content-Length": str(len(body))}
     fake_resp.read.return_value = body
     cm = MagicMock()
     cm.__enter__.return_value = fake_resp
@@ -445,7 +445,7 @@ def test_fetch_pdf_bad_magic_removes_part_and_raises(tmp_path, monkeypatch):
     body = b"<html>fake pdf</html>" + b"x" * 2048  # enough size but bad magic
     fake_resp = MagicMock()
     fake_resp.status = 200
-    fake_resp.headers = {"Content-Type": "application/pdf"}
+    fake_resp.headers = {"Content-Type": "application/pdf", "Content-Length": str(len(body))}
     fake_resp.read.return_value = body
     cm = MagicMock()
     cm.__enter__.return_value = fake_resp
@@ -469,7 +469,7 @@ def test_fetch_pdf_small_file_removes_part_and_raises(tmp_path, monkeypatch):
     body = b"%PDF-1.7\nshort"  # < MIN_FILE_SIZE
     fake_resp = MagicMock()
     fake_resp.status = 200
-    fake_resp.headers = {"Content-Type": "application/pdf"}
+    fake_resp.headers = {"Content-Type": "application/pdf", "Content-Length": str(len(body))}
     fake_resp.read.return_value = body
     cm = MagicMock()
     cm.__enter__.return_value = fake_resp

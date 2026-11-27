@@ -1,9 +1,14 @@
-"""Filesystem operations shared by SID's failure journal and feedback outbox."""
+"""Local file operations shared by SID's download and feedback paths."""
 
 from contextlib import contextmanager, suppress
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from time import sleep
+
+
+_REPLACE_DELAYS = (0.02, 0.04, 0.08)
+_WINDOWS_RETRYABLE_ERRORS = {5, 32}  # access denied, sharing violation
 
 
 def native_path(path: Path) -> Path:
@@ -19,6 +24,22 @@ def native_path(path: Path) -> Path:
     if absolute.startswith(chr(92) * 2):
         absolute = "UNC" + chr(92) + absolute[2:]
     return Path(extended + absolute)
+
+
+def replace_file(source: Path, destination: Path) -> None:
+    """Publish on the same filesystem, retrying brief Windows sharing failures."""
+    native_source = native_path(source)
+    native_destination = native_path(destination)
+    for delay in _REPLACE_DELAYS:
+        try:
+            os.replace(native_source, native_destination)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in _WINDOWS_RETRYABLE_ERRORS:
+                raise
+            sleep(delay)
+        else:
+            return
+    os.replace(native_source, native_destination)
 
 
 @contextmanager
@@ -37,7 +58,7 @@ def atomic_text(path: Path):
             os.fsync(stream.fileno())
         # Read-only consumers can temporarily hold a non-sharing Windows handle.
         # A refused publication leaves all durable preexisting state untouched.
-        os.replace(temporary, target)
+        replace_file(temporary, target)
     finally:
         if temporary is not None:
             with suppress(OSError):
