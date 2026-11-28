@@ -16,11 +16,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 import pytest
 
+from tests.native_process_fixture import native_run
 from tests.provider_runtime_fixture import RUNTIME_FILES, copy_runtime
 
 WORKTREE = Path(__file__).resolve().parents[2]
@@ -146,7 +146,7 @@ def _env(artifact_root, doubles, **extra):
 
 
 def _run(artifact_root, doubles, empty_cwd, argv, payload, **extra):
-    return subprocess.run(
+    return native_run(
         [sys.executable, "-B", "-m", "src.company_wiki_adapter_cli", *argv],
         cwd=str(empty_cwd),
         env=_env(artifact_root, doubles, **extra),
@@ -187,6 +187,7 @@ def test_artifact_runtime_has_no_browser_or_downloader_modules(artifact):
     assert "downloader.py" not in present
     assert "mapping.py" not in present
     assert "models.py" not in present
+    assert not (artifact_root / "main.py").exists()
 
 
 @pytest.mark.parametrize("feedback_mode", ["default", "enabled", "unwritable", "invalid_context"])
@@ -301,7 +302,8 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
     staged = sorted(path.name for path in staging.iterdir())
     assert staged == [Path(receipt["staged_path"]).name]
     assert list(staging.glob("*.part")) == []
-    if feedback_mode == "enabled":
+    state = tmp_path / "state"
+    if feedback_mode in {"enabled", "invalid_context"}:
         for path, check, expected in (
             (discover_out, "candidate-listing-identity", "verified"),
             (fetch_out, "staged-fetch-receipt", "staged"),
@@ -316,19 +318,28 @@ def test_artifact_discover_and_fetch_work_from_an_empty_cwd(
                        for item in events), events
             assert any(item["check_id"] == "acquisition-budget" and
                        item["actual"] == "within_budget" for item in events), events
-    elif feedback_mode in {"default", "invalid_context"}:
+            if feedback_mode == "invalid_context":
+                identities = {(item["run_id"], item["attempt_id"]) for item in events}
+                (run_id, attempt_id), = identities
+                assert run_id.startswith("sid-run-") and attempt_id.startswith("try-")
+                saved = json.loads((state / "runs" / f"{run_id}__{attempt_id}.json").read_bytes())
+                assert saved["run_id"] == run_id and saved["attempt_id"] == attempt_id
+    elif feedback_mode == "default":
         assert not discover_out.exists() and not fetch_out.exists()
         assert not Path(str(discover_out) + ".details.jsonl").exists()
         assert not Path(str(fetch_out) + ".details.jsonl").exists()
-        inbox = tmp_path / "state" / "observations"
-        markers = [json.loads(path.read_bytes()) for path in inbox.glob("*.ready")]
-        if feedback_mode == "default":
-            assert {row["check_id"] for row in markers} >= {
-                "candidate-listing-identity", "staged-fetch-receipt", "action-started",
-            }
-            assert all(row["schema_version"] == "sid-ready/1" for row in markers)
-        else:
-            assert not markers
+        markers = [
+            json.loads(path.read_bytes()) for path in (state / "observations").glob("*.ready")
+        ]
+        assert {row["check_id"] for row in markers} >= {
+            "candidate-listing-identity", "staged-fetch-receipt", "action-started",
+        }
+        assert all(row["schema_version"] == "sid-ready/1" for row in markers)
+        run_receipts = [
+            json.loads(path.read_bytes()) for path in (state / "runs").glob("*.json")
+        ]
+        assert len(run_receipts) == 2
+        assert all(row["implementation"].startswith("src-") for row in run_receipts)
 
     # The artifact tree itself stayed read-only.
     assert sorted(p.name for p in (artifact_root / "src").iterdir()) == sorted(

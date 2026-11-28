@@ -32,6 +32,7 @@ from urllib.parse import parse_qs
 
 import pytest
 
+from tests.native_process_fixture import native_run
 from tests.provider_runtime_fixture import copy_runtime
 
 WORKTREE = Path(__file__).resolve().parents[2]
@@ -252,7 +253,7 @@ def _run_cli(
         "--config",
         str(config),
     ]
-    return subprocess.run(
+    return native_run(
         command,
         input=json.dumps(payload),
         capture_output=True,
@@ -589,7 +590,7 @@ def _chdir(path: Path):
 
 
 def _export_cwp_package(dest: Path) -> None:
-    archive = subprocess.run(
+    archive = native_run(
         [
             "git",
             "-C",
@@ -783,7 +784,7 @@ def test_committed_cwp_route_consumes_candidates_or_honest_gap(
     """
     import yaml
 
-    frozen_config = subprocess.run(
+    frozen_config = native_run(
         [
             "git",
             "-C",

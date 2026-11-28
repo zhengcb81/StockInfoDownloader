@@ -26,6 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import shutil
 import subprocess
+from tests.native_process_fixture import native_run
 import sys
 import threading
 from urllib.parse import parse_qs
@@ -307,7 +308,7 @@ def _run(
         "--config",
         str(config),
     ]
-    return subprocess.run(
+    return native_run(
         command,
         input=json.dumps(payload),
         capture_output=True,
@@ -709,7 +710,7 @@ print(json.dumps(probe))
 def test_child_bootstrap_blocks_browser_imports_and_non_loopback_network(
     owned_root,
 ):
-    proc = subprocess.run(
+    proc = native_run(
         [sys.executable, "-c", _GUARD_PROBE],
         capture_output=True,
         text=True,

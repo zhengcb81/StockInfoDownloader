@@ -33,6 +33,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tests.native_process_fixture import native_run, native_start
+
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
@@ -390,7 +392,7 @@ def _companies(work: Path, codes: list[str]) -> Path:
 def _run(
     args: list[str], env: dict, work: Path, timeout: int = 120, payload: bytes = b"",
 ) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    return native_run(
         args, cwd=work, env=env, capture_output=True, timeout=timeout, input=payload,
     )
 
@@ -402,7 +404,7 @@ def _receipt(proc: subprocess.CompletedProcess) -> dict:
 
 def _readback(pattern: str) -> list:
     """Cold read in a separate, isolated interpreter process."""
-    proc = subprocess.run(
+    proc = native_run(
         [*PYTHON, "-I", "-c", RECLI, pattern, str(REPO)],
         capture_output=True, timeout=60,
     )
@@ -1004,12 +1006,12 @@ class TestPublicationInterface:
             [*PYTHON, "-c", PUBLISH_KILL_BEFORE_ACK, str(inbox["dir"]), str(state)],
             _env(work), work,
         )
-        first = subprocess.Popen(
+        first = native_start(
             [*PYTHON, "-B", "-m", "src.feedback_publish", "republish", "--json"],
             cwd=work, env=_env(work, state_root=state),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        second = subprocess.Popen(
+        second = native_start(
             [*PYTHON, "-B", "-m", "src.feedback_publish", "republish", "--json"],
             cwd=work, env=_env(work, state_root=state),
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -1150,7 +1152,7 @@ def test_two_native_logger_instances_keep_both_failures(tmp_path):
         other = workers.submit(peer_flush)
         original.result(10)
         other.result(10)
-    peer = subprocess.run(
+    peer = native_run(
         [*PYTHON, "-I", "-c",
          "import json,sys; print(json.dumps([r['stock_code'] for r in json.load(open(sys.argv[1]))]))",
          str(path)], capture_output=True, timeout=15, check=True,

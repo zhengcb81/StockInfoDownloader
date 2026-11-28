@@ -8,6 +8,8 @@ import urllib.request
 
 import pytest
 
+pytestmark = pytest.mark.regression
+
 from src.acquisition_budget import ProviderAcquisitionBudget
 from src.cninfo_api import CninfoAnnouncementClient, CninfoApiError
 from src import feedback_files
@@ -138,6 +140,7 @@ def test_feedback_publish_retries_windows_sharing_errors(tmp_path, monkeypatch, 
     assert list(tmp_path.iterdir()) == [target]
 
 
+@pytest.mark.windows_only
 @pytest.mark.skipif(sys.platform != "win32", reason="native Windows share mode")
 def test_feedback_publish_retries_a_real_open_windows_file(tmp_path, monkeypatch):
     target = tmp_path / "status.json"

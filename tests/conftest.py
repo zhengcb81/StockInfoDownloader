@@ -15,6 +15,8 @@ explicit OUT, DIR or a differently mapped root keep setting their own values;
 subprocess tests that build a whitelist environment keep mapping their own.
 """
 
+from pathlib import Path
+
 import pytest
 
 _INHERITED_TARGETS = (
@@ -30,3 +32,13 @@ def _isolated_feedback_state_root(tmp_path, monkeypatch):
     for name in _INHERITED_TARGETS:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("RESEARCH_FEEDBACK_STATE_ROOT", str(tmp_path / "feedback-state"))
+
+
+def pytest_itemcollected(item):
+    suite = item.path.relative_to(Path(__file__).parent).parts[0]
+    if suite == "unit":
+        item.add_marker(pytest.mark.unit)
+    elif suite == "contract":
+        item.add_marker(pytest.mark.contract)
+    elif suite == "e2e" and item.get_closest_marker("live") is None:
+        item.add_marker(pytest.mark.e2e_offline)

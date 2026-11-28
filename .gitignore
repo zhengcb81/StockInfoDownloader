@@ -18,6 +18,8 @@ end2end_test/extended_test_results/
 !config_e2e_official.json
 !config_e2e_extended.json
 !tests/**/*.json
+!tools/s6_source_baseline.json
+!tools/s6_test_policy.json
 .env
 .coverage
 htmlcov/

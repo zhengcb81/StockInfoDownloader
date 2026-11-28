@@ -39,6 +39,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from tests.native_process_fixture import native_run
+
 REPO = Path(__file__).resolve().parents[2]
 MAIN_PY = REPO / "main.py"
 PYTHON = [sys.executable, "-B", "-X", "utf8"]
@@ -166,14 +168,14 @@ def _companies(work: Path, text: str, name: str = "companies.txt") -> Path:
 
 
 def _run(args: list[str], env: dict, work: Path, payload: bytes = b"") -> subprocess.CompletedProcess:
-    return subprocess.run(
+    return native_run(
         args, cwd=work, env=env, capture_output=True, timeout=120, input=payload,
     )
 
 
 def _readback(pattern: str) -> list:
     """Cold read in a separate, isolated interpreter process."""
-    proc = subprocess.run(
+    proc = native_run(
         [*PYTHON, "-I", "-c", RECLI, pattern, str(REPO)],
         capture_output=True, timeout=60,
     )

@@ -6,11 +6,11 @@ import json
 import logging
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 import pytest
 
+from tests.native_process_fixture import native_run
 from src.logger import setup_logger
 
 
@@ -86,7 +86,7 @@ def invoke_adapter(tmp_path: Path, *, log_path: Path, block_feedback: bool = Fal
         HOME=str(tmp_path),
         USERPROFILE=str(tmp_path),
     )
-    return subprocess.run(
+    return native_run(
         [sys.executable, "-B", "-m", "src.company_wiki_adapter_cli", "discover", "--config", str(config)],
         cwd=tmp_path, env=env, input=b'{"entity":"Fake"}', capture_output=True,
         timeout=15, check=False,

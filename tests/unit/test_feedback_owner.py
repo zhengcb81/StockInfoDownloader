@@ -6,10 +6,11 @@ import json
 import os
 from pathlib import Path
 import sqlite3
-import subprocess
 import sys
 
 import pytest
+
+from tests.native_process_fixture import native_run
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/fixtures/feedback_observation/listing_identity_rows.json"
@@ -93,7 +94,7 @@ def request(kind, body, identity):
 
 def cli(root, action, payload=None, *tail, lost_reply=False):
     route = ["-c", LOSE_REPLY] if lost_reply else ["-m", "src.feedback_owner"]
-    invocation = subprocess.run(
+    invocation = native_run(
         [
             sys.executable,
             "-B",
@@ -123,7 +124,7 @@ def producer(root, mode):
     config = root / "config.json"
     config.write_text("{}", encoding="utf-8")
     body = {**fixture["request"], "org_id": fixture["announcements"][0]["orgId"]}
-    invocation = subprocess.run(
+    invocation = native_run(
         [
             sys.executable,
             "-B",

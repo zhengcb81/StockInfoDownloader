@@ -8,29 +8,46 @@ on:
 
 jobs:
   contracts:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUTF8: "1"
+      PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      # The G4 fixture exercises this published consumer against local HTTP.
+      G4_CWP_COMMIT: ce89127b6ba1878935e2dd1e17b065e4153c88af
+      G4_CWP_REPO: ${{ github.workspace }}/_cwp_consumer
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: zhengcb81/company-wiki
+          ref: ${{ env.G4_CWP_COMMIT }}
+          path: _cwp_consumer
+          persist-credentials: false
+          sparse-checkout: |
+            src/company_wiki
+            config
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
       - name: Install test dependencies
-        run: python -m pip install -r requirements.txt -r requirements-test.txt
-      - name: Test SID logging, adapter wire and owner diagnostics
-        env:
-          RESEARCH_FEEDBACK_STATE_ROOT: ${{ runner.temp }}/sid-feedback
-        run: >-
-          python -m pytest -q -o addopts="" --tb=short
-          tests/unit/test_s5_adapter_logging.py
-          tests/unit/test_s1_logging_and_browser_errors.py
-          tests/unit/test_sid_runtime_closure.py
-          tests/unit/test_company_wiki_adapter_cli.py
-          tests/unit/test_company_wiki_adapter_cli_budget.py
-          tests/unit/test_feedback_observation.py
-          tests/unit/test_feedback_owner.py
-          tests/unit/test_provider_error_contract.py::test_failure_document_is_the_last_stderr_line_even_after_cleanup_logs
-          tests/unit/test_f4_start_input.py::TestEntryReadFailures::test_unexpected_config_error_keeps_its_traceback
+        run: python -m pip install -r requirements.txt -r requirements-test.txt PyYAML
+      - name: Verify source and typed contracts
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install ruff==0.15.18 mypy==1.19.0
+          python -m ruff check --no-cache --select E9,F63,F7,F82 src main.py tests tools
+          python -m mypy --python-version 3.10 src/acquisition_budget.py src/models.py src/transport_states.py
+      - name: Run all admitted offline SID tests
+        run: python -m tools.run_offline_ci --revision "${{ github.sha }}" --evidence-dir "${{ runner.temp }}/sid-evidence"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sid-offline-${{ matrix.os }}
+          path: ${{ runner.temp }}/sid-evidence/*.json
+          if-no-files-found: error

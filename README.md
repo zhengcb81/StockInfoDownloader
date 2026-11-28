@@ -266,3 +266,14 @@ python tests/e2e/official_e2e_test.py --browser-strategy playwright
 ## License
 
 MIT
+
+## 运行离线回归
+
+日常开发可以直接运行 `python -m pytest tests/unit`。GitHub CI 在 Ubuntu 和
+Windows 各收集一次 `tools/s6_test_policy.json` 中的完整测试清单，再执行一次，
+并按本次 Git SHA 保存实际运行节点。参考工具自测在独立进程执行。CI 和本地复验沿用同一入口
+`python -m tools.run_offline_ci --revision <完整提交 SHA> --evidence-dir <隔离目录>`。
+本地完整回放需用 `G4_CWP_REPO` 与 `G4_CWP_COMMIT` 指向 CI 所示的
+company-wiki 消费端，只读取该版本的公开适配器代码并通过本机 loopback 验证。
+Windows 文件共享冲突用例由 Windows CI 实际运行。带 `live` 标记的 CNINFO
+网络测试需明确选用，默认离线工作流排除了该标记。

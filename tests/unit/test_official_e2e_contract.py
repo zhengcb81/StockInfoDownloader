@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
+from tests.native_process_fixture import native_run
 from src.downloader import StockDownloader
 from src.models import DownloadRequest
 from tests.e2e import official_e2e_test as runner
@@ -127,7 +127,7 @@ def test_retained_false_case_exercises_real_downloader_skip_branch():
 
 def test_retained_false_case_is_not_ignored_by_git():
     retained = ACTUAL_ROOT / RETAINED_RELATIVE_PATH
-    result = subprocess.run(
+    result = native_run(
         ["git", "check-ignore", "--quiet", str(retained)],
         cwd=PROJECT_ROOT,
         check=False,

@@ -12,11 +12,12 @@ finder level.  Production code contains no such guard.
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests.native_process_fixture import native_run
 
 WORKTREE = Path(__file__).resolve().parents[2]
 FIXTURE = WORKTREE / "tests" / "fixtures" / "cninfo" / "byd_fy2024_announcement.json"
@@ -53,7 +54,7 @@ sys.meta_path.insert(0, _Blocker())
 
 
 def _run_probe(script: str, *args: str) -> dict:
-    completed = subprocess.run(
+    completed = native_run(
         [sys.executable, "-B", "-c", _PROBE_PREAMBLE + script, *args],
         cwd=str(WORKTREE),
         capture_output=True,
@@ -197,7 +198,7 @@ print(json.dumps({
 _PERIOD_CASES = [
     (
         "exact_legacy_year.json",
-        "002594",
+        "600000",
         {"document_kind": "annual_report", "fiscal_year": 2024},
         ["900006001"],
     ),

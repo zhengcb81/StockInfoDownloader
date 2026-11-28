@@ -1,7 +1,7 @@
 """E2E tests for org_id resolution via real cninfo API.
 
 These tests make actual HTTP requests to cninfo.com.cn.
-Requires network access. Marked with pytest.mark.e2e.
+Requires network access. Marked with pytest.mark.live.
 """
 import re
 
@@ -27,7 +27,7 @@ def _make_crawler() -> OrgIdCrawler:
     return OrgIdCrawler(browser_strategy=None, config={})
 
 
-@pytest.mark.e2e
+@pytest.mark.live
 class TestOrgIdApiResolution:
     """Tests for _query_api method using real HTTP requests."""
 
@@ -85,7 +85,7 @@ class TestOrgIdApiResolution:
             )
 
 
-@pytest.mark.e2e
+@pytest.mark.live
 class TestOrgIdCrawlerIntegration:
     """Tests for OrgIdCrawler full get_org_id flow (API path, no browser)."""
 

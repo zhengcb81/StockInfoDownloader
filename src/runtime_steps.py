@@ -40,11 +40,19 @@ def exception_types(error: BaseException) -> list[str]:
 
 @lru_cache(maxsize=1)
 def implementation_version() -> str:
-    """Fingerprint the loaded transport and lifecycle source without a subprocess."""
+    """Fingerprint the source shipped with this SID runtime."""
     root = Path(__file__).resolve().parent
     digest = sha256()
     for source in sorted(root.glob("*.py")):
         digest.update(source.name.encode("utf-8"))
         digest.update(source.read_bytes())
-    digest.update((root.parent / "main.py").read_bytes())
+    # The complete runtime also ships the ordinary batch entry point. The
+    # standalone provider artifact ships only the browser-free adapter package.
+    batch_entry = root.parent / "main.py"
+    try:
+        batch_source = batch_entry.read_bytes()
+    except FileNotFoundError:
+        pass
+    else:
+        digest.update(batch_source)
     return "src-" + digest.hexdigest()

@@ -1,0 +1,244 @@
+{
+  "constant_shapes": {
+    "main.py:SETTLEMENT_KEYS": "ba706976bfc820451a3f18f37c397b047c2a60df7d43c68acf9dee95c1386b64",
+    "main.py:_SETTLEMENT_LOCK": "6ad772e588b96c7896cfc6a4b4987f51fbe0ee1d81a9ea95b1f3893844f0e34a",
+    "src/cninfo_api.py:TRANSPORT_HOSTS": "e5df6f68466e2e57c39ce550ac20e268a979932b86536ec31d44bd3676f49826",
+    "src/cninfo_api.py:_CATEGORY_PER_KIND": "c54803c4784b33d2e41a90dcd431777bd368069c296b94749f28dafaafceaf75",
+    "src/cninfo_report_metadata.py:_AMENDED_TOKENS": "4d20ad268721c37d8b2f09092ff238f656a50a01c2c97252ead9dfae973624d2",
+    "src/cninfo_report_metadata.py:_YEAR_RE": "3101b750f4376dbfab5b3ba77f5c26d5ab8f14ca03b718e40c124d78fd0aada5",
+    "src/company_wiki_adapter.py:_DEFAULT_EXCLUDED_TOKENS": "fa7903b911a6f13d525bc1141195688685f8dbfb570a141788dde28a1630839c",
+    "src/company_wiki_adapter.py:_LATEST_DOCUMENT_KINDS": "da09353b09b3b5c2872acca48ab4ffff71f04d61be6612aab2e2363a0c6e0577",
+    "src/company_wiki_adapter.py:_SUPPORTED_MODES": "3442f484e3044d919593c9a99843852a182431fdf062655bf42d07bdfe285863",
+    "src/company_wiki_adapter_cli.py:_NON_RETRYABLE_TYPES": "bb7689eadfcdfc5c455adfa7c0c9fd9178fb172a4be1dc2a2046b2999ad8beb8",
+    "src/company_wiki_adapter_cli.py:_VERIFICATION_CODES": "0bc32f8478ca9923d2306fc11f9d217ad84699f102ad5e90857235758997a7a0",
+    "src/constants.py:DEFAULT_DELAY_RANGE": "eb06e0c14e19569bb9ac313fecf7a0d68e10422268774d31b377d02fba0a2fd3",
+    "src/constants.py:USER_AGENTS": "7b587c45ecebf8fa615f4be0fa55bbb95dae46457485e0c6fdf8fd7776838c7a",
+    "src/feedback_candidate_capture.py:IDENTITY": "48e92f9243276fbef60a399519baf99517eab082bd6883c4cc98348666dbabb1",
+    "src/feedback_files.py:_REPLACE_DELAYS": "0aa917cdcf813c400f2a87d8d8b0eff192afc43599e88fe7e7ed3ad5ef142245",
+    "src/feedback_files.py:_WINDOWS_RETRYABLE_ERRORS": "9f35f348379734ed2913b4a72f1d6b0b3499791fe20025f46ee3dcb410eef9fe",
+    "src/feedback_observation.py:DETAILS_ALLOWED_KEYS": "1bf504185c2666d0c15f52bcbb479cb07be8382dec012dc02c82affab9cd9cf4",
+    "src/feedback_observation.py:DISPOSITIONS": "051d81e0346d3420581cdfe2cc5a9165b33a396619713d24e2db206292872a2e",
+    "src/feedback_observation.py:OPTIONAL_FIELDS": "a1bc80551dfb9eb70860e1a6b23beff047cae81cc9ee41e89dde884317b72695",
+    "src/feedback_observation.py:REQUIRED_FIELDS": "7e2c8a79a6393d792502c1d3491357f0a6ddd0e7bca979f4bbe698743c0f67f4",
+    "src/feedback_observation.py:_REF_PATTERN": "db3785093551805a0f43a69101b0fe89f3b85d4eeb275bb4a7b4cc9dac5bb38f",
+    "src/feedback_observation.py:_SLUG_PATTERN": "0757131bfae4b88c6b3aa6e49e6e5f871b1ae3dbb6fcddad6a5fb477ff705f9c",
+    "src/feedback_owner.py:ACTIONS": "8325ab4721143cfd85f27e766d495b7df254cc04912c6a5751cd0b8b54a2b737",
+    "src/feedback_owner.py:KEY": "6df26d69e95c79fe899bf5d2236ee66a2c02b22069a5aca81221f312d8cf5a59",
+    "src/feedback_owner.py:SUCCEEDED": "35797f6f0d16a787eae490ecd84b3008a92cb65af6db9674f45fc93021ba7ffc",
+    "src/feedback_owner.py:TERMINALS": "3f718f33b33a98e1b2a71edc5bb45663b48b0886b92161deaf76ef3af114833b",
+    "src/logger.py:_BEARER": "eb47690b44b407f6b92e3ec1634ad1c2060e576415b6ebdd0ce14b2d0e31b0b0",
+    "src/logger.py:_COOKIE": "b722f679a3df962f5a2cd10a11a2885d41b61f23e62f8f652b9ecb9da882a7c0",
+    "src/logger.py:_CREDENTIAL": "28a7a6ed72038751854644b567d1a7021945e6517ef9767ad6bffb9a2bfcb511",
+    "src/logger.py:_URL_AUTHORITY": "3c3fbe296d99eb2d7f5b04de03f2f29bf444e85c259e71d0c50edf35c1fe6f38",
+    "src/logger.py:_URL_QUERY": "3f385a1808e0dc70665bbeec957794785111e13f1a4110c635470057d9d492bf",
+    "src/orgid.py:_API_HEADERS": "67a62d4390035abe280024331df48ae6766a1f15afc2e0ef1b004cf07298bfdb"
+  },
+  "findings": [
+    {
+      "count": 1,
+      "path": "src/runtime_steps.py",
+      "rule": "AT-05",
+      "signal": "shared-context-variable:_steps"
+    },
+    {
+      "count": 1,
+      "path": "main.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.feedback_publish"
+    },
+    {
+      "count": 4,
+      "path": "src/company_wiki_adapter.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.cninfo_api"
+    },
+    {
+      "count": 1,
+      "path": "src/company_wiki_adapter.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.cninfo_identity"
+    },
+    {
+      "count": 1,
+      "path": "src/company_wiki_adapter_cli.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.feedback_candidate_capture"
+    },
+    {
+      "count": 1,
+      "path": "src/company_wiki_adapter_cli.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.feedback_observation"
+    },
+    {
+      "count": 5,
+      "path": "src/feedback_publish.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.feedback_observation"
+    },
+    {
+      "count": 1,
+      "path": "src/mapping.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.orgid"
+    },
+    {
+      "count": 1,
+      "path": "src/mapping.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.stock"
+    },
+    {
+      "count": 1,
+      "path": "src/orgid.py",
+      "rule": "AT-06",
+      "signal": "deferred-import:src.browser"
+    },
+    {
+      "count": 4,
+      "path": "src/feedback_owner.py",
+      "rule": "AT-07",
+      "signal": "literal-sql-outside-owner"
+    },
+    {
+      "count": 2,
+      "path": "src/feedback_owner.py",
+      "rule": "AT-07",
+      "signal": "sqlite-connection-outside-owner"
+    },
+    {
+      "count": 1,
+      "path": "main.py",
+      "rule": "AT-08",
+      "signal": "path-injection-shim"
+    },
+    {
+      "count": 6,
+      "path": "main.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 3,
+      "path": "src/browser.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 7,
+      "path": "src/browser.py",
+      "rule": "AT-11",
+      "signal": "silent-broad-except"
+    },
+    {
+      "count": 1,
+      "path": "src/cninfo_identity.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 1,
+      "path": "src/company_wiki_adapter.py",
+      "rule": "AT-11",
+      "signal": "suppressed-cause-without-local-log"
+    },
+    {
+      "count": 2,
+      "path": "src/company_wiki_adapter_cli.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 1,
+      "path": "src/config.py",
+      "rule": "AT-11",
+      "signal": "raise-without-explicit-cause"
+    },
+    {
+      "count": 4,
+      "path": "src/downloader.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 2,
+      "path": "src/feedback_observation.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 3,
+      "path": "src/feedback_publish.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 2,
+      "path": "src/mapping.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 1,
+      "path": "src/mapping.py",
+      "rule": "AT-11",
+      "signal": "silent-broad-except"
+    },
+    {
+      "count": 2,
+      "path": "src/orgid.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 2,
+      "path": "src/orgid.py",
+      "rule": "AT-11",
+      "signal": "silent-broad-except"
+    },
+    {
+      "count": 1,
+      "path": "src/progress.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    },
+    {
+      "count": 2,
+      "path": "src/storage.py",
+      "rule": "AT-11",
+      "signal": "logged-error-without-stack"
+    }
+  ],
+  "schema": "s6-static-baseline/1",
+  "source_files": [
+    "main.py",
+    "src/__init__.py",
+    "src/acquisition_budget.py",
+    "src/browser.py",
+    "src/cninfo_api.py",
+    "src/cninfo_identity.py",
+    "src/cninfo_report_metadata.py",
+    "src/company_wiki_adapter.py",
+    "src/company_wiki_adapter_cli.py",
+    "src/config.py",
+    "src/constants.py",
+    "src/disclosure_matching.py",
+    "src/downloader.py",
+    "src/exceptions.py",
+    "src/feedback_candidate_capture.py",
+    "src/feedback_files.py",
+    "src/feedback_observation.py",
+    "src/feedback_owner.py",
+    "src/feedback_publish.py",
+    "src/logger.py",
+    "src/mapping.py",
+    "src/models.py",
+    "src/orgid.py",
+    "src/progress.py",
+    "src/runtime_steps.py",
+    "src/stock.py",
+    "src/storage.py",
+    "src/string_utils.py",
+    "src/transport_states.py"
+  ]
+}

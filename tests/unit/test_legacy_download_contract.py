@@ -26,13 +26,13 @@ The five clusters correspond to the static gaps recorded in
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
 from src import constants as C
+from tests.native_process_fixture import native_run
 from src.downloader import StockDownloader
 from src.models import DownloadRequest
 
@@ -596,7 +596,7 @@ class TestVerificationOutcome:
 class TestProtocolStreams:
     def test_console_logger_writes_to_stderr_in_a_fresh_process(self):
         marker = "MB-SID-STDERR-MARKER"
-        completed = subprocess.run(
+        completed = native_run(
             [
                 sys.executable,
                 "-B",
@@ -616,7 +616,7 @@ class TestProtocolStreams:
         assert marker in completed.stderr
 
     def test_cli_stdout_carries_only_the_protocol_document(self, tmp_path):
-        completed = subprocess.run(
+        completed = native_run(
             [
                 sys.executable,
                 "-B",

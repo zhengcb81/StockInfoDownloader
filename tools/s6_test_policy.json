@@ -1,0 +1,19 @@
+{
+  "schema": "s6-test-policy/1",
+  "platforms": {
+    "linux": {
+      "roots": [
+        "tests",
+        "tools/anti_trick_gate_spec/tests"
+      ],
+      "markexpr": "not live and not windows_only"
+    },
+    "windows": {
+      "roots": [
+        "tests",
+        "tools/anti_trick_gate_spec/tests"
+      ],
+      "markexpr": "not live"
+    }
+  }
+}

@@ -9,6 +9,8 @@ import time
 
 import pytest
 
+from tests.native_process_fixture import native_check_output, native_run, native_start
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CHILD = """
@@ -121,7 +123,7 @@ def test_owner_pagination_settles_the_actual_coverage(tmp_path, scenario, limit,
         "RESEARCH_FEEDBACK_STATE_ROOT": str(tmp_path / "state"),
     }
     python = [sys.executable, "-B", "-X", "utf8"]
-    completed = subprocess.run([*python, "-c", CHILD, str(ROOT), scenario], cwd=tmp_path,
+    completed = native_run([*python, "-c", CHILD, str(ROOT), scenario], cwd=tmp_path,
                                env=env, capture_output=True, timeout=20, check=False)
     assert completed.returncode == exit_code, completed.stderr.decode("utf-8", errors="replace")
     assert completed.stdout == b""
@@ -134,7 +136,7 @@ def test_owner_pagination_settles_the_actual_coverage(tmp_path, scenario, limit,
         assert not (tmp_path / "clicks.log").exists()
 
     query = [*python, "-m", "src.feedback_publish", "reconcile", "--json"]
-    first, second = (json.loads(subprocess.check_output(query, cwd=tmp_path, env=env, timeout=20)) for _ in range(2))
+    first, second = (json.loads(native_check_output(query, cwd=tmp_path, env=env, timeout=20)) for _ in range(2))
     assert first == second
     receipt, = first["receipts"]
     assert (receipt["run_id"], receipt["attempt_id"]) == ("sid-paging", "try-1")
@@ -169,7 +171,7 @@ def test_adapter_has_an_original_run_before_it_waits_for_stdin(tmp_path):
     config.write_text('{"logging":{"log_to_file":false}}', encoding="utf-8")
     env = _adapter_environment(tmp_path)
     command = [sys.executable, "-B", "-m", "src.company_wiki_adapter_cli", "discover", "--config", str(config)]
-    child = subprocess.Popen(command, cwd=tmp_path, env=env, stdin=subprocess.PIPE,
+    child = native_start(command, cwd=tmp_path, env=env, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         journal = tmp_path / "state" / "runs" / "sid-native__try-2.jsonl"
@@ -182,7 +184,7 @@ def test_adapter_has_an_original_run_before_it_waits_for_stdin(tmp_path):
             child.kill()
         child.communicate(timeout=10)
     inspect = [sys.executable, "-B", "-m", "src.feedback_publish", "reconcile", "--json"]
-    first, second = (json.loads(subprocess.check_output(inspect, cwd=tmp_path, env=env, timeout=15))
+    first, second = (json.loads(native_check_output(inspect, cwd=tmp_path, env=env, timeout=15))
                      for _ in range(2))
     assert first == second
     receipt, = first["receipts"]
@@ -206,11 +208,11 @@ sys.stdin = BrokenInput()
 raise SystemExit(main(["discover", "--config", sys.argv[1]]))
 """
     python = [sys.executable, "-B", "-X", "utf8"]
-    completed = subprocess.run([*python, "-c", script, str(config)], cwd=tmp_path, env=env,
+    completed = native_run([*python, "-c", script, str(config)], cwd=tmp_path, env=env,
                                capture_output=True, check=False, timeout=15)
     assert completed.returncode == 1 and completed.stdout == b""
     assert json.loads(completed.stderr)["error"]["type"] == "OSError"
-    cold = json.loads(subprocess.check_output(
+    cold = json.loads(native_check_output(
         [*python, "-m", "src.feedback_publish", "reconcile", "--json"],
         cwd=tmp_path, env=env, timeout=15,
     ))
@@ -232,7 +234,7 @@ def test_unavailable_adapter_diagnostics_do_not_replace_the_wire_result(tmp_path
     config.write_text(json.dumps({"logging": {"log_file": str(log_target)}}), encoding="utf-8")
     env = {**_adapter_environment(tmp_path), "RESEARCH_FEEDBACK_OUT": str(sidecar)}
     argv = [sys.executable, "-B", "-m", "src.company_wiki_adapter_cli", "discover", "--config", str(config)]
-    failed = subprocess.run(argv, input=b'{"entity":"Synthetic"}', cwd=tmp_path, env=env,
+    failed = native_run(argv, input=b'{"entity":"Synthetic"}', cwd=tmp_path, env=env,
                             capture_output=True, check=False, timeout=15)
     assert failed.returncode == 1 and failed.stdout == b""
     lines = failed.stderr.splitlines()
@@ -260,11 +262,11 @@ raise SystemExit(main(["discover", "--config", sys.argv[1]]))
         "fiscal_year": 2025, "org_id": "test-org",
     }
     python = [sys.executable, "-B", "-X", "utf8"]
-    completed = subprocess.run([*python, "-c", script, str(config)], cwd=tmp_path, env=env,
+    completed = native_run([*python, "-c", script, str(config)], cwd=tmp_path, env=env,
                                input=json.dumps(payload).encode(), capture_output=True, check=False, timeout=15)
     assert completed.returncode == 0 and completed.stderr == b""
     assert json.loads(completed.stdout)["candidates"] == []
-    cold = json.loads(subprocess.check_output(
+    cold = json.loads(native_check_output(
         [*python, "-m", "src.feedback_publish", "reconcile", "--json"], cwd=tmp_path, env=env, timeout=15,
     ))
     receipt, = cold["receipts"]
