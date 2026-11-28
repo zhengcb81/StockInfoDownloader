@@ -44,20 +44,22 @@ def _selection(config):
         filters.add("alternate-config")
     if _COLLECTORS.intersection(config.getoption("plugins", default=()) or ()):
         filters.add("disabled-test-collector")
+    repository = config.rootpath.resolve(strict=True)
+    invocation = config.invocation_params.dir.resolve(strict=True)
     roots = []
     for selected in config.args:
         name, separator, _ = selected.partition("::")
         if separator:
             filters.add("node-selector")
-        target = (config.invocation_params.dir / name).resolve()
-        if not target.is_relative_to(config.rootpath):
+        target = (invocation / name).resolve()
+        if not target.is_relative_to(repository):
             filters.add("outside-root")
         else:
-            roots.append(target.relative_to(config.rootpath).as_posix())
+            roots.append(target.relative_to(repository).as_posix())
     confcut = config.getoption("confcutdir", default=None)
-    if confcut and Path(confcut).resolve() != config.rootpath:
+    if confcut and (invocation / confcut).resolve() != repository:
         filters.add("confcutdir")
-    if config.rootpath != config.invocation_params.dir:
+    if repository != invocation:
         filters.add("outside-owner-working-directory")
     return {"roots": sorted(roots), "markexpr": config.getoption("markexpr").strip(),
             "filters": sorted(filters)}

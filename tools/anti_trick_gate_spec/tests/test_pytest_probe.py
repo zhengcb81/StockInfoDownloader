@@ -10,10 +10,28 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+
+from tools.anti_trick_gate_spec.pytest_probe import _selection
 
 
 @unittest.skipUnless(importlib.util.find_spec("pytest"), "pytest evidence plugin is optional")
 class PytestEvidenceTests(unittest.TestCase):
+    def test_inventory_compares_resolved_repository_and_invocation_roots(self):
+        with tempfile.TemporaryDirectory(prefix="s6path-") as directory:
+            root = Path(directory).resolve()
+            tests = root / "tests"
+            tests.mkdir()
+            alias = tests / ".."
+            options = {"markexpr": "not live", "confcutdir": str(alias)}
+            config = SimpleNamespace(
+                getoption=lambda name, default=None: options.get(name, default),
+                rootpath=alias,
+                invocation_params=SimpleNamespace(dir=root),
+                args=["tests"],
+            )
+            self.assertEqual(_selection(config), {"roots": ["tests"], "markexpr": "not live", "filters": []})
+
     def test_inventory_cannot_be_replaced_with_same_selected_test_as_execution(self):
         with tempfile.TemporaryDirectory(prefix="s6pytest-") as directory:
             root = Path(directory)

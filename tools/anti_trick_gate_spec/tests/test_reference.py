@@ -198,8 +198,11 @@ class StaticChecks(unittest.TestCase):
         self.put("src/pkg/owner.py", "")
         before = {"source_files": list(self.run_scan().files)}
         narrowed = scan(self.root, ("src/pkg/public.py",))
-        self.assertEqual(changed_inventory(narrowed, before, self.root),
+        alias = self.root / "src" / ".."
+        self.assertEqual(changed_inventory(narrowed, before, alias),
                          ("src/pkg/__init__.py", "src/pkg/owner.py"))
+        with self.assertRaisesRegex(ValueError, "outside the selected repository"):
+            changed_inventory(narrowed, {"source_files": ["../outside.py"]}, alias)
 
     def test_secret_redacted_and_diagnostics(self):
         self.check("AT-11", r'''

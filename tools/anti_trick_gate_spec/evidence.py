@@ -83,6 +83,7 @@ def renamed_waivers(current, previous):
 
 def changed_inventory(report, saved, root: Path) -> tuple[str, ...]:
     """Check a narrower scan cannot hide pre-existing, still-present sources."""
+    root = root.resolve(strict=True)
     before = saved.get("source_files")
     if not isinstance(before, list) or not before or not all(isinstance(item, str) for item in before):
         raise ValueError("baseline source_files must name its scanned source inventory")
