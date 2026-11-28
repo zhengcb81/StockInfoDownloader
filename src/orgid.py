@@ -111,8 +111,8 @@ class OrgIdCrawler:
                     return org_id
 
             log.debug(f"API returned no matching announcement for {stock_code}")
-        except Exception as e:
-            log.warning(f"API lookup failed for {stock_code}: {e}")
+        except Exception:
+            log.warning("Org ID API lookup failed for %s", stock_code, exc_info=True)
         return None
 
     def _crawl_via_browser(self, stock_code: str) -> Optional[str]:
@@ -129,8 +129,8 @@ class OrgIdCrawler:
             finally:
                 if self._owns_browser and self._browser:
                     self._browser.close()
-        except Exception as e:
-            log.error(f"Browser crawl failed: {e}")
+        except Exception:
+            log.error("Org ID browser crawl failed", exc_info=True)
         return None
 
     def _crawl(self, stock_code: str) -> Optional[str]:
@@ -160,6 +160,7 @@ class OrgIdCrawler:
                     log.info(f"Found org_id: {stock_code} → {org_id}")
                     return org_id
             except Exception:
+                log.debug("Org ID link inspection failed", exc_info=True)
                 continue
 
         # Fallback: extract from page source
@@ -171,7 +172,7 @@ class OrgIdCrawler:
                 log.info(f"Found org_id from page source: {stock_code} → {org_id}")
                 return org_id
         except Exception:
-            pass
+            log.debug("Org ID page source inspection failed", exc_info=True)
 
         log.warning(f"Could not find org_id for {stock_code}")
         return None

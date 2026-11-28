@@ -424,6 +424,7 @@ class CninfoAnnouncementClient:
                         part_path = Path(stream.name)
                         body_size = self._copy_response(response, stream, budget)
             except urllib.error.HTTPError as exc:
+                checkpoint("pdf-transport", "headers_received", sent="sent", http_status=exc.code)
                 raise CninfoApiError(
                     f"transport HTTP {exc.code}: {exc.reason}",
                     error_code="upstream_unavailable",
@@ -554,14 +555,17 @@ class CninfoAnnouncementClient:
                 if budget is None
                 else min(self._timeout, budget.remaining_seconds)
             )
+            checkpoint("api-transport", "dispatching", sent="unknown")
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 status = response.status
+                checkpoint("api-transport", "headers_received", sent="sent", http_status=status)
                 body = (
                     response.read()
                     if budget is None
                     else self._read_bounded_response(response, budget)
                 )
         except urllib.error.HTTPError as exc:
+            checkpoint("api-transport", "headers_received", sent="sent", http_status=exc.code)
             if exc.code == 429:
                 raise CninfoApiError(
                     f"API rate limited (429): {exc.reason}",
@@ -627,7 +631,7 @@ class CninfoAnnouncementClient:
             payload = json.loads(body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise CninfoApiError(
-                f"API non-JSON response (first 200 chars: {body[:200]!r})",
+                "API returned an invalid JSON response",
                 error_code="schema_drift",
                 retryable=False,
                 http_status=status,

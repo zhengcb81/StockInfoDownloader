@@ -24,11 +24,11 @@ def test_reconfiguration_closes_replaced_file_and_disables_its_console(tmp_path,
         logger.warning("only first")
         previous, = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)]
         previous_stream = previous.stream
-        assert previous_stream is not None
+        assert previous_stream is None  # The rotation sink closes its handle after every record.
         capsys.readouterr()
         assert setup_logger(name=logger.name, console=False, log_file=str(second)) is logger
         logger.warning("only second")
-        assert previous_stream.closed
+        assert previous not in logger.handlers and previous.stream is None
         assert "only second" not in capsys.readouterr().err
         assert first.read_text(encoding="utf-8").count("only first") == 1
         assert "only second" not in first.read_text(encoding="utf-8")
@@ -132,7 +132,7 @@ def test_configured_rotating_log_keeps_bounded_backups(tmp_path):
         for index in range(10):
             logger.warning("rotation record %s with enough content to roll", index)
         assert sorted(path.name for path in tmp_path.iterdir()) == [
-            "adapter.log", "adapter.log.1", "adapter.log.2",
+            "adapter.log", "adapter.log.1", "adapter.log.2", "adapter.log.lock",
         ]
         assert "rotation record 9" in target.read_text(encoding="utf-8")
     finally:

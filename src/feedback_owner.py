@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 from contextlib import closing
 import json
 from pathlib import Path
@@ -21,6 +20,9 @@ from .feedback_candidate_capture import (
     repaired_candidate,
 )
 from .feedback_files import native_path
+from .feedback_publish import establish_identity, state_root
+from .logger import DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, log, machine_logging
+from .runtime_steps import implementation_version
 from .feedback_observation import (
     CHECK_CANDIDATE_IDENTITY,
     CHECK_ORDINARY_TASK,
@@ -106,11 +108,14 @@ def _rows(paths: Iterable[Path]) -> Iterable[tuple[Path, dict]]:
                     try:
                         row = json.loads(line, object_pairs_hook=_unique)
                     except (ValueError, RecursionError):
+                        log.warning("SID observation row could not be decoded", exc_info=True)
                         continue
                     if isinstance(row, dict):
                         yield path, {"origin_owner": row.get("owner"), **row}
-        except OSError:
+        except FileNotFoundError:
             continue
+        except OSError:
+            log.warning("SID observation is unreadable", exc_info=True)
 
 
 def _version(publication: dict) -> str:
@@ -193,6 +198,7 @@ class OwnerRuntime:
                 return None, None
             candidate = repaired_candidate(capture)
         except (OSError, ValueError, RecursionError):
+            log.warning("SID captured proof is unreadable", exc_info=True)
             return None, None
         if candidate is None:
             return None, None
@@ -435,7 +441,14 @@ class OwnerRuntime:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    identity = establish_identity()
+    with machine_logging(), entry_logging("feedback-owner", identity, implementation_version(), state_root(),
+                                          console=False) as logging_available:
+        return _main(argv, identity, logging_available)
+
+
+def _main(argv, identity: tuple[str, str], logging_available: bool) -> int:
+    parser = DiagnosticArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True, type=Path)
     parser.add_argument("--sidecar", action="append", type=Path, default=[])
     parser.add_argument("--sidecar-dir", action="append", type=Path, default=[])
@@ -446,8 +459,9 @@ def main(argv=None) -> int:
     for action in ("get-action", "get-publication"):
         sub.add_parser(action).add_argument("action_id")
     args = parser.parse_args(argv)
-    runtime = OwnerRuntime(args.db, args.sidecar, args.sidecar_dir, args.capture_dir)
+    log.info("entry_dispatch command=%s", args.command)
     try:
+        runtime = OwnerRuntime(args.db, args.sidecar, args.sidecar_dir, args.capture_dir)
         if args.command in ("get-action", "get-publication"):
             result = runtime.read(args.command, args.action_id)
         else:
@@ -457,8 +471,14 @@ def main(argv=None) -> int:
             result = runtime.apply(args.command, value)
         print(canonical_bytes(result).decode("ascii"))
     except (OSError, ValueError, TypeError, KeyError, RecursionError, sqlite3.Error):
-        print('{"error":"sid_feedback_action_rejected"}', file=sys.stderr)
+        log.error("entry_failed stage=feedback-action command=%s", args.command, exc_info=True)
+        if not logging_available or diagnostic_file_failed():
+            diagnostic_notice(identity)
+        sys.stderr.write('{"error":"sid_feedback_action_rejected"}\n')
         return 2
+    log.info("entry_finished command=%s exit_code=0", args.command)
+    if not logging_available or diagnostic_file_failed():
+        diagnostic_notice(identity)
     return 0
 
 

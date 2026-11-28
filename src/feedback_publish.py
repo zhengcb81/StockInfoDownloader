@@ -27,7 +27,6 @@ no provider, browser or transport code.
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 from pathlib import Path
@@ -47,7 +46,7 @@ from .feedback_observation import (
     is_safe_ref,
     make_observation,
 )
-from .logger import log
+from .logger import DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, log, machine_logging, redact
 from .runtime_steps import implementation_version
 
 ENV_DIR = "RESEARCH_FEEDBACK_DIR"
@@ -237,6 +236,7 @@ def write_startup_receipt(
                 try:
                     payload["implementation"] = implementation_version()
                 except OSError:
+                    log.warning("SID implementation fingerprint is unavailable", exc_info=True)
                     payload["implementation"] = "unknown"
             _atomic_json(path, payload)
             return True
@@ -289,7 +289,7 @@ def read_receipts(root: Path | None = None) -> list[dict[str, Any]]:
                 receipt["checkpoints"] = events
             rows.append(receipt)
         except (OSError, ValueError):
-            continue
+            log.warning("SID receipt could not be read", exc_info=True)
     return rows
 
 
@@ -313,6 +313,7 @@ def write_checkpoint(
             os.fsync(stream.fileno())
         return True
     except (OSError, ValueError, TypeError):
+        log.debug("SID checkpoint could not be written", exc_info=True)
         return False
 
 
@@ -328,9 +329,12 @@ def _read_checkpoints(path: Path) -> list[dict[str, Any]]:
                     if isinstance(record, dict) and is_safe_ref(record.get("step_id")):
                         events.append({**filter_details(record), "step_id": record["step_id"]})
                 except (UnicodeError, ValueError, RecursionError):
+                    log.warning("SID checkpoint could not be decoded", exc_info=True)
                     continue
+    except FileNotFoundError:
+        return events
     except OSError:
-        pass
+        log.warning("SID checkpoints are unreadable", exc_info=True)
     return events
 
 
@@ -340,7 +344,7 @@ def read_pending(root: Path | None = None) -> list[dict[str, Any]]:
         try:
             rows.append(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, ValueError):
-            continue
+            log.warning("SID receipt could not be read", exc_info=True)
     return rows
 
 
@@ -654,9 +658,9 @@ def establish_identity() -> tuple[str, str]:
     """
     run_id = os.environ.get(ENV_RUN_ID, "").strip()
     attempt_id = os.environ.get(ENV_ATTEMPT_ID, "").strip()
-    if not is_safe_ref(run_id):
+    if not is_safe_ref(run_id) or redact(run_id) != run_id:
         run_id = f"sid-run-{uuid.uuid4().hex}"
-    if not is_safe_ref(attempt_id):
+    if not is_safe_ref(attempt_id) or redact(attempt_id) != attempt_id:
         attempt_id = f"try-{uuid.uuid4().hex}"
     return run_id, attempt_id
 
@@ -671,8 +675,8 @@ def task_step_id(task_key: Mapping[str, Any]) -> str:
 class RunReceipt:
     """One owner run ledger, independent of any observation destination."""
 
-    def __init__(self, *, entry: str, version: str):
-        self.identity = establish_identity()
+    def __init__(self, *, entry: str, version: str, identity: tuple[str, str] | None = None):
+        self.identity = identity if identity is not None else establish_identity()
         self.root = state_root()
         self.available = write_startup_receipt(*self.identity, root=self.root, entry=entry, version=version)
 
@@ -695,8 +699,8 @@ class OrdinaryRunFeedback:
     business result stays untouched even when every writable medium refuses.
     """
 
-    def __init__(self, *, version: str = ORDINARY_VERSION) -> None:
-        self.receipt = RunReceipt(entry="ordinary", version=version)
+    def __init__(self, *, version: str = ORDINARY_VERSION, identity: tuple[str, str] | None = None) -> None:
+        self.receipt = RunReceipt(entry="ordinary", version=version, identity=identity)
         self.run_id, self.attempt_id = self.receipt.identity
         self.version = version
         self.root = self.receipt.root
@@ -885,7 +889,7 @@ class OrdinaryRunFeedback:
         except (OSError, ValueError, TypeError, RecursionError) as exc:
             self.write_failures += 1
             log.warning("ordinary_feedback_publish_failed run_id=%s exception_type=%s",
-                        self.run_id, type(exc).__name__)
+                        self.run_id, type(exc).__name__, exc_info=True)
             return DEFERRED
         if status != DELIVERED:
             self.write_failures += 1
@@ -927,7 +931,14 @@ def _reconcile_report(root: Path | None) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="SID owner feedback delivery")
+    identity = establish_identity()
+    with machine_logging(), entry_logging("feedback-publish", identity, implementation_version(), state_root(),
+                                          console=False) as logging_available:
+        return _main(argv, identity, logging_available)
+
+
+def _main(argv: list[str] | None, identity: tuple[str, str], logging_available: bool) -> int:
+    parser = DiagnosticArgumentParser(description="SID owner feedback delivery")
     parser.add_argument("command", choices=("republish", "reconcile"))
     parser.add_argument("--state-root", type=Path, default=None)
     parser.add_argument(
@@ -935,10 +946,20 @@ def main(argv: list[str] | None = None) -> int:
         help="accepted for callers; the summary is always one JSON document",
     )
     args = parser.parse_args(argv)
-    if args.command == "republish":
-        result: dict[str, Any] = republish(args.state_root)
-    else:
-        result = _reconcile_report(args.state_root)
+    log.info("entry_dispatch command=%s", args.command)
+    try:
+        if args.command == "republish":
+            result: dict[str, Any] = republish(args.state_root)
+        else:
+            result = _reconcile_report(args.state_root)
+    except (OSError, RuntimeError, ValueError, TypeError):
+        log.error("entry_failed stage=feedback-delivery command=%s", args.command, exc_info=True)
+        if not logging_available or diagnostic_file_failed():
+            diagnostic_notice(identity)
+        return 1
+    log.info("entry_finished command=%s exit_code=0", args.command)
+    if not logging_available or diagnostic_file_failed():
+        diagnostic_notice(identity)
     print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     return 0
 

@@ -18,7 +18,7 @@ from .browser import PlaywrightBrowser
 from .disclosure_matching import matches_excluded, matches_keywords
 from .exceptions import BrowserDownloadError, BrowserError, DownloadError, OrgIdError, PaginationError
 from .feedback_files import atomic_text, exclusive_file, native_path
-from .logger import log
+from .logger import log, redact
 from .mapping import MappingManager
 from .models import (
     DownloadRequest,
@@ -58,11 +58,11 @@ class FailedDownloadLogger:
             self._pending.append(
                 {
                     "timestamp": datetime.now().isoformat(),
-                    "stock_code": stock_code,
-                    "stock_name": stock_name,
-                    "file_name": text,
-                    "url": url,
-                    "error": error,
+                    "stock_code": redact(stock_code),
+                    "stock_name": redact(stock_name),
+                    "file_name": redact(text),
+                    "url": redact(url),
+                    "error": redact(error),
                 }
             )
 
@@ -87,13 +87,18 @@ class FailedDownloadLogger:
             with exclusive_file(self.log_file):
                 existing = read_failed_records(self.log_file)
                 existing.extend(batch)
-                _atomic_write_json(self.log_file, existing)
-        except Exception as e:
+                sanitized = [
+                    {key: redact(value) if isinstance(value, str) else value
+                     for key, value in record.items()} if isinstance(record, dict) else record
+                    for record in existing
+                ]
+                _atomic_write_json(self.log_file, sanitized)
+        except Exception:
             # Refused persistence: keep this batch (ahead of anything that
             # arrived mid-write) so a later flush can still save it.
             with self._pending_lock:
                 self._pending = batch + self._pending
-            log.warning(f"Failed to save failed downloads log: {e}")
+            log.warning("Failed to save failed downloads log", exc_info=True)
 
     def reset(self) -> None:
         """Clear pending records without writing to disk."""
@@ -264,7 +269,7 @@ class StockDownloader:
 
         except Exception as e:
             checkpoint("request", "failed", error_code=type(e).__name__, cause_types=exception_types(e))
-            log.error(f"Download failed for {request.stock_code}: {e}")
+            log.error("Download failed for %s", request.stock_code, exc_info=True)
             return DownloadResult(
                 success=False,
                 errors=[str(e)],
@@ -293,8 +298,8 @@ class StockDownloader:
                 log.info(f"Retry attempt {attempt}/{self.max_retries}")
                 try:
                     self.browser.restart()
-                except Exception as e:
-                    log.debug(f"Browser restart failed: {e}")
+                except Exception:
+                    log.debug("Browser restart failed", exc_info=True)
 
             # Failure bookkeeping is per attempt, matching ``downloaded``.
             # Keeping it per request would let a failed first attempt poison a
@@ -412,7 +417,7 @@ class StockDownloader:
             else:
                 code = "browser_failed"
                 checkpoint("browser", "failed", error_code=type(exc).__name__, cause_types=exception_types(exc))
-            log.error("%s cause_types=%s", exc, exception_types(exc))
+            log.error("Browser download failed cause_types=%s", exception_types(exc), exc_info=True)
             return DownloadResult(
                 success=False, downloaded_files=downloaded, total_files=len(downloaded),
                 skipped_files=self.skipped_files, pages_traversed=self.pages_traversed,
@@ -423,7 +428,7 @@ class StockDownloader:
         except Exception as e:
             checkpoint("download-pipeline", "failed", error_code=type(e).__name__,
                        cause_types=exception_types(e), files_confirmed=len(downloaded))
-            log.error(f"Download pipeline failed: {e}")
+            log.error("Download pipeline failed", exc_info=True)
             return DownloadResult(
                 success=False,
                 downloaded_files=downloaded,
@@ -793,8 +798,8 @@ class StockDownloader:
                             self.browser.get_text(el).strip(),
                         )
                     )
-                except Exception as e:
-                    log.debug(f"Link extraction error for element: {e}")
+                except Exception:
+                    log.debug("Browser document link extraction failed", exc_info=True)
 
         for href, text in pairs:
             if "/detail" not in href or not text:

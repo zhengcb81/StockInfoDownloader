@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import argparse
 from contextlib import redirect_stdout, suppress
 from dataclasses import asdict
-from functools import partial
 import json
 from pathlib import Path
 import sys
@@ -23,18 +21,19 @@ from .company_wiki_adapter import (
     StockInfoCompanyWikiAdapter,
 )
 from .config import load_config
-from .feedback_publish import RunReceipt, command_sink, state_root
+from .feedback_publish import RunReceipt, command_sink, establish_identity, state_root
 from .logger import (
-    diagnostic_file_failed, legacy_cleanup_console, log, machine_logging, setup_config_logging, setup_logger,
+    DiagnosticArgumentParser, diagnostic_file_failed, entry_logging, legacy_cleanup_console, log,
+    machine_logging, redact, setup_config_logging, setup_logger,
 )
-from .runtime_steps import capture_steps
+from .runtime_steps import capture_steps, exception_types, implementation_version
 
 
 SCHEMA_VERSION = "1.0"
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="stockinfo-company-wiki-adapter")
+def _parser() -> DiagnosticArgumentParser:
+    parser = DiagnosticArgumentParser(prog="stockinfo-company-wiki-adapter")
     parser.add_argument("action", choices=("discover", "fetch"))
     parser.add_argument("--config", default="config.json")
     parser.add_argument("--staging-dir", type=Path)
@@ -158,20 +157,6 @@ _NON_RETRYABLE_TYPES = (
 _VERIFICATION_CODES = {"staging_escape", "content_too_small", "pdf_magic_invalid"}
 
 
-def _cause_types(exc: BaseException) -> list[str]:
-    """Sanitized exception type chain: stable names only, no message text."""
-    chain: list[str] = []
-    current: BaseException | None = exc
-    for _ in range(6):
-        if current is None:
-            break
-        name = type(current).__name__
-        if name not in chain:
-            chain.append(name)
-        current = current.__cause__ or current.__context__
-    return chain
-
-
 def _resolve_stage(exc: BaseException, tracked: str, action: str) -> str:
     """Map the failing phase to one stable stage token.
 
@@ -201,7 +186,7 @@ def _resolve_stage(exc: BaseException, tracked: str, action: str) -> str:
     return "transport"
 
 
-def _sent_state(stage: str, *, prior_phase: str) -> str:
+def _sent_state(stage: str, *, prior_phase: str, observed: str | None) -> str:
     """Whether anything actually went out for this failure.
 
     Only a refusal before any provider interaction is known-not-sent.  A raw
@@ -211,7 +196,9 @@ def _sent_state(stage: str, *, prior_phase: str) -> str:
     transport attempt may or may not have reached the provider; post-fetch
     checks mean a real response arrived.
     """
-    if prior_phase in ("payload", "request", "config"):
+    if observed is not None:
+        return observed
+    if prior_phase in ("payload", "request", "config", "budget"):
         return "not_sent"
     if stage == "verification":
         return "sent"
@@ -252,7 +239,7 @@ def _emit_failure(
             )
         ),
         "type": exc_type,
-        "message": str(exc),
+        "message": redact(str(exc)),
         "retryable": retryable,
     }
     if budget is not None:
@@ -294,21 +281,24 @@ def _unavailable_notice(run: RunReceipt, logging_available: bool, sink) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    with machine_logging():
-        return _main(argv)
+    identity = establish_identity()
+    with machine_logging(), entry_logging(
+        "adapter", identity, implementation_version(), state_root(),
+        console=False, notice_on_parser_failure=False,
+    ) as logging_available:
+        return _main(argv, identity, logging_available)
 
 
-def _main(argv: Sequence[str] | None) -> int:
+def _main(argv: Sequence[str] | None, identity: tuple[str, str], logging_available: bool) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    run = RunReceipt(entry="adapter", version=ADAPTER_VERSION, identity=identity)
     try:
         args = _parser().parse_args(argv)
     except SystemExit as failure:
         if failure.code:
-            run = RunReceipt(entry="adapter", version=ADAPTER_VERSION)
-            logging_available = _configure_command_log(None)
             sink = None
             try:
                 sink = command_sink(ADAPTER_VERSION, identity=run.identity)
@@ -321,10 +311,9 @@ def _main(argv: Sequence[str] | None) -> int:
             except (OSError, ValueError, TypeError):
                 pass
             run.checkpoint("adapter-entry", {"stage": "arguments", "executed_state": "refused", "sent": "not_sent"})
-            run.finish({"result": "not_started", "exit_code": failure.code})
             _unavailable_notice(run, logging_available, sink)
+        run.finish({"result": "not_started", "exit_code": failure.code})
         raise
-    run = RunReceipt(entry="adapter", version=ADAPTER_VERSION)
     run.checkpoint("adapter-entry", {"stage": "config", "executed_state": "loading", "sent": "not_sent"})
     config_failure = None
     try:
@@ -332,7 +321,8 @@ def _main(argv: Sequence[str] | None) -> int:
     except Exception as exc:
         config = None
         config_failure = exc
-    logging_available = _configure_command_log(config)
+    if config is not None:
+        logging_available = _configure_command_log(config) or logging_available
     # Explicit sidecars keep their format; direct execution uses owner delivery.
     sink = None
     feedback = None
@@ -355,7 +345,7 @@ def _main(argv: Sequence[str] | None) -> int:
             )
             action.begin()
         except (ImportError, OSError, ValueError, RecursionError) as exc:
-            log.warning("feedback_setup_failed exception_type=%s", type(exc).__name__)
+            log.warning("feedback_setup_failed exception_type=%s", type(exc).__name__, exc_info=True)
         else:
             sink, feedback = configured_sink, action
 
@@ -383,6 +373,20 @@ def _main(argv: Sequence[str] | None) -> int:
     # refusal records which stage rejected it; the payload stage is the
     # default because nothing else has started yet.
     stage = "payload"
+    step_id = "adapter-entry"
+    observed_dispatch = None
+
+    def transport_step(details: dict[str, Any]) -> None:
+        nonlocal observed_dispatch
+        sent = details.get("sent")
+        if sent == "sent" or (sent == "unknown" and observed_dispatch is None):
+            observed_dispatch = sent
+        run.checkpoint(step_id, details)
+        log.debug(
+            "adapter_step step_id=%s stage=%s state=%s sent=%s",
+            step_id, details.get("stage"), details.get("executed_state"), sent,
+        )
+
     try:
         run.checkpoint("adapter-entry", {"stage": stage, "executed_state": "awaiting_input", "sent": "not_sent"})
         raw_input = sys.stdin.read()
@@ -413,7 +417,7 @@ def _main(argv: Sequence[str] | None) -> int:
                 assert request is not None
                 run.checkpoint(step_id, {"stage": stage, "executed_state": "dispatching",
                                          "security_id": request.stock_code, "mode": request.mode, "sent": "unknown"})
-                with capture_steps(partial(run.checkpoint, step_id)):
+                with capture_steps(transport_step):
                     candidates = (
                         adapter.discover(request)
                         if budget is None
@@ -501,6 +505,7 @@ def _main(argv: Sequence[str] | None) -> int:
                     _emit_budget("within_budget", "expected")
                 result = _response(**result_payload)
             else:
+                stage = "request"
                 if args.staging_dir is None:
                     raise ValueError("--staging-dir is required for fetch")
                 raw = value.get("adapter_payload_json")
@@ -510,9 +515,10 @@ def _main(argv: Sequence[str] | None) -> int:
                 if not isinstance(decoded, dict):
                     raise ValueError("adapter_payload_json must contain an object")
                 candidate = _candidate(decoded)
+                stage = "fetch"
                 run.checkpoint(step_id, {"stage": stage, "executed_state": "dispatching",
                                          "provider_document_id": candidate.provider_document_id, "sent": "unknown"})
-                with capture_steps(partial(run.checkpoint, step_id)):
+                with capture_steps(transport_step):
                     receipt = (
                         adapter.fetch(candidate, args.staging_dir)
                         if budget is None
@@ -547,11 +553,11 @@ def _main(argv: Sequence[str] | None) -> int:
     except Exception as exc:
         failure = exc
         failure_stage = _resolve_stage(exc, stage, args.action)
-        sent = _sent_state(failure_stage, prior_phase=stage)
+        sent = _sent_state(failure_stage, prior_phase=stage, observed=observed_dispatch)
         if feedback is None:
             _begin_feedback("adapter-entry")
         run.checkpoint(feedback.step_id if feedback is not None else "adapter-entry", {
-            "stage": failure_stage, "executed_state": "failed", "sent": sent, "cause_types": _cause_types(exc),
+            "stage": failure_stage, "executed_state": "failed", "sent": sent, "cause_types": exception_types(exc),
             "budget_usage": budget.usage() if budget is not None else None,
         })
         log.warning(
@@ -594,7 +600,7 @@ def _main(argv: Sequence[str] | None) -> int:
                         code,
                         "retryable" if getattr(exc, "retryable", None) else "terminal",
                     ],
-                    "cause_types": _cause_types(exc),
+                    "cause_types": exception_types(exc),
                     "budget_usage": budget.usage() if budget is not None else None,
                 },
             )

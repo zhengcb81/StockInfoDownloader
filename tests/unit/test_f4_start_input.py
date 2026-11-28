@@ -620,12 +620,17 @@ class TestEntryReadFailures:
         assert first["result"]["job_status"] == "failed"
         assert first["result"]["cost_state"] == "not_applicable"
 
-    def test_unexpected_config_error_keeps_its_traceback(self, tmp_path):
+    def test_unexpected_config_error_keeps_its_traceback_in_the_owner_log(self, tmp_path):
         proc, calls = _launch(tmp_path, [], unexpected_config_error=True)
         assert _exit(proc) == 1 and calls == []
         stderr = _stderr_text(proc)
-        assert "Traceback (most recent call last)" in stderr
-        assert "RuntimeError: offline configuration dependency failure" in stderr
+        assert "Failed to load config (RuntimeError)" in stderr
+        assert "Traceback" not in stderr and "offline configuration dependency failure" not in stderr
+        content = (_state(tmp_path) / "logs" / "ordinary.log").read_text(encoding="utf-8")
+        receipt = _settlement(_observations(tmp_path))
+        assert receipt["run_id"] in content and receipt["attempt_id"] in content
+        assert "RuntimeError" in content and "main.py:" in content and " _main" in content
+        assert "offline configuration dependency failure" not in content
         assert _settlement_detail(tmp_path)["cause_chain"] == ["RuntimeError"]
         first, second = _cold_reconcile_twice(tmp_path)
         assert first == second

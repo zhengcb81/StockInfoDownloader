@@ -134,7 +134,7 @@ class PlaywrightBrowser:
             log.info("Playwright browser initialized")
             return True
         except Exception as e:
-            log.error(f"Browser init failed: {e}")
+            log.error("Browser init failed", exc_info=True)
             raise BrowserError(f"Failed to initialize browser: {e}") from e
 
     def close(self) -> None:
@@ -148,8 +148,8 @@ class PlaywrightBrowser:
                 self._browser.close()
             if self._pw:
                 self._pw.stop()
-        except Exception as e:
-            log.debug(f"Browser close error: {e}")
+        except Exception:
+            log.debug("Browser close failed", exc_info=True)
         self._page = None
         self._context = None
         self._browser = None
@@ -184,8 +184,8 @@ class PlaywrightBrowser:
             )
             time.sleep(random.uniform(*delay_range))
             return True
-        except Exception as e:
-            log.error(f"Navigation failed for {url}: {e}")
+        except Exception:
+            log.error("Browser navigation failed", exc_info=True)
             return False
 
     def get_current_url(self) -> str:
@@ -202,8 +202,8 @@ class PlaywrightBrowser:
             if by == "xpath":
                 return self.page.query_selector_all(f"xpath={selector}")
             return self.page.query_selector_all(selector)
-        except Exception as e:
-            log.debug(f"find_elements failed ({selector}): {e}")
+        except Exception:
+            log.debug("Browser element lookup failed", exc_info=True)
             return []
 
     # ── SPA tab scope ─────────────────────────────────────────────────
@@ -287,8 +287,8 @@ class PlaywrightBrowser:
                     # of the timeout, or may remain genuinely inactive.
                     pass
                 value = self.page.evaluate(state_script, args)
-        except Exception as e:
-            log.debug(f"select_menu_item failed ({text!r}): {e}")
+        except Exception:
+            log.debug("Browser menu selection failed", exc_info=True)
             return self.TAB_MISSING
 
         if value in (
@@ -335,8 +335,8 @@ class PlaywrightBrowser:
         """
         try:
             raw = self.page.evaluate(script, self._PANE_SELECTOR)
-        except Exception as e:
-            log.debug(f"find_active_tab_links failed: {e}")
+        except Exception:
+            log.debug("Browser tab link lookup failed", exc_info=True)
             return []
         pairs: List[Tuple[str, str]] = []
         for item in raw or []:
@@ -354,6 +354,7 @@ class PlaywrightBrowser:
                 return self.page.query_selector(f"xpath={selector}")
             return self.page.query_selector(selector)
         except Exception:
+            log.debug("Browser single element lookup failed", exc_info=True)
             return None
 
     def get_text(self, element: Any) -> str:
@@ -361,6 +362,7 @@ class PlaywrightBrowser:
         try:
             return element.text_content() or ""
         except Exception:
+            log.debug("Browser element text failed", exc_info=True)
             return ""
 
     def get_attribute(self, element: Any, attribute: str) -> Optional[str]:
@@ -368,6 +370,7 @@ class PlaywrightBrowser:
         try:
             return element.get_attribute(attribute)
         except Exception:
+            log.debug("Browser element attribute failed", exc_info=True)
             return None
 
     def click(self, element: Any) -> bool:
@@ -375,16 +378,16 @@ class PlaywrightBrowser:
         try:
             element.click()
             return True
-        except Exception as e:
-            log.debug(f"click failed: {e}")
+        except Exception:
+            log.debug("Browser click failed", exc_info=True)
             return False
 
     def execute_script(self, script: str, *args) -> Any:
         """Execute JavaScript in the page."""
         try:
             return self.page.evaluate(script, *args)
-        except Exception as e:
-            log.debug(f"Script execution failed: {e}")
+        except Exception:
+            log.debug("Browser script execution failed", exc_info=True)
             return None
 
     # ── Waiting ───────────────────────────────────────────────────────
@@ -403,6 +406,7 @@ class PlaywrightBrowser:
             self.page.wait_for_selector(selector, timeout=timeout * 1000, state=state)
             return True
         except Exception:
+            log.debug("Browser wait for element failed", exc_info=True)
             return False
 
     def wait_for_download_ready(self, timeout: int = 30) -> bool:
@@ -411,6 +415,7 @@ class PlaywrightBrowser:
             self.page.wait_for_load_state("networkidle", timeout=timeout * 1000)
             return True
         except Exception:
+            log.debug("Browser wait for download failed", exc_info=True)
             return False
 
     # ── Screenshot ────────────────────────────────────────────────────
@@ -423,6 +428,7 @@ class PlaywrightBrowser:
                 self.page.screenshot(path=save_path)
             return self.page.screenshot()
         except Exception:
+            log.debug("Browser snapshot failed", exc_info=True)
             return None
 
     # ── Download ──────────────────────────────────────────────────────
@@ -506,8 +512,8 @@ class PlaywrightBrowser:
         finally:
             try:
                 detail.close()
-            except Exception as error:
-                log.warning("Could not close document page exception_type=%s", type(error).__name__)
+            except Exception:
+                log.warning("Could not close document page", exc_info=True)
 
     # ── Pagination ────────────────────────────────────────────────────
 
@@ -621,6 +627,7 @@ class PlaywrightBrowser:
             self.page.evaluate("1+1")
             return True
         except Exception:
+            log.debug("Browser health probe failed", exc_info=True)
             return False
 
     def clear_cookies(self) -> None:
@@ -630,7 +637,7 @@ class PlaywrightBrowser:
                 self._context.clear_cookies()
                 log.debug("Cookies cleared")
         except Exception:
-            pass
+            log.debug("Browser cookie reset failed", exc_info=True)
 
     def random_delay(self, min_seconds: float = 0.5, max_seconds: float = 3.0) -> None:
         """Sleep for a random duration to mimic human behavior."""
