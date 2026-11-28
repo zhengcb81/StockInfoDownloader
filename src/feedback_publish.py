@@ -31,6 +31,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from tempfile import gettempdir
 from typing import Any, Mapping
 import uuid
 
@@ -73,7 +74,20 @@ def state_root(root: Path | None = None) -> Path:
     raw = os.environ.get(ENV_STATE_ROOT, "").strip()
     if raw:
         return Path(raw)
-    return Path.home() / ".stockinfo-dl-simple"
+    try:
+        base = Path.home()
+    except RuntimeError:
+        # A noninteractive host can supply an explicit observation channel
+        # without loading a user profile. Keep its owner state beside it.
+        output = os.environ.get(ENV_OUT, "").strip()
+        inbox = os.environ.get(ENV_DIR, "").strip()
+        if output:
+            base = Path(output).parent
+        elif inbox:
+            base = Path(inbox)
+        else:
+            base = Path(gettempdir())
+    return base / ".stockinfo-dl-simple"
 
 
 def observations_dir(root: Path | None = None) -> Path:

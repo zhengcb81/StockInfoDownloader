@@ -119,7 +119,7 @@ def cli(root, action, payload=None, *tail, lost_reply=False):
     return json.loads(invocation.stdout)
 
 
-def producer(root, mode):
+def producer(root, mode, *, explicit_state=True):
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     config = root / "config.json"
     config.write_text("{}", encoding="utf-8")
@@ -157,6 +157,7 @@ def producer(root, mode):
                 }
             },
             "RESEARCH_FEEDBACK_OUT": str(root / f"{mode}.jsonl"),
+            **({"RESEARCH_FEEDBACK_STATE_ROOT": str(root / "owner-state")} if explicit_state else {}),
             "RESEARCH_FEEDBACK_RUN_ID": "f4-sid-fixture",
             "RESEARCH_FEEDBACK_ATTEMPT_ID": mode,
         },
@@ -164,6 +165,19 @@ def producer(root, mode):
         check=False,
     )
     return invocation
+
+
+def test_explicit_feedback_output_preserves_original_attempt_without_home(tmp_path, monkeypatch):
+    for key in ("HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "RESEARCH_FEEDBACK_STATE_ROOT"):
+        monkeypatch.delenv(key, raising=False)
+    result = producer(tmp_path, "legacy", explicit_state=False)
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    assert list((tmp_path / ".stockinfo-dl-simple" / "runs").glob("*"))
+    records = observations(tmp_path, "legacy")
+    assert records
+    assert {(row["run_id"], row["attempt_id"]) for row in records} == {("f4-sid-fixture", "legacy")}
+    assert (tmp_path / "calls").read_text().splitlines() == ["native-discovery"]
 
 
 def observations(root, mode):
