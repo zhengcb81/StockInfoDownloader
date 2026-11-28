@@ -117,15 +117,19 @@ def test_bounded_discovery_shares_bytes_across_pages_and_stops_before_next_reque
     assert budget.response_bytes_used == len(body)
 
 
-def test_deadline_elapsed_during_read_still_charges_returned_bytes(monkeypatch):
+def test_deadline_elapsed_during_read_still_charges_returned_bytes(monkeypatch, acquisition_clock):
     from src.acquisition_budget import AcquisitionBudgetExceeded
     from src.cninfo_api import CninfoAnnouncementClient
-    import time
-
     response = _ChunkedResponse(b"{}")
-    response.read = lambda size=-1: (time.sleep(0.02), b"{}")[1]  # type: ignore[method-assign]
+    read = response.read
+
+    def read_at_deadline(size=-1):
+        acquisition_clock.advance(1)
+        return read(size)
+
+    monkeypatch.setattr(response, "read", read_at_deadline)
     monkeypatch.setattr("urllib.request.urlopen", lambda *a, **kw: response)
-    budget = _budget(byte_limit=10, seconds=0.005)
+    budget = _budget(byte_limit=10, seconds=1)
 
     with pytest.raises(AcquisitionBudgetExceeded):
         CninfoAnnouncementClient()._post_json(b"page=1", budget=budget)
@@ -181,16 +185,14 @@ def test_bounded_pdf_success_writes_and_accounts_incrementally(monkeypatch, tmp_
     assert all(0 < size <= len(body) + 10 for size in response.read_sizes)
 
 
-def test_expired_budget_fails_before_opening_request(monkeypatch):
+def test_expired_budget_fails_before_opening_request(monkeypatch, acquisition_clock):
     from src.acquisition_budget import AcquisitionBudgetExceeded
     from src.cninfo_api import CninfoAnnouncementClient
 
     opener = MagicMock()
     monkeypatch.setattr("urllib.request.urlopen", opener)
-    budget = _budget(byte_limit=100, seconds=0.001)
-    import time
-
-    time.sleep(0.01)
+    budget = _budget(byte_limit=100, seconds=1)
+    acquisition_clock.advance(1)
 
     with pytest.raises(AcquisitionBudgetExceeded):
         CninfoAnnouncementClient()._post_json(b"page=1", budget=budget)

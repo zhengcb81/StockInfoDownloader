@@ -28,7 +28,6 @@ from contextlib import contextmanager
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 from typing import Any
 from urllib.error import URLError
 from urllib.parse import parse_qs
@@ -636,18 +635,15 @@ def test_identity_budget_exhaustion_sends_zero_announcement_requests(monkeypatch
     assert transport.announcement_calls == 0
 
 
-def test_expired_deadline_stops_before_any_identity_request(monkeypatch):
+def test_expired_deadline_stops_before_any_identity_request(monkeypatch, acquisition_clock):
     from src.acquisition_budget import AcquisitionBudgetExceeded
     from src.company_wiki_adapter import StockInfoCompanyWikiAdapter
     from src.cninfo_api import CninfoAnnouncementClient
 
     transport = _Transport(_identity_payload(), _announcement_payload())
     monkeypatch.setattr("urllib.request.urlopen", transport)
-    now = 10.0
-    clock = SimpleNamespace(monotonic=lambda: now)
-    monkeypatch.setattr("src.acquisition_budget.time", clock)
     budget = _budget(byte_limit=4096, seconds=1)
-    now = 11.0
+    acquisition_clock.advance(1)
     adapter = StockInfoCompanyWikiAdapter(
         None, cninfo_client=CninfoAnnouncementClient()
     )
