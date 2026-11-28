@@ -23,7 +23,7 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
         with open(path, "r", encoding="utf-8") as f:
             raw = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
-        raise ConfigError(f"Cannot parse config file {config_path}: {e}")
+        raise ConfigError(f"Cannot parse config file {config_path}: {e}") from e
 
     return _merge_defaults(raw)
 
@@ -107,6 +107,3 @@ def _merge_defaults(raw: Dict[str, Any]) -> Dict[str, Any]:
             merged[key] = {**defaults.get(key, {}), **raw[key]}
 
     return merged
-
-
-

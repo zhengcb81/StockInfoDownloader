@@ -1,5 +1,6 @@
 """Enforce the production scan against the pre-change SID owner baseline."""
 
+import json
 from pathlib import Path
 import sys
 
@@ -15,7 +16,9 @@ def test_actual_sid_source_cannot_add_unreviewed_bypasses():
          "scan", "--source", "src", "--source", "main.py",
          "--machine-entry", "src/company_wiki_adapter_cli.py",
          "--machine-entry", "src/feedback_owner.py",
+         "--machine-entry", "src/feedback_publish.py",
          "--baseline", "tools/s6_source_baseline.json", "--strict"],
         cwd=ROOT, capture_output=True, encoding="utf-8", check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+    assert [issue for issue in json.loads(result.stdout)["issues"] if issue["rule"] == "AT-11"] == []

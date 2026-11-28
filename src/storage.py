@@ -28,7 +28,7 @@ class JsonStorage:
         except json.JSONDecodeError as e:
             raise MappingError(f"Corrupted JSON file {self.file_path}: {e}") from e
         except Exception as e:
-            log.error(f"Failed to load JSON {self.file_path}: {e}")
+            log.error("Stock mapping storage read failed", exc_info=True)
             raise MappingError(f"Failed to load JSON {self.file_path}: {e}") from e
 
     def save(self, data: Dict[str, Any]) -> bool:
@@ -38,6 +38,6 @@ class JsonStorage:
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             return True
-        except Exception as e:
-            log.error(f"Failed to save JSON {self.file_path}: {e}")
+        except Exception:
+            log.error("Stock mapping storage write failed", exc_info=True)
             return False

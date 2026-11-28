@@ -24,7 +24,7 @@ from .config import load_config
 from .feedback_publish import RunReceipt, command_sink, establish_identity, state_root
 from .logger import (
     DiagnosticArgumentParser, diagnostic_file_failed, entry_logging, legacy_cleanup_console, log,
-    machine_logging, redact, setup_config_logging, setup_logger,
+    machine_logging, redact, setup_config_logging,
 )
 from .runtime_steps import capture_steps, exception_types, implementation_version
 
@@ -254,21 +254,15 @@ def _emit_failure(
     return 1
 
 
-def _configure_command_log(config: dict[str, Any] | None) -> bool:
+def _configure_command_log(config: dict[str, Any], identity: str) -> bool:
     """Open the configured file or the existing SID-owned diagnostic location."""
-    failure_type = None
-    if config is not None:
-        try:
-            setup_config_logging(config, console=False)
-            return True
-        except (OSError, RuntimeError, ValueError) as exc:
-            failure_type = type(exc).__name__
     try:
-        setup_logger(log_file=str(state_root() / "logs" / "adapter.log"), console=False)
+        setup_config_logging(
+            config, console=False, identity=identity, fallback=state_root() / "logs" / "adapter.log",
+        )
     except (OSError, RuntimeError, ValueError):
+        log.warning("adapter_log_setup_failed", exc_info=True)
         return False
-    if failure_type is not None:
-        log.warning("adapter_log_setup_failed exception_type=%s", failure_type)
     return True
 
 
@@ -285,11 +279,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     with machine_logging(), entry_logging(
         "adapter", identity, implementation_version(), state_root(),
         console=False, notice_on_parser_failure=False,
-    ) as logging_available:
-        return _main(argv, identity, logging_available)
+    ) as (logging_available, log_identity):
+        return _main(argv, identity, logging_available, log_identity)
 
 
-def _main(argv: Sequence[str] | None, identity: tuple[str, str], logging_available: bool) -> int:
+def _main(
+    argv: Sequence[str] | None, identity: tuple[str, str], logging_available: bool, log_identity: str,
+) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     if hasattr(sys.stderr, "reconfigure"):
@@ -307,7 +303,8 @@ def _main(argv: Sequence[str] | None, identity: tuple[str, str], logging_availab
                 action.finish("invalid_arguments", disposition="expected",
                               refusal_code="invalid_arguments",
                               details={"action": "adapter-arguments", "stage": "arguments", "sent": "not_sent"})
-                log.warning("adapter_arguments_refused run_id=%s exit_code=%s", sink.run_id, failure.code)
+                log.warning("adapter_arguments_refused run_id=%s exit_code=%s", sink.run_id, failure.code,
+                            exc_info=True)
             except (OSError, ValueError, TypeError):
                 pass
             run.checkpoint("adapter-entry", {"stage": "arguments", "executed_state": "refused", "sent": "not_sent"})
@@ -322,7 +319,7 @@ def _main(argv: Sequence[str] | None, identity: tuple[str, str], logging_availab
         config = None
         config_failure = exc
     if config is not None:
-        logging_available = _configure_command_log(config) or logging_available
+        logging_available = _configure_command_log(config, log_identity) or logging_available
     # Explicit sidecars keep their format; direct execution uses owner delivery.
     sink = None
     feedback = None

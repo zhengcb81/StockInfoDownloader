@@ -443,7 +443,7 @@ class OwnerRuntime:
 def main(argv=None) -> int:
     identity = establish_identity()
     with machine_logging(), entry_logging("feedback-owner", identity, implementation_version(), state_root(),
-                                          console=False) as logging_available:
+                                          console=False) as (logging_available, _):
         return _main(argv, identity, logging_available)
 
 

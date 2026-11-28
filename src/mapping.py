@@ -132,6 +132,7 @@ class MappingManager:
             self._load()
             return True
         except Exception:
+            log.warning("Stock mapping reload failed", exc_info=True)
             return False
 
     def get_all_stock_codes(self) -> List[str]:
@@ -153,8 +154,8 @@ class MappingManager:
         self._mappings = {}
         try:
             data = self.storage.load()
-        except Exception as e:
-            log.error(f"Failed to load mapping: {e}")
+        except Exception:
+            log.error("Failed to load mapping", exc_info=True)
             return
 
         if not data:
@@ -193,8 +194,8 @@ class MappingManager:
                         pass
 
                 self._mappings[stock_code] = mapping
-            except Exception as e:
-                log.warning(f"Skipping invalid mapping {stock_code}: {e}")
+            except Exception:
+                log.warning("Skipping invalid stock mapping", exc_info=True)
 
         log.info(f"Loaded {len(self._mappings)} mappings from {self.mapping_file}")
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -104,12 +105,20 @@ def test_owner_dual_sink_failure_warns_without_invalidating_last_wire_line(tmp_p
     assert not (tmp_path / "owner.sqlite").exists()
 
 
-def test_parallel_native_rotation_keeps_all_records_and_filters_credentials(tmp_path, offline):
-    log_dir = tmp_path / "#owner%" / ("p" * 80) / ("q" * 80) / ("r" * 80)
+@pytest.fixture()
+def long_log_target(tmp_path):
     from src.feedback_files import native_path
 
-    native_path(log_dir).mkdir(parents=True)
-    target = log_dir / "diagnostics.log"
+    with TemporaryDirectory(prefix="#owner%-", dir=native_path(tmp_path, descendants=True)) as owned:
+        log_dir = tmp_path / Path(owned).name / ("p" * 80) / ("q" * 80) / ("r" * 80)
+        native_path(log_dir).mkdir(parents=True)
+        yield log_dir / "diagnostics.log"
+
+
+def test_parallel_native_rotation_keeps_all_records_and_filters_credentials(tmp_path, offline, long_log_target):
+    from src.feedback_files import native_path
+
+    target = long_log_target
     script = '''
 import sys
 from src.logger import setup_logger
@@ -139,7 +148,7 @@ for index in range(80):
                 child.kill()
                 child.communicate()
     paths = [
-        path for path in native_path(log_dir).glob("diagnostics.log*")
+        path for path in native_path(target.parent).glob("diagnostics.log*")
         if path.name == "diagnostics.log" or path.suffix[1:].isdigit()
     ]
     assert len(paths) > 1

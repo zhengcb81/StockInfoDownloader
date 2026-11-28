@@ -3,6 +3,8 @@ import json
 import tempfile
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from main import UnifiedRunner
 from src.models import DownloadResult
 
@@ -27,6 +29,10 @@ class TestParallelDownload:
             ],
         }
 
+    @pytest.fixture(autouse=True)
+    def _offline_names(self, monkeypatch):
+        monkeypatch.setattr("main.get_real_stock_name", lambda stock_code: f"Fixture {stock_code}")
+
     def test_run_multi_empty_companies(self):
         """Test that empty companies list doesn't crash."""
         runner = UnifiedRunner(self._make_config())
@@ -43,9 +49,10 @@ class TestParallelDownload:
             {"stock_code": "600036", "company_name": "招商银行"},
         ]
 
-        with patch("main.time.sleep"):
+        with patch("main.time.sleep"), patch("main.get_real_stock_name") as resolve_name:
             runner.run_multi(companies, parallel=False)
 
+        resolve_name.assert_not_called()
         assert runner.run_single.call_count == 2
         runner.run_single.assert_any_call("000001", "平安银行")
         runner.run_single.assert_any_call("600036", "招商银行")

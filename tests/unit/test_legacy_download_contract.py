@@ -594,14 +594,16 @@ class TestVerificationOutcome:
 
 
 class TestProtocolStreams:
-    def test_console_logger_writes_to_stderr_in_a_fresh_process(self):
+    def test_explicit_console_logger_writes_to_stderr_in_a_fresh_process(self):
         marker = "MB-SID-STDERR-MARKER"
         completed = native_run(
             [
                 sys.executable,
                 "-B",
                 "-c",
-                f"from src.logger import log; log.info('{marker}')",
+                "from src.logger import log, setup_logger; "
+                "assert not log.handlers; "
+                f"setup_logger().info('{marker}')",
             ],
             cwd=str(WORKTREE),
             capture_output=True,

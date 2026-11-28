@@ -11,15 +11,15 @@ _REPLACE_DELAYS = (0.02, 0.04, 0.08)
 _WINDOWS_RETRYABLE_ERRORS = {5, 32}  # access denied, sharing violation
 
 
-def native_path(path: Path) -> Path:
-    """Use the Win32 native namespace at the owner file boundary."""
+def native_path(path: Path, *, descendants: bool = False) -> Path:
+    """Use the Win32 namespace for long paths or a whole subtree."""
     if os.name != "nt":
         return path
     absolute = os.path.abspath(path)
     extended = chr(92) * 2 + "?" + chr(92)
     if absolute.startswith(extended):
         return Path(absolute)
-    if len(absolute.encode("utf-16-le")) // 2 < 240:
+    if not descendants and len(absolute.encode("utf-16-le")) // 2 < 240:
         return path
     if absolute.startswith(chr(92) * 2):
         absolute = "UNC" + chr(92) + absolute[2:]

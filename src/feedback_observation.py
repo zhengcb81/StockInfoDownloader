@@ -546,7 +546,7 @@ class FeedbackSink:
             self.last_write_error = type(exc).__name__
             log.warning(
                 "feedback_write_failed stage=observation run_id=%s attempt_id=%s exception_type=%s",
-                self.run_id, self.attempt_id, self.last_write_error,
+                self.run_id, self.attempt_id, self.last_write_error, exc_info=True,
             )
             return False
 
@@ -576,7 +576,7 @@ class FeedbackSink:
             self.last_write_error = type(exc).__name__
             log.warning(
                 "feedback_write_failed stage=details run_id=%s attempt_id=%s exception_type=%s",
-                self.run_id, self.attempt_id, self.last_write_error,
+                self.run_id, self.attempt_id, self.last_write_error, exc_info=True,
             )
             return None
 

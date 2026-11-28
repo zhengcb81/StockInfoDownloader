@@ -122,10 +122,10 @@ class AdapterDiscoveryRequest:
             stripped = as_of.strip()
             try:
                 parsed = date.fromisoformat(stripped)
-            except ValueError:
+            except ValueError as exc:
                 raise ValueError(
                     "as_of_date must be an ISO calendar date (YYYY-MM-DD)"
-                ) from None
+                ) from exc
             # ``date.fromisoformat`` also accepts the compact YYYYMMDD form.
             if parsed.isoformat() != stripped:
                 raise ValueError("as_of_date must be an ISO calendar date (YYYY-MM-DD)")

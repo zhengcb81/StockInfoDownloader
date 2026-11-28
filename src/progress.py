@@ -31,8 +31,8 @@ class ProgressTracker:
                 if isinstance(data, dict) and "completed" in data and "failed" in data:
                     return data
                 log.warning("Progress file has unexpected format, starting fresh")
-            except (json.JSONDecodeError, OSError) as exc:
-                log.warning(f"Cannot read progress file, starting fresh: {exc}")
+            except (json.JSONDecodeError, OSError):
+                log.warning("Cannot read progress file, starting fresh", exc_info=True)
         return self._fresh()
 
     def _fresh(self) -> Dict:

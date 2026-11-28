@@ -2,7 +2,6 @@
 
 import argparse
 from contextlib import contextmanager
-from contextvars import ContextVar
 from copy import copy
 import logging
 import os
@@ -27,7 +26,6 @@ _CREDENTIAL = re.compile(
 _COOKIE = re.compile(rf"""(?i)(\b(?:set-cookie|cookie)\b["']?[ \t]*:[ \t]*)(?:{_QUOTED}|[^\r\n]+)""")
 _AUTH_SCHEME = re.compile(rf"(?i)(\b(?:bearer|basic)\s+){_TOKEN}")
 _KEY_PREFIX = re.compile(r"(?i)(?<![a-z0-9_])(?:sk-|tvly-|ghp_|AIza)[a-z0-9_-]{8,}")
-_identity: ContextVar[str] = ContextVar("sid_log_identity", default="")
 _URL_QUERY = re.compile(r'''(?i)(https?://[^\s?#"'<>]+)\?[^\s"'<>]+''')
 _URL_AUTHORITY = re.compile(r'''(?i)(https?://)[^\s/@?"'<>]+@''')
 
@@ -43,15 +41,16 @@ def redact(text: str) -> str:
 
 
 class _SafeFormatter(logging.Formatter):
-    include_identity = True
+    def __init__(self, fmt: str | None = None, datefmt: str | None = None, *, identity: str = ""):
+        super().__init__(fmt, datefmt)
+        self.identity = redact(identity)
 
     def format(self, record: logging.LogRecord) -> str:
         owned = copy(record)
         # Another handler may already have cached an unredacted traceback.
         owned.exc_text = None
         message = redact(super().format(owned))
-        scope = _identity.get()
-        return f"{redact(scope)} {message}" if scope and self.include_identity else message
+        return f"{self.identity} {message}" if self.identity else message
 
     def formatException(self, exc_info: Any) -> str:
         current = exc_info[1]
@@ -72,8 +71,6 @@ class _SafeFormatter(logging.Formatter):
 
 
 class _HumanFormatter(_SafeFormatter):
-    include_identity = False
-
     def formatException(self, exc_info: Any) -> str:
         # The human channel carries the concise message; the file has the stack.
         return ""
@@ -181,6 +178,7 @@ def setup_logger(
     console: bool = True,
     max_bytes: int = _DEFAULT_MAX_BYTES,
     backup_count: int = _DEFAULT_BACKUP_COUNT,
+    identity: str = "",
 ) -> logging.Logger:
     """Reconcile the sinks we own with the current configuration."""
     logger = logging.getLogger(name)
@@ -200,7 +198,6 @@ def setup_logger(
     if target is not None and file_handler is None:
         target.parent.mkdir(parents=True, exist_ok=True)
         file_handler = _FileHandler(target, max_bytes, backup_count)
-        file_handler.setFormatter(_SafeFormatter(log_format, datefmt=timestamp_format))
     quiet_handler = None
     for handler in list(logger.handlers):
         if isinstance(handler, _ConsoleHandler):
@@ -223,20 +220,24 @@ def setup_logger(
     if not console and quiet_handler is None:
         logger.addHandler(_QuietHandler())
     if file_handler is not None:
+        file_handler.setFormatter(_SafeFormatter(log_format, datefmt=timestamp_format, identity=identity))
         if file_handler not in logger.handlers:
             logger.addHandler(file_handler)
         file_handler.warn_on_error = console
     return logger
 
 
-def setup_config_logging(config: Mapping[str, Any], *, console: bool = True) -> logging.Logger:
+def setup_config_logging(
+    config: Mapping[str, Any], *, console: bool = True, identity: str = "", fallback: Path | None = None,
+) -> logging.Logger:
     settings = config.get("logging")
     settings = settings if isinstance(settings, dict) else {}
     target = settings.get("log_file") if settings.get("log_to_file", True) else None
     return setup_logger(
         level=str(settings.get("level", "INFO")),
-        log_file=str(target or ""),
+        log_file=str(target or fallback or ""),
         console=console,
+        identity=identity,
     )
 
 
@@ -296,10 +297,10 @@ class DiagnosticArgumentParser(argparse.ArgumentParser):
         super().error(redact(message))
 
 
-def configure_diagnostic_log(target: Path, *, level: str = "INFO", console: bool = False) -> bool:
+def configure_diagnostic_log(target: Path, *, console: bool, identity: str) -> bool:
     """Attach an owned sink while preserving the running operation on I/O failure."""
     try:
-        setup_logger(level=level, log_file=str(target), console=console)
+        setup_logger(log_file=str(target), console=console, identity=identity)
     except (OSError, RuntimeError, ValueError):
         log.warning("diagnostic log setup unavailable", exc_info=True)
         return False
@@ -312,23 +313,20 @@ def entry_logging(
     console: bool, notice_on_parser_failure: bool = True,
 ):
     run_id, attempt_id = identity
-    token = _identity.set(f"entry={entry} run_id={run_id} attempt_id={attempt_id} code_version={version}")
+    label = f"entry={entry} run_id={run_id} attempt_id={attempt_id} code_version={version}"
+    setup_logger(console=console)
+    available = configure_diagnostic_log(root / "logs" / f"{entry}.log", console=console, identity=label)
+    log.info("entry_started stage=arguments")
     try:
-        setup_logger(console=console)
-        available = configure_diagnostic_log(root / "logs" / f"{entry}.log", console=console)
-        log.info("entry_started stage=arguments")
-        try:
-            yield available
-        except SystemExit as exc:
-            if exc.code == 2:
-                log.warning("entry_refused stage=arguments exit_code=2", exc_info=True)
-                if notice_on_parser_failure and (not available or diagnostic_file_failed()):
-                    diagnostic_notice(identity)
-            elif exc.code == 0:
-                log.info("entry_finished stage=arguments exit_code=0")
-            raise
-    finally:
-        _identity.reset(token)
+        yield available, label
+    except SystemExit as exc:
+        if exc.code == 2:
+            log.warning("entry_refused stage=arguments exit_code=2", exc_info=True)
+            if notice_on_parser_failure and (not available or diagnostic_file_failed()):
+                diagnostic_notice(identity)
+        elif exc.code == 0:
+            log.info("entry_finished stage=arguments exit_code=0")
+        raise
 
 
 def diagnostic_notice(identity: tuple[str, str]) -> None:

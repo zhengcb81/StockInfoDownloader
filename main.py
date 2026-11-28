@@ -18,7 +18,6 @@ a legitimate ``no_tasks`` run, never "all tasks completed"; and only sub-items
 that really start are counted as attempted.
 """
 import concurrent.futures
-from contextvars import copy_context
 import sys
 import threading
 import time
@@ -31,7 +30,7 @@ from src.config import load_companies, load_config
 from src import constants as C
 from src.downloader import StockDownloader
 from src.exceptions import ConfigError
-from src.feedback_publish import establish_identity, state_root
+from src.feedback_publish import OrdinaryRunFeedback, establish_identity, state_root
 from src.logger import DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, log, setup_logger
 from src.mapping import MappingManager
 from src.models import DownloadRequest
@@ -68,8 +67,6 @@ def _open_feedback(identity: tuple[str, str]):
     Feedback is diagnostics: any failure here keeps the business flow alive.
     """
     try:
-        from src.feedback_publish import OrdinaryRunFeedback
-
         return OrdinaryRunFeedback(identity=identity)
     except (OSError, RuntimeError, ValueError):
         log.warning("ordinary feedback unavailable", exc_info=True)
@@ -387,7 +384,7 @@ class UnifiedRunner:
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = {
                     executor.submit(
-                        copy_context().run, self.run_single, c["stock_code"], c.get("company_name")
+                        self.run_single, c["stock_code"], c.get("company_name")
                     ): c
                     for c in companies
                 }
@@ -413,7 +410,9 @@ class UnifiedRunner:
             total = len(companies)
             for i, c in enumerate(companies, 1):
                 code = c["stock_code"]
-                name = c.get("company_name", get_real_stock_name(code))
+                name = c.get("company_name")
+                if not name:
+                    name = get_real_stock_name(code)
                 success = self.run_single(code, name)
                 if self.progress:
                     if success:
@@ -446,10 +445,10 @@ def main():
     with entry_logging(
         "ordinary", identity, implementation_version(), state_root(),
         console=True, notice_on_parser_failure=False,
-    ) as available:
+    ) as (available, log_identity):
         feedback = _open_feedback(identity)
         try:
-            return _main(feedback)
+            return _main(feedback, log_identity)
         except Exception as exc:
             log.error("Ordinary launch failed", exc_info=True)
             if feedback is not None:
@@ -466,7 +465,7 @@ def main():
                 diagnostic_notice(identity)
 
 
-def _main(feedback):
+def _main(feedback, log_identity: str):
     parser = DiagnosticArgumentParser(description="Stock Downloader V2")
     parser.add_argument("stock_code", nargs="?", help="Stock code to download")
     parser.add_argument("--config", default="config.json", help="Path to config file")
@@ -501,7 +500,9 @@ def _main(feedback):
     configured_log_file = log_cfg.get("log_file", "") if log_cfg.get("log_to_file", True) else ""
     try:
         if configured_log_file:
-            setup_logger(level=str(log_cfg.get("level", "INFO")), log_file=str(configured_log_file))
+            setup_logger(
+                level=str(log_cfg.get("level", "INFO")), log_file=str(configured_log_file), identity=log_identity,
+            )
     except OSError as exc:
         log.warning(
             "File logging unavailable (%s), continuing with console logging",

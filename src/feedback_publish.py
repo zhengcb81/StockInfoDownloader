@@ -470,7 +470,7 @@ class Publisher:
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
             log.warning("feedback_observation_refused run_id=%s exception_type=%s",
-                        self.run_id, self.last_write_error)
+                        self.run_id, self.last_write_error, exc_info=True)
             return DEFERRED
         return self.emit(observation, details)
 
@@ -483,7 +483,7 @@ class Publisher:
             self.write_failures += 1
             self.last_write_error = type(exc).__name__
             log.warning("feedback_delivery_deferred run_id=%s exception_type=%s",
-                        self.run_id, self.last_write_error)
+                        self.run_id, self.last_write_error, exc_info=True)
             return DEFERRED
 
     def _deliver_out(
@@ -933,7 +933,7 @@ def _reconcile_report(root: Path | None) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     identity = establish_identity()
     with machine_logging(), entry_logging("feedback-publish", identity, implementation_version(), state_root(),
-                                          console=False) as logging_available:
+                                          console=False) as (logging_available, _):
         return _main(argv, identity, logging_available)
 
 

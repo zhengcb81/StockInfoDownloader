@@ -53,11 +53,11 @@ def _read_entries(path: Path) -> dict[str, str]:
         return {}
     try:
         raw: Any = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        log.warning(f"Failed to read org-id cache {path}: {exc}")
+    except (OSError, ValueError):
+        log.warning("Failed to read org-id cache", exc_info=True)
         return {}
     if not isinstance(raw, dict):
-        log.warning(f"Ignoring org-id cache {path}: root is not a JSON object")
+        log.warning("Ignoring org-id cache whose root is not a JSON object")
         return {}
     entries: dict[str, str] = {}
     for stock_code, item in raw.items():
