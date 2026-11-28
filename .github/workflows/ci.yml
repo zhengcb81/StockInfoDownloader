@@ -18,11 +18,15 @@ jobs:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUTF8: "1"
       PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+      TEST_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
       # The G4 fixture exercises this published consumer against local HTTP.
       G4_CWP_COMMIT: ce89127b6ba1878935e2dd1e17b065e4153c88af
       G4_CWP_REPO: ${{ github.workspace }}/_cwp_consumer
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_REVISION }}
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: zhengcb81/company-wiki
@@ -44,7 +48,7 @@ jobs:
           python -m ruff check --no-cache --select E9,F63,F7,F82 src main.py tests tools
           python -m mypy --python-version 3.10 src/acquisition_budget.py src/models.py src/transport_states.py
       - name: Run all admitted offline SID tests
-        run: python -m tools.run_offline_ci --revision "${{ github.sha }}" --evidence-dir "${{ runner.temp }}/sid-evidence"
+        run: python -m tools.run_offline_ci --revision "${{ env.TEST_REVISION }}" --evidence-dir "${{ runner.temp }}/sid-evidence"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
