@@ -167,6 +167,8 @@ def producer(root, mode, *, explicit_state=True):
     return invocation
 
 
+@pytest.mark.windows_only
+@pytest.mark.skipif(os.name != "nt", reason="On POSIX the OS account database supplies the home")
 def test_explicit_feedback_output_preserves_original_attempt_without_home(tmp_path, monkeypatch):
     for key in ("HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "RESEARCH_FEEDBACK_STATE_ROOT"):
         monkeypatch.delenv(key, raising=False)
