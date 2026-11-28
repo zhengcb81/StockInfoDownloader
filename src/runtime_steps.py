@@ -40,19 +40,26 @@ def exception_types(error: BaseException) -> list[str]:
 
 @lru_cache(maxsize=1)
 def implementation_version() -> str:
-    """Fingerprint the source shipped with this SID runtime."""
-    root = Path(__file__).resolve().parent
-    digest = sha256()
-    for source in sorted(root.glob("*.py")):
-        digest.update(source.name.encode("utf-8"))
-        digest.update(source.read_bytes())
-    # The complete runtime also ships the ordinary batch entry point. The
-    # standalone provider artifact ships only the browser-free adapter package.
-    batch_entry = root.parent / "main.py"
+    """Return the complete runtime fingerprint or unknown if it cannot be read.
+
+    A source file used only for the fingerprint may be absent or temporarily
+    locked. This diagnostic metadata must never stop a healthy CLI, and a
+    partial digest must never claim to identify the running implementation.
+    """
     try:
-        batch_source = batch_entry.read_bytes()
-    except FileNotFoundError:
-        pass
-    else:
-        digest.update(batch_source)
+        root = Path(__file__).resolve().parent
+        digest = sha256()
+        for source in sorted(path for path in root.iterdir() if path.name.endswith(".py")):
+            digest.update(source.name.encode("utf-8"))
+            digest.update(source.read_bytes())
+        # The standalone provider artifact omits the ordinary batch entry.
+        batch_entry = root.parent / "main.py"
+        try:
+            batch_source = batch_entry.read_bytes()
+        except FileNotFoundError:
+            pass
+        else:
+            digest.update(batch_source)
+    except OSError:
+        return "unknown"
     return "src-" + digest.hexdigest()

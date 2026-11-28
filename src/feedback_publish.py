@@ -46,7 +46,7 @@ from .feedback_observation import (
     is_safe_ref,
     make_observation,
 )
-from .logger import DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, log, machine_logging, redact
+from .logger import DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, log, machine_logging
 from .runtime_steps import implementation_version
 
 ENV_DIR = "RESEARCH_FEEDBACK_DIR"
@@ -233,11 +233,7 @@ def write_startup_receipt(
                 payload["entry"] = entry
             if version is not None:
                 payload["version"] = version
-                try:
-                    payload["implementation"] = implementation_version()
-                except OSError:
-                    log.warning("SID implementation fingerprint is unavailable", exc_info=True)
-                    payload["implementation"] = "unknown"
+                payload["implementation"] = implementation_version()
             _atomic_json(path, payload)
             return True
     except OSError as exc:
@@ -650,17 +646,16 @@ def republish(root: Path | None = None) -> dict[str, int]:
 
 
 def establish_identity() -> tuple[str, str]:
-    """Run/attempt identity for one ordinary launch.
+    """Preserve valid caller coordinates for wire identity and cold lookup.
 
-    Parent-injected ids are associated as-is; anything missing (or unsafe)
-    becomes a generated id that other processes can recover from the run
-    receipts and pending records under the state root.
+    Generate coordinates only for absent or malformed values. Pattern-based
+    redaction applies to the diagnostic presentation, not to durable job IDs.
     """
     run_id = os.environ.get(ENV_RUN_ID, "").strip()
     attempt_id = os.environ.get(ENV_ATTEMPT_ID, "").strip()
-    if not is_safe_ref(run_id) or redact(run_id) != run_id:
+    if not is_safe_ref(run_id):
         run_id = f"sid-run-{uuid.uuid4().hex}"
-    if not is_safe_ref(attempt_id) or redact(attempt_id) != attempt_id:
+    if not is_safe_ref(attempt_id):
         attempt_id = f"try-{uuid.uuid4().hex}"
     return run_id, attempt_id
 

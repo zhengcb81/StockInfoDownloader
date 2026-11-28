@@ -423,3 +423,181 @@ for field in sys.argv[2:]:
         "native-while-1", "native-while-2", "native-while-3", "native-after-release",
     ):
         assert content.count(message) == 1
+
+
+def test_token_shaped_operation_identity_is_repeatable_and_cold_readable(tmp_path, offline):
+    from tests.unit.test_feedback_owner import occurrence, request
+
+    run_id = "sk-fixture-run-label"
+    attempt_id = "tvly-fixture-attempt-label"
+    env = {
+        **offline,
+        "RESEARCH_FEEDBACK_RUN_ID": run_id,
+        "RESEARCH_FEEDBACK_ATTEMPT_ID": attempt_id,
+    }
+    del env["RESEARCH_FEEDBACK_OUT"]
+    config = tmp_path / "config.json"
+    config.write_text('{"logging":{"log_to_file":false}}', encoding="utf-8")
+    adapter = _entry("adapter", "discover", "--config", config)
+    state = tmp_path / "state"
+    receipt_path = state / "runs" / f"{run_id}__{attempt_id}.json"
+    first_receipt = None
+    for _ in range(2):
+        failure = native_run(
+            adapter, cwd=tmp_path, env=env, input=b'{"entity":"Fixture"}',
+            capture_output=True, timeout=15,
+        )
+        assert failure.returncode == 1 and not failure.stdout
+        assert json.loads(failure.stderr.splitlines()[-1])["error"]["message"] == "security_id is required for CN discovery"
+        assert run_id.encode() not in failure.stderr and attempt_id.encode() not in failure.stderr
+        persisted = receipt_path.read_bytes()
+        if first_receipt is None:
+            first_receipt = persisted
+        else:
+            assert persisted == first_receipt
+
+    cold = native_run(
+        _entry("feedback-publish", "reconcile", "--json"), cwd=tmp_path, env=env,
+        capture_output=True, timeout=15,
+    )
+    assert cold.returncode == 0, cold.stderr
+    original, = json.loads(cold.stdout)["receipts"]
+    assert (original["run_id"], original["attempt_id"]) == (run_id, attempt_id)
+    assert original["terminal"] == {"result": "failed", "exit_code": 1}
+    log_text = (state / "logs" / "adapter.log").read_text(encoding="utf-8")
+    assert "run_id=<redacted>" in log_text and "attempt_id=<redacted>" in log_text
+    assert run_id not in log_text and attempt_id not in log_text
+
+    observations = state / "observations"
+    rows = [
+        json.loads(line)
+        for path in sorted(observations.glob("feedback-*.jsonl"))
+        if not path.name.endswith(".details.jsonl")
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 2
+    assert {(row["run_id"], row["attempt_id"]) for row in rows} == {(run_id, attempt_id)}
+    started, = [row for row in rows if row["check_id"] == "action-started"]
+    started = {"origin_owner": started["owner"], **started}
+    key = occurrence(started)
+    action = request("reconcile", {"observation": started, "occurrence_id": key}, [key])
+    owner_db = tmp_path / "owner.sqlite"
+    owner = native_run(
+        _entry("feedback-owner", "--db", owner_db, "--sidecar-dir", observations, "reconcile"),
+        cwd=tmp_path, env=env, input=json.dumps(action).encode(), capture_output=True, timeout=15,
+    )
+    assert owner.returncode == 0, owner.stderr
+    assert json.loads(owner.stdout)["result"] == {
+        "status": "known", "cost_state": "not_applicable", "job_status": "failed",
+        "evidence_ref": f"sid-occurrence:{key}",
+    }
+    assert not owner_db.exists()
+
+
+@pytest.fixture
+def held_win32_source():
+    from contextlib import contextmanager
+    import ctypes
+    from ctypes import wintypes
+
+    @contextmanager
+    def hold(path):
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        create = kernel.CreateFileW
+        create.argtypes = [
+            wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+            wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+        ]
+        create.restype = wintypes.HANDLE
+        close = kernel.CloseHandle
+        close.argtypes = [wintypes.HANDLE]
+        close.restype = wintypes.BOOL
+        handle = create(str(path), 0x80000000, 0, None, 3, 0x80, None)
+        if handle == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            with pytest.raises(PermissionError):
+                path.read_bytes()
+            yield
+        finally:
+            assert close(handle)
+
+    return hold
+
+
+@pytest.mark.windows_only
+@pytest.mark.skipif(os.name != "nt", reason="Win32 mandatory exclusive-sharing behavior")
+@pytest.mark.parametrize(
+    ("entry", "asset", "arguments"),
+    [
+        ("ordinary", "company_wiki_adapter_cli.py", ("--help",)),
+        ("adapter", "browser.py", ("--help",)),
+        ("feedback-owner", "browser.py", ()),
+        ("feedback-publish", "browser.py", ("reconcile", "--json")),
+    ],
+)
+def test_unrelated_win32_source_handle_cannot_gate_healthy_cli(
+    tmp_path, offline, held_win32_source, entry, asset, arguments,
+):
+    from shutil import copy2, copytree, ignore_patterns
+
+    copytree(ROOT / "src", tmp_path / "src", ignore=ignore_patterns("__pycache__"))
+    copy2(ROOT / "main.py", tmp_path / "main.py")
+    env = {
+        **offline,
+        "PYTHONPATH": os.pathsep.join((str(tmp_path / "offline"), str(tmp_path))),
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    owner_db = tmp_path / "untouched.sqlite"
+    if entry == "ordinary":
+        command = [sys.executable, "-B", str(tmp_path / "main.py"), *arguments]
+    elif entry == "feedback-owner":
+        command = _entry(entry, "--db", owner_db, "get-action", "0" * 64)
+    else:
+        command = _entry(entry, *arguments)
+    control = native_run(command, cwd=tmp_path, env=env, capture_output=True, timeout=15)
+    assert control.returncode == 0 and control.stdout
+    run_dir = tmp_path / "state" / "runs"
+    saved = {path.name: path.read_bytes() for path in run_dir.glob("*.json")}
+    with held_win32_source(tmp_path / "src" / asset):
+        result = native_run(command, cwd=tmp_path, env=env, capture_output=True, timeout=15)
+    assert result.returncode == control.returncode
+    assert result.stdout == control.stdout
+    if entry == "ordinary":
+        def strip_clock(output):
+            return re.sub(rb"\[[0-9-]+ [0-9:]+\]", b"[time]", output)
+
+        assert strip_clock(result.stderr) == strip_clock(control.stderr)
+    else:
+        assert result.stderr == control.stderr == b""
+    assert not owner_db.exists()
+    assert {path.name: path.read_bytes() for path in run_dir.glob("*.json")} == saved
+
+    log = tmp_path / "state" / "logs" / f"{entry}.log"
+    output = log.read_text(encoding="utf-8")
+    assert re.search(r"code_version=src-[a-f0-9]{64}", output)
+    assert "code_version=unknown" in output
+
+
+def test_token_shaped_identity_stays_redacted_in_adapter_sink_warning(tmp_path, offline):
+    run_id = "sk-fixture-run-label"
+    attempt_id = "tvly-fixture-attempt-label"
+    (tmp_path / "state").write_text("preserve", encoding="utf-8")
+    (tmp_path / "observations.jsonl").mkdir()
+    config = tmp_path / "config.json"
+    config.write_text('{"logging":{"log_to_file":false}}', encoding="utf-8")
+    env = {
+        **offline,
+        "RESEARCH_FEEDBACK_RUN_ID": run_id,
+        "RESEARCH_FEEDBACK_ATTEMPT_ID": attempt_id,
+    }
+    failure = native_run(
+        _entry("adapter", "discover", "--config", config),
+        cwd=tmp_path, env=env, input=b'{"entity":"Fixture"}',
+        capture_output=True, timeout=15,
+    )
+    assert failure.returncode == 1 and not failure.stdout
+    assert run_id.encode() not in failure.stderr and attempt_id.encode() not in failure.stderr
+    lines = failure.stderr.splitlines()
+    assert b"SID diagnostics unavailable run_id=<redacted> attempt_id=<redacted>" in lines
+    assert json.loads(lines[-1])["error"]["message"] == "security_id is required for CN discovery"

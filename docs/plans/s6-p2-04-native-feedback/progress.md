@@ -19,3 +19,13 @@ The frozen code candidate 61192c463a645d8ab1cfcb5d5f83f739ce1fb65a passed all 58
 Both proof interpreters accepted a native loopback exchange and rejected the two deliberate control attempts. No subsequent test reached either transport deny path. Native Windows launch used hidden executables and explicit standard streams. The exact native TCP tests recovered the original run both before input and after a real 200 header. The latter preserved its unconfirmed job and unknown cost, with no additional request or SQLite state creation on cold lookup.
 
 The exact sanitized artifact manifest is acceptance-61192c4.json in the owner proof directory. The discarded earlier Windows attempt does not count toward these receipts. Independent review and normal hosted candidate CI are outstanding. Production and deployed task bindings are unchanged.
+
+## Independent review corrections
+
+The independent reviewer found that redaction was also changing valid caller coordinates, generating a fresh identity for each launch, and that reading optional fingerprint sources could fail before CLI argument parsing. Guarded native Windows reproduced five failures. Repeated adapter launches created two receipts from the same supplied coordinates, and a true Win32 no-share handle on an unrelated source changed each of the four healthy entrypoints from exit 0 to exit 1.
+
+SID now preserves valid IDs in durable receipts and the F4 action protocol. The owner file formatter and the shared stderr fallback redact only their presentation. The original receipt keeps its bytes after the second invocation, and the cold owner action returns the same failed pre-dispatch job with cost not applicable. Evidence lookup creates no owner database and does no network work.
+
+The optional fingerprint returns unknown at its single source boundary on unreadable inputs. It does not create a partial version. The healthy version remains a full source hash. The four native held-source controls keep their original stdout, human stderr shape, exit status and existing run receipts. The browserless artifact still omits the batch entry.
+
+The final guarded focused Windows run passed six tests in 8.64 seconds. The socket receipt still contains only the two deliberately rejected preflight probes. The old Windows 583 and Ubuntu 581 full results apply only to the first candidate. The corrected SHA awaits independent recheck and its exact hosted dual-platform matrix.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stdout, suppress
+from contextlib import redirect_stdout
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -23,7 +23,7 @@ from .company_wiki_adapter import (
 from .config import load_config
 from .feedback_publish import RunReceipt, command_sink, establish_identity, state_root
 from .logger import (
-    DiagnosticArgumentParser, diagnostic_file_failed, entry_logging, legacy_cleanup_console, log,
+    DiagnosticArgumentParser, diagnostic_file_failed, diagnostic_notice, entry_logging, legacy_cleanup_console, log,
     machine_logging, redact, setup_config_logging,
 )
 from .runtime_steps import capture_steps, exception_types, implementation_version
@@ -269,9 +269,7 @@ def _configure_command_log(config: dict[str, Any], identity: str) -> bool:
 def _unavailable_notice(run: RunReceipt, logging_available: bool, sink) -> None:
     if ((not logging_available or diagnostic_file_failed()) and not run.available
             and (sink is None or sink.write_failures)):
-        run_id, attempt_id = run.identity
-        with suppress(OSError, ValueError):
-            sys.stderr.write(f"SID diagnostics unavailable run_id={run_id} attempt_id={attempt_id}\n")
+        diagnostic_notice(run.identity)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
