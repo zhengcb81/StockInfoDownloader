@@ -601,3 +601,37 @@ def test_token_shaped_identity_stays_redacted_in_adapter_sink_warning(tmp_path, 
     lines = failure.stderr.splitlines()
     assert b"SID diagnostics unavailable run_id=<redacted> attempt_id=<redacted>" in lines
     assert json.loads(lines[-1])["error"]["message"] == "security_id is required for CN discovery"
+
+
+@pytest.mark.parametrize("entry", ("adapter", "ordinary"))
+@pytest.mark.parametrize("scheme", ("Bearer", "Basic"))
+def test_cli_refusal_redacts_entire_folded_auth_header(tmp_path, offline, entry, scheme):
+    first = "sid-test-header-first"
+    folds = ("sid-test-header-continuation", "sid-test-header-last")
+    next_error = "separate parser detail remains visible"
+    bad_arg = (
+        f"Authorization: {scheme} {first}  \r\n"
+        f"\t{folds[0]}\n    {folds[1]}\r\n{next_error}"
+    )
+    command = ("discover",) if entry == "adapter" else ("900001",)
+    result = native_run(
+        _entry(entry, *command, "--bad-arg", bad_arg),
+        cwd=tmp_path, env=offline, capture_output=True, timeout=15,
+    )
+    assert result.returncode == 2 and not result.stdout
+    stderr = result.stderr.decode("utf-8")
+    assert "usage:" in stderr and "unrecognized arguments: --bad-arg" in stderr
+    assert "Authorization: <redacted>" in stderr and next_error in stderr
+    for secret in (first, *folds):
+        assert secret not in stderr, "authentication argument was not fully redacted"
+
+    state = tmp_path / "state"
+    log = (state / "logs" / f"{entry}.log").read_text(encoding="utf-8")
+    assert "run_id=s6-native-log" in log and "attempt_id=bad-input" in log
+    assert "SystemExit" in log
+    assert all(secret not in log for secret in (first, *folds))
+    receipt_file = state / "runs" / "s6-native-log__bad-input.json"
+    receipt = json.loads(receipt_file.read_text(encoding="utf-8"))
+    assert receipt["entry"] == entry
+    assert (receipt["run_id"], receipt["attempt_id"]) == ("s6-native-log", "bad-input")
+    assert receipt["terminal"] == {"result": "not_started", "exit_code": 2}

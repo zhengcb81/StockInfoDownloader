@@ -16,7 +16,10 @@ _DEFAULT_MAX_BYTES = 10 * 1024 * 1024
 _DEFAULT_BACKUP_COUNT = 5
 _QUOTED = r"""(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'(?:\\[^\r\n]|[^'\\\r\n])*')"""
 _VALUE = r'''[^\s,;&"'<>]+'''
-_TOKEN = rf"(?:{_QUOTED}|{_VALUE})"
+# Whitespace-leading lines remain part of a folded credential value.
+# The first unindented line belongs to the surrounding diagnostic.
+_FOLDED_CONTINUATIONS = r"(?:[ \t]*\r?\n[ \t]+[^\r\n]*)*"
+_TOKEN = rf"(?:{_QUOTED}|{_VALUE}){_FOLDED_CONTINUATIONS}"
 _CREDENTIAL = re.compile(
     r"(?i)((?<![a-z0-9_-])(?:[a-z0-9_-]{1,64}[-_])?"
     r"(?:authorization|api[-_]?key|secret|token|password|credential|signature)"

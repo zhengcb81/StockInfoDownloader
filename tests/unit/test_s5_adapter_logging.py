@@ -153,7 +153,9 @@ def test_configured_log_redacts_wire_values_and_never_logs_exception_body(tmp_pa
             )
         logger.warning("FMP_API_KEY=FAKE_ENV_758 Authorization: Bearer\n'FAKE_WRAP_758'")
         logger.warning("Set-Cookie: session=FAKE_COOKIE_758; refresh=FAKE_REFRESH_758")
+        logger.warning("Basic FAKE_STANDALONE_FIRST_758\r\n\tFAKE_STANDALONE_FOLD_758\nnext independent diagnostic")
         content = target.read_text(encoding="utf-8")
+        assert "next independent diagnostic" in content
         assert "ValueError" in content and "adapter probe" in content
         assert "FAKE_" not in content
         assert "SYNTHETIC_UNSTRUCTURED_EXCEPTION_BODY" not in content

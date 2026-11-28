@@ -29,3 +29,9 @@ SID now preserves valid IDs in durable receipts and the F4 action protocol. The 
 The optional fingerprint returns unknown at its single source boundary on unreadable inputs. It does not create a partial version. The healthy version remains a full source hash. The four native held-source controls keep their original stdout, human stderr shape, exit status and existing run receipts. The browserless artifact still omits the batch entry.
 
 The final guarded focused Windows run passed six tests in 8.64 seconds. The socket receipt still contains only the two deliberately rejected preflight probes. The old Windows 583 and Ubuntu 581 full results apply only to the first candidate. The corrected SHA awaits independent recheck and its exact hosted dual-platform matrix.
+
+## Folded authentication redaction correction
+
+Independent review verified both prior fixes, then found that an invalid argument carrying a folded Authorization header leaked its indented continuation. Four guarded Windows cases reproduced the leak across ordinary and adapter command refusal for both Bearer and Basic. Each retained exit 2, empty stdout and the next separate error line.
+
+The shared credential-token matcher now consumes all whitespace-leading folded continuations. The first unindented diagnostic line remains visible. The same value rule applies to labeled credentials and standalone authentication schemes in the owner log. Parsing, sidecar identity, receipt semantics and the machine error protocol keep their existing behavior.
